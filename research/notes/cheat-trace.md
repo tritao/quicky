@@ -81,6 +81,37 @@ The breakpoint should stop before the cheat comparison and show the call to
 `0227:0F78`. `F5` resumes execution. The debug build's `Alt+Pause` debugger
 is separate from the SDL game window.
 
+## Skip typing the full cheat
+
+The game does not jump to a level merely because the text is present: the
+successful comparison first sets `DS:89F2`, and the next input selects the
+level-jump path. The branch at `01D7:491D` checks that flag. Its `4` case is
+the scan code `0x05`, which is why the article says to type `4` after the
+cheat.
+
+With the game paused in the debugger, use this sequence:
+
+```text
+BPDEL *
+BP 01D7:491D
+F5
+```
+
+When execution stops at `01D7:491D`, inject the post-cheat state and resume:
+
+```text
+SM DS:89F2 01
+SM DS:88BA 05 00
+F5
+```
+
+This is a debugger-only memory edit. It does not modify `QUIKY.EXE` or
+`NESTLE.DAT`. The `4` path opens the game's level-selection route; selecting
+`W1L3` afterward still exercises the original level-loading code. To jump
+directly to a specific level without the selection screen, the next target is
+the state written after `01D7:495D` (`DS:89F4`), which should be traced in the
+debugger rather than guessed.
+
 ## Evidence labels
 
 - Confirmed from executable bytes and NE relocation records: string addresses,
