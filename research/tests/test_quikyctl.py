@@ -16,6 +16,7 @@ from quikyctl import (  # noqa: E402
     parse_archive,
     parse_map,
     parse_ne,
+    render_level,
 )
 
 
@@ -123,6 +124,42 @@ class QuikyCtlTests(unittest.TestCase):
         self.assertEqual(info.expected_size, len(raw))
         self.assertEqual(info.max_tile, 0x123)
         self.assertEqual(dict(info.property_values), {0x00: 1, 0x1C: 1})
+
+    def test_level_renderer_pairs_map_tiles_palette_and_are(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            map_path = root / "W1L1.MAP"
+            map_path.write_bytes(
+                b"TLE1" + struct.pack(">HHH", 2, 1, 9) + struct.pack(">2H", 0, 1)
+            )
+
+            palette = bytearray(256 * 3)
+            palette[3:6] = bytes((255, 0, 0))
+            palette[6:9] = bytes((0, 255, 0))
+            pcc = bytearray(128)
+            pcc[0] = 0x0A
+            pcc[1] = 5
+            pcc[2] = 1
+            pcc[3] = 8
+            pcc.extend(b"\x0C" + palette)
+            (root / "W1.PCC").write_bytes(pcc)
+            (root / "W1.ICO").write_bytes(bytes((1,)) * 256 + bytes((2,)) * 256)
+
+            are = bytearray(0x14E8)
+            struct.pack_into(">H", are, 0x160, 0x1388)
+            are.extend(struct.pack(">HHHH", 0x0065, 0x0010, 0x0020, 0xFFFF))
+            (root / "W1L1.ARE").write_bytes(are)
+
+            output = root / "W1L1.png"
+            summary = render_level(map_path, output)
+            png = output.read_bytes()
+
+        self.assertEqual((summary.pixel_width, summary.pixel_height), (32, 16))
+        self.assertEqual(summary.tile_count, 2)
+        self.assertEqual(summary.invalid_tile_cells, 0)
+        self.assertEqual(summary.entity_count, 1)
+        self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
+        self.assertEqual(struct.unpack_from(">II", png, 16), (32, 16))
 
     def test_ne_parser_reads_segment_table(self):
         raw = bytearray(0x100)

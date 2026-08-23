@@ -7,6 +7,7 @@ import argparse
 import json
 import struct
 import sys
+import zlib
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
@@ -68,6 +69,22 @@ class ArchiveIndex:
     entry_count: int
     type_counts: tuple[ArchiveTypeSummary, ...]
     assets: tuple[ArchiveAsset, ...]
+
+
+@dataclass(frozen=True)
+class LevelRenderSummary:
+    map_path: str
+    output_path: str
+    world: str
+    map_width: int
+    map_height: int
+    pixel_width: int
+    pixel_height: int
+    tile_count: int
+    invalid_tile_cells: int
+    are_path: Optional[str]
+    entity_count: int
+    overlay_mapping: str
 
 
 @dataclass(frozen=True)
@@ -331,7 +348,9 @@ def index_archive(path: Path) -> ArchiveIndex:
     )
 
 
-def _parse_map_data(data: bytes, path: str) -> MapInfo:
+def _parse_map_data_with_cells(
+    data: bytes, path: str
+) -> tuple[MapInfo, tuple[int, ...]]:
     if len(data) < 10:
         raise QuikyError("MAP is shorter than its 10-byte header")
     magic_bytes = data[:4]
@@ -348,7 +367,7 @@ def _parse_map_data(data: bytes, path: str) -> MapInfo:
     cells = struct.unpack_from(f">{width * height}H", data, 10)
     properties = Counter(cell >> 9 for cell in cells)
     max_tile = max((cell & 0x1FF for cell in cells), default=0)
-    return MapInfo(
+    info = MapInfo(
         path,
         magic_bytes.decode("ascii"),
         width,
@@ -360,6 +379,11 @@ def _parse_map_data(data: bytes, path: str) -> MapInfo:
         max_tile,
         tuple(sorted(properties.items())),
     )
+    return info, cells
+
+
+def _parse_map_data(data: bytes, path: str) -> MapInfo:
+    return _parse_map_data_with_cells(data, path)[0]
 
 
 def parse_map(path: Path) -> MapInfo:
@@ -444,6 +468,216 @@ def _parse_are_data(data: bytes, path: str) -> AREInfo:
 
 def parse_are(path: Path) -> AREInfo:
     return _parse_are_data(path.read_bytes(), str(path))
+
+
+def _parse_pcx_palette(data: bytes, path: str) -> tuple[tuple[int, int, int], ...]:
+    if len(data) < 769 or data[0] != 0x0A or data[3] != 0x08:
+        raise QuikyError(f"{path} is not an 8-bit PCX palette")
+    marker_offset = len(data) - 769
+    if data[marker_offset] != 0x0C:
+        raise QuikyError(f"{path} does not end with a PCX palette")
+    palette = data[marker_offset + 1 : marker_offset + 769]
+    return tuple(
+        (palette[index], palette[index + 1], palette[index + 2])
+        for index in range(0, len(palette), 3)
+    )
+
+
+def _decode_ico_tiles(data: bytes, path: str) -> tuple[tuple[int, ...], ...]:
+    if not data or len(data) % 256:
+        raise QuikyError(f"{path} is not a whole-tile ICO file")
+    kellmap = data[0] >= 0x80
+    tiles: list[tuple[int, ...]] = []
+    for tile_offset in range(0, len(data), 256):
+        source = data[tile_offset : tile_offset + 256]
+        pixels: list[int] = []
+        for y in range(16):
+            for display_x in range(16):
+                raw_x = ((display_x * 4) & 0x0F) + (display_x >> 2)
+                color = source[y * 16 + raw_x]
+                if kellmap:
+                    if color >= 0xA0:
+                        color = (color - 0xA0) + 32
+                    elif color >= 0x90:
+                        color = (color - 0x90) + 16
+                pixels.append(color)
+        tiles.append(tuple(pixels))
+    return tuple(tiles)
+
+
+def _png_chunk(kind: bytes, payload: bytes) -> bytes:
+    return (
+        struct.pack(">I", len(payload))
+        + kind
+        + payload
+        + struct.pack(">I", zlib.crc32(kind + payload) & 0xFFFFFFFF)
+    )
+
+
+def _write_rgb_png(path: Path, width: int, height: int, pixels: bytes) -> None:
+    if len(pixels) != width * height * 3:
+        raise QuikyError("internal RGB image size mismatch")
+    scanlines = bytearray()
+    stride = width * 3
+    for row in range(height):
+        scanlines.append(0)
+        start = row * stride
+        scanlines.extend(pixels[start : start + stride])
+    png = bytearray(b"\x89PNG\r\n\x1a\n")
+    png.extend(
+        _png_chunk(
+            b"IHDR",
+            struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0),
+        )
+    )
+    png.extend(_png_chunk(b"IDAT", zlib.compress(bytes(scanlines), level=6)))
+    png.extend(_png_chunk(b"IEND", b""))
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(png)
+
+
+def _entity_marker_color(entity_type: int) -> tuple[int, int, int]:
+    return (
+        96 + ((entity_type * 73) % 160),
+        96 + ((entity_type * 131) % 160),
+        96 + ((entity_type * 197) % 160),
+    )
+
+
+def _draw_entity_marker(
+    pixels: bytearray,
+    width: int,
+    height: int,
+    center_x: int,
+    center_y: int,
+    color: tuple[int, int, int],
+) -> None:
+    for dy in range(-4, 5):
+        for dx in range(-4, 5):
+            x = center_x + dx
+            y = center_y + dy
+            if x < 0 or y < 0 or x >= width or y >= height:
+                continue
+            if max(abs(dx), abs(dy)) == 4:
+                draw_color = (0, 0, 0)
+            else:
+                draw_color = color
+            pixel = (y * width + x) * 3
+            pixels[pixel : pixel + 3] = bytes(draw_color)
+
+
+def _overlay_are_entities(
+    pixels: bytearray,
+    pixel_width: int,
+    pixel_height: int,
+    are_data: bytes,
+    are_info: AREInfo,
+) -> None:
+    layout_words = struct.unpack_from(
+        f">{ARE_LAYOUT_SIZE // 2}H", are_data, ARE_LAYOUT_OFFSET
+    )
+    references = {reference.reference: reference for reference in are_info.references}
+    for layout_index, reference_value in enumerate(layout_words):
+        if reference_value in (0, 0xFFFF):
+            continue
+        reference = references[reference_value]
+        layout_x = layout_index % 52
+        layout_y = layout_index // 52
+        for entity in reference.entities:
+            # This is deliberately a diagnostic mapping, not a claimed engine
+            # transform: the ARE grid is 52x48 and local coordinates use 16px
+            # steps, so normalize the coarse cell and its four local slots to
+            # the MAP dimensions until the executable is traced.
+            normalized_x = (layout_x + (entity.x / 64.0)) / 52.0
+            normalized_y = (layout_y + (entity.y / 64.0)) / 48.0
+            center_x = int(normalized_x * pixel_width)
+            center_y = int(normalized_y * pixel_height)
+            _draw_entity_marker(
+                pixels,
+                pixel_width,
+                pixel_height,
+                center_x,
+                center_y,
+                _entity_marker_color(entity.entity_type),
+            )
+
+
+def render_level(
+    map_path: Path,
+    output_path: Path,
+    assets_dir: Optional[Path] = None,
+    are_path: Optional[Path] = None,
+    overlay_entities: bool = True,
+) -> LevelRenderSummary:
+    assets_root = assets_dir or map_path.parent
+    map_info, cells = _parse_map_data_with_cells(
+        map_path.read_bytes(), str(map_path)
+    )
+    world = map_path.stem[:2].upper()
+    if len(world) != 2 or not world.startswith("W"):
+        raise QuikyError(f"cannot derive world prefix from MAP name {map_path.name}")
+    palette_path = assets_root / f"{world}.PCC"
+    tiles_path = assets_root / f"{world}.ICO"
+    palette = _parse_pcx_palette(palette_path.read_bytes(), str(palette_path))
+    tiles = _decode_ico_tiles(tiles_path.read_bytes(), str(tiles_path))
+
+    pixel_width = map_info.width * 16
+    pixel_height = map_info.height * 16
+    pixels = bytearray(pixel_width * pixel_height * 3)
+    invalid_tile_cells = 0
+    for map_y in range(map_info.height):
+        for map_x in range(map_info.width):
+            tile_index = cells[map_y * map_info.width + map_x] & 0x1FF
+            if tile_index >= len(tiles):
+                invalid_tile_cells += 1
+                tile_pixels = None
+            else:
+                tile_pixels = tiles[tile_index]
+            for tile_y in range(16):
+                output_y = map_y * 16 + tile_y
+                for tile_x in range(16):
+                    output_x = map_x * 16 + tile_x
+                    pixel = (output_y * pixel_width + output_x) * 3
+                    if tile_pixels is None:
+                        pixels[pixel : pixel + 3] = b"\xff\x00\xff"
+                    else:
+                        pixels[pixel : pixel + 3] = bytes(
+                            palette[tile_pixels[tile_y * 16 + tile_x]]
+                        )
+
+    selected_are = are_path
+    if selected_are is None:
+        candidate = assets_root / f"{map_path.stem}.ARE"
+        if candidate.exists():
+            selected_are = candidate
+    are_info: Optional[AREInfo] = None
+    if selected_are is not None:
+        are_data = selected_are.read_bytes()
+        are_info = _parse_are_data(are_data, str(selected_are))
+        if overlay_entities:
+            _overlay_are_entities(
+                pixels,
+                pixel_width,
+                pixel_height,
+                are_data,
+                are_info,
+            )
+
+    _write_rgb_png(output_path, pixel_width, pixel_height, pixels)
+    return LevelRenderSummary(
+        str(map_path),
+        str(output_path),
+        world,
+        map_info.width,
+        map_info.height,
+        pixel_width,
+        pixel_height,
+        len(tiles),
+        invalid_tile_cells,
+        str(selected_are) if selected_are is not None else None,
+        are_info.entity_count if are_info is not None else 0,
+        "normalized 52x48 ARE grid; 16px local slots" if overlay_entities else "disabled",
+    )
 
 
 def parse_ne(path: Path) -> NEInfo:
@@ -594,6 +828,23 @@ def _print_are(info: AREInfo, as_json: bool, show_entities: bool) -> None:
                 )
 
 
+def _print_level_summary(summary: LevelRenderSummary, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(_as_json(summary), indent=2))
+        return
+    print(f"rendered: {summary.output_path}")
+    print(
+        f"MAP: {summary.map_path} ({summary.map_width}x{summary.map_height} tiles, "
+        f"{summary.pixel_width}x{summary.pixel_height} pixels)"
+    )
+    print(f"world: {summary.world}")
+    print(f"tiles: {summary.tile_count}")
+    print(f"invalid tile cells: {summary.invalid_tile_cells}")
+    print(f"ARE: {summary.are_path or 'not found'}")
+    print(f"entity records: {summary.entity_count}")
+    print(f"overlay mapping: {summary.overlay_mapping}")
+
+
 def _print_map(info: MapInfo, as_json: bool) -> None:
     if as_json:
         print(json.dumps(_as_json(info), indent=2))
@@ -664,6 +915,16 @@ def build_parser() -> argparse.ArgumentParser:
         "--entities", action="store_true", help="show decoded entity coordinates"
     )
 
+    level_render = subparsers.add_parser(
+        "level-render", help="render a MAP with its world tiles and ARE overlay"
+    )
+    level_render.add_argument("path", type=Path)
+    level_render.add_argument("--output", required=True, type=Path)
+    level_render.add_argument("--assets-dir", type=Path)
+    level_render.add_argument("--are", type=Path)
+    level_render.add_argument("--no-entities", action="store_true")
+    level_render.add_argument("--json", action="store_true")
+
     ne_info = subparsers.add_parser("ne-info", help="inspect an MZ/NE executable")
     ne_info.add_argument("path", type=Path)
     ne_info.add_argument("--json", action="store_true")
@@ -684,6 +945,17 @@ def main(argv: list[str] | None = None) -> int:
             _print_map(parse_map(args.path), args.json)
         elif args.command == "are-info":
             _print_are(parse_are(args.path), args.json, args.entities)
+        elif args.command == "level-render":
+            _print_level_summary(
+                render_level(
+                    args.path,
+                    args.output,
+                    args.assets_dir,
+                    args.are,
+                    not args.no_entities,
+                ),
+                args.json,
+            )
         elif args.command == "ne-info":
             _print_ne(parse_ne(args.path), args.json)
         else:

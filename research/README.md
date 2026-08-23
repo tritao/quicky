@@ -90,6 +90,8 @@ python3 research/tools/quikyctl.py archive-index game/NESTLE.DAT
 python3 research/tools/quikyctl.py archive-extract game/NESTLE.DAT work/assets
 python3 research/tools/quikyctl.py map-info path/to/W1L1.MAP
 python3 research/tools/quikyctl.py are-info path/to/W1L1.ARE
+python3 research/tools/quikyctl.py level-render path/to/W1L1.MAP \
+  --output build/W1L1.png
 python3 research/tools/quikyctl.py ne-info game/QUIKY.EXE
 python3 research/tools/quikyctl.py archive-list game/NESTLE.DAT --json
 python3 -m unittest discover -s research/tests -p 'test_*.py'
@@ -102,6 +104,22 @@ unless `--overwrite` is explicitly supplied. The archive and MAP commands
 expose the structures described below. The NE command is a static header
 survey; it does not assign semantic names to code segments or claim that the
 executable has been decompiled.
+
+`level-render` is a dependency-free PNG renderer. It derives `W1.ICO` and
+`W1.PCC` from `W1L1.MAP`, applies the Java viewer's four-way column
+permutation, and renders the MAP at 16 pixels per tile. If `W1L1.ARE` is next
+to the MAP, it adds colored entity markers. The marker transform is currently
+a diagnostic normalized mapping from the 52x48 ARE reference grid and its
+16-pixel local slots; it is intentionally reported as provisional until the
+executable's ARE placement routine is traced.
+
+For a fresh extraction:
+
+~~~sh
+python3 research/tools/quikyctl.py archive-extract game/NESTLE.DAT /tmp/quiky-assets
+python3 research/tools/quikyctl.py level-render /tmp/quiky-assets/W1L1.MAP \
+  --output /tmp/W1L1.png
+~~~
 
 ## Confirmed file formats
 
