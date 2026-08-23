@@ -86,15 +86,22 @@ big-endian reads and is intentionally read-only:
 
 ~~~sh
 python3 research/tools/quikyctl.py archive-list game/NESTLE.DAT
+python3 research/tools/quikyctl.py archive-index game/NESTLE.DAT
+python3 research/tools/quikyctl.py archive-extract game/NESTLE.DAT work/assets
 python3 research/tools/quikyctl.py map-info path/to/W1L1.MAP
+python3 research/tools/quikyctl.py are-info path/to/W1L1.ARE
 python3 research/tools/quikyctl.py ne-info game/QUIKY.EXE
 python3 research/tools/quikyctl.py archive-list game/NESTLE.DAT --json
 python3 -m unittest discover -s research/tests -p 'test_*.py'
 ~~~
 
-The archive and MAP commands expose the structures described below. The NE
-command is a static header survey; it does not assign semantic names to code
-segments or claim that the executable has been decompiled.
+`archive-index` validates every MAP and ARE payload and reports per-extension
+counts, byte totals, MAP dimensions, and ARE reference/entity counts.
+`archive-extract` refuses path traversal, duplicate names, and overwrites
+unless `--overwrite` is explicitly supplied. The archive and MAP commands
+expose the structures described below. The NE command is a static header
+survey; it does not assign semantic names to code segments or claim that the
+executable has been decompiled.
 
 ## Confirmed file formats
 
@@ -192,22 +199,39 @@ as “solid left/right” and D as “hit on the head”; those meanings remain
 inferences, not a completed collision specification. Other observed property
 values include 0x04, 0x0a, 0x0b, 0x1c, 0x2c, and 0x38.
 
-### ARE — partial, mostly inferred
+### ARE — structure now mechanically decoded; semantics still inferred
 
 There is no validated magic header. Simon's article reports a fixed-layout
-file with zero padding and a variable final block:
+file with zero padding and a variable final block. The new parser validates
+the following layout across all 21 ARE payloads in the bundled archive:
 
 ~~~text
-@0x0000  unknown
-@0x0160  level/object layout; 0xffff means blank
-@0x14e0  declarations/table for the preceding layout
+@0x0000  0x0160  unknown/header region
+@0x0160  0x1380  2496 big-endian u16 layout words
+@0x14e0  variable declaration records
 ~~~
 
-Across the retrieved files the region from 0x0160 to 0x14df is 0x1380 bytes,
-and the first region commonly contains ff ff blanks and entries starting
-with byte 0x13 followed by a reference-like byte. Simon changed the byte at
-0x14e9 while testing object types. The table is not yet decoded; do not treat
-its apparent records as a stable C struct.
+In the layout region, `0xffff` is a blank marker and `0x0000` is also common;
+the latter's exact game meaning remains unknown. Other nonzero words are
+offset-like references. For each reference `r`, the referenced declaration
+starts at `0x0160 + r`; the first observed record starts at `0x14e8`, so the
+usual first reference is `0x1388`. This offset relationship and the following
+record terminator are confirmed experimentally from every bundled ARE file,
+but the entity semantics are not yet confirmed by engine tracing:
+
+~~~text
+u16 entity_type
+u16 x
+u16 y
+... repeated entity triples ...
+u16 0xffff                 # end of one declaration record
+~~~
+
+The parser reports the raw type and coordinate values, preserving the
+uncertainty about whether coordinates are tiles, pixels, or another game
+unit. Simon changed the byte at 0x14e9 while testing object types. The fixed
+prefix and declaration records should therefore be treated as a structural
+model, not yet as a stable gameplay object specification.
 
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry
@@ -329,7 +353,7 @@ instead of the entire Windows C: drive.
 ## Safe continuation workflow
 
 1. Make a pristine copy of NESTLE.DAT and record its SHA-256.
-2. Work in a new directory and run the modern extractor there.
+2. Work in a new directory and run `quikyctl archive-extract` there.
 3. Identify a level by its WnLk.MAP/WnLk.ARE pair.
 4. Derive its tileset and palette from Wn (W1L1 uses W1.ICO and W1.PCC).
 5. Render the ICO with ico2bmp, or open the MAP in the Java viewer.

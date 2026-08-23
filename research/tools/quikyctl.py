@@ -10,7 +10,13 @@ import sys
 from collections import Counter
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
+
+
+ARE_LAYOUT_OFFSET = 0x160
+ARE_LAYOUT_SIZE = 0x1380
+ARE_DECLARATION_OFFSET = 0x14E0
+ARE_FIRST_RECORD_OFFSET = 0x14E8
 
 
 class QuikyError(Exception):
@@ -34,6 +40,37 @@ class ArchiveInfo:
 
 
 @dataclass(frozen=True)
+class ArchiveTypeSummary:
+    extension: str
+    count: int
+    bytes: int
+
+
+@dataclass(frozen=True)
+class ArchiveAsset:
+    name: str
+    extension: str
+    offset: int
+    size: int
+    map_width: Optional[int] = None
+    map_height: Optional[int] = None
+    map_max_tile: Optional[int] = None
+    are_unique_references: Optional[int] = None
+    are_entity_count: Optional[int] = None
+    are_type_count: Optional[int] = None
+
+
+@dataclass(frozen=True)
+class ArchiveIndex:
+    path: str
+    file_size: int
+    directory_offset: int
+    entry_count: int
+    type_counts: tuple[ArchiveTypeSummary, ...]
+    assets: tuple[ArchiveAsset, ...]
+
+
+@dataclass(frozen=True)
 class MapInfo:
     path: str
     magic: str
@@ -45,6 +82,41 @@ class MapInfo:
     cell_count: int
     max_tile: int
     property_values: tuple[tuple[int, int], ...]
+
+
+@dataclass(frozen=True)
+class AREEntity:
+    record_offset: int
+    entity_type: int
+    x: int
+    y: int
+
+
+@dataclass(frozen=True)
+class AREReference:
+    reference: int
+    target_offset: int
+    layout_occurrences: int
+    entities: tuple[AREEntity, ...]
+
+
+@dataclass(frozen=True)
+class AREInfo:
+    path: str
+    file_size: int
+    layout_offset: int
+    layout_size: int
+    layout_word_count: int
+    zero_word_count: int
+    blank_word_count: int
+    reference_count: int
+    unique_reference_count: int
+    declaration_offset: int
+    first_record_offset: int
+    declaration_size: int
+    entity_count: int
+    entity_types: tuple[tuple[int, int], ...]
+    references: tuple[AREReference, ...]
 
 
 @dataclass(frozen=True)
@@ -165,8 +237,101 @@ def parse_archive(path: Path) -> ArchiveInfo:
     )
 
 
-def parse_map(path: Path) -> MapInfo:
+def _archive_extension(name: str) -> str:
+    suffix = Path(name).suffix
+    return suffix[1:].upper() if suffix else "<none>"
+
+
+def extract_archive(
+    path: Path, output_dir: Path, overwrite: bool = False
+) -> tuple[Path, ...]:
     data = path.read_bytes()
+    info = parse_archive(path)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    root = output_dir.resolve()
+
+    planned: list[tuple[ArchiveEntry, Path]] = []
+    names: set[str] = set()
+    for entry in info.entries:
+        name = entry.name
+        if (
+            not name
+            or name in (".", "..")
+            or "/" in name
+            or "\\" in name
+            or ":" in name
+        ):
+            raise QuikyError(f"unsafe archive filename: {name!r}")
+        if name in names:
+            raise QuikyError(f"duplicate archive filename: {name}")
+        names.add(name)
+        target = (root / name).resolve()
+        if target.parent != root:
+            raise QuikyError(f"archive filename escapes output directory: {name}")
+        if target.exists() or target.is_symlink():
+            if not overwrite:
+                raise QuikyError(
+                    f"refusing to overwrite {target}; use --overwrite to allow it"
+                )
+        planned.append((entry, target))
+
+    for entry, target in planned:
+        target.write_bytes(data[entry.offset : entry.offset + entry.size])
+    return tuple(target for _, target in planned)
+
+
+def index_archive(path: Path) -> ArchiveIndex:
+    data = path.read_bytes()
+    info = parse_archive(path)
+    type_counts: Counter[str] = Counter()
+    type_bytes: Counter[str] = Counter()
+    assets: list[ArchiveAsset] = []
+
+    for entry in info.entries:
+        extension = _archive_extension(entry.name)
+        type_counts[extension] += 1
+        type_bytes[extension] += entry.size
+        payload = data[entry.offset : entry.offset + entry.size]
+        asset = ArchiveAsset(entry.name, extension, entry.offset, entry.size)
+        if extension == "MAP":
+            map_info = _parse_map_data(payload, entry.name)
+            asset = ArchiveAsset(
+                entry.name,
+                extension,
+                entry.offset,
+                entry.size,
+                map_info.width,
+                map_info.height,
+                map_info.max_tile,
+            )
+        elif extension == "ARE":
+            are_info = _parse_are_data(payload, entry.name)
+            asset = ArchiveAsset(
+                entry.name,
+                extension,
+                entry.offset,
+                entry.size,
+                are_unique_references=are_info.unique_reference_count,
+                are_entity_count=are_info.entity_count,
+                are_type_count=len(are_info.entity_types),
+            )
+        assets.append(asset)
+
+    summaries = tuple(
+        ArchiveTypeSummary(extension, type_counts[extension], type_bytes[extension])
+        for extension in sorted(type_counts)
+    )
+    return ArchiveIndex(
+        str(path),
+        info.file_size,
+        info.directory_offset,
+        len(info.entries),
+        summaries,
+        tuple(assets),
+    )
+
+
+def _parse_map_data(data: bytes, path: str) -> MapInfo:
     if len(data) < 10:
         raise QuikyError("MAP is shorter than its 10-byte header")
     magic_bytes = data[:4]
@@ -184,7 +349,7 @@ def parse_map(path: Path) -> MapInfo:
     properties = Counter(cell >> 9 for cell in cells)
     max_tile = max((cell & 0x1FF for cell in cells), default=0)
     return MapInfo(
-        str(path),
+        path,
         magic_bytes.decode("ascii"),
         width,
         height,
@@ -195,6 +360,90 @@ def parse_map(path: Path) -> MapInfo:
         max_tile,
         tuple(sorted(properties.items())),
     )
+
+
+def parse_map(path: Path) -> MapInfo:
+    return _parse_map_data(path.read_bytes(), str(path))
+
+
+def _parse_are_data(data: bytes, path: str) -> AREInfo:
+    if len(data) < ARE_DECLARATION_OFFSET:
+        raise QuikyError(
+            f"ARE is shorter than its fixed layout region: {len(data)} bytes"
+        )
+
+    layout_end = ARE_LAYOUT_OFFSET + ARE_LAYOUT_SIZE
+    if layout_end != ARE_DECLARATION_OFFSET:
+        raise QuikyError("internal ARE layout constants are inconsistent")
+    layout_words = struct.unpack_from(
+        f">{ARE_LAYOUT_SIZE // 2}H", data, ARE_LAYOUT_OFFSET
+    )
+    reference_counts = Counter(
+        value for value in layout_words if value not in (0, 0xFFFF)
+    )
+
+    references: list[AREReference] = []
+    entity_types: Counter[int] = Counter()
+    entity_count = 0
+    for reference in sorted(reference_counts):
+        target_offset = ARE_LAYOUT_OFFSET + reference
+        if target_offset < ARE_FIRST_RECORD_OFFSET or target_offset + 2 > len(data):
+            raise QuikyError(
+                f"ARE reference 0x{reference:04x} points outside declarations"
+            )
+
+        cursor = target_offset
+        entities: list[AREEntity] = []
+        while True:
+            if cursor + 2 > len(data):
+                raise QuikyError(
+                    f"ARE declaration at 0x{target_offset:x} is unterminated"
+                )
+            entity_type = _u16be(data, cursor)
+            cursor += 2
+            if entity_type == 0xFFFF:
+                break
+            if cursor + 4 > len(data):
+                raise QuikyError(
+                    f"ARE entity at 0x{cursor - 2:x} is truncated"
+                )
+            x = _u16be(data, cursor)
+            y = _u16be(data, cursor + 2)
+            cursor += 4
+            entities.append(AREEntity(target_offset, entity_type, x, y))
+            entity_types[entity_type] += 1
+            entity_count += 1
+
+        references.append(
+            AREReference(
+                reference,
+                target_offset,
+                reference_counts[reference],
+                tuple(entities),
+            )
+        )
+
+    return AREInfo(
+        path,
+        len(data),
+        ARE_LAYOUT_OFFSET,
+        ARE_LAYOUT_SIZE,
+        len(layout_words),
+        layout_words.count(0),
+        layout_words.count(0xFFFF),
+        sum(reference_counts.values()),
+        len(reference_counts),
+        ARE_DECLARATION_OFFSET,
+        ARE_FIRST_RECORD_OFFSET,
+        len(data) - ARE_DECLARATION_OFFSET,
+        entity_count,
+        tuple(sorted(entity_types.items())),
+        tuple(references),
+    )
+
+
+def parse_are(path: Path) -> AREInfo:
+    return _parse_are_data(path.read_bytes(), str(path))
 
 
 def parse_ne(path: Path) -> NEInfo:
@@ -280,6 +529,71 @@ def _print_archive(info: ArchiveInfo, as_json: bool) -> None:
         print(f"0x{entry.offset:08x}\t{entry.size}\t{entry.name}")
 
 
+def _print_archive_index(index: ArchiveIndex, as_json: bool) -> None:
+    if as_json:
+        print(json.dumps(_as_json(index), indent=2))
+        return
+    print(f"archive: {index.path}")
+    print(f"size: {index.file_size} bytes")
+    print(f"directory: 0x{index.directory_offset:x}")
+    print(f"entries: {index.entry_count}")
+    print("type\tcount\tbytes")
+    for summary in index.type_counts:
+        print(f"{summary.extension}\t{summary.count}\t{summary.bytes}")
+    print("offset\tsize\ttype\tname\tdetails")
+    for asset in index.assets:
+        details = ""
+        if asset.extension == "MAP":
+            details = (
+                f"{asset.map_width}x{asset.map_height}, "
+                f"max tile {asset.map_max_tile}"
+            )
+        elif asset.extension == "ARE":
+            details = (
+                f"{asset.are_unique_references} refs, "
+                f"{asset.are_entity_count} entities, "
+                f"{asset.are_type_count} types"
+            )
+        print(
+            f"0x{asset.offset:08x}\t{asset.size}\t{asset.extension}\t"
+            f"{asset.name}\t{details}"
+        )
+
+
+def _print_are(info: AREInfo, as_json: bool, show_entities: bool) -> None:
+    if as_json:
+        print(json.dumps(_as_json(info), indent=2))
+        return
+    print(f"ARE: {info.path}")
+    print(f"size: {info.file_size} bytes")
+    print(
+        f"layout: 0x{info.layout_offset:x}-0x{info.layout_offset + info.layout_size:x} "
+        f"({info.layout_word_count} big-endian words)"
+    )
+    print(f"layout words equal to 0: {info.zero_word_count}")
+    print(f"layout words equal to 0xffff: {info.blank_word_count}")
+    print(f"reference occurrences: {info.reference_count}")
+    print(f"unique references: {info.unique_reference_count}")
+    print(f"declarations: 0x{info.declaration_offset:x}, {info.declaration_size} bytes")
+    print(f"decoded entities: {info.entity_count}")
+    print("entity types:")
+    for entity_type, count in info.entity_types:
+        print(f"  0x{entity_type:04x}: {count}")
+    print("references:")
+    for reference in info.references:
+        print(
+            f"  0x{reference.reference:04x} -> 0x{reference.target_offset:04x}; "
+            f"occurrences {reference.layout_occurrences}; "
+            f"entities {len(reference.entities)}"
+        )
+        if show_entities:
+            for entity in reference.entities:
+                print(
+                    f"    type 0x{entity.entity_type:04x} "
+                    f"at ({entity.x}, {entity.y})"
+                )
+
+
 def _print_map(info: MapInfo, as_json: bool) -> None:
     if as_json:
         print(json.dumps(_as_json(info), indent=2))
@@ -326,9 +640,29 @@ def build_parser() -> argparse.ArgumentParser:
     archive.add_argument("path", type=Path)
     archive.add_argument("--json", action="store_true")
 
+    archive_index = subparsers.add_parser(
+        "archive-index", help="validate and summarize archive assets"
+    )
+    archive_index.add_argument("path", type=Path)
+    archive_index.add_argument("--json", action="store_true")
+
+    archive_extract = subparsers.add_parser(
+        "archive-extract", help="safely extract all archive assets"
+    )
+    archive_extract.add_argument("path", type=Path)
+    archive_extract.add_argument("output_dir", type=Path)
+    archive_extract.add_argument("--overwrite", action="store_true")
+
     map_info = subparsers.add_parser("map-info", help="inspect a TLE1 MAP")
     map_info.add_argument("path", type=Path)
     map_info.add_argument("--json", action="store_true")
+
+    are_info = subparsers.add_parser("are-info", help="inspect an ARE object file")
+    are_info.add_argument("path", type=Path)
+    are_info.add_argument("--json", action="store_true")
+    are_info.add_argument(
+        "--entities", action="store_true", help="show decoded entity coordinates"
+    )
 
     ne_info = subparsers.add_parser("ne-info", help="inspect an MZ/NE executable")
     ne_info.add_argument("path", type=Path)
@@ -341,8 +675,15 @@ def main(argv: list[str] | None = None) -> int:
     try:
         if args.command == "archive-list":
             _print_archive(parse_archive(args.path), args.json)
+        elif args.command == "archive-index":
+            _print_archive_index(index_archive(args.path), args.json)
+        elif args.command == "archive-extract":
+            extracted = extract_archive(args.path, args.output_dir, args.overwrite)
+            print(f"extracted {len(extracted)} files to {args.output_dir}")
         elif args.command == "map-info":
             _print_map(parse_map(args.path), args.json)
+        elif args.command == "are-info":
+            _print_are(parse_are(args.path), args.json, args.entities)
         elif args.command == "ne-info":
             _print_ne(parse_ne(args.path), args.json)
         else:

@@ -8,7 +8,15 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
-from quikyctl import parse_archive, parse_map, parse_ne  # noqa: E402
+from quikyctl import (  # noqa: E402
+    QuikyError,
+    extract_archive,
+    index_archive,
+    parse_are,
+    parse_archive,
+    parse_map,
+    parse_ne,
+)
 
 
 class QuikyCtlTests(unittest.TestCase):
@@ -42,6 +50,65 @@ class QuikyCtlTests(unittest.TestCase):
         )
         self.assertEqual(info.entries[0].size, 3)
         self.assertEqual(info.entries[1].size, 5)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            archive_path = Path(temp_dir) / "NESTLE.DAT"
+            output_dir = Path(temp_dir) / "assets"
+            archive_path.write_bytes(archive)
+            extracted = extract_archive(archive_path, output_dir)
+            self.assertEqual(
+                [path.name for path in extracted], ["FIRST.BOB", "SECOND.MAP"]
+            )
+            self.assertEqual((output_dir / "FIRST.BOB").read_bytes(), b"abc")
+            self.assertEqual((output_dir / "SECOND.MAP").read_bytes(), b"12345")
+            with self.assertRaises(QuikyError):
+                extract_archive(archive_path, output_dir)
+
+            unsafe_name = b"../ESCAPE.BOB"
+            unsafe_archive = b"x" + struct.pack("<H", len(unsafe_name))
+            unsafe_archive += unsafe_name + struct.pack("<I", 0)
+            unsafe_archive += struct.pack("<II", 1, 0)
+            unsafe_path = Path(temp_dir) / "UNSAFE.DAT"
+            unsafe_path.write_bytes(unsafe_archive)
+            with self.assertRaises(QuikyError):
+                extract_archive(unsafe_path, Path(temp_dir) / "unsafe-assets")
+
+    def test_are_parser_decodes_references_and_entities(self):
+        raw = bytearray(0x14E8)
+        struct.pack_into(">H", raw, 0x160, 0x1388)
+        struct.pack_into(">H", raw, 0x162, 0xFFFF)
+        raw.extend(
+            struct.pack(
+                ">HHHHHHH",
+                0x002B,
+                0x0010,
+                0x0020,
+                0x0065,
+                0x0030,
+                0x0040,
+                0xFFFF,
+            )
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "W1L1.ARE"
+            path.write_bytes(raw)
+            info = parse_are(path)
+
+        self.assertEqual(info.layout_word_count, 2496)
+        self.assertEqual(info.zero_word_count, 2494)
+        self.assertEqual(info.blank_word_count, 1)
+        self.assertEqual(info.unique_reference_count, 1)
+        self.assertEqual(info.entity_count, 2)
+        self.assertEqual(dict(info.entity_types), {0x2B: 1, 0x65: 1})
+        self.assertEqual(info.references[0].target_offset, 0x14E8)
+        self.assertEqual(
+            [
+                (entity.entity_type, entity.x, entity.y)
+                for entity in info.references[0].entities
+            ],
+            [(0x2B, 0x10, 0x20), (0x65, 0x30, 0x40)],
+        )
 
     def test_map_parser_is_big_endian_and_splits_flags(self):
         cells = (0x0123, 0x3812)
@@ -84,11 +151,34 @@ class QuikyCtlTests(unittest.TestCase):
     def test_bundled_archive_and_executable(self):
         repo_root = Path(__file__).resolve().parents[2]
         archive = parse_archive(repo_root / "game" / "NESTLE.DAT")
+        index = index_archive(repo_root / "game" / "NESTLE.DAT")
         executable = parse_ne(repo_root / "game" / "QUIKY.EXE")
 
         self.assertEqual(len(archive.entries), 142)
         self.assertEqual(archive.entries[0].name, "QUIKYW1.BOB")
         self.assertEqual(archive.entries[-1].name, "TITELD.SAM")
+        self.assertEqual(
+            {summary.extension: summary.count for summary in index.type_counts},
+            {
+                "ARE": 21,
+                "BOB": 66,
+                "ICO": 15,
+                "MAP": 21,
+                "PCC": 13,
+                "SAM": 3,
+                "TFX": 3,
+            },
+        )
+        w1l1_map = next(asset for asset in index.assets if asset.name == "W1L1.MAP")
+        self.assertEqual(
+            (w1l1_map.map_width, w1l1_map.map_height, w1l1_map.map_max_tile),
+            (270, 30, 468),
+        )
+        w1l1_are = next(asset for asset in index.assets if asset.name == "W1L1.ARE")
+        self.assertEqual(
+            (w1l1_are.are_unique_references, w1l1_are.are_entity_count),
+            (109, 173),
+        )
         self.assertEqual(executable.segment_count, 7)
         self.assertEqual(executable.sector_shift, 8)
 
