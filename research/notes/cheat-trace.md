@@ -112,12 +112,33 @@ directly to a specific level without the selection screen, the next target is
 the state written after `01D7:495D` (`DS:89F4`), which should be traced in the
 debugger rather than guessed.
 
+For a direct W1L3 selection after the selector appears, pause again and set
+the selector index observed in the run:
+
+```text
+SM DS:85D4 02 00
+F5
+```
+
+Then send Space to launch the selected level.
+
+### Observed run
+
+On 23 August 2026, this procedure was executed in the debug build. The
+breakpoint showed `DS:89F2=1`; replacing the current key value with `DS:88BA=5`
+entered the selector. Setting `DS:85D4=2` changed its visible label from
+`Nature 1` to `Nature 3`, and pressing Space launched the level scene. The
+mapping from that selector value to the archive label `W1L3` is supported by
+the adjacent `Nature 1/2/3` and `W1L1/W1L2/W1L3` tables, while the screen and
+launch were directly observed.
+
 ## Evidence labels
 
 - Confirmed from executable bytes and NE relocation records: string addresses,
   comparison targets, keyboard routine locations, and the `DS:89F2` success
   flag.
 - Confirmed experimentally in DOSBox's debugger: the protected-mode selector
-  mapping and the runtime breakpoint at `01D7:1343`.
+  mapping, the runtime breakpoint at `01D7:1343`, the shortcut branch at
+  `01D7:491D`, and the selector launch sequence.
 - Not yet captured: the live `JE`/fall-through result after entering the full
   cheat through the emulated keyboard.
