@@ -78,6 +78,24 @@ original files predate modern C prototypes and omit some portability headers;
 the two modern/ programs avoid those issues. Native MSVC is not the target of
 the original source and would need the usual _unlink/header adjustments.
 
+### Modern inspection tool
+
+`research/tools/quikyctl.py` is a dependency-free Python 3 inspector for the
+archive, MAP files, and MZ/NE executable header. It uses explicit little- and
+big-endian reads and is intentionally read-only:
+
+~~~sh
+python3 research/tools/quikyctl.py archive-list game/NESTLE.DAT
+python3 research/tools/quikyctl.py map-info path/to/W1L1.MAP
+python3 research/tools/quikyctl.py ne-info game/QUIKY.EXE
+python3 research/tools/quikyctl.py archive-list game/NESTLE.DAT --json
+python3 -m unittest discover -s research/tests -p 'test_*.py'
+~~~
+
+The archive and MAP commands expose the structures described below. The NE
+command is a static header survey; it does not assign semantic names to code
+segments or claim that the executable has been decompiled.
+
 ## Confirmed file formats
 
 The labels below distinguish direct source/byte validation from Simon's
@@ -206,6 +224,30 @@ and spikes. The tested object/reference values were:
 
 Use W1L3 for experiments; the article suggests entering QUIKYSUPERHERO in the
 menu and pressing 4 to jump to a test level.
+
+### QUIKY.EXE — initial static survey
+
+These values are confirmed by parsing the bundled executable's MZ and NE
+headers; they say nothing yet about the meaning of individual routines:
+
+~~~text
+file size              151,552 bytes
+NE header              0x0e3e
+linker                 6.1
+entry point            segment 1, offset 0x5089
+initial stack          segment 7, offset 0x4000
+segment count          7
+segment table          NE + 0x0040 = file offset 0x0e7e
+sector size            256 bytes
+~~~
+
+The segment table has five ordinary initialized segments, one segment with a
+larger minimum allocation than its stored bytes, and a final zero-length
+stored segment with a 0x4000 minimum allocation. The current parser reports
+the raw table fields without assigning code/data meanings. The next
+executable-analysis step is to map segment-relative addresses used by the
+timer calibration and archive-loading code back to these segments, then
+trace only those routines needed to validate format behavior.
 
 ### BOB — partial
 

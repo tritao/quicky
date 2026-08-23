@@ -19,6 +19,7 @@ research/extracted/tools/QuikyLevelEditor/nbproject/private/
 *.class
 *.swp
 .DS_Store
+__pycache__/
 
 # The bundled runtime is intentionally limited to the documented files.
 game/*
