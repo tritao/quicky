@@ -398,6 +398,17 @@ Ctrl+F11 decreases emulation cycles and Ctrl+F12 increases them. The
 cycle controls, and recommends mounting a dedicated DOS-games directory
 instead of the entire Windows C: drive.
 
+For executable-level keyboard tracing, install the debug build and run:
+
+~~~sh
+./scripts/run-dosbox-debug.sh
+~~~
+
+The confirmed cheat comparison path and debugger addresses are documented in
+[`research/notes/cheat-trace.md`](notes/cheat-trace.md). The debugger is
+entered with `Alt+Pause`; it runs in the terminal while the game remains in
+the SDL window.
+
 ## Safe continuation workflow
 
 1. Make a pristine copy of NESTLE.DAT and record its SHA-256.

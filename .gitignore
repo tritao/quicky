@@ -10,6 +10,9 @@ research/extracted/safe-assets/
 # Generated binaries, renders, logs, and analysis inventories.
 research/build/
 research/notes/
+!research/notes/
+research/notes/*
+!research/notes/cheat-trace.md
 research/extracted/tools/QuikyLevelEditor/build/
 research/extracted/tools/QuikyLevelEditor/dist/
 research/extracted/tools/QuikyLevelEditor/nbproject/private/
