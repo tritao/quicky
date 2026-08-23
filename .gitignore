@@ -1,0 +1,21 @@
+# Retrieved archives and extracted game distributions/assets.
+research/downloads/
+research/extracted/dkia-game/
+research/extracted/dosbox-game/
+research/extracted/dosgames-original/
+research/extracted/dkia-assets/
+research/extracted/dosbox-assets/
+research/extracted/safe-assets/
+
+# Generated binaries, renders, logs, and analysis inventories.
+research/build/
+research/notes/
+research/extracted/tools/QuikyLevelEditor/build/
+research/extracted/tools/QuikyLevelEditor/dist/
+research/extracted/tools/QuikyLevelEditor/nbproject/private/
+
+# Common local build/editor files.
+*.o
+*.class
+*.swp
+.DS_Store
