@@ -10,12 +10,14 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 from quikyctl import (  # noqa: E402
     QuikyError,
+    create_are_experiments,
     extract_archive,
     index_archive,
     parse_are,
     parse_archive,
     parse_map,
     parse_ne,
+    patch_are_entity_data,
     render_level,
 )
 
@@ -111,6 +113,18 @@ class QuikyCtlTests(unittest.TestCase):
             [(0x2B, 0x10, 0x20), (0x65, 0x30, 0x40)],
         )
 
+        patched = patch_are_entity_data(
+            raw,
+            reference=0x1388,
+            entity_index=1,
+            delta_x=0x10,
+            entity_type=0x71,
+        )
+        self.assertEqual(
+            struct.unpack_from(">HHH", patched, 0x14EE),
+            (0x71, 0x40, 0x40),
+        )
+
     def test_map_parser_is_big_endian_and_splits_flags(self):
         cells = (0x0123, 0x3812)
         raw = b"TLE1" + struct.pack(">HHH", 2, 1, 9) + struct.pack(">2H", *cells)
@@ -160,6 +174,19 @@ class QuikyCtlTests(unittest.TestCase):
         self.assertEqual(summary.entity_count, 1)
         self.assertEqual(png[:8], b"\x89PNG\r\n\x1a\n")
         self.assertEqual(struct.unpack_from(">II", png, 16), (32, 16))
+
+    def test_are_experiment_generates_valid_variant_archives(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = create_are_experiments(
+                repo_root / "game" / "NESTLE.DAT",
+                Path(temp_dir),
+            )
+            self.assertEqual(len(manifest["variants"]), 5)
+            for variant in manifest["variants"]:
+                index = index_archive(Path(variant["archive"]))
+                self.assertEqual(index.entry_count, 142)
+                self.assertEqual(index.assets[-1].name, "TITELD.SAM")
 
     def test_ne_parser_reads_segment_table(self):
         raw = bytearray(0x100)

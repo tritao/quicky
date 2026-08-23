@@ -121,6 +121,35 @@ python3 research/tools/quikyctl.py level-render /tmp/quiky-assets/W1L1.MAP \
   --output /tmp/W1L1.png
 ~~~
 
+### Controlled ARE experiments
+
+Generate isolated archives for the W1L3 experiment level:
+
+~~~sh
+python3 research/tools/quikyctl.py are-experiment \
+  game/NESTLE.DAT work/are-experiments
+~~~
+
+The command preserves the original archive and creates a manifest plus five
+valid `NESTLE.DAT` variants: baseline, one entity X shift, one entity Y shift,
+one type change, and one layout-cell move. By default it selects the first
+ARE declaration reference and first entity in `W1L3.ARE`; use `--reference`
+and `--entity-index` to select a different record. The generated manifest has
+an `observation` field for recording what appears in-game.
+
+Run one variant in an isolated DOSBox runtime:
+
+~~~sh
+./scripts/run-are-variant.sh work/are-experiments/entity-x-shift/NESTLE.DAT
+~~~
+
+The launcher copies the bundled runtime to a temporary directory, substitutes
+only the selected `NESTLE.DAT`, mounts that temporary directory, and starts
+`QUIKY.EXE` at 16,000 cycles. Use the game's `QUIKYSUPERHERO` cheat and level
+selection described in the [DKIA article][dkia] to reach W1L3, then update the
+variant's `observation` field after comparing it with the baseline. The
+launcher removes its temporary runtime when DOSBox exits.
+
 ## Confirmed file formats
 
 The labels below distinguish direct source/byte validation from Simon's

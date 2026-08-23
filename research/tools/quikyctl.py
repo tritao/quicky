@@ -470,6 +470,251 @@ def parse_are(path: Path) -> AREInfo:
     return _parse_are_data(path.read_bytes(), str(path))
 
 
+def _find_are_reference(info: AREInfo, reference: Optional[int]) -> AREReference:
+    if reference is None:
+        if not info.references:
+            raise QuikyError("ARE contains no declaration references")
+        return info.references[0]
+    for candidate in info.references:
+        if candidate.reference == reference:
+            return candidate
+    raise QuikyError(f"ARE reference 0x{reference:04x} was not found")
+
+
+def patch_are_entity_data(
+    data: bytes,
+    reference: Optional[int] = None,
+    entity_index: int = 0,
+    delta_x: int = 0,
+    delta_y: int = 0,
+    entity_type: Optional[int] = None,
+) -> bytes:
+    info = _parse_are_data(data, "<memory>")
+    selected = _find_are_reference(info, reference)
+    if entity_index < 0 or entity_index >= len(selected.entities):
+        raise QuikyError(
+            f"entity index {entity_index} is outside reference "
+            f"0x{selected.reference:04x}"
+        )
+    entity = selected.entities[entity_index]
+    record_offset = selected.target_offset + (entity_index * 6)
+    new_x = entity.x + delta_x
+    new_y = entity.y + delta_y
+    new_type = entity.entity_type if entity_type is None else entity_type
+    for label, value in (("x", new_x), ("y", new_y), ("type", new_type)):
+        if value < 0 or value > 0xFFFF:
+            raise QuikyError(f"patched entity {label} is outside u16 range")
+    patched = bytearray(data)
+    struct.pack_into(">H", patched, record_offset, new_type)
+    struct.pack_into(">H", patched, record_offset + 2, new_x)
+    struct.pack_into(">H", patched, record_offset + 4, new_y)
+    return bytes(patched)
+
+
+def move_are_reference_data(
+    data: bytes,
+    reference: Optional[int] = None,
+    delta_x: int = 1,
+    delta_y: int = 0,
+    empty_value: int = 0xFFFF,
+) -> bytes:
+    info = _parse_are_data(data, "<memory>")
+    selected = _find_are_reference(info, reference)
+    layout_words = list(
+        struct.unpack_from(f">{ARE_LAYOUT_SIZE // 2}H", data, ARE_LAYOUT_OFFSET)
+    )
+    source_index = layout_words.index(selected.reference)
+    source_x = source_index % 52
+    source_y = source_index // 52
+    target_x = source_x + delta_x
+    target_y = source_y + delta_y
+    if not (0 <= target_x < 52 and 0 <= target_y < 48):
+        raise QuikyError("ARE layout move would leave the 52x48 layout")
+    target_index = target_y * 52 + target_x
+    if layout_words[target_index] not in (0, 0xFFFF):
+        raise QuikyError(
+            f"ARE layout target ({target_x}, {target_y}) is not empty"
+        )
+    if empty_value not in (0, 0xFFFF):
+        raise QuikyError("ARE empty value must be 0 or 0xffff")
+    layout_words[source_index] = empty_value
+    layout_words[target_index] = selected.reference
+    patched = bytearray(data)
+    struct.pack_into(
+        f">{ARE_LAYOUT_SIZE // 2}H", patched, ARE_LAYOUT_OFFSET, *layout_words
+    )
+    return bytes(patched)
+
+
+def replace_archive_entry(
+    path: Path,
+    output_path: Path,
+    name: str,
+    replacement: bytes,
+    overwrite: bool = False,
+) -> Path:
+    if path.resolve() == output_path.resolve():
+        raise QuikyError("replacement archive must be a different path")
+    info = parse_archive(path)
+    if not any(entry.name == name for entry in info.entries):
+        raise QuikyError(f"archive entry not found: {name}")
+    if output_path.exists() and not overwrite:
+        raise QuikyError(
+            f"refusing to overwrite {output_path}; use --overwrite to allow it"
+        )
+
+    source = path.read_bytes()
+    output = bytearray()
+    offsets: list[int] = []
+    for entry in info.entries:
+        offsets.append(len(output))
+        if entry.name == name:
+            output.extend(replacement)
+        else:
+            output.extend(source[entry.offset : entry.offset + entry.size])
+    directory_offset = len(output)
+    for entry, offset in zip(info.entries, offsets):
+        encoded_name = entry.name.encode("ascii")
+        output.extend(struct.pack("<H", len(encoded_name)))
+        output.extend(encoded_name)
+        output.extend(struct.pack("<I", offset))
+    output.extend(struct.pack("<II", directory_offset, len(info.entries) - 1))
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(output)
+    return output_path
+
+
+def create_are_experiments(
+    archive_path: Path,
+    output_dir: Path,
+    level_name: str = "W1L3.ARE",
+    reference: Optional[int] = None,
+    entity_index: int = 0,
+    type_variant: int = 0x71,
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    info = parse_archive(archive_path)
+    entry = next((candidate for candidate in info.entries if candidate.name == level_name), None)
+    if entry is None:
+        raise QuikyError(f"archive entry not found: {level_name}")
+    source = archive_path.read_bytes()
+    are_data = source[entry.offset : entry.offset + entry.size]
+    are_info = _parse_are_data(are_data, level_name)
+    selected = _find_are_reference(are_info, reference)
+    if entity_index < 0 or entity_index >= len(selected.entities):
+        raise QuikyError(
+            f"entity index {entity_index} is outside reference "
+            f"0x{selected.reference:04x}"
+        )
+    selected_entity = selected.entities[entity_index]
+    x_delta = 0x10 if selected_entity.x <= 0x20 else -0x10
+    y_delta = 0x10 if selected_entity.y <= 0x20 else -0x10
+    selected_type = type_variant if type_variant != selected_entity.entity_type else 0x6F
+
+    variants: list[tuple[str, bytes, str]] = [
+        ("baseline", are_data, "no mutation"),
+        (
+            "entity-x-shift",
+            patch_are_entity_data(
+                are_data,
+                selected.reference,
+                entity_index,
+                delta_x=x_delta,
+            ),
+            f"reference 0x{selected.reference:04x} entity {entity_index}: dx {x_delta:+#x}",
+        ),
+        (
+            "entity-y-shift",
+            patch_are_entity_data(
+                are_data,
+                selected.reference,
+                entity_index,
+                delta_y=y_delta,
+            ),
+            f"reference 0x{selected.reference:04x} entity {entity_index}: dy {y_delta:+#x}",
+        ),
+        (
+            "entity-type-change",
+            patch_are_entity_data(
+                are_data,
+                selected.reference,
+                entity_index,
+                entity_type=selected_type,
+            ),
+            f"reference 0x{selected.reference:04x} entity {entity_index}: "
+            f"type 0x{selected_entity.entity_type:04x} -> 0x{selected_type:04x}",
+        ),
+    ]
+    moved_name = "layout-shift"
+    moved_data = None
+    for move_x, move_y, suffix in ((1, 0, "right"), (-1, 0, "left"), (0, 1, "down"), (0, -1, "up")):
+        try:
+            moved_data = move_are_reference_data(
+                are_data, selected.reference, move_x, move_y
+            )
+            moved_name = f"layout-shift-{suffix}"
+            break
+        except QuikyError:
+            continue
+    if moved_data is not None:
+        variants.append(
+            (
+                moved_name,
+                moved_data,
+                f"reference 0x{selected.reference:04x}: layout cell move",
+            )
+        )
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    manifest_variants: list[dict[str, Any]] = []
+    for variant_name, variant_are, mutation in variants:
+        variant_dir = output_dir / variant_name
+        variant_dir.mkdir(parents=True, exist_ok=True)
+        variant_are_path = variant_dir / level_name
+        if variant_are_path.exists() and not overwrite:
+            raise QuikyError(
+                f"refusing to overwrite {variant_are_path}; use --overwrite to allow it"
+            )
+        variant_are_path.write_bytes(variant_are)
+        variant_archive = replace_archive_entry(
+            archive_path,
+            variant_dir / "NESTLE.DAT",
+            level_name,
+            variant_are,
+            overwrite=overwrite,
+        )
+        manifest_variants.append(
+            {
+                "name": variant_name,
+                "mutation": mutation,
+                "are": str(variant_are_path),
+                "archive": str(variant_archive),
+                "observation": None,
+            }
+        )
+
+    manifest = {
+        "source_archive": str(archive_path),
+        "level": level_name,
+        "reference": selected.reference,
+        "entity_index": entity_index,
+        "original_entity": {
+            "type": selected_entity.entity_type,
+            "x": selected_entity.x,
+            "y": selected_entity.y,
+        },
+        "variants": manifest_variants,
+        "observation_note": "Run each archive in DOSBox and record the observed object position/type.",
+    }
+    manifest_path = output_dir / "manifest.json"
+    if manifest_path.exists() and not overwrite:
+        raise QuikyError(
+            f"refusing to overwrite {manifest_path}; use --overwrite to allow it"
+        )
+    manifest_path.write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    return manifest
+
+
 def _parse_pcx_palette(data: bytes, path: str) -> tuple[tuple[int, int, int], ...]:
     if len(data) < 769 or data[0] != 0x0A or data[3] != 0x08:
         raise QuikyError(f"{path} is not an 8-bit PCX palette")
@@ -845,6 +1090,13 @@ def _print_level_summary(summary: LevelRenderSummary, as_json: bool) -> None:
     print(f"overlay mapping: {summary.overlay_mapping}")
 
 
+def _parse_int(value: str) -> int:
+    try:
+        return int(value, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(f"invalid integer: {value}") from exc
+
+
 def _print_map(info: MapInfo, as_json: bool) -> None:
     if as_json:
         print(json.dumps(_as_json(info), indent=2))
@@ -925,6 +1177,29 @@ def build_parser() -> argparse.ArgumentParser:
     level_render.add_argument("--no-entities", action="store_true")
     level_render.add_argument("--json", action="store_true")
 
+    are_patch = subparsers.add_parser(
+        "are-patch", help="patch one raw ARE entity for an experiment"
+    )
+    are_patch.add_argument("path", type=Path)
+    are_patch.add_argument("output", type=Path)
+    are_patch.add_argument("--reference", type=_parse_int)
+    are_patch.add_argument("--entity-index", type=int, default=0)
+    are_patch.add_argument("--dx", type=_parse_int, default=0)
+    are_patch.add_argument("--dy", type=_parse_int, default=0)
+    are_patch.add_argument("--type", dest="entity_type", type=_parse_int)
+
+    are_experiment = subparsers.add_parser(
+        "are-experiment", help="generate isolated ARE mutation archives"
+    )
+    are_experiment.add_argument("path", type=Path)
+    are_experiment.add_argument("output_dir", type=Path)
+    are_experiment.add_argument("--level", default="W1L3.ARE")
+    are_experiment.add_argument("--reference", type=_parse_int)
+    are_experiment.add_argument("--entity-index", type=int, default=0)
+    are_experiment.add_argument("--type-variant", type=_parse_int, default=0x71)
+    are_experiment.add_argument("--overwrite", action="store_true")
+    are_experiment.add_argument("--json", action="store_true")
+
     ne_info = subparsers.add_parser("ne-info", help="inspect an MZ/NE executable")
     ne_info.add_argument("path", type=Path)
     ne_info.add_argument("--json", action="store_true")
@@ -956,6 +1231,35 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 args.json,
             )
+        elif args.command == "are-patch":
+            patched = patch_are_entity_data(
+                args.path.read_bytes(),
+                args.reference,
+                args.entity_index,
+                args.dx,
+                args.dy,
+                args.entity_type,
+            )
+            args.output.parent.mkdir(parents=True, exist_ok=True)
+            args.output.write_bytes(patched)
+            print(f"patched ARE written to {args.output}")
+        elif args.command == "are-experiment":
+            manifest = create_are_experiments(
+                args.path,
+                args.output_dir,
+                args.level,
+                args.reference,
+                args.entity_index,
+                args.type_variant,
+                args.overwrite,
+            )
+            if args.json:
+                print(json.dumps(manifest, indent=2))
+            else:
+                print(f"generated {len(manifest['variants'])} variants in {args.output_dir}")
+                print(f"manifest: {args.output_dir / 'manifest.json'}")
+                for variant in manifest["variants"]:
+                    print(f"  {variant['name']}: {variant['mutation']}")
         elif args.command == "ne-info":
             _print_ne(parse_ne(args.path), args.json)
         else:
