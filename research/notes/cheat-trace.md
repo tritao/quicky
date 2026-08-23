@@ -2,7 +2,8 @@
 
 Status: static executable analysis is confirmed; the debugger has also
 verified the runtime segment selectors and reached the comparison branch.
-The successful branch has not yet been captured with a real typed sequence.
+The successful branch has been captured with a real typed sequence in the
+debugger: after `QUIKYSUPERHERO`, `DS:89F2` was observed as `1`.
 
 ## Confirmed executable facts
 
@@ -140,5 +141,6 @@ launch were directly observed.
 - Confirmed experimentally in DOSBox's debugger: the protected-mode selector
   mapping, the runtime breakpoint at `01D7:1343`, the shortcut branch at
   `01D7:491D`, and the selector launch sequence.
-- Not yet captured: the live `JE`/fall-through result after entering the full
-  cheat through the emulated keyboard.
+- Confirmed experimentally: typing `QUIKYSUPERHERO` through the emulated
+  keyboard set `DS:89F2=1`; the subsequent selector path was then reached by
+  setting the observed selector-input state in the debugger.
