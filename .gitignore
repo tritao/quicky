@@ -19,3 +19,14 @@ research/extracted/tools/QuikyLevelEditor/nbproject/private/
 *.class
 *.swp
 .DS_Store
+
+# The bundled runtime is intentionally limited to the documented files.
+game/*
+!game/README.md
+!game/DPMI16BI.OVL
+!game/NESTLE.DAT
+!game/NESTLE.INI
+!game/QUIKY.EXE
+!game/RTM.EXE
+!game/SCORE.DAT
+!game/SETUP.EXE
