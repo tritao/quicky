@@ -127,7 +127,7 @@ Generate isolated archives for the W1L3 experiment level:
 
 ~~~sh
 python3 research/tools/quikyctl.py are-experiment \
-  game/NESTLE.DAT work/are-experiments
+  game/NESTLE.DAT research/notes/are-experiments
 ~~~
 
 The command preserves the original archive and creates a manifest plus five
@@ -140,7 +140,8 @@ an `observation` field for recording what appears in-game.
 Run one variant in an isolated DOSBox runtime:
 
 ~~~sh
-./scripts/run-are-variant.sh work/are-experiments/entity-x-shift/NESTLE.DAT
+./scripts/run-are-variant.sh \
+  research/notes/are-experiments/entity-x-shift/NESTLE.DAT
 ~~~
 
 The launcher copies the bundled runtime to a temporary directory, substitutes
