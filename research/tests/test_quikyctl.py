@@ -245,6 +245,13 @@ class QuikyCtlTests(unittest.TestCase):
         self.assertEqual(names[0x73].confidence, "unknown")
         self.assertEqual(names[0x74].confidence, "unknown")
         for entity_type, name in (
+            (0x65, "dedicated_event_variant_65"),
+            (0x66, "dedicated_event_variant_66"),
+            (0x67, "dedicated_event_variant_67"),
+        ):
+            self.assertEqual(names[entity_type].name, name)
+            self.assertEqual(names[entity_type].confidence, "confirmed")
+        for entity_type, name in (
             (0x01, "wurm2_variant_01"),
             (0x02, "wurm2_variant_02"),
             (0x03, "biene_variant_03"),

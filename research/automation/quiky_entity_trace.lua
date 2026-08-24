@@ -24,6 +24,42 @@ local function hex(s)
     end))
 end
 
+local function dedicated_event_queue()
+    local count = dosbox.mem_read_word("ds", 0x895e)
+    local ring = dosbox.mem_read("ds", 0x8960, 0x80) or ""
+    local events = {}
+    local limit = count
+    if limit > 0x80 then limit = 0x80 end
+    for index = 0, limit - 1 do
+        local ring_slot = string.byte(ring, index + 1)
+        if not ring_slot then break end
+        local offset = 0x6586 + ring_slot * 8
+        local raw = dosbox.mem_read("ds", offset, 8) or ""
+        local raw_bytes = {}
+        for byte_index = 1, #raw do
+            raw_bytes[#raw_bytes + 1] = string.byte(raw, byte_index)
+        end
+        events[#events + 1] = {
+            queue_index = index,
+            ring_slot = ring_slot,
+            table_offset = offset,
+            raw_hex = hex(raw),
+            raw_bytes = raw_bytes,
+            raw_length = #raw,
+            position_dword = (#raw >= 4 and dword(raw, 1) or nil),
+            record_word = (#raw >= 6 and word(raw, 5) or nil),
+            animation_state = string.byte(raw, 7),
+            subtype = string.byte(raw, 8),
+        }
+    end
+    return {
+        pending_count = count,
+        ring_hex = hex(ring),
+        subtype = string.byte(dosbox.mem_read("ds", 0x36ee, 1)),
+        events = events,
+    }
+end
+
 local function wait_hit(label)
     local hit, err = dosbox.wait_for_breakpoint(timeout_ms)
     if not hit then error(label .. ": " .. (err or "timeout")) end
@@ -114,6 +150,45 @@ for attempt = 1, 4096 do
             assert(handler_hit.segment == 0x01f7 and
                    handler_hit.offset == dedicated_handler,
                    "unexpected dedicated handler breakpoint")
+            local dedicated_returns = {
+                [0x65] = 0x1797, [0x66] = 0x17a2, [0x67] = 0x17ad,
+            }
+            local dedicated_return = dedicated_returns[entity_type]
+            dosbox.breakpoint_set(0x01f7, 0x1749, {once = true})
+            dosbox.breakpoint_set(0x01f7, dedicated_return, {once = true})
+            dosbox.debug_continue()
+            local creator_hit = wait_hit("dedicated common creator")
+            assert(creator_hit.segment == 0x01f7 and
+                   creator_hit.offset == 0x1749,
+                   "unexpected dedicated common creator breakpoint")
+            local creator_queue_before = dedicated_event_queue()
+            dosbox.debug_continue()
+            local return_hit = wait_hit("dedicated handler return")
+            assert(return_hit.segment == 0x01f7 and
+                   return_hit.offset == dedicated_return,
+                   "unexpected dedicated handler return breakpoint")
+            local creator_queue_after = dedicated_event_queue()
+            dosbox.breakpoint_set(0x01f7, 0x1892, {once = true})
+            dosbox.debug_continue()
+            local render_call = wait_hit("dedicated event renderer")
+            assert(render_call.segment == 0x01f7 and render_call.offset == 0x1892,
+                   "unexpected dedicated event renderer breakpoint")
+            dosbox.breakpoint_set(0x01f7, 0x171c, {once = true})
+            dosbox.breakpoint_set(0x01f7, 0x1897, {once = true})
+            dosbox.debug_continue()
+            local render_object_hit = wait_hit("dedicated event object allocation")
+            assert(render_object_hit.segment == 0x01f7 and
+                   render_object_hit.offset == 0x171c,
+                   "unexpected dedicated event object allocation breakpoint")
+            local event_object_selector = render_object_hit.registers.es
+            local event_object_offset = render_object_hit.registers.edi & 0xffff
+            dosbox.debug_continue()
+            local render_return = wait_hit("dedicated event renderer return")
+            assert(render_return.segment == 0x01f7 and render_return.offset == 0x1897,
+                   "unexpected dedicated event renderer return breakpoint")
+            local creator_queue_after_render = dedicated_event_queue()
+            local event_object_state = dosbox.mem_read_selector(
+                event_object_selector, event_object_offset, 64)
             dosbox.output.entity = {
                 type = entity_type,
                 record_offset = record_offset,
@@ -127,6 +202,35 @@ for attempt = 1, 4096 do
                 common_creator = {segment = 0x01f7, offset = 0x1749},
                 entry_registers = r,
                 handler_registers = handler_hit.registers,
+                common_creator_registers = creator_hit.registers,
+                handler_return = {
+                    segment = return_hit.segment, offset = return_hit.offset,
+                },
+                handler_return_registers = return_hit.registers,
+                event_queue_before_creator = creator_queue_before,
+                event_queue_after_creator = creator_queue_after,
+                event_renderer_call = {
+                    segment = render_call.segment, offset = render_call.offset,
+                    registers = render_call.registers,
+                },
+                event_object_allocation = {
+                    segment = render_object_hit.segment,
+                    offset = render_object_hit.offset,
+                    registers = render_object_hit.registers,
+                },
+                event_renderer_return = {
+                    segment = render_return.segment, offset = render_return.offset,
+                    registers = render_return.registers,
+                },
+                event_queue_after_render = creator_queue_after_render,
+                event_object = {
+                    selector = event_object_selector,
+                    offset = event_object_offset,
+                    state_hex = hex(event_object_state),
+                    sprite_slot = word(event_object_state, 0x12 + 1),
+                    update_callback = word(event_object_state, 0x18 + 1),
+                    state_field = word(event_object_state, 0x2e + 1),
+                },
                 record_hex = hex(record),
             }
             return

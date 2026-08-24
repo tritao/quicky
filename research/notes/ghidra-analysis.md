@@ -419,6 +419,27 @@ the unchanged calculated world position `(768,224)`. The trace ledgers are
 `entity-65-handler-trace.json`, `entity-66-handler-trace.json`, and
 `entity-67-handler-trace.json` under `research/build/`.
 
+The dedicated path is an event producer rather than a normal sprite factory.
+`01F7:1749` increments the pending count at `DS:895E`, takes a byte from the
+`DS:8960` ring, and writes an 8-byte event at `DS:6586 + ring_slot * 8`:
+
+```text
++0x00  dword event position after the common creator's fixed-point transform
++0x04  source ARE/runtime record word
++0x06  animation state, populated from the PRNG helper at 01F7:5C11
++0x07  dedicated subtype copied from DS:36EE
+```
+
+The event loop reaches the far call at `01F7:1892`, whose relocated target is
+`01F7:16CE`. That routine allocates a pooled object, leaves its normal
+`object+0x12` sprite slot at `0xFFFF`, stores a subtype/animation-derived
+index in `object+0x2E`, and installs the short-lived update callback
+`01F7:10B5`. Runtime captures at the common creator, renderer call, allocation
+point `01F7:171C`, and renderer return confirm one queued event for each type.
+The new ledgers are `entity-65-dedicated-trace.json`,
+`entity-66-dedicated-trace.json`, and `entity-67-dedicated-trace.json`; they
+establish the event path but not a gameplay or BOB asset name.
+
 Controlled W1L1 anchor traces for `0x29` and `0x2A` stop at the common
 post-initializer boundary `01F7:474D` and write slots 700/703 in
 `object+0x12`. Both read the same `DS:3312`/`DS:3326` animation tables and

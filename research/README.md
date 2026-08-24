@@ -289,8 +289,8 @@ and spikes. The tested object/reference values were:
 
 ~~~text
 0x20 nothing?             0x28 cloud     0x29/0x2a/0x2b falling leaves
-0x64 nothing?             0x65 one ammo (context-dependent)
-0x67 one ammo             0x68/0x6d/0x6e nothing?
+0x64 nothing?             0x65/0x66/0x67 dedicated transient event variants
+0x68/0x6d/0x6e nothing?
 0x6f ten-ammo box         0x70 extra health package
 0x71 health up            0x72 temporary invulnerability
 0x73/0x74 unobserved in the bundled ARE archive
@@ -327,6 +327,20 @@ dimensions, and trace/experiment paths are recorded per decimal JSON type in
 cover both W1 pairs and one pair in every later world family. Decoded sheets
 used to establish the resource names are kept in the ignored research build
 directory; the runtime traces and catalog are the durable evidence.
+
+### Dedicated transient event types `0x65`-`0x67`
+
+These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to
+`0x00`, `0x08`, or `0x10` and call `01F7:1749`, which appends an 8-byte event
+to the `DS:6586` table through the `DS:895E`/`DS:8960` ring. The event loop
+dispatches through `01F7:1892 -> 01F7:16CE` and creates a short-lived object
+whose update callback is `01F7:10B5`, whose normal sprite slot remains
+`0xFFFF`, and whose state field is an animation/effect index. This closes the
+runtime path but does not yet establish a gameplay name or a BOB asset, so the
+catalog deliberately records these as confirmed event variants with unresolved
+visual semantics. The durable ledgers are
+`research/build/entity-65-dedicated-trace.json` through
+`entity-67-dedicated-trace.json`.
 
 ### QUIKY.EXE — initial static survey
 
