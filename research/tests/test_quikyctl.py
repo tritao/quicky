@@ -308,6 +308,18 @@ class QuikyCtlTests(unittest.TestCase):
         ):
             self.assertEqual(names[entity_type].name, name)
             self.assertEqual(names[entity_type].confidence, "confirmed")
+        for entity_type, descriptor in (
+            (0x34, (149, 6556, (32, 23), (16, 23))),
+            (0x3D, (104, 4576, (32, 14), (0, 0))),
+            (0x3E, (109, 4796, (48, 16), (0, 0))),
+            (0x3F, (85, 3740, (32, 14), (0, 0))),
+            (0x40, (119, 5236, (48, 16), (0, 0))),
+        ):
+            evidence = names[entity_type].evidence
+            self.assertEqual(evidence["renderer_map_index"], descriptor[0])
+            self.assertEqual(evidence["renderer_descriptor_offset"], descriptor[1])
+            self.assertEqual(tuple(evidence["renderer_dimensions"]), descriptor[2])
+            self.assertEqual(tuple(evidence["renderer_origin"]), descriptor[3])
         for entity_type, name, slot in (
             (0x29, "falling_leaves_variant_29", 700),
             (0x2A, "falling_leaves_variant_2a", 700),

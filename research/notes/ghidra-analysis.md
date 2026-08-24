@@ -481,6 +481,16 @@ geometry `33x29`, origin `(16,29)`, matching `WIND.BOB`; W5 types `0x35` and
 matching `UFO.BOB` records 1/0. This verifies the resource-context selection
 at the live descriptor layer, not only from archive path ordering.
 
+The same native-context probe now covers the remaining shared-slot families.
+Type `0x34` in W1L2 reaches slot 400 at map index 149 and descriptor offset
+6556, with geometry `32x23`, origin `(16,23)`, matching `BUMP_W1.BOB` record 0.
+Types `0x3D`-`0x40` reach map indices 104, 109, 85, and 119 respectively;
+their live descriptor offsets are 4576, 4796, 3740, and 5236. The resulting
+geometries are `32x14`, `48x16`, `32x14`, and `48x16`, all with origin `(0,0)`,
+matching the W4, W3, W1, and W2 `PLATFW*.BOB` records selected by the resource
+batches. These checks tie the world-specific BOB choice to the renderer's
+actual GS descriptor rather than relying only on slot or filename correlation.
+
 The normal types `0x1F`-`0x21` initialize `object+0x2E` to 1, 2, and 3 and
 converge on update callback `01F7:8E4B`, but leave `object+0x12` at `0xFFFF`.
 Controlled W1L1 probes redirect the traced object to world `(3072,272)`, where

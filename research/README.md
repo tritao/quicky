@@ -691,6 +691,11 @@ Direct selector-mode resource traces now resolve the W4/W5 collision cases:
 W4L1 loads `WIND.BOB` and `PLATFW4.BOB`, W5L1 loads `UFO.BOB` and
 `PLATFW5.BOB`, W3L2 loads `PLATFW3.BOB`, W2L1 loads `PLATFW2.BOB`, and W1L3
 loads `PLATFW1.BOB`. W1L2 also directly loads `BUMP_W1.BOB` for type `0x34`.
+Native-context renderer probes independently confirm those choices: type `0x34`
+resolves slot 400 through map index 149 to a `32x23` descriptor at offset 6556,
+while types `0x3D`-`0x40` resolve map indices 104/109/85/119 and exact
+`32x14`/`48x16`/`32x14`/`48x16` geometry in the W4/W3/W1/W2 contexts. All five
+live descriptors match the selected BOB record dimensions and origins.
 Types `0x1F`-`0x21` converge on update callback `01F7:8E4B`
 but leave `object+0x12` unset; they remain explicitly unknown state-machine
 variants.
