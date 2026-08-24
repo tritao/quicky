@@ -1,0 +1,83 @@
+{
+  "schema": "entity-normal-enemy-lifecycle-evidence-v1",
+  "purpose": "Resolve the distinction between off-camera deactivation, same-level region scans, and full level reload reconstruction for a normal enemy.",
+  "executable": {
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
+  },
+  "static_path": {
+    "segment": "QUIKY_SEG03.bin",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "decompile_targets": {
+      "01F7:1CDA": "streams newly visible 64-pixel regions and calls the ARE declaration walker",
+      "01F7:1E04": "walks six-byte ARE records, skips records with claim byte 1, marks a new record claimed, invokes the type factory, stores the source record pointer at object+0x1A, and adds the region origin to the local coordinates",
+      "01F7:1DEE": "clears object+0x18 and writes zero to the source ARE record claim byte at FS:[object+0x1A+1]"
+    },
+    "decompiler_script": "research/tools/DumpQuikyDecomp.java",
+    "decompiler_script_sha256": "2563d870e2bb4b4d2cd98746a97951baa7c3eada8c7ac8e0055a1562e80c71df"
+  },
+  "fixture": {
+    "world": "W1L1",
+    "entity_type": "0x01",
+    "source_record_offset": "0x177A",
+    "runtime_record_offset": "0x161A",
+    "initial_world_position": [816, 272],
+    "sprite_slot": 281,
+    "steady_callback": "01F7:6DC4"
+  },
+  "same_level_camera_sweep": {
+    "trace": "research/build/entity-01-stream-lifecycle-v3.json",
+    "trace_sha256": "f04885507fc8585085d344b35692c0534286ecea7f373105a6629590fc8900e9",
+    "script_sha256": "0d73213eb8598c832e387c79ad6544a55c31923dc01039d3205fde2da9f45f15",
+    "controls": {
+      "initial_camera": [640, 100],
+      "off_camera": [0, 0],
+      "return_camera": [700, 350],
+      "steady_callback": "01F7:6DC4"
+    },
+    "removal": {
+      "callback": "01F7:6DC4",
+      "helper": "01F7:1DEE",
+      "object_callback_after": 0,
+      "record_claim_before": 1,
+      "record_claim_after": 0
+    },
+    "stream_scan": {
+      "stream_region_hits": 32,
+      "target_declaration_hits": 0,
+      "target_record_reinstantiated": false
+    },
+    "interpretation": "Clearing the object and ARE claim is not sufficient to make an already-loaded region immediately instantiate the record again; the controlled camera/cache sweep repeatedly entered 1CDA but did not revisit the target at 1E04."
+  },
+  "level_reload": {
+    "trace": "research/build/entity-01-removal-level-reload-v2.json",
+    "trace_sha256": "1be9167dc7c3fa96219805b28520b07cc6704f6e48bca8b0a016deda6a420db2",
+    "script_sha256": "0d73213eb8598c832e387c79ad6544a55c31923dc01039d3205fde2da9f45f15",
+    "controls": {
+      "initial_camera": [0, 0],
+      "selected_level": "W1L1",
+      "steady_callback": "01F7:6DC4"
+    },
+    "first_pass": {
+      "callback": "01F7:6DC4",
+      "object_callback_after": 0
+    },
+    "second_pass": {
+      "declaration_entry": "01F7:1E04",
+      "runtime_record_offset": "0x161A",
+      "entity_type": "0x01",
+      "factory": "01F7:1E8E",
+      "initializer": "01F7:6DA3",
+      "callback_installed": "01F7:6DC4",
+      "reconstructed": true,
+      "position": [816, 272],
+      "sprite_slot": 281
+    },
+    "interpretation": "Level selection rereads the ARE resource and reconstructs the previously deactivated enemy from the same runtime record."
+  },
+  "conclusions": [
+    "Normal enemy off-camera removal is a deactivation plus source-record claim reset, not a permanent death state.",
+    "The loaded-region camera sweep did not itself reinstantiate the target record, so an engine should not blindly respawn every cleared object on every visibility pass.",
+    "A native level reload rereads the ARE data and recreates the enemy with its original type-specific initializer and steady callback.",
+    "The remaining authored question is which region/resource unload transitions, if any, cause the same reconstruction outside a full level reload."
+  ]
+}

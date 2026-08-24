@@ -30,7 +30,7 @@
     "stream_scan": "01F7:1CDA tracks 64-pixel camera regions and calls 01F7:1E04 for each loaded ARE declaration buffer.",
     "record_guard": "01F7:1E04 treats the low byte of each record word as the type; a high byte of 1 skips the record, while a first visit sets that high byte to 1 before creating the object and stores the record pointer at object+0x1A.",
     "removal_reset": "01F7:1DEE clears object+0x18 and writes zero to FS:[object+0x1A+1], undoing the streamed-record claimed mark.",
-    "respawn_trigger": "After an off-camera removal, a later camera-region scan can process the same ARE record again and recreate the family object. The 4AB3/4BA0 contact-response timeout clears only object+0x18 through 4C5D and is not an enemy death/drop path."
+    "respawn_trigger": "After an off-camera removal, 1DEE clears the source ARE claim. A same-level camera/cache sweep over the already-loaded region did not revisit the target at 1E04, while a full native level reload reread the ARE resource and recreated the family object. The 4AB3/4BA0 contact-response timeout clears only object+0x18 through 4C5D and is not an enemy death/drop path."
   },
   "families": [
     {"id":"wurm2","types":["0x01","0x02"],"callback":"01F7:6DC4","contact_branch":"01F7:70C9","response_callback":"01F7:4AB3","action_word":13,"interaction":"WURM2 contact selects the 4AB3/4C5D response after the x/y range gate."},

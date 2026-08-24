@@ -164,10 +164,16 @@ contact probe currently available, and it still deliberately stops short of a
 player-death claim; see [`entity-normal-enemy-natural-contact-evidence.json`](../entity-normal-enemy-natural-contact-evidence.json).
 
 The same type-`0x01` callback also has a live removal ledger: holding the
-camera at `(0,0)` places the object at `(880,416)` outside the visibility
-rectangle, and the first callback clears `object+0x18` (`6DC4 -> 0000`). This
-confirms off-camera deactivation while keeping player-caused death, drops, and
-respawn separate. See [`entity-normal-enemy-removal-evidence.json`](../entity-normal-enemy-removal-evidence.json).
+camera at `(0,0)` places the object outside the visibility rectangle, and the
+first steady callback clears `object+0x18` (`6DC4 -> 0000`). A paired lifecycle
+probe records `1DEE` clearing the runtime ARE claim byte (`1 -> 0`), then
+repeats `1CDA` during a same-level camera/cache sweep without revisiting the
+target at `1E04`. A full native W1L1 reload does revisit runtime record
+`0x161A` at `1E04` and reconstructs the object with slot 281 and callback
+`6DC4`. Thus removal is deactivation plus claim reset, while reconstruction is
+confirmed on level reload rather than every visibility pass. See
+[`entity-normal-enemy-removal-evidence.json`](../entity-normal-enemy-removal-evidence.json)
+and [`entity-normal-enemy-lifecycle-evidence.json`](../entity-normal-enemy-lifecycle-evidence.json).
 
 The shared rule is independently exercised by BIENE type `0x03`: a native W1L1
 probe at `(768,256)` with camera `(0,0)` clears callback `68C0` on its first
@@ -194,9 +200,13 @@ tail in `66E1/6757`. A controlled native WURM2 probe reaches `70C9`, switches
 the object to `4AB3`, then records the action-13 write and timed `4C5D`
 response. None of these contact branches clears the enemy object or creates a
 drop. The shared removal routine `1DEE` clears both `object+0x18` and the ARE
-record high byte at `FS:[object+0x1A+1]`, so a later camera-region scan can
-recreate the object; this is the normal re-stream respawn trigger. See
-[`entity-normal-enemy-contact-response-evidence.json`](../entity-normal-enemy-contact-response-evidence.json).
+record high byte at `FS:[object+0x1A+1]`. The declaration walker `1E04` skips
+claim-byte 1 records, marks new records, and stores the source pointer at
+`object+0x1A`; the lifecycle probe confirms that a full level reload rereads
+the record and reinstalls the type-specific callback, while an already-loaded
+region camera sweep did not. See
+[`entity-normal-enemy-contact-response-evidence.json`](../entity-normal-enemy-contact-response-evidence.json)
+and [`entity-normal-enemy-lifecycle-evidence.json`](../entity-normal-enemy-lifecycle-evidence.json).
 
 The shared action word is now identified as an ONGAME2.TFX sound selector,
 not an inventory, health, or visual-effect field. Segment `01E7:0FCF` reads
@@ -543,8 +553,9 @@ change. Keep the generated traces under ignored `research/build/`; only
 normalized conclusions and hashes belong in tracked notes/catalogs.
 
 The broad family pass is complete. The targeted probes now close the shared
-collectible overlap and pickup reload, pooled-leaf reuse, normal-enemy helper,
-and platform-carry boundaries. Remaining experiments are deliberately narrower:
+collectible overlap and pickup reload, pooled-leaf reuse, normal-enemy helper
+and lifecycle boundary, and platform-carry boundaries. Remaining experiments
+are deliberately narrower:
 
 1. Capture the fully authored all-seven-letter run if exact completion timing is
    needed. The static comparator and transition handoff are now identified, but
@@ -558,6 +569,10 @@ and platform-carry boundaries. Remaining experiments are deliberately narrower:
 3. If effect semantics are required beyond control flow, correlate authored
    producers/reset paths for the now-decoded `DS:8806` table, and assign the
    paper `DS:880A` bounded HUD counter its human-facing label.
+4. If exact streaming persistence is required, identify which region/resource
+   unload transition (if any) causes `1CDA -> 1E04` to revisit a cleared record
+   without a full level reload. The current evidence deliberately distinguishes
+   that unresolved transition from the confirmed reload behavior.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a

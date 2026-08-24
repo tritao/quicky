@@ -45,6 +45,9 @@ class ObjectBehaviorConfig:
     trace_platform: bool = False
     trace_bump: bool = False
     trace_contact: bool = False
+    trace_stream_lifecycle: bool = False
+    lifecycle_return_camera_x: int = 700
+    lifecycle_return_camera_y: int = 350
     force_active_player_bounds: bool = False
     force_bump_player_state: bool = False
     force_cloud_player_state: bool = False
@@ -85,6 +88,9 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_platform": config.trace_platform,
         "trace_bump": config.trace_bump,
         "trace_contact": config.trace_contact,
+        "trace_stream_lifecycle": config.trace_stream_lifecycle,
+        "lifecycle_return_camera_x": config.lifecycle_return_camera_x,
+        "lifecycle_return_camera_y": config.lifecycle_return_camera_y,
         "force_active_player_bounds": config.force_active_player_bounds,
         "force_bump_player_state": config.force_bump_player_state,
         "force_cloud_player_state": config.force_cloud_player_state,
@@ -243,6 +249,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="capture normal-enemy player-contact response branches",
     )
     parser.add_argument(
+        "--trace-stream-lifecycle", action="store_true",
+        help="capture off-camera removal followed by re-stream of the same ARE record",
+    )
+    parser.add_argument(
+        "--lifecycle-return-camera-x", type=int, default=700,
+        help="camera X used for the lifecycle re-stream phase",
+    )
+    parser.add_argument(
+        "--lifecycle-return-camera-y", type=int, default=350,
+        help="camera Y used for the lifecycle re-stream phase",
+    )
+    parser.add_argument(
         "--force-active-player-bounds", action="store_true",
         help="use the original active-player vertical bound (-40..0) for the controlled overlap probe",
     )
@@ -353,6 +371,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--trace-cloud-outer-renderer requires --entity-type 0x28")
     if args.trace_cloud_hardware_renderer and args.entity_type != 0x28:
         raise TraceError("--trace-cloud-hardware-renderer requires --entity-type 0x28")
+    if not 0 <= args.lifecycle_return_camera_x <= 0xffff:
+        raise TraceError("--lifecycle-return-camera-x must be between 0 and 65535")
+    if not 0 <= args.lifecycle_return_camera_y <= 0xffff:
+        raise TraceError("--lifecycle-return-camera-y must be between 0 and 65535")
     if args.cloud_hardware_frames < 1:
         raise TraceError("--cloud-hardware-frames must be positive")
     if (args.camera_x is None) != (args.camera_y is None):
@@ -429,6 +451,9 @@ def main(argv: list[str] | None = None) -> int:
         trace_platform=args.trace_platform,
         trace_bump=args.trace_bump,
         trace_contact=args.trace_contact,
+        trace_stream_lifecycle=args.trace_stream_lifecycle,
+        lifecycle_return_camera_x=args.lifecycle_return_camera_x,
+        lifecycle_return_camera_y=args.lifecycle_return_camera_y,
         force_active_player_bounds=args.force_active_player_bounds,
         force_bump_player_state=args.force_bump_player_state,
         force_cloud_player_state=args.force_cloud_player_state,

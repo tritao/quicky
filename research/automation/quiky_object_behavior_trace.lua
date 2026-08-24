@@ -18,6 +18,9 @@ local trace_collision = trace_config.trace_collision or false
 local trace_platform = trace_config.trace_platform or false
 local trace_bump = trace_config.trace_bump or false
 local trace_contact = trace_config.trace_contact or false
+local trace_stream_lifecycle = trace_config.trace_stream_lifecycle or false
+local lifecycle_return_camera_x = trace_config.lifecycle_return_camera_x or 700
+local lifecycle_return_camera_y = trace_config.lifecycle_return_camera_y or 350
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
 local force_bump_player_state = trace_config.force_bump_player_state or false
 local force_cloud_player_state = trace_config.force_cloud_player_state or false
@@ -396,6 +399,220 @@ local function apply_cloud_player_state()
     dosbox.mem_write_selector(object_selector, object_offset + 0x37,
                               string.char(0x00))
 end
+
+local function record_state(selector, offset)
+    local raw = dosbox.mem_read_selector(selector, offset, 6) or ""
+    return {
+        selector = selector,
+        offset = offset,
+        raw_hex = hex(raw),
+        type = (#raw >= 2 and (word(raw, 1) & 0xff) or nil),
+        claimed = (#raw >= 2 and string.byte(raw, 2) or nil),
+    }
+end
+
+local function pool_object_for_record(record_offset)
+    local pointer = dosbox.mem_read("ds", 0x755e, 4) or ""
+    if #pointer < 4 then return nil end
+    local pool_offset = word(pointer, 1)
+    local pool_selector = word(pointer, 3)
+    local stride = dosbox.mem_read_word("ds", 0x30ce)
+    if pool_selector == 0 or stride == 0 then return nil end
+    for index = 0, 63 do
+        local candidate_offset = pool_offset + index * stride
+        local raw = dosbox.mem_read_selector(pool_selector, candidate_offset, 0x40) or ""
+        if #raw >= 0x1c and word(raw, 0x18 + 1) ~= 0 and
+                word(raw, 0x1a + 1) == record_offset then
+            return {
+                selector = pool_selector,
+                offset = candidate_offset,
+                index = index,
+                snapshot = object_snapshot(pool_selector, candidate_offset),
+            }
+        end
+    end
+    return nil
+end
+
+if trace_stream_lifecycle then
+    -- Lifecycle probe: force the selected object outside the native camera
+    -- window, capture 1DEE's record-claim reset, then move the camera back
+    -- across a 64-pixel region boundary and capture 1E04 revisiting the same
+    -- runtime ARE record. This is deliberately separate from ordinary callback
+    -- sampling so the stream scan and object-pool reuse remain observable.
+    local runtime_selector = entry.registers.fs
+    local runtime_record_offset = entry.registers.ebx & 0xffff
+    local initial_camera = {
+        x = dosbox.mem_read_word("ds", 0x81c0),
+        y = dosbox.mem_read_word("ds", 0x81c4),
+        stream_x = dosbox.mem_read_word("ds", 0x3710),
+        stream_y = dosbox.mem_read_word("ds", 0x3712),
+    }
+    local initial_record_state = record_state(runtime_selector, runtime_record_offset)
+
+    dosbox.mem_write("ds", 0x81c0, little_word(0))
+    dosbox.mem_write("ds", 0x81c4, little_word(0))
+    dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
+    dosbox.debug_continue()
+    local callback_hit = nil
+    for attempt = 1, 512 do
+        local hit = wait_hit("lifecycle off-camera callback")
+        if hit.segment == 0x01f7 and hit.offset == callback_offset and
+                hit.registers.es == object_selector and
+                (hit.registers.edi & 0xffff) == object_offset then
+            callback_hit = hit
+            break
+        end
+        dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
+        dosbox.debug_continue()
+    end
+    assert(callback_hit ~= nil, "lifecycle probe did not find the selected callback")
+
+    dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
+    dosbox.debug_continue()
+    local removal_hit = nil
+    for attempt = 1, 512 do
+        local hit = wait_hit("lifecycle removal helper")
+        if hit.segment == 0x01f7 and hit.offset == 0x1dee and
+                hit.registers.es == object_selector and
+                (hit.registers.edi & 0xffff) == object_offset then
+            removal_hit = hit
+            break
+        end
+        dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
+        dosbox.debug_continue()
+    end
+    assert(removal_hit ~= nil, "lifecycle probe did not reach 1DEE for the selected object")
+
+    local callback_return = stack_return(callback_hit)
+    assert(callback_return ~= nil, "lifecycle callback has no near return address")
+    dosbox.breakpoint_set(callback_return.segment, callback_return.offset, {once = true})
+    dosbox.debug_continue()
+    local removal_return = wait_hit("lifecycle callback return")
+    local removed_object = object_snapshot(object_selector, object_offset)
+    local removed_record = record_state(runtime_selector, runtime_record_offset)
+
+    -- Reset the stream-region cache as well as the camera so the next main-loop
+    -- pass must revisit the target's 64-pixel cell rather than treating it as
+    -- already seen.
+    dosbox.mem_write("ds", 0x3710, little_word(0))
+    dosbox.mem_write("ds", 0x3712, little_word(0))
+    dosbox.mem_write("ds", 0x81c0, little_word(lifecycle_return_camera_x))
+    dosbox.mem_write("ds", 0x81c4, little_word(lifecycle_return_camera_y))
+
+    local declaration_hit = nil
+    local declaration_record_before = nil
+    local stream_hits = {}
+    for attempt = 1, 4096 do
+        dosbox.breakpoint_set(0x01f7, 0x1cda, {once = true})
+        dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+        dosbox.debug_continue()
+        local hit = wait_hit("lifecycle re-stream declaration")
+        if hit.segment == 0x01f7 and hit.offset == 0x1cda then
+            if #stream_hits < 32 then
+                stream_hits[#stream_hits + 1] = {
+                    segment = hit.segment,
+                    offset = hit.offset,
+                    registers = hit.registers,
+                    camera = {
+                        x = dosbox.mem_read_word("ds", 0x81c0),
+                        y = dosbox.mem_read_word("ds", 0x81c4),
+                    },
+                }
+            end
+            dosbox.mem_write("ds", 0x81c0, little_word(lifecycle_return_camera_x))
+            dosbox.mem_write("ds", 0x81c4, little_word(lifecycle_return_camera_y))
+        end
+        if hit.segment == 0x01f7 and hit.offset == 0x1e04 then
+            local candidate_offset = hit.registers.ebx & 0xffff
+            local candidate_record = record_state(runtime_selector, candidate_offset)
+            if candidate_offset == runtime_record_offset then
+                declaration_hit = hit
+                declaration_record_before = candidate_record
+                break
+            end
+        end
+        dosbox.mem_write("ds", 0x81c0, little_word(lifecycle_return_camera_x))
+        dosbox.mem_write("ds", 0x81c4, little_word(lifecycle_return_camera_y))
+    end
+
+    local declaration_return = nil
+    local declaration_return_hit = nil
+    local reconstructed_object = nil
+    local declaration_record_after = nil
+    if declaration_hit ~= nil then
+        declaration_return = stack_return(declaration_hit)
+        assert(declaration_return ~= nil, "1E04 has no near return address")
+        dosbox.breakpoint_set(declaration_return.segment, declaration_return.offset,
+                              {once = true})
+        dosbox.debug_continue()
+        declaration_return_hit = wait_hit("lifecycle re-stream declaration return")
+        declaration_record_after = record_state(runtime_selector, runtime_record_offset)
+        reconstructed_object = pool_object_for_record(runtime_record_offset)
+    end
+
+    dosbox.output.behavior_trace = {
+        trace_schema_version = 1,
+        trace_kind = "object-stream-lifecycle",
+        type = expected_type,
+        record_offset = record_offset,
+        runtime_record = {selector = runtime_selector, offset = runtime_record_offset},
+        record_hex = hex(record),
+        dispatch = {
+            segment = 0x01f7,
+            offset = word(dispatch, 1),
+            raw_hex = hex(dispatch),
+            object_class = string.byte(dispatch, 3),
+            reserved = string.byte(dispatch, 4),
+        },
+        dispatch_callback = {segment = 0x01f7, offset = dispatch_callback_offset},
+        object = {selector = object_selector, offset = object_offset},
+        initial_object = initial_object,
+        initialized_object = initialized_object,
+        lifecycle = {
+            initial_camera = initial_camera,
+            initial_record = initial_record_state,
+            off_camera_callback = {
+                segment = callback_hit.segment,
+                offset = callback_hit.offset,
+                registers = callback_hit.registers,
+            },
+            removal_helper = {
+                segment = removal_hit.segment,
+                offset = removal_hit.offset,
+                registers = removal_hit.registers,
+            },
+            removal_return = {
+                segment = removal_return.segment,
+                offset = removal_return.offset,
+                registers = removal_return.registers,
+            },
+            removed_object = removed_object,
+            removed_record = removed_record,
+            return_camera = {x = lifecycle_return_camera_x,
+                             y = lifecycle_return_camera_y},
+            stream_hits = stream_hits,
+            declaration = declaration_hit and {
+                segment = declaration_hit.segment,
+                offset = declaration_hit.offset,
+                registers = declaration_hit.registers,
+            } or nil,
+            declaration_record_before = declaration_record_before,
+            declaration_return = declaration_return_hit and {
+                segment = declaration_return_hit.segment,
+                offset = declaration_return_hit.offset,
+                registers = declaration_return_hit.registers,
+            } or nil,
+            declaration_record_after = declaration_record_after,
+            reconstructed_object = reconstructed_object,
+            re_streamed = declaration_hit ~= nil and declaration_return_hit ~= nil,
+        },
+        samples = {},
+    }
+    dosbox.debug_continue()
+    return
+end
+
 if force_contact_gate then
     -- Controlled branch probe: the native callback gates this path on
     -- DS:8806 and compares the object integer coordinates against the

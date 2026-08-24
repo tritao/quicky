@@ -23,7 +23,7 @@
       "movement_ai": {"status": "confirmed", "known": "Fixed-point patrol integrates x, clamps and flips velocity on timer/MAP events, and enters bounded vertical phases; direct paired traces establish opposite directions for types 0x01/0x02."},
       "collision_shape_interaction": {"status": "confirmed", "known": "01F7:1DCA/1B77/1C4D/1C6E are reached; static MAP probes and player-range constants are recorded, with +0x2F as block flag and 52x16 render geometry. The contact tail at 01F7:70C9 routes the gated player overlap to 4AB3."},
       "animation_table": {"status": "confirmed", "known": "WURM2.BOB records 1/0 map to slots 281/231; object +0x1E/+0x20 delay is 14 and animation cursor is 0x33F0."},
-      "death_removal": {"status": "confirmed", "known": "The live 01F7:6DC4 callback takes the off-camera 01F7:1DCA -> 01F7:1DEE path and clears object+0x18 plus the ARE record high byte at FS:[object+0x1A+1], enabling re-stream respawn. Player contact redirects to timed response 4AB3/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The live 01F7:6DC4 callback takes the off-camera 01F7:1DCA -> 01F7:1DEE path and clears object+0x18 plus the ARE record high byte at FS:[object+0x1A+1]. A full native level reload reconstructs the same WURM2 record; a same-level loaded-region camera sweep did not. Player contact redirects to timed response 4AB3/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W1 resource context selects WURM2.BOB; slot collisions are resolved by resource context."},
       "verified_runs": [
         {"type": "0x01", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "sprite_slot": 281, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->226, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 WURM2 descriptor 52x16 origin 26,16"},
@@ -32,7 +32,7 @@
         {"type": "0x01", "fixture": "W1L1 synthetic off-camera removal probe", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "callback_samples": 1, "camera": [0, 0], "object_callback_after": 0, "evidence": "research/entity-normal-enemy-removal-evidence.json"},
         {"type": "0x01", "fixture": "W1L1 natural-player-position overlap probe", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "callback_samples": 1, "position_before": [128, 400], "position_after": [126, 400], "collision_helpers": ["01F7:1DCA", "01F7:1B77", "01F7:1C4D", "01F7:1C6E"], "collision_flag": "object+0x2F 0->1", "evidence": "research/entity-normal-enemy-natural-contact-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-collision-evidence.json", "research/entity-normal-enemy-removal-evidence.json", "research/entity-normal-enemy-natural-contact-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json", "research/entity-normal-enemy-collision-evidence.json", "research/entity-normal-enemy-removal-evidence.json", "research/entity-normal-enemy-natural-contact-evidence.json"],
       "open_questions": []
     },
     {
@@ -45,14 +45,14 @@
       "movement_ai": {"status": "confirmed", "known": "Fixed-point horizontal patrol integrates/clamps/flips x and uses bounded sine-like vertical phases; direct paired traces establish opposite directions for types 0x03/0x04."},
       "collision_shape_interaction": {"status": "confirmed", "known": "The callback records MAP blocks in +0x2F, uses static directional probes and the shared player-range gate; contact tail 01F7:6D4F routes to 4AB3. BIENE geometry is 46x36 origin 23,36."},
       "animation_table": {"status": "confirmed", "known": "BIENE.BOB records 1/0 map to slots 276/226; object animation delay is 14 and cursor is 0x33C0."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:68C0 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:68C0 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W1 resource context selects BIENE.BOB."},
       "verified_runs": [
         {"type": "0x03", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:689F", "post_initializer": "01F7:68AC", "object_callback": "01F7:68C0", "sprite_slot": 276, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->198, y 400", "state_observed": [0], "timer_observed": "+0x20 cycles 14->0", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 BIENE descriptor 46x36 origin 23,36"},
         {"type": "0x04", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:68AD", "post_initializer": "01F7:68BF", "object_callback": "01F7:68C0", "sprite_slot": 226, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->282, y 400", "state_observed": [0], "timer_observed": "+0x20 cycles 14->0", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 BIENE descriptor 46x36 origin 23,36"},
         {"type": "0x03", "fixture": "W1L1 native off-camera removal probe", "dispatch": "01F7:689F", "post_initializer": "01F7:68AC", "object_callback": "01F7:68C0", "callback_samples": 1, "camera": [0, 0], "object_position": [768, 256], "object_callback_after": 0, "evidence": "research/entity-normal-enemy-family-removal-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-family-removal-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json", "research/entity-normal-enemy-family-removal-evidence.json"],
       "open_questions": []
     },
     {
@@ -65,13 +65,13 @@
       "movement_ai": {"status": "confirmed", "known": "FISCH uses fixed-point x patrol plus a phase-driven vertical sine component; direct paired traces show opposite horizontal directions and y oscillation."},
       "collision_shape_interaction": {"status": "confirmed", "known": "The callback records MAP blocks in +0x2F, probes directional cells using +0x39 and vertical offsets, and routes its player gate at 01F7:7E68 to 4BA0; render geometry is 40x19 origin 20,19."},
       "animation_table": {"status": "confirmed", "known": "FISCH.BOB records 3/2 map to slots 254/204; object animation delay is 14 and cursors are 0x3270/0x327E."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:7B71 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4BA0/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:7B71 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4BA0/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W2 resource context selects FISCH.BOB."},
       "verified_runs": [
         {"type": "0x05", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7B50", "post_initializer": "01F7:7B5D", "object_callback": "01F7:7B71", "sprite_slot": 254, "position": [240, 384], "callback_samples": 32, "movement": "left with y 384->387", "state_observed": [1, 2, 3], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2L1 FISCH descriptor 40x19 origin 20,19"},
         {"type": "0x06", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7B5E", "post_initializer": "01F7:7B70", "object_callback": "01F7:7B71", "sprite_slot": 204, "position": [240, 384], "callback_samples": 32, "movement": "right with y 384->387", "state_observed": [1, 2, 3], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2L1 FISCH descriptor 40x19 origin 20,19"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {
@@ -84,13 +84,13 @@
       "movement_ai": {"status": "confirmed", "known": "KRABBE performs low-speed fixed-point horizontal patrol with timer/phase flips and bounded transition phases; direct paired traces establish both directions."},
       "collision_shape_interaction": {"status": "confirmed", "known": "MAP probes and +0x2F block flag are decoded with +0x39 phase offsets; contact tail 01F7:7AD3 routes the player gate to 4BA0. Render geometry is 41x21 origin 20,21."},
       "animation_table": {"status": "confirmed", "known": "KRABBE.BOB records 0/1 map to slots 200/250; object animation delay is 14 and cursor is 0x325E."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:778C callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4BA0/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:778C callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4BA0/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W2 resource context selects KRABBE.BOB."},
       "verified_runs": [
         {"type": "0x07", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:776B", "post_initializer": "01F7:7778", "object_callback": "01F7:778C", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->237, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2 KRABBE descriptor 41x21 origin 20,21"},
         {"type": "0x08", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7779", "post_initializer": "01F7:778B", "object_callback": "01F7:778C", "sprite_slot": 200, "native_sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->242, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2 KRABBE descriptor 41x21 origin 20,21; native W2 slot 250"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {
@@ -103,13 +103,13 @@
       "movement_ai": {"status": "confirmed", "known": "PENGO combines fixed-point horizontal patrol with strong vertical velocity/gravity and sine phases; direct traces show the initial near-camera phase and the static state transitions are decoded."},
       "collision_shape_interaction": {"status": "confirmed", "known": "Directional MAP probes, +0x2F block state, and shared player-range checks are decoded; contact tail 01F7:770D routes to 4AB3. Render geometry is 36x35 origin 18,35."},
       "animation_table": {"status": "confirmed", "known": "PENGO.BOB records 1/0 map to slots 250/200; object animation delay is 14 and cursor is 0x348E."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:715E callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:715E callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W3 resource context selects PENGO.BOB."},
       "verified_runs": [
         {"type": "0x09", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:713D", "post_initializer": "01F7:714A", "object_callback": "01F7:715E", "sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "no x displacement; y 400->401", "state_cursor": "object+0x32 advances 0..0x1F00 in 0x100 steps", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 PENGO descriptor 36x35 origin 18,35"},
         {"type": "0x0A", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:714B", "post_initializer": "01F7:715D", "object_callback": "01F7:715E", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "no x displacement; y 400->401", "state_cursor": "object+0x32 advances 0..0x1F00 in 0x100 steps", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 PENGO descriptor 36x35 origin 18,35"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {
@@ -122,13 +122,13 @@
       "movement_ai": {"status": "confirmed", "known": "SCHNEE integrates fixed-point horizontal motion with a vertical fall/phase path; paired direct traces establish opposite directions and y descent."},
       "collision_shape_interaction": {"status": "confirmed", "known": "Camera/MAP probes and +0x2F block state are decoded; SCHNEE has no DS:8806 player-contact response tail in 66E1/6757. Render geometry is 34x26 origin 17,26."},
       "animation_table": {"status": "confirmed", "known": "SCHNEE.BOB record 0 maps to slot 209; initializer table selector is 0x34D4 and the special callback path is identified."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:66E1/6757 callbacks remove off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it, or clear after timer 6838; no player-contact death/drop path is present."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:66E1/6757 callbacks remove off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte, or clear after timer 6838; full level reload reconstruction is confirmed for the shared normal-enemy lifecycle, while a same-level loaded-region camera sweep did not recreate the target. No player-contact death/drop path is present."},
       "cross_world_variants": {"status": "confirmed", "known": "W3 resource ordering resolves slot 209 to SCHNEE.BOB rather than colliding assets."},
       "verified_runs": [
         {"type": "0x0B", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6651", "post_initializer": "01F7:6698", "object_callback": "01F7:66E1 -> 01F7:6757", "sprite_slot": 209, "position": [240, 400], "callback_samples": 32, "movement": "left and falling; x 240->197, y 400->420", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 SCHNEE descriptor 34x26 origin 17,26"},
         {"type": "0x0C", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6699", "post_initializer": "01F7:66E0", "object_callback": "01F7:66E1 -> 01F7:6757", "sprite_slot": 209, "position": [240, 400], "callback_samples": 32, "movement": "right and falling; x 240->281, y 400->420", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 SCHNEE descriptor 34x26 origin 17,26"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {
@@ -141,13 +141,13 @@
       "movement_ai": {"status": "confirmed", "known": "FLIEGE uses fixed-point horizontal patrol with timer/MAP flips and bounded vertical phases; direct paired traces establish opposite directions."},
       "collision_shape_interaction": {"status": "confirmed", "known": "Directional MAP probes +/-0x20, +0x2F block state, and shared player-range checks are decoded; contact tail 01F7:83FD routes to 4AB3. Render geometry is 37x30 origin 18,30."},
       "animation_table": {"status": "confirmed", "known": "FLIEGE.BOB record 0 maps to slot 208; object animation delay is 8 and cursor is 0x34EC."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:7EF8 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:7EF8 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W4 resource context selects FLIEGE.BOB."},
       "verified_runs": [
         {"type": "0x15", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7ED7", "post_initializer": "01F7:7EE4", "object_callback": "01F7:7EF8", "sprite_slot": 208, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->194, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 FLIEGE descriptor 37x30 origin 18,30"},
         {"type": "0x16", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7EE5", "post_initializer": "01F7:7EF7", "object_callback": "01F7:7EF8", "sprite_slot": 208, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->286, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 FLIEGE descriptor 37x30 origin 18,30"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {
@@ -160,13 +160,13 @@
       "movement_ai": {"status": "confirmed", "known": "SPINNE performs fixed-point horizontal patrol with timer/MAP flips and bounded vertical phases; direct paired traces establish both directions."},
       "collision_shape_interaction": {"status": "confirmed", "known": "Directional MAP probes +/-0x23, +0x2F block state, and shared player-range checks are decoded; contact tail 01F7:87C1 routes to 4AB3. Render geometry is 36x29 origin 18,29."},
       "animation_table": {"status": "confirmed", "known": "SPINNE.BOB records 1/0 map to slots 250/200; object animation delay is 16 and cursor is 0x3402."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:8472 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:8472 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W4 resource context selects SPINNE.BOB."},
       "verified_runs": [
         {"type": "0x17", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:8451", "post_initializer": "01F7:845E", "object_callback": "01F7:8472", "sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->230, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 SPINNE descriptor 36x29 origin 18,29"},
         {"type": "0x18", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:845F", "post_initializer": "01F7:8471", "object_callback": "01F7:8472", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->249, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 SPINNE descriptor 36x29 origin 18,29"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {
@@ -179,13 +179,13 @@
       "movement_ai": {"status": "confirmed", "known": "BUGGY uses fixed-point horizontal patrol with timer/MAP flips and bounded vertical phases; direct paired traces establish opposite directions."},
       "collision_shape_interaction": {"status": "confirmed", "known": "Directional MAP probes +/-0x28, +0x2F block state, and shared player-range checks are decoded; contact tails 01F7:53E7/5911 route to 4AB3. Render geometry is 33x27 origin 16,27."},
       "animation_table": {"status": "confirmed", "known": "BUGGY.BOB records 1/0 map to slots 250/200; object animation delay is 8 and cursor is 0x34B6."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:5071 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:5071 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W5 resource context selects BUGGY.BOB."},
       "verified_runs": [
         {"type": "0x19", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:5050", "post_initializer": "01F7:505D", "object_callback": "01F7:5071", "sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->226, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 BUGGY descriptor 33x27 origin 16,27"},
         {"type": "0x1A", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:505E", "post_initializer": "01F7:5070", "object_callback": "01F7:5071", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->253, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 BUGGY descriptor 33x27 origin 16,27"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {
@@ -198,13 +198,13 @@
       "movement_ai": {"status": "confirmed", "known": "UFO enemies use fixed-point horizontal patrol with timer/MAP flips and bounded vertical phases; direct paired traces establish opposite directions."},
       "collision_shape_interaction": {"status": "confirmed", "known": "Directional MAP probes +/-0x14, +0x2F block state, and the persistent-player/effect gate are decoded; contact tail 01F7:6318 routes to 4AB3. Render geometry is 31x31 origin 15,31."},
       "animation_table": {"status": "confirmed", "known": "UFO.BOB records 1/0 map to slots 264/214; object animation delay is 6 and cursor is 0x3518."},
-      "death_removal": {"status": "confirmed", "known": "The 01F7:5F28 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte so a later region scan can respawn it; player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
+      "death_removal": {"status": "confirmed", "known": "The 01F7:5F28 callback removes off camera through 1DCA -> 1DEE, clearing object+0x18 and the ARE record high byte. Full level reload reconstruction is confirmed for the shared normal-enemy lifecycle; a same-level loaded-region camera sweep did not recreate the target. Player contact routes to timed response 4AB3/4C5D rather than enemy death or a drop."},
       "cross_world_variants": {"status": "confirmed", "known": "W5 resource context selects UFO.BOB; slots 214/264 collide with other families outside W5."},
       "verified_runs": [
         {"type": "0x1B", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:5F07", "post_initializer": "01F7:5F14", "object_callback": "01F7:5F28", "sprite_slot": 264, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->198, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 UFO descriptor 31x31 origin 15,31"},
         {"type": "0x1C", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:5F15", "post_initializer": "01F7:5F27", "object_callback": "01F7:5F28", "sprite_slot": 214, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->282, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 UFO descriptor 31x31 origin 15,31"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-static-evidence.json", "research/entity-normal-enemy-contact-response-evidence.json", "research/entity-normal-enemy-lifecycle-evidence.json"],
       "open_questions": []
     },
     {

@@ -131,6 +131,7 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"05a0", "seg3_target_05a0"},
                 {"106a", "seg3_target_106a"},
                 {"1cda", "stream_are_regions"},
+                {"1e04", "instantiate_are_declaration"},
                 {"1ec4", "seg3_target_1ec4"},
                 {"1ed7", "update_camera_scroll"},
                 {"1dca", "object_camera_visibility_gate"},
