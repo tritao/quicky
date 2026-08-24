@@ -1,22 +1,25 @@
 -- Trace one ARE record from declaration dispatch through object-factory return.
-local timeout_ms = TRACE_TIMEOUT_MS or 30000
-local record_offset = TRACE_RECORD_OFFSET or 0x1792
-local expected_type = TRACE_ENTITY_TYPE or 0x2b
-local capture_delay_frames = TRACE_CAPTURE_DELAY_FRAMES or 0
-local lifetime_sample_count = TRACE_LIFETIME_SAMPLES or 0
-local state_machine_sample_count = TRACE_STATE_MACHINE_SAMPLES or 0
-local state_machine_camera_x = TRACE_STATE_MACHINE_CAMERA_X or -1
-local state_machine_camera_y = TRACE_STATE_MACHINE_CAMERA_Y or -1
-local state_machine_keep_camera = TRACE_STATE_MACHINE_KEEP_CAMERA or false
-local state_machine_position_x = TRACE_STATE_MACHINE_POSITION_X or -1
-local state_machine_position_y = TRACE_STATE_MACHINE_POSITION_Y or -1
-local state_machine_force_emission = TRACE_STATE_MACHINE_FORCE_EMISSION or false
-local state_machine_patch_map_run = TRACE_STATE_MACHINE_PATCH_MAP_RUN or false
-local sprite_init_offset = TRACE_SPRITE_INIT_OFFSET or 0
-local capture_frame_count = TRACE_CAPTURE_FRAMES or 1
-local capture_frame_step = TRACE_FRAME_STEP or 30
-local select_level = TRACE_SELECT_LEVEL or ""
-local selector_frames = TRACE_SELECTOR_FRAMES or 60
+local trace_config = TRACE_CONFIG or {}
+assert(type(trace_config) == "table", "TRACE_CONFIG must be a table")
+local state_machine_config = trace_config.state_machine or {}
+local timeout_ms = trace_config.timeout_ms or 30000
+local record_offset = trace_config.record_offset or 0x1792
+local expected_type = trace_config.entity_type or 0x2b
+local capture_delay_frames = trace_config.capture_delay_frames or 0
+local lifetime_sample_count = trace_config.lifetime_samples or 0
+local state_machine_sample_count = state_machine_config.samples or 0
+local state_machine_camera_x = state_machine_config.camera_x or -1
+local state_machine_camera_y = state_machine_config.camera_y or -1
+local state_machine_keep_camera = state_machine_config.keep_camera or false
+local state_machine_position_x = state_machine_config.position_x or -1
+local state_machine_position_y = state_machine_config.position_y or -1
+local state_machine_force_emission = state_machine_config.force_emission or false
+local state_machine_patch_map_run = state_machine_config.patch_map_run or false
+local sprite_init_offset = trace_config.sprite_init_offset or 0
+local capture_frame_count = trace_config.capture_frames or 1
+local capture_frame_step = trace_config.frame_step or 30
+local select_level = trace_config.select_level or ""
+local selector_frames = trace_config.selector_frames or 60
 local runtime_offset = record_offset - 0x160
 local startup_camera_x = nil
 local startup_camera_y = nil
@@ -252,7 +255,35 @@ local function static_slice_globals()
         camera_target_top = dosbox.mem_read_word("ds", 0x36fe),
         camera_target_right = dosbox.mem_read_word("ds", 0x3700),
         camera_target_bottom = dosbox.mem_read_word("ds", 0x3702),
+        bounds_object_offset = dosbox.mem_read_word("ds", 0x881a),
+        bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
     }
+end
+
+-- Capture the helper's indirect object lookup at the call site.  The
+-- pre-update sample is useful for experiment setup, but 0x393C is the first
+-- point where the guest actually consumes DS:881A and ES together.
+local function bounds_object_probe(selector, offset)
+    local probe = {selector = selector, offset = offset}
+    local ok, raw_or_error = pcall(
+        dosbox.mem_read_selector, selector, offset, 128)
+    if not ok then
+        probe.read_error = tostring(raw_or_error)
+        return probe
+    end
+    local raw = raw_or_error or ""
+    probe.state_hex = hex(raw)
+    if #raw >= 0x34 then
+        probe.fields = {
+            base_x = word(raw, 0x04 + 1),
+            base_y = word(raw, 0x08 + 1),
+            x_left = word(raw, 0x2c + 1),
+            y_bottom = word(raw, 0x2e + 1),
+            x_right = word(raw, 0x30 + 1),
+            y_top = word(raw, 0x32 + 1),
+        }
+    end
+    return probe
 end
 
 local function matches_object(hit, selector, offset)
@@ -826,6 +857,7 @@ for attempt = 1, 4096 do
                         scratch_x = dosbox.mem_read_word("ds", 0x8828),
                         scratch_y = dosbox.mem_read_word("ds", 0x882a),
                         bounds_object_offset = bounds_object_offset,
+                        bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
                         bounds_object_state_hex = hex(bounds_object_state),
                         animation_table_offset = dosbox.mem_read_word("ds", 0x6574),
                         animation_segment_stride = dosbox.mem_read_word("ds", 0x6570),
@@ -959,6 +991,19 @@ for attempt = 1, 4096 do
                                     word = dosbox.mem_read_word(
                                         map_selector, map_offset),
                                 }
+                            end
+                            if nested.offset == 0x393c then
+                                local bounds_offset = dosbox.mem_read_word(
+                                    "ds", 0x881a)
+                                call.bounds_lookup = bounds_object_probe(
+                                    nested.registers.es, bounds_offset)
+                                call.bounds_lookup.ds = nested.registers.ds
+                                call.bounds_lookup.global_flag = dosbox.mem_read_word(
+                                    "ds", 0x89ea)
+                                call.bounds_lookup.entry_di = nested.registers.edi & 0xffff
+                                call.bounds_lookup.entry_di_probe = bounds_object_probe(
+                                    nested.registers.es,
+                                    nested.registers.edi & 0xffff)
                             end
                             if nested.offset == 0x171c then
                                 local nested_selector = nested.registers.es
@@ -1288,6 +1333,7 @@ for attempt = 1, 4096 do
             object_selector, object_offset, 64)
         local sprite_slot = word(object_state, 0x12 + 1)
         local normal_entity = {
+            trace_schema_version = trace_config.schema_version or 1,
             type = entity_type,
             record_offset = record_offset,
             runtime_record = {selector = r.fs, offset = r.ebx & 0xffff},

@@ -16,6 +16,7 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -29,6 +30,144 @@ RESOURCE_STATE_SIZE = 12
 
 class TraceError(Exception):
     """Raised when a trace cannot be completed safely."""
+
+
+@dataclass(frozen=True)
+class StateMachineTraceConfig:
+    """Guest-side controls for the 0x1f-0x21 effect-state experiment."""
+
+    samples: int = 0
+    camera_x: int | None = None
+    camera_y: int | None = None
+    keep_camera: bool = False
+    position_x: int | None = None
+    position_y: int | None = None
+    force_emission: bool = False
+    patch_map_run: bool = False
+
+
+@dataclass(frozen=True)
+class EntityTraceConfig:
+    """Host and guest settings for one deterministic entity trace.
+
+    The nested state-machine object is intentional: it keeps experiment-only
+    controls out of the generic entity probe configuration while still
+    allowing Python to serialize one complete request to the guest Lua
+    script.
+    """
+
+    record_offset: int
+    entity_type: int
+    startup_recording: Path
+    timeout: float = 30.0
+    poll_interval: float = 0.05
+    capture_delay_frames: int = 0
+    lifetime_samples: int = 0
+    state_machine: StateMachineTraceConfig = field(default_factory=StateMachineTraceConfig)
+    sprite_init_offset: int = 0
+    capture_frames: int = 1
+    frame_step: int = 30
+    screenshot: Path | None = None
+    screenshot_mode: str = "rendered"
+    select_level: str | None = None
+    selector_frames: int = 60
+
+
+@dataclass(frozen=True)
+class PlayerTraceConfig:
+    """Settings for the player/object-pool and MAP-consumer probe."""
+
+    startup_recording: Path
+    timeout: float = 30.0
+    poll_interval: float = 0.05
+    samples: int = 8
+    frames_between: int = 30
+    focus_callback: bool = False
+    focus_callback_offset: int = 0x3FF8
+    map_focus: bool = False
+    collision_focus: bool = False
+    property_focus: bool = False
+    input_key: str | None = None
+    input_frames: int = 0
+    input_samples: int = 0
+    select_level: str | None = None
+    selector_frames: int = 60
+    screenshot: Path | None = None
+    screenshot_mode: str = "rendered"
+
+
+def lua_literal(value: Any) -> str:
+    """Encode JSON-like values as a safe Lua table literal.
+
+    JSON strings and booleans are valid Lua syntax.  Tables use bracketed
+    string keys so this also remains correct if a future config key is not a
+    Lua identifier.
+    """
+    if value is None:
+        return "nil"
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+    if isinstance(value, (int, float)):
+        return repr(value)
+    if isinstance(value, str):
+        return json.dumps(value)
+    if isinstance(value, dict):
+        entries = [
+            f"[{json.dumps(str(key))}]={lua_literal(item)}"
+            for key, item in value.items()
+        ]
+        return "{" + ",".join(entries) + "}"
+    raise TypeError(f"cannot encode {type(value).__name__} as Lua")
+
+
+def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
+    """Return the guest-visible portion of an entity trace configuration."""
+    state_machine = config.state_machine
+    return {
+        "schema_version": 1,
+        "timeout_ms": round(config.timeout * 1000),
+        "record_offset": config.record_offset,
+        "entity_type": config.entity_type,
+        "capture_delay_frames": config.capture_delay_frames,
+        "lifetime_samples": config.lifetime_samples,
+        "state_machine": {
+            "samples": state_machine.samples,
+            "camera_x": state_machine.camera_x,
+            "camera_y": state_machine.camera_y,
+            "keep_camera": state_machine.keep_camera,
+            "position_x": state_machine.position_x,
+            "position_y": state_machine.position_y,
+            "force_emission": state_machine.force_emission,
+            "patch_map_run": state_machine.patch_map_run,
+        },
+        "sprite_init_offset": config.sprite_init_offset,
+        "capture_frames": config.capture_frames,
+        "frame_step": config.frame_step,
+        "select_level": config.select_level or "",
+        "selector_frames": config.selector_frames,
+    }
+
+
+def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
+    """Return the guest-visible portion of a player trace configuration."""
+    return {
+        "schema_version": 1,
+        "timeout_ms": round(config.timeout * 1000),
+        "samples": config.samples,
+        "frames_between": config.frames_between,
+        "focus_callback": config.focus_callback,
+        "focus_callback_offset": config.focus_callback_offset,
+        "map_focus": config.map_focus,
+        "collision_focus": config.collision_focus,
+        "property_focus": config.property_focus,
+        "input_key": config.input_key or "",
+        "input_frames": config.input_frames,
+        "input_samples": config.input_samples,
+        "select_level": config.select_level or "",
+        "selector_frames": config.selector_frames,
+    }
 
 
 class ApiClient:
@@ -143,49 +282,17 @@ def trace_resources_lua(
 
 
 def trace_entity_lua(
-    api: ApiClient, script_path: Path, record_offset: int, entity_type: int,
-    timeout: float, poll_interval: float, startup_recording: Path,
-    capture_delay_frames: int = 0, lifetime_samples: int = 0,
-    state_machine_samples: int = 0,
-    state_machine_camera_x: int | None = None,
-    state_machine_camera_y: int | None = None,
-    state_machine_keep_camera: bool = False,
-    state_machine_position_x: int | None = None,
-    state_machine_position_y: int | None = None,
-    state_machine_force_emission: bool = False,
-    state_machine_patch_map_run: bool = False,
-    sprite_init_offset: int = 0, capture_frames: int = 1,
-    frame_step: int = 30, screenshot: Path | None = None,
-    screenshot_mode: str = "rendered", select_level: str | None = None,
-    selector_frames: int = 60,
+    api: ApiClient, script_path: Path, config: EntityTraceConfig,
 ) -> tuple[dict[str, Any], list[Path]]:
-    prefix = (
-        f"TRACE_TIMEOUT_MS={round(timeout * 1000)}\n"
-        f"TRACE_RECORD_OFFSET={record_offset}\n"
-        f"TRACE_ENTITY_TYPE={entity_type}\n"
-        f"TRACE_CAPTURE_DELAY_FRAMES={capture_delay_frames}\n"
-        f"TRACE_LIFETIME_SAMPLES={lifetime_samples}\n"
-        f"TRACE_STATE_MACHINE_SAMPLES={state_machine_samples}\n"
-        f"TRACE_STATE_MACHINE_CAMERA_X={state_machine_camera_x if state_machine_camera_x is not None else -1}\n"
-        f"TRACE_STATE_MACHINE_CAMERA_Y={state_machine_camera_y if state_machine_camera_y is not None else -1}\n"
-        f"TRACE_STATE_MACHINE_KEEP_CAMERA={'true' if state_machine_keep_camera else 'false'}\n"
-        f"TRACE_STATE_MACHINE_POSITION_X={state_machine_position_x if state_machine_position_x is not None else -1}\n"
-        f"TRACE_STATE_MACHINE_POSITION_Y={state_machine_position_y if state_machine_position_y is not None else -1}\n"
-        f"TRACE_STATE_MACHINE_FORCE_EMISSION={'true' if state_machine_force_emission else 'false'}\n"
-        f"TRACE_STATE_MACHINE_PATCH_MAP_RUN={'true' if state_machine_patch_map_run else 'false'}\n"
-        f"TRACE_SPRITE_INIT_OFFSET={sprite_init_offset}\n"
-        f"TRACE_CAPTURE_FRAMES={capture_frames}\n"
-        f"TRACE_FRAME_STEP={frame_step}\n"
-        f"TRACE_SELECT_LEVEL={json.dumps(select_level or '')}\n"
-        f"TRACE_SELECTOR_FRAMES={selector_frames}\n"
-    )
+    """Run one entity probe with one structured guest configuration."""
+    prefix = "TRACE_CONFIG = " + lua_literal(entity_trace_lua_config(config)) + "\n"
     source = script_path.read_text(encoding="utf-8")
     name = urllib.parse.quote("quiky-entity-trace")
     api.request("POST", f"/api/v1/script/load?name={name}",
                 text_body=prefix + source)
     api.post("/api/v1/script/start")
-    deadline = time.monotonic() + timeout + 20
-    recording = json.loads(startup_recording.read_text(encoding="utf-8"))
+    deadline = time.monotonic() + config.timeout + 20
+    recording = json.loads(config.startup_recording.read_text(encoding="utf-8"))
     replayed = False
     captured: list[Path] = []
     acknowledged: set[int] = set()
@@ -200,29 +307,33 @@ def trace_entity_lua(
             replayed = True
         entity = status.get("output", {}).get("entity")
         if isinstance(entity, dict):
-            if capture_frames <= 1:
-                if screenshot is not None and not captured:
+            if config.capture_frames <= 1:
+                if config.screenshot is not None and not captured:
                     # The inert branch can leave the presentation surface
                     # blank while stopped; advance once after the script has
                     # published its final state before taking a one-frame
                     # compatibility screenshot.
                     api.post("/api/v1/debug/continue")
                     time.sleep(0.05)
-                    screenshot.parent.mkdir(parents=True, exist_ok=True)
-                    screenshot.write_bytes(api.get_binary(
-                        f"/api/v1/video/frame?format=png&mode={screenshot_mode}"
+                    config.screenshot.parent.mkdir(parents=True, exist_ok=True)
+                    config.screenshot.write_bytes(api.get_binary(
+                        f"/api/v1/video/frame?format=png&mode={config.screenshot_mode}"
                     ))
-                    captured.append(screenshot)
+                    captured.append(config.screenshot)
                 return entity, captured
             capture_index = entity.get("capture_index")
             if isinstance(capture_index, int) and capture_index not in acknowledged:
-                if screenshot is not None:
-                    frame_path = screenshot if capture_frames == 1 else screenshot.with_name(
-                        f"{screenshot.stem}-frame-{capture_index:03d}{screenshot.suffix}"
-                    )
+                if config.screenshot is not None:
+                    if config.capture_frames == 1:
+                        frame_path = config.screenshot
+                    else:
+                        frame_path = config.screenshot.with_name(
+                            f"{config.screenshot.stem}-frame-"
+                            f"{capture_index:03d}{config.screenshot.suffix}"
+                        )
                     frame_path.parent.mkdir(parents=True, exist_ok=True)
                     frame_path.write_bytes(api.get_binary(
-                        f"/api/v1/video/frame?format=png&mode={screenshot_mode}"
+                        f"/api/v1/video/frame?format=png&mode={config.screenshot_mode}"
                     ))
                     captured.append(frame_path)
                 acknowledged.add(capture_index)
@@ -231,8 +342,48 @@ def trace_entity_lua(
                 return entity, captured
         if status.get("state") == "completed":
             raise TraceError("Lua entity trace completed without entity output")
-        time.sleep(poll_interval)
+        time.sleep(config.poll_interval)
     raise TraceError("timed out waiting for the Lua entity trace")
+
+
+def trace_player_lua(
+    api: ApiClient, script_path: Path, config: PlayerTraceConfig,
+) -> tuple[dict[str, Any], list[Path]]:
+    """Run the player/object-pool probe with one structured configuration."""
+    prefix = "TRACE_CONFIG = " + lua_literal(player_trace_lua_config(config)) + "\n"
+    source = script_path.read_text(encoding="utf-8")
+    name = urllib.parse.quote("quiky-player-trace")
+    api.request("POST", f"/api/v1/script/load?name={name}",
+                text_body=prefix + source)
+    api.post("/api/v1/script/start")
+    deadline = time.monotonic() + config.timeout + 20
+    recording = json.loads(config.startup_recording.read_text(encoding="utf-8"))
+    replayed = False
+    captured: list[Path] = []
+    while time.monotonic() < deadline:
+        status = api.get("/api/v1/script/status")
+        if status.get("state") == "error":
+            raise TraceError(
+                f"Lua player trace failed: {status.get('error', 'unknown error')}"
+            )
+        if not replayed and status.get("output", {}).get("awaiting_startup_replay"):
+            api.post("/api/v1/input/sequence", {"events": recording["events"]})
+            replayed = True
+        result = status.get("output", {}).get("player_trace")
+        if isinstance(result, dict):
+            if config.screenshot is not None and not captured:
+                api.post("/api/v1/debug/continue")
+                time.sleep(0.05)
+                config.screenshot.parent.mkdir(parents=True, exist_ok=True)
+                config.screenshot.write_bytes(api.get_binary(
+                    f"/api/v1/video/frame?format=png&mode={config.screenshot_mode}"
+                ))
+                captured.append(config.screenshot)
+            return result, captured
+        if status.get("state") == "completed":
+            raise TraceError("Lua player trace completed without output")
+        time.sleep(config.poll_interval)
+    raise TraceError("timed out waiting for the Lua player trace")
 
 
 def trace_dispatch_lua(
@@ -279,6 +430,83 @@ def ordered_lua_array(value: Any) -> list[Any]:
     if isinstance(value, dict):
         return [value[key] for key in sorted(value, key=int)]
     raise TraceError("Lua output is not an array")
+
+
+def normalize_entity_trace(entity: dict[str, Any]) -> dict[str, Any]:
+    """Normalize Lua table arrays while retaining the raw trace fields."""
+    entity.setdefault("trace_schema_version", 1)
+    entity["lifetime_samples"] = ordered_lua_array(
+        entity.get("lifetime_samples", [])
+    )
+    state_machine_samples = ordered_lua_array(
+        entity.get("state_machine_samples", [])
+    )
+    for sample in state_machine_samples:
+        sample["nested_calls"] = ordered_lua_array(
+            sample.get("nested_calls", [])
+        )
+    entity["state_machine_samples"] = state_machine_samples
+    entity["state_machine_object_updates"] = ordered_lua_array(
+        entity.get("state_machine_object_updates", [])
+    )
+    entity["state_machine_callback_candidates"] = ordered_lua_array(
+        entity.get("state_machine_callback_candidates", [])
+    )
+    for update in entity["state_machine_object_updates"]:
+        lookup = update.get("animation_lookup", {})
+        lookup["raw_prefix"] = ordered_lua_array(
+            lookup.get("raw_prefix", [])
+        )
+        lookup["raw_bytes"] = ordered_lua_array(
+            lookup.get("raw_bytes", [])
+        )
+    dedicated_lookup = entity.get("animation_lookup")
+    if dedicated_lookup is not None:
+        dedicated_lookup["raw_prefix"] = ordered_lua_array(
+            dedicated_lookup.get("raw_prefix", [])
+        )
+        dedicated_lookup["raw_bytes"] = ordered_lua_array(
+            dedicated_lookup.get("raw_bytes", [])
+        )
+    entity["animation_candidates"] = ordered_lua_array(
+        entity.get("animation_candidates", [])
+    )
+    entity["update_candidates"] = ordered_lua_array(
+        entity.get("update_candidates", [])
+    )
+    entity["frames"] = ordered_lua_array(entity.get("frames", []))
+    return entity
+
+
+def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
+    """Normalize pool/sample arrays emitted by the player Lua probe."""
+    trace.setdefault("trace_schema_version", 1)
+    samples = ordered_lua_array(trace.get("samples", []))
+    for sample in samples:
+        pool = sample.get("pool")
+        if isinstance(pool, dict):
+            pool["objects"] = ordered_lua_array(pool.get("objects", []))
+            pool["kind_0x64"] = ordered_lua_array(pool.get("kind_0x64", []))
+        scheduler = sample.get("scheduler")
+        if isinstance(scheduler, dict):
+            scheduler["entries"] = ordered_lua_array(
+                scheduler.get("entries", [])
+            )
+        if "related_breakpoints" in sample:
+            sample["related_breakpoints"] = ordered_lua_array(
+                sample.get("related_breakpoints", [])
+            )
+        if "collisions" in sample:
+            sample["collisions"] = ordered_lua_array(sample.get("collisions", []))
+        if "map_lookups" in sample:
+            sample["map_lookups"] = ordered_lua_array(sample.get("map_lookups", []))
+    trace["samples"] = samples
+    for key in ("final_pool",):
+        pool = trace.get(key)
+        if isinstance(pool, dict):
+            pool["objects"] = ordered_lua_array(pool.get("objects", []))
+            pool["kind_0x64"] = ordered_lua_array(pool.get("kind_0x64", []))
+    return trace
 
 
 def sha256(path: Path) -> str:
@@ -371,6 +599,29 @@ def build_parser() -> argparse.ArgumentParser:
                         help="isolated runtime directory containing QUIKY.EXE and NESTLE.DAT")
     parser.add_argument("--entity-record-offset", type=lambda value: int(value, 0))
     parser.add_argument("--entity-type", type=lambda value: int(value, 0), default=0x2B)
+    parser.add_argument("--player-trace", action="store_true",
+                        help="trace the live object pool and 16-pixel MAP lookups")
+    parser.add_argument("--player-samples", type=int, default=8,
+                        help="number of player/object-pool samples")
+    parser.add_argument("--player-frames-between", type=int, default=30,
+                        help="guest frames between player/object-pool samples")
+    parser.add_argument("--player-focus-callback", action="store_true",
+                        help="break directly on the selected player callback (default 01F7:3FF8)")
+    parser.add_argument("--player-callback-offset", type=lambda value: int(value, 0),
+                        default=0x3FF8,
+                        help="player callback offset for --player-focus-callback (default 0x3ff8)")
+    parser.add_argument("--player-map-focus", action="store_true",
+                        help="break on the 01F7:3376 MAP helper used by player collision probes")
+    parser.add_argument("--player-collision-focus", action="store_true",
+                        help="break on the candidate player collision helpers 6484/648e/3a8a")
+    parser.add_argument("--player-property-focus", action="store_true",
+                        help="break on raw MAP/tile-property helpers 5c27/5cc3")
+    parser.add_argument("--player-input-key",
+                        help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
+    parser.add_argument("--player-input-frames", type=int, default=0,
+                        help="guest frames to hold --player-input-key before each post-baseline sample")
+    parser.add_argument("--player-input-samples", type=int, default=0,
+                        help="number of post-baseline samples that receive the input hold (0 means all)")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -410,6 +661,25 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.count < 1:
         raise TraceError("--count must be positive")
+    if args.player_samples < 1:
+        raise TraceError("--player-samples must be positive")
+    if args.player_frames_between < 0:
+        raise TraceError("--player-frames-between cannot be negative")
+    if args.player_input_frames < 0:
+        raise TraceError("--player-input-frames cannot be negative")
+    if args.player_input_samples < 0:
+        raise TraceError("--player-input-samples cannot be negative")
+    if args.player_input_frames and not args.player_input_key:
+        raise TraceError("--player-input-frames requires --player-input-key")
+    if args.player_map_focus and args.player_collision_focus:
+        raise TraceError("--player-map-focus and --player-collision-focus are mutually exclusive")
+    if args.player_property_focus and (args.player_map_focus or args.player_collision_focus):
+        raise TraceError("--player-property-focus cannot be combined with another player focus mode")
+    if not 0 <= args.player_callback_offset <= 0xffff:
+        raise TraceError("--player-callback-offset must be between 0 and 65535")
+    if (args.player_focus_callback and args.player_callback_offset == 0x3f27
+            and args.player_samples != 1):
+        raise TraceError("--player-focus-callback 0x3f27 requires --player-samples 1; use 0x3ff8 for repeated updates")
     if args.lifetime_samples < 0:
         raise TraceError("--lifetime-samples cannot be negative")
     if args.state_machine_samples < 0:
@@ -438,6 +708,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--prepare-w1l3 and --navigate-level are mutually exclusive")
     if args.select_level and (args.prepare_w1l3 or args.navigate_w1l3 or args.navigate_level):
         raise TraceError("--select-level cannot be combined with another level navigation mode")
+    if args.player_trace and (args.dispatch_table or args.entity_record_offset is not None):
+        raise TraceError("--player-trace cannot be combined with --dispatch-table or --entity-record-offset")
     for option_name, option_value in (("navigate-level", args.navigate_level),
                                       ("select-level", args.select_level)):
         if option_value is not None and (
@@ -501,14 +773,42 @@ def main(argv: list[str] | None = None) -> int:
     executable, archive = runtime_root / "QUIKY.EXE", runtime_root / "NESTLE.DAT"
     script_path = repo_root / "research/automation/quiky_resource_trace.lua"
     entity_script_path = repo_root / "research/automation/quiky_entity_trace.lua"
+    player_script_path = repo_root / "research/automation/quiky_player_trace.lua"
     dispatch_script_path = repo_root / "research/automation/quiky_dispatch_trace.lua"
     startup_recording = repo_root / "research/automation/startup-to-input.json"
     screenshot_bytes = None
     entity_screenshots: list[Path] = []
+    player_screenshots: list[Path] = []
     try:
         if not info.get("features", {}).get("debugger"):
             raise TraceError("the running dosbox-automation build has no debugger API")
-        if args.dispatch_table:
+        if args.player_trace:
+            player_config = PlayerTraceConfig(
+                startup_recording=startup_recording,
+                timeout=args.timeout,
+                poll_interval=args.poll_interval,
+                samples=args.player_samples,
+                frames_between=args.player_frames_between,
+                focus_callback=args.player_focus_callback,
+                focus_callback_offset=args.player_callback_offset,
+                map_focus=args.player_map_focus,
+                collision_focus=args.player_collision_focus,
+                property_focus=args.player_property_focus,
+                input_key=args.player_input_key,
+                input_frames=args.player_input_frames,
+                input_samples=args.player_input_samples,
+                select_level=args.select_level,
+                selector_frames=args.selector_frames,
+                screenshot=args.screenshot,
+                screenshot_mode=args.screenshot_mode,
+            )
+            player_trace, player_screenshots = trace_player_lua(
+                api, player_script_path, player_config,
+            )
+            player_trace = normalize_player_trace(player_trace)
+            events = [player_trace]
+            script_path = player_script_path
+        elif args.dispatch_table:
             normal_types = [
                 item.entity_type for item in build_are_type_catalog(archive)
                 if item.entity_type not in (0x65, 0x66, 0x67)
@@ -522,62 +822,36 @@ def main(argv: list[str] | None = None) -> int:
                 event["raw_bytes"] = ordered_lua_array(event.get("raw_bytes", []))
             script_path = dispatch_script_path
         elif args.entity_record_offset is not None:
+            entity_config = EntityTraceConfig(
+                record_offset=args.entity_record_offset,
+                entity_type=args.entity_type,
+                startup_recording=startup_recording,
+                timeout=args.timeout,
+                poll_interval=args.poll_interval,
+                capture_delay_frames=args.screenshot_delay_frames,
+                lifetime_samples=args.lifetime_samples,
+                state_machine=StateMachineTraceConfig(
+                    samples=args.state_machine_samples,
+                    camera_x=args.state_machine_camera_x,
+                    camera_y=args.state_machine_camera_y,
+                    keep_camera=args.state_machine_keep_camera,
+                    position_x=args.state_machine_position_x,
+                    position_y=args.state_machine_position_y,
+                    force_emission=args.state_machine_force_emission,
+                    patch_map_run=args.state_machine_patch_map_run,
+                ),
+                sprite_init_offset=args.sprite_init_offset,
+                capture_frames=args.capture_frames,
+                frame_step=args.frame_step,
+                screenshot=args.screenshot,
+                screenshot_mode=args.screenshot_mode,
+                select_level=args.select_level,
+                selector_frames=args.selector_frames,
+            )
             entity, entity_screenshots = trace_entity_lua(
-                api, entity_script_path, args.entity_record_offset,
-                args.entity_type, args.timeout, args.poll_interval,
-                startup_recording, args.screenshot_delay_frames,
-                args.lifetime_samples, args.state_machine_samples,
-                args.state_machine_camera_x,
-                args.state_machine_camera_y,
-                args.state_machine_keep_camera,
-                args.state_machine_position_x, args.state_machine_position_y,
-                args.state_machine_force_emission,
-                args.state_machine_patch_map_run,
-                args.sprite_init_offset,
-                args.capture_frames, args.frame_step, args.screenshot,
-                args.screenshot_mode,
-                args.select_level, args.selector_frames,
+                api, entity_script_path, entity_config,
             )
-            entity["lifetime_samples"] = ordered_lua_array(
-                entity.get("lifetime_samples", [])
-            )
-            state_machine_samples = ordered_lua_array(
-                entity.get("state_machine_samples", [])
-            )
-            for sample in state_machine_samples:
-                sample["nested_calls"] = ordered_lua_array(
-                    sample.get("nested_calls", [])
-                )
-            entity["state_machine_samples"] = state_machine_samples
-            entity["state_machine_object_updates"] = ordered_lua_array(
-                entity.get("state_machine_object_updates", [])
-            )
-            entity["state_machine_callback_candidates"] = ordered_lua_array(
-                entity.get("state_machine_callback_candidates", [])
-            )
-            for update in entity["state_machine_object_updates"]:
-                lookup = update.get("animation_lookup", {})
-                lookup["raw_prefix"] = ordered_lua_array(
-                    lookup.get("raw_prefix", [])
-                )
-                lookup["raw_bytes"] = ordered_lua_array(
-                    lookup.get("raw_bytes", [])
-                )
-            dedicated_lookup = entity.get("animation_lookup")
-            if dedicated_lookup is not None:
-                dedicated_lookup["raw_prefix"] = ordered_lua_array(
-                    dedicated_lookup.get("raw_prefix", [])
-                )
-                dedicated_lookup["raw_bytes"] = ordered_lua_array(
-                    dedicated_lookup.get("raw_bytes", [])
-                )
-            entity["animation_candidates"] = ordered_lua_array(
-                entity.get("animation_candidates", [])
-            )
-            entity["update_candidates"] = ordered_lua_array(
-                entity.get("update_candidates", [])
-            )
-            entity["frames"] = ordered_lua_array(entity.get("frames", []))
+            entity = normalize_entity_trace(entity)
             events = [entity]
             script_path = entity_script_path
         else:
@@ -589,7 +863,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.select_level,
                 args.tail_count,
             )
-        if args.screenshot is not None and not entity_screenshots:
+        if args.screenshot is not None and not entity_screenshots and not player_screenshots:
             screenshot_bytes = api.get_binary(
                 "/api/v1/video/frame?format=png&mode=rendered"
             )
@@ -624,18 +898,21 @@ def main(argv: list[str] | None = None) -> int:
                    "select_level": args.select_level,
                    "tail_count": args.tail_count},
         "engine": "lua-debugger-api",
-        "trace_kind": ("dispatch" if args.dispatch_table else
+        "trace_kind": ("player" if args.player_trace else
+                       "dispatch" if args.dispatch_table else
                        "entity" if args.entity_record_offset is not None else "resource"),
         "script": str(script_path),
         "script_sha256": sha256(script_path),
         "startup_recording": str(startup_recording)
-        if args.navigate_w1l3 or args.navigate_level or args.select_level else None,
+        if args.navigate_w1l3 or args.navigate_level or args.select_level or args.player_trace else None,
         "startup_recording_sha256": sha256(startup_recording)
-        if args.navigate_w1l3 or args.navigate_level or args.select_level else None,
+        if args.navigate_w1l3 or args.navigate_level or args.select_level or args.player_trace else None,
         "breakpoint": {"segment": LOOKUP[0], "offset": LOOKUP[1]}, "events": events,
     }
     if entity_screenshots:
         ledger["screenshots"] = [str(path) for path in entity_screenshots]
+    if player_screenshots:
+        ledger["screenshots"] = [str(path) for path in player_screenshots]
     if args.dispatch_table:
         ledger["data_selector"] = dispatch.get("data_selector")
     args.output.parent.mkdir(parents=True, exist_ok=True)

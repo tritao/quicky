@@ -7,9 +7,19 @@ TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from quikytrace import (  # noqa: E402
+    EntityTraceConfig,
+    PlayerTraceConfig,
     TraceError,
+    StateMachineTraceConfig,
     decode_lookup_call,
     decode_resource_state,
+    entity_trace_lua_config,
+    lua_literal,
+    normalize_entity_trace,
+    normalize_player_trace,
+    player_trace_lua_config,
+    trace_player_lua,
+    trace_entity_lua,
     trace_resources_lua,
 )
 
@@ -92,6 +102,127 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertEqual([event["sequence"] for event in events], [1])
         self.assertIn('TRACE_NAVIGATE_LEVEL="W4L1"', api.loaded_source)
+        self.assertTrue(api.replayed)
+
+    def test_entity_trace_config_is_nested_and_lua_safe(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = EntityTraceConfig(
+            record_offset=0x1792,
+            entity_type=0x1F,
+            startup_recording=recording,
+            timeout=2.5,
+            state_machine=StateMachineTraceConfig(
+                samples=3, camera_x=0, camera_y=0, position_x=0,
+                position_y=0, force_emission=True, patch_map_run=True,
+            ),
+            select_level='W4L1',
+        )
+        payload = entity_trace_lua_config(config)
+        self.assertEqual(payload["timeout_ms"], 2500)
+        self.assertEqual(payload["state_machine"]["camera_x"], 0)
+        source = "TRACE_CONFIG = " + lua_literal(payload)
+        self.assertIn('["state_machine"]', source)
+        self.assertIn('["patch_map_run"]=true', source)
+        self.assertNotIn("TRACE_STATE_MACHINE_", source)
+
+    def test_entity_trace_loader_uses_structured_config(self):
+        class FakeApi:
+            loaded_source = ""
+            replayed = False
+
+            def request(self, method, path, text_body=None):
+                self.loaded_source = text_body
+                return {"status": "loaded"}
+
+            def post(self, path, body=None):
+                if path == "/api/v1/input/sequence":
+                    self.replayed = True
+                return {"status": "started"}
+
+            def get(self, path):
+                if not self.replayed:
+                    return {"state": "running", "output": {"awaiting_startup_replay": True}}
+                return {"state": "completed", "output": {"entity": {
+                    "trace_schema_version": 1,
+                    "state_machine_samples": {"1": {"nested_calls": {}}},
+                }}}
+
+        api = FakeApi()
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_entity_trace.lua"
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        entity, screenshots = trace_entity_lua(
+            api, script, EntityTraceConfig(
+                record_offset=0x1792, entity_type=0x2B,
+                startup_recording=recording, timeout=1, poll_interval=0.01,
+            )
+        )
+        self.assertEqual(screenshots, [])
+        self.assertEqual(entity["trace_schema_version"], 1)
+        self.assertEqual(entity["state_machine_samples"], {"1": {"nested_calls": {}}})
+        self.assertIn("TRACE_CONFIG = ", api.loaded_source)
+        self.assertIn('["record_offset"]=6034', api.loaded_source)
+        self.assertNotIn("TRACE_RECORD_OFFSET=", api.loaded_source)
+        self.assertTrue(api.replayed)
+
+    def test_entity_trace_normalization_preserves_schema(self):
+        entity = normalize_entity_trace({
+            "trace_schema_version": 7,
+            "state_machine_samples": [],
+        })
+        self.assertEqual(entity["trace_schema_version"], 7)
+        self.assertEqual(entity["frames"], [])
+
+    def test_player_trace_loader_uses_structured_config(self):
+        class FakeApi:
+            loaded_source = ""
+            replayed = False
+
+            def request(self, method, path, text_body=None):
+                self.loaded_source = text_body
+                return {"status": "loaded"}
+
+            def post(self, path, body=None):
+                if path == "/api/v1/input/sequence":
+                    self.replayed = True
+                return {"status": "started"}
+
+            def get(self, path):
+                if not self.replayed:
+                    return {"state": "running", "output": {"awaiting_startup_replay": True}}
+                return {"state": "completed", "output": {"player_trace": {
+                    "trace_schema_version": 1,
+                    "samples": {"1": {
+                        "pool": {"objects": {}, "kind_0x64": {}},
+                        "scheduler": {"entries": {"1": {"index": 0}}},
+                    }},
+                    "final_pool": {"objects": {}, "kind_0x64": {}},
+                }}}
+
+        api = FakeApi()
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, timeout=1, poll_interval=0.01,
+            samples=2, frames_between=4, select_level="W1L1",
+        )
+        trace, screenshots = trace_player_lua(api, script, config)
+        self.assertEqual(screenshots, [])
+        self.assertEqual(player_trace_lua_config(config)["frames_between"], 4)
+        self.assertEqual(player_trace_lua_config(config)["input_frames"], 0)
+        self.assertEqual(player_trace_lua_config(config)["input_samples"], 0)
+        self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
+        self.assertFalse(player_trace_lua_config(config)["collision_focus"])
+        self.assertFalse(player_trace_lua_config(config)["map_focus"])
+        self.assertFalse(player_trace_lua_config(config)["property_focus"])
+        normalized = normalize_player_trace(trace)
+        self.assertEqual(normalized["samples"], [{
+            "pool": {"objects": [], "kind_0x64": []},
+            "scheduler": {"entries": [{"index": 0}]},
+        }])
+        self.assertNotIn("related_breakpoints", normalized["samples"][0])
+        self.assertIn("TRACE_CONFIG = ", api.loaded_source)
+        self.assertIn('["samples"]=2', api.loaded_source)
+        self.assertNotIn("TRACE_PLAYER_", api.loaded_source)
         self.assertTrue(api.replayed)
 
 

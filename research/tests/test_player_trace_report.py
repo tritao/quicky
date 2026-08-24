@@ -70,10 +70,17 @@ class PlayerTraceReportTests(unittest.TestCase):
 
     def test_report_and_csv_keep_provisional_fields_explicit(self):
         trace = {"samples": [sample(1, 128, 400, 0x3F27), sample(2, 129, 400, 0x3FF8)]}
+        trace["samples"][0]["collisions"] = [
+            {"helper_offset": 0x648E}, {"helper_offset": 0x6484},
+        ]
+        trace["samples"][1]["map_lookups"] = [{"tile_id": 0x17F}]
         result = correlate_samples(trace)
         report = io.StringIO()
         render_report(result, report)
         self.assertIn("player_identity=0x027f:0x0000", report.getvalue())
+        self.assertIn("collision_helpers=0x648e", report.getvalue())
+        self.assertIn("0x6484", report.getvalue())
+        self.assertIn("map_tile_ids=0x17f", report.getvalue())
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "player.csv"
             write_calibration_csv(result, output, 2, 1, "right")

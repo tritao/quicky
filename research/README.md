@@ -391,6 +391,39 @@ the camera window call `01F7:393C`, which derives four dynamic bounds from the
 object at `DS:881A` and its fields `+0x2C/+0x30/+0x2E/+0x32`. The state machine
 advances to state 1 only when the current object overlaps those bounds. W2,
 W3, W4, and W5 runtime samples match the decoded comparisons.
+The call-site probe further resolves `DS:881A` to offset `0` in the live object
+selector (`ES=0x027F` in the controlled run), while the transient effect
+object occupied offset `0x78`; `DS:89EA` was zero. This makes the bounds source
+a persistent object-record slot, not the effect object itself. The same
+static survey finds a second position consumer around `01F7:69FF`, and shows
+that `DS:89EA` is also decremented/tested by `01F7:44DC` and read by the
+segment-1 main loop; its broader control meaning remains open.
+The player initializer at `01F7:3F27` now closes the identity loop: it writes
+`ES:DI` into `DS:881A` and installs callback `01F7:3FF8`. A W1L1 pool trace
+confirms selector `0x027F`, offset `0`, stride `0x78`, and the callback
+transition from `3F27` to `3FF8` at position `(128,400)`. The player probe now
+supports repeated callback barriers and deterministic input holds:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-focus-callback --player-callback-offset 0x3ff8 \
+  --player-samples 3 --player-input-key KBD_right --player-input-frames 30 \
+  --player-frames-between 5 --output research/build/traces/player-right.json
+~~~
+
+The corresponding `--player-collision-focus` and `--player-map-focus` modes
+break on the candidate collision helpers or `01F7:3376`; the structured output
+keeps the helper registers, player object state, MAP coordinates, and tile IDs
+together. `player_trace_report.py` joins `DS:881A` to the pool and reports
+position deltas plus observed collision/MAP evidence. A W1L1 right-input run
+moved `(128,400)` to `(170,400)` and `(219,400)`, reached `01F7:648E`, and a
+separate MAP-focused run observed tile IDs `0x0b8` and `0x167`. Floor/side
+semantics remain intentionally unassigned until the other directions and
+boundary cases are sampled. Use `--player-input-samples N` to stop applying
+the held key after N post-baseline samples and observe the release/reset path.
+The current boundary evidence distinguishes a stable left wall at `x=72` from
+a right-side reset near `(2132,368)`; it does not yet turn either case into a
+hard-coded engine rule.
 
 ### Dedicated transient event types `0x65`-`0x67`
 
@@ -627,6 +660,13 @@ The debugger-enabled Lua API added for this workflow consists of
 `wait_for_breakpoint`, `debug_continue`, `cpu_state`, and
 `mem_read_selector`. Lua-created
 breakpoints are removed when the script completes, fails, or is stopped.
+
+Entity probes use one structured `TRACE_CONFIG` Lua table. Python owns the
+process, replay, screenshot, polling, and JSON-ledger work; Lua owns guest
+timing, breakpoints, registers, and memory. State-machine-only controls are
+nested under `TRACE_CONFIG.state_machine`, and the resulting entity record
+includes `trace_schema_version`. This keeps debugger experiments explicit
+without turning their flags into engine or gameplay API semantics.
 
 ### ARE entity catalog and controlled experiment
 

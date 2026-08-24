@@ -1,0 +1,497 @@
+-- Capture the live object pool and MAP lookups around the gameplay update loop.
+-- Loaded by research/tools/quikytrace.py with a structured TRACE_CONFIG table.
+local trace_config = TRACE_CONFIG or {}
+assert(type(trace_config) == "table", "TRACE_CONFIG must be a table")
+local timeout_ms = trace_config.timeout_ms or 30000
+local sample_count = trace_config.samples or 8
+local frames_between = trace_config.frames_between or 30
+local focus_callback = trace_config.focus_callback or false
+local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
+local map_focus = trace_config.map_focus or false
+local collision_focus = trace_config.collision_focus or false
+local property_focus = trace_config.property_focus or false
+local input_key = trace_config.input_key or ""
+local input_frames = trace_config.input_frames or 0
+local input_samples = trace_config.input_samples or 0
+local select_level = trace_config.select_level or ""
+local selector_frames = trace_config.selector_frames or 60
+
+local function word(s, index)
+    local lo, hi = string.byte(s, index, index + 1)
+    return lo | (hi << 8)
+end
+
+local function dword(s, index)
+    return word(s, index) | (word(s, index + 2) << 16)
+end
+
+local function hex(s)
+    return (s:gsub(".", function(c)
+        return string.format("%02x", string.byte(c))
+    end))
+end
+
+local function wait_hit(label)
+    local hit, err = dosbox.wait_for_breakpoint(timeout_ms)
+    if not hit then error(label .. ": " .. (err or "timeout")) end
+    return hit
+end
+
+local function object_snapshot(raw, selector, offset, index)
+    local x_fixed = dword(raw, 3)
+    local y_fixed = dword(raw, 7)
+    return {
+        index = index,
+        selector = selector,
+        offset = offset,
+        state_hex = hex(raw),
+        position = {
+            x_fixed = x_fixed,
+            y_fixed = y_fixed,
+            x = x_fixed >> 16,
+            y = y_fixed >> 16,
+        },
+        action_word = word(raw, 1),
+        velocity_x_fixed = dword(raw, 0x0a + 1),
+        velocity_y_fixed = dword(raw, 0x0e + 1),
+        kind = word(raw, 0x14 + 1),
+        phase = string.byte(raw, 0x17 + 1),
+        callback = word(raw, 0x18 + 1),
+        callback_data = word(raw, 0x1a + 1),
+        sprite_slot = word(raw, 0x12 + 1),
+        lifetime = word(raw, 0x2c + 1),
+        state_field = word(raw, 0x2e + 1),
+        update_state = word(raw, 0x32 + 1),
+        player_byte_0x36 = string.byte(raw, 0x36 + 1),
+        player_byte_0x37 = string.byte(raw, 0x37 + 1),
+        player_byte_0x38 = string.byte(raw, 0x38 + 1),
+        player_byte_0x39 = string.byte(raw, 0x39 + 1),
+        player_byte_0x3a = string.byte(raw, 0x3a + 1),
+        player_byte_0x3b = string.byte(raw, 0x3b + 1),
+        player_word_0x3e = word(raw, 0x3e + 1),
+    }
+end
+
+local function pool_snapshot()
+    local pointer_raw = dosbox.mem_read("ds", 0x755e, 4) or ""
+    if #pointer_raw < 4 then
+        return {error = "object pool pointer is truncated"}
+    end
+    local pointer = dword(pointer_raw, 1)
+    local pool_offset = pointer & 0xffff
+    local pool_selector = (pointer >> 16) & 0xffff
+    local stride = dosbox.mem_read_word("ds", 0x30ce)
+    local objects = {}
+    local kind_0x64 = {}
+    if pool_selector == 0 or stride == 0 then
+        return {
+            selector = pool_selector,
+            offset = pool_offset,
+            stride = stride,
+            objects = objects,
+            kind_0x64 = kind_0x64,
+            error = "object pool pointer or stride is zero",
+        }
+    end
+    for index = 0, 63 do
+        local offset = pool_offset + index * stride
+        local ok, raw_or_error = pcall(
+            dosbox.mem_read_selector, pool_selector, offset, 0x40
+        )
+        if ok and raw_or_error and #raw_or_error >= 0x40 then
+            local object = object_snapshot(raw_or_error, pool_selector, offset, index)
+            if object.callback ~= 0 then
+                objects[#objects + 1] = object
+            end
+            if object.kind == 0x64 then
+                kind_0x64[#kind_0x64 + 1] = object
+            end
+        end
+    end
+    return {
+        selector = pool_selector,
+        offset = pool_offset,
+        stride = stride,
+        active_count = #objects,
+        kind_0x64_count = #kind_0x64,
+        objects = objects,
+        kind_0x64 = kind_0x64,
+    }
+end
+
+local function map_lookup_snapshot(hit)
+    local registers = hit.registers or {}
+    local y = (registers.eax or 0) & 0xffff
+    local x = (registers.ebx or 0) & 0xffff
+    local pointer_raw = dosbox.mem_read("ds", 0x657a, 4) or ""
+    if #pointer_raw < 4 then
+        return {x = x, y = y, error = "MAP pointer is truncated"}
+    end
+    local pointer = dword(pointer_raw, 1)
+    local map_base = pointer & 0xffff
+    local map_selector = (pointer >> 16) & 0xffff
+    local row_stride = dosbox.mem_read_word("ds", 0x657e)
+    local cell_offset = map_base + (y >> 4) * row_stride + (x >> 4) * 2
+    local ok, value_or_error = pcall(
+        dosbox.mem_read_word, map_selector, cell_offset
+    )
+    local cell_read_error = nil
+    if not ok then cell_read_error = tostring(value_or_error) end
+    return {
+        x = x,
+        y = y,
+        map_selector = map_selector,
+        map_base = map_base,
+        row_stride = row_stride,
+        cell_offset = cell_offset,
+        cell_word = ok and value_or_error or nil,
+        tile_id = ok and (value_or_error & 0x1ff) or nil,
+        cell_read_error = cell_read_error,
+    }
+end
+
+local function map_property_snapshot(hit)
+    local registers = hit.registers or {}
+    local lookup = map_lookup_snapshot(hit)
+    local tile_id = lookup.tile_id or 0
+    local tile_bank = (tile_id >> 8) & 0x01
+    local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
+    local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
+    local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
+    local descriptor_offset = descriptor_base + tile_bank * descriptor_stride + 2
+    local ok, descriptor_word_or_error = pcall(
+        dosbox.mem_read_word, descriptor_selector, descriptor_offset
+    )
+    return {
+        helper_offset = hit.offset,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        registers = registers,
+        coordinates = {
+            x = (registers.ebx or 0) & 0xffff,
+            y = (registers.eax or 0) & 0xffff,
+        },
+        map_lookup = lookup,
+        map_property_field = lookup.cell_word and (lookup.cell_word >> 9) or nil,
+        tile_bank = tile_bank,
+        descriptor_base = descriptor_base,
+        descriptor_selector = descriptor_selector,
+        descriptor_stride = descriptor_stride,
+        descriptor_offset = descriptor_offset,
+        descriptor_word = ok and descriptor_word_or_error or nil,
+        descriptor_read_error = ok and nil or tostring(descriptor_word_or_error),
+    }
+end
+
+local function static_globals()
+    return {
+        input_action_flags = dosbox.mem_read_word("ds", 0x8196),
+        keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
+        last_scan_code = dosbox.mem_read_word("ds", 0x88ba),
+        camera_x = dosbox.mem_read_word("ds", 0x81c0),
+        camera_y = dosbox.mem_read_word("ds", 0x81c4),
+        map_row_stride = dosbox.mem_read_word("ds", 0x657e),
+        object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
+        player_object_offset = dosbox.mem_read_word("ds", 0x881a),
+        player_control_word = dosbox.mem_read_word("ds", 0x89ea),
+    }
+end
+
+local function arm_callback_targets()
+    for _, segment in ipairs({0x01d7, 0x01e7, 0x01f7, 0x0207, 0x0227, 0x0237,
+                              0x1997}) do
+        dosbox.breakpoint_set(segment, focus_callback_offset, {once = true})
+    end
+end
+
+local function arm_targets()
+    if focus_callback then
+        arm_callback_targets()
+    end
+    if map_focus then
+        dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+    end
+    if collision_focus then
+        for _, offset in ipairs({0x6484, 0x648e, 0x3a8a}) do
+            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        end
+    end
+    if property_focus then
+        for _, offset in ipairs({0x5c27, 0x5cc3}) do
+            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        end
+    end
+    if focus_callback or map_focus or collision_focus or property_focus then
+        return
+    end
+    dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
+    dosbox.breakpoint_set(0x01f7, 0x0f3c, {once = true})
+    dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+    dosbox.breakpoint_set(0x01f7, 0x3f27, {once = true})
+end
+
+local function callback_object_snapshot(hit)
+    local registers = hit.registers or {}
+    local selector = registers.es
+    local offset = (registers.edi or 0) & 0xffff
+    if selector == nil then return nil end
+    local ok, raw_or_error = pcall(
+        dosbox.mem_read_selector, selector, offset, 0x40
+    )
+    if not ok or not raw_or_error or #raw_or_error < 0x40 then
+        return {
+            selector = selector,
+            offset = offset,
+            read_error = ok and "short object state" or tostring(raw_or_error),
+        }
+    end
+    return object_snapshot(raw_or_error, selector, offset, -1)
+end
+
+local function record_map_lookup(sample, hit)
+    local lookup = map_lookup_snapshot(hit)
+    sample.map_lookups = sample.map_lookups or {}
+    sample.map_lookups[#sample.map_lookups + 1] = lookup
+    sample.map_lookup = lookup
+end
+
+local function record_collision(sample, hit)
+    local collision = {
+        helper_offset = hit.offset,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        registers = hit.registers,
+        object = callback_object_snapshot(hit),
+        globals = static_globals(),
+    }
+    sample.collisions = sample.collisions or {}
+    sample.collisions[#sample.collisions + 1] = collision
+    sample.collision = collision
+end
+
+local function stop_for_capture()
+    local current = dosbox.cpu_state()
+    dosbox.breakpoint_set(current.cs, current.eip, {once = true})
+    dosbox.debug_continue()
+    return wait_hit("capture barrier")
+end
+
+local function begin_selected_level()
+    local selector_indices = {
+        W1L1 = 0, W1L2 = 1, W1L3 = 2,
+        W2L1 = 3, W2L2 = 4, W2L3 = 5,
+        W3L1 = 6, W3L2 = 7, W3L3 = 8,
+        W4L1 = 9, W4L2 = 10, W4L3 = 11,
+        W5L1 = 12, W5L2 = 13, W5L3 = 14,
+        W1L4 = 15, W2L4 = 16, W3L4 = 17,
+        W4L4 = 18, W5L4 = 19,
+    }
+    local selector_index = selector_indices[select_level]
+    assert(selector_index ~= nil, "unsupported level selector target")
+    dosbox.key("KBD_space", true)
+    dosbox.wait_frames(4)
+    dosbox.key("KBD_space", false)
+    dosbox.wait_frames(30)
+    dosbox.type("QUIKYSUPERHERO")
+    dosbox.wait_frames(3)
+    dosbox.breakpoint_set(0x01d7, 0x491d, {once = true})
+    dosbox.key("KBD_4", true)
+    local cheat = wait_hit("level selector branch")
+    dosbox.key("KBD_4", false)
+    dosbox.output.checkpoints = {cheat = cheat}
+    dosbox.mem_write("ds", 0x89f2, "\x01")
+    dosbox.mem_write("ds", 0x88ba, "\x05\x00")
+    dosbox.debug_continue()
+    dosbox.wait_frames(selector_frames)
+    dosbox.breakpoint_set(0x01d7, 0x4ace, {once = true})
+    local input_wait = wait_hit("selector input wait")
+    dosbox.output.checkpoints.input_wait = input_wait
+    dosbox.mem_write("ds", 0x85d4,
+                     string.char(selector_index & 0xff, selector_index >> 8))
+    dosbox.breakpoint_set(0x01d7, 0x4b18, {once = true})
+    dosbox.mem_write("ds", 0x88bc, "\x20\x00")
+    dosbox.debug_continue()
+    dosbox.output.checkpoints.launch = wait_hit("selector Space dispatch")
+end
+
+local function scheduler_snapshot()
+    local raw = dosbox.mem_read("ds", 0x7566, 0x200) or ""
+    local entries = {}
+    for index = 0, 63 do
+        local base = index * 8 + 1
+        if base + 7 > #raw then break end
+        local callback_offset = word(raw, base)
+        local callback_segment = word(raw, base + 2)
+        local object_offset = word(raw, base + 4)
+        local object_segment = word(raw, base + 6)
+        if callback_offset == 0xffff and callback_segment == 0xffff then
+            break
+        end
+        entries[#entries + 1] = {
+            index = index,
+            callback = {segment = callback_segment, offset = callback_offset},
+            object = {selector = object_segment, offset = object_offset},
+        }
+    end
+    return {base = 0x7566, stride = 8, entries = entries}
+end
+
+dosbox.output.awaiting_startup_replay = true
+dosbox.wait_frames(350)
+if select_level ~= "" then
+    begin_selected_level()
+else
+    dosbox.key("KBD_space", true)
+    dosbox.wait_frames(4)
+    dosbox.key("KBD_space", false)
+end
+
+local samples = {}
+for sequence = 1, sample_count do
+    if sequence > 1 then
+        if input_key ~= "" and input_frames > 0 and
+           (input_samples == 0 or sequence <= input_samples + 1) then
+            dosbox.key(input_key, true)
+            dosbox.wait_frames(input_frames)
+            dosbox.key(input_key, false)
+        end
+        dosbox.wait_frames(frames_between)
+    end
+    arm_targets()
+    dosbox.debug_continue()
+    local hit = wait_hit("player/object update breakpoint")
+    local sample = {
+        sequence = sequence,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        registers = hit.registers,
+        globals = static_globals(),
+        pool = pool_snapshot(),
+        scheduler = scheduler_snapshot(),
+        related_breakpoints = {},
+    }
+    local initial_hit = hit
+    if property_focus and (initial_hit.offset == 0x5c27 or
+                           initial_hit.offset == 0x5cc3) then
+        sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+            segment = initial_hit.segment, offset = initial_hit.offset,
+        }
+        sample.map_property = map_property_snapshot(initial_hit)
+    elseif initial_hit.offset == 0x3376 and map_focus then
+        sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+            segment = initial_hit.segment, offset = initial_hit.offset,
+        }
+        record_map_lookup(sample, initial_hit)
+    elseif collision_focus and (initial_hit.offset == 0x6484 or
+                                initial_hit.offset == 0x648e or
+                                initial_hit.offset == 0x3a8a) then
+        sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+            segment = initial_hit.segment, offset = initial_hit.offset,
+        }
+        record_collision(sample, initial_hit)
+    end
+    if focus_callback and initial_hit.offset ~= focus_callback_offset and
+       initial_hit.offset ~= 0x3f27 then
+        arm_callback_targets()
+        dosbox.debug_continue()
+        hit = wait_hit("player callback after related breakpoint")
+        sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+            segment = hit.segment, offset = hit.offset,
+        }
+        sample.breakpoint = {segment = hit.segment, offset = hit.offset}
+        sample.registers = hit.registers
+        sample.globals = static_globals()
+        sample.pool = pool_snapshot()
+        sample.scheduler = scheduler_snapshot()
+    end
+    if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
+        local callback_object = callback_object_snapshot(hit)
+        sample.player_callback = {
+            breakpoint = {segment = hit.segment, offset = hit.offset},
+            callback_offset = hit.offset,
+            registers = hit.registers,
+            stack_hex = hex(dosbox.mem_read(
+                "ss", (hit.registers.esp or 0) & 0xffff, 12) or ""),
+            object = callback_object,
+        }
+        local stack = dosbox.mem_read(
+            "ss", (hit.registers.esp or 0) & 0xffff, 4) or ""
+        if #stack >= 4 and callback_object ~= nil then
+            local return_offset = word(stack, 1)
+            -- The scheduler calls the callback through a near code pointer;
+            -- the next stack word is the DS argument, not a far return
+            -- selector. Return to the callback's current CS.
+            local return_segment = hit.segment
+            sample.player_callback.return_expected = {
+                segment = return_segment, offset = return_offset,
+            }
+            local returned = nil
+            while returned == nil do
+                dosbox.breakpoint_set(return_segment, return_offset, {once = true})
+                dosbox.debug_continue()
+                local candidate = wait_hit("player callback return")
+                if candidate.segment == return_segment and candidate.offset == return_offset then
+                    returned = candidate
+                else
+                    sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+                        segment = candidate.segment, offset = candidate.offset,
+                    }
+                    if candidate.offset == 0x3376 and map_focus then
+                        record_map_lookup(sample, candidate)
+                    elseif collision_focus and (candidate.offset == 0x6484 or
+                                                candidate.offset == 0x648e or
+                                                candidate.offset == 0x3a8a) then
+                        record_collision(sample, candidate)
+                    end
+                end
+            end
+            sample.player_callback.return_actual = {
+                segment = returned.segment, offset = returned.offset,
+            }
+            local ok, raw_or_error = pcall(
+                dosbox.mem_read_selector,
+                callback_object.selector, callback_object.offset, 0x40
+            )
+            if ok and raw_or_error and #raw_or_error >= 0x40 then
+                sample.player_callback.post_object = object_snapshot(
+                    raw_or_error, callback_object.selector, callback_object.offset, -1
+                )
+            else
+                sample.player_callback.post_object_read_error =
+                    ok and "short object state" or tostring(raw_or_error)
+            end
+        end
+        if map_focus and sample.map_lookup == nil then
+            dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+            dosbox.debug_continue()
+            local related = wait_hit("MAP lookup after player callback")
+            sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+                segment = related.segment, offset = related.offset,
+            }
+            record_map_lookup(sample, related)
+        elseif collision_focus and sample.collision == nil then
+            for _, offset in ipairs({0x6484, 0x648e, 0x3a8a}) do
+                dosbox.breakpoint_set(0x01f7, offset, {once = true})
+            end
+            dosbox.debug_continue()
+            local related = wait_hit("collision helper after player callback")
+            sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+                segment = related.segment, offset = related.offset,
+            }
+            record_collision(sample, related)
+        end
+    elseif hit.offset == 0x0f3c then
+        sample.kind_scan = {
+            cursor = dosbox.mem_read_word("ds", 0x36e0),
+            target_kind = 0x64,
+        }
+    end
+    samples[#samples + 1] = sample
+end
+
+local capture = stop_for_capture()
+local result = {
+    trace_schema_version = trace_config.schema_version or 1,
+    samples = samples,
+    final_capture_registers = capture.registers,
+    final_globals = static_globals(),
+    final_pool = pool_snapshot(),
+}
+dosbox.output.player_trace = result

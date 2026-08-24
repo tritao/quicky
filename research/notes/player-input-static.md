@@ -98,13 +98,60 @@ to decide whether to start the phase counter. This explains why the runtime
 probes must keep the camera centered on the synthetic object before testing
 the MAP-derived effects.
 
+The call-site probe now resolves that indirect object. In the controlled
+visible run, `DS:881A` and `DS:89EA` were both zero, `ES` was `0x027F`, and
+`01F7:393C` read `ES:0000`; the caller's state-machine object was at
+`ES:0078`. The offset-zero record supplied base `(128,400)` and the patched
+bound fields `(left=488, bottom=-260, right=1088, top=-60)`, producing
+`(AX,BX,CX,DX)=(616,140,1216,340)`. The static cross-reference survey found
+no direct write to `DS:881A`; another executable path around `01F7:69FF`
+also reads the offset-zero object's position. This supports treating it as a
+persistent object-record slot rather than a per-effect temporary allocation.
+
 ## Runtime follow-up
 
 The existing `quikytrace --state-machine-samples` path now records the input
 words, camera words, and camera target bounds at each `01F7:8E4B` update entry
 and exit. That gives the static labels a repeatable runtime check without
-guessing the player object. The next pass can set a breakpoint on the first
-confirmed player callback once a live object has been correlated to a stable
-kind/callback pair. The annotation and targeted decompiler scripts were also
-rerun against disposable raw-segment Ghidra imports; generated projects and C
-reports remain outside the repository.
+guessing the player object. The player/object-pool probe now closes that gap:
+`ES:0000` is initialized by `01F7:3F27`, transitions to callback `01F7:3FF8`,
+and remains the record referenced by `DS:881A`. The next pass should inject
+controlled left/right/up/down input and correlate the player position delta
+with the collision helpers at `648E`, `6484`, and `3A8A`. The annotation and
+targeted decompiler scripts were also rerun against disposable raw-segment
+Ghidra imports; generated projects and C reports remain outside the repository.
+
+That controlled input pass is now complete for right movement. Holding
+`KBD_right` for 30 guest frames moved the offset-zero record from `(128,400)`
+to `(170,400)` and then `(219,400)` while callback `01F7:3FF8` remained active.
+The same run hit `01F7:648E` at both the baseline and post-input samples. A
+separate MAP-focused run hit `01F7:3376` with lookup coordinates changing from
+`(133,400)` to `(173,400)` and returned low-nine-bit tile IDs `0x0b8` and
+`0x167`; the persistent record positions at those barriers were `(128,400)`
+and `(168,400)`. This is runtime evidence that the right-input path reaches
+both the candidate collision helper and the 16-pixel MAP consumer. The
+remaining directions should be sampled before assigning floor/side semantics.
+
+The same W1L1 harness gives the expected directional controls: a 30-frame
+`KBD_left` hold moved X from `128` to `85`, `KBD_up` moved Y from `400` to
+`317`, and a 10-frame `KBD_space` hold moved Y to `358`. These are movement
+observations only; the input words and object fields still need per-frame
+comparison at a known boundary before naming jump or grounded flags.
+
+The longer boundary runs now separate a solid wall from a reset hazard. With
+six 240-frame right holds, the callback barrier reaches `(2132,368)` with
+`action_word=4`, `velocity_x=0x00018000`, mode byte `+0x37=0xff`, and auxiliary
+word `+0x3e=0x03e8`; releasing the key then returns the record to checkpoint
+`(1673,368)`. This is a reset/death transition, not a solid wall. Six 240-frame
+left holds instead settle at `(72,400)` for every subsequent sample, with the
+normal zero-velocity tail state and no position reset. The paired MAP probe at
+that wall reads `(77,400)`, full cell `0xec8b`, tile ID `0x08b`.
+
+During ordinary movement and jump updates, the callback call sequence reaches
+`648e`, `6484`, then `3a8a`, and the callback returns to its expected near
+return address. At the right reset transition only `648e` is reached before
+the state changes, which gives us a useful branch discriminator without yet
+assigning the helpers names such as wall or hazard. Jump/release samples return
+to `y=400` with zero vertical velocity; the raw mode bytes are retained in the
+trace rather than promoted to a grounded flag until the static writes are
+fully mapped.

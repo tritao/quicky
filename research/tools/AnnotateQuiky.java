@@ -126,7 +126,8 @@ public class AnnotateQuiky extends GhidraScript {
     }
 
     private void annotateSegment3() throws Exception {
-        int[] targets = {0x05a0, 0x106a, 0x1ec4, 0x332c, 0x335e, 0x33bf, 0x342f};
+        int[] targets = {0x05a0, 0x106a, 0x1ec4, 0x332c, 0x335e, 0x33bf, 0x342f,
+            0x5c27, 0x5cc3, 0x5d00, 0x5d38, 0x5d60, 0x6370};
         for (int target : targets) {
             relocationTarget(target, String.format("seg3_target_%04x", target),
                 "NE relocation target in segment 3; semantics not assigned yet.");
@@ -155,6 +156,32 @@ public class AnnotateQuiky extends GhidraScript {
             "Clears ES:DI+18 and the byte at FS:[ES:DI+1A+1] after the camera gate rejects an object.");
         function(0x393c, "compute_state_machine_bounds",
             "Returns four bounds from the object pointed to by DS:881A: position fields plus +2C/+30/+2E/+32, or four zeroes when DS:89EA is nonzero.");
+        function(0x3f27, "initialize_player_object",
+            "Initializes the persistent player object: stores ES:DI into DS:881A, clears player globals, and installs callback 01F7:3FF8; runtime W1L1 pool offset 0 confirms this record.");
+        function(0x3ff8, "update_player_object",
+            "Persistent player callback installed by 01F7:3F27; checks DS:89EA, runs MAP collision probes, and advances the player record at ES:DI.");
+        function(0x3a1f, "player_collision_probe_3a1f",
+            "Player callback helper reached during grounded/collision resolution; exact return flags remain to be correlated with controlled input.");
+        function(0x3a62, "player_collision_probe_3a62",
+            "Player callback helper reached during finalization of a movement step; exact field semantics remain provisional.");
+        function(0x3a8a, "player_collision_helper_3a8a",
+            "Static target in the zero-DS:89EA player path; correlate its MAP reads and return flags with controlled input.");
+        function(0x3ab9, "player_collision_probe_3ab9",
+            "Player callback helper reached near the final object update path; semantics remain provisional.");
+        function(0x3d02, "player_collision_helper_3d02",
+            "Static target used by player movement and state-machine paths; exact collision role remains under test.");
+        function(0x3df2, "player_collision_helper_3df2",
+            "Static target used by player movement and state-machine paths; exact collision role remains under test.");
+        function(0x3e41, "player_collision_probe_3e41",
+            "Player callback helper reached while committing the post-collision state.");
+        function(0x6484, "player_collision_helper_6484",
+            "Collision helper identified by the player callback call graph; runtime input correlation is pending.");
+        function(0x648e, "player_collision_helper_648e",
+            "Collision helper reached by the player callback; a controlled W1L1 right-input run hits this entry at the persistent ES:0000 record; return semantics remain under test.");
+        function(0x69ff, "player_bounds_or_collision_69ff",
+            "Reads the persistent offset-zero player record while comparing another object position; higher-level role remains provisional.");
+        function(0x44dc, "player_control_transition_44dc",
+            "Decrements DS:89EA and handles the transitional vertical-motion control path.");
         function(0x0e06, "are_object_factory",
             "Scans the 64-entry pooled-object array and initializes a free object; the normal ARE path returns ES:DI and type 0x2B is initialized by the caller.");
         function(0x1749, "create_dedicated_are_effect",
@@ -168,6 +195,18 @@ public class AnnotateQuiky extends GhidraScript {
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
         function(0x3376, "map_tile_id_lookup_16px",
             "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E and returns only the low 9-bit tile ID.");
+        function(0x5c27, "map_property_query_5c27",
+            "Raw MAP-cell query used by player collision helpers; returns property-derived flags for a coordinate.");
+        function(0x5cc3, "map_property_query_5cc3",
+            "Raw MAP-cell query used by player collision helpers; returns directional property flags for a coordinate.");
+        function(0x5d00, "map_cell_descriptor_5d00",
+            "Builds a nearby MAP-cell descriptor used by player movement; exact field meanings remain under analysis.");
+        function(0x5d38, "map_cell_descriptor_5d38",
+            "Builds an adjacent MAP-cell descriptor used by player movement; exact field meanings remain under analysis.");
+        function(0x5d60, "map_cell_state_decay_5d60",
+            "Updates a temporary MAP-cell state/counter used by player movement.");
+        function(0x6370, "player_collision_helper_6370",
+            "MAP tile-ID collision helper parallel to 648E; calls 3376 and applies tile IDs 5-10 to player state.");
         function(0x8e4b, "update_tile_effect_state_machine",
             "Dispatches the shared tile-effect object state machine through object +0x32; state branches call the MAP lookup and create transient effects.");
         function(0x20c8, "render_map_column",
@@ -232,7 +271,14 @@ public class AnnotateQuiky extends GhidraScript {
         FunctionManager manager = currentProgram.getFunctionManager();
         Function function = manager.getFunctionAt(address);
         if (function == null) {
-            function = manager.createFunction(name, address, new AddressSet(address), SourceType.USER_DEFINED);
+            try {
+                function = manager.createFunction(name, address, new AddressSet(address), SourceType.USER_DEFINED);
+            } catch (Exception overlap) {
+                // Auto-analysis may already have claimed a containing function.
+                // Keep the annotation pass useful for the remaining targets.
+                println("Could not create function at " + address + ": " + overlap.getClass().getSimpleName());
+                return;
+            }
         } else {
             try {
                 function.setName(name, SourceType.USER_DEFINED);

@@ -651,6 +651,64 @@ W3L1 returned `(648,12,1248,212)` for `(848,112)`, W4L1 returned
 `(536,236,1136,436)` for `(736,336)`, and W5L1 returned
 `(632,60,1232,260)`. These samples all advance to state 1.
 
+A follow-up controlled probe captured the indirect lookup at the actual
+`01F7:393C` entry. In that run `DS:881A = 0`, `DS:89EA = 0`, `DS = 0x0237`,
+and `ES = 0x027F`; the helper therefore reads `ES:0000`, not the current
+state-machine object at `ES:0078`. The entry `DI` was still `0x0078` before
+the helper's `mov DI,[DS:881A]`, which independently confirms that overwrite.
+The sampled `ES:0000` fields were `base_x=128`, `base_y=400`,
+`x_left=488`, `y_bottom=-260`, `x_right=1088`, and `y_top=-60`; the returned
+low words were `(AX,BX,CX,DX) = (616,140,1216,340)`. This resolves the
+bounds-object identity: it is the persistent offset-zero record in the object
+selector, while the transient tile-effect object is a separate pooled record.
+
+The expanded `FindQuikyReferences.java` survey found no direct `DS:881A`
+write in the raw segments. Besides `393C`, the executable code around `69FF`
+also loads the offset-zero object's X/Y words before comparing them with the
+current object's position; its higher-level behavior is not assigned yet.
+The `DS:8828/882A` pair is published by the state-10 path through a pointer
+loaded from `DS:8828`, so a literal `DS:882A` byte-reference is not expected.
+The other `DS:89EA` users are real control flow: the segment-3 routine at
+`44DC` decrements the word and tests signed thresholds, while the segment-1
+main loop tests it at `4BA4`, `4C43`, and `4CB8`. Its exact gameplay role is
+still open, but `393C`'s zero/nonzero bounds-mode gate is now connected to
+that shared control word rather than treated as an isolated data flag.
+
+The persistent record is now identified as the player. Static code at
+`01F7:3F27` stores the incoming `ES:DI` offset into `DS:881A`, initializes the
+record's movement/collision fields, sets its initial bounds to
+`(+2C,+2E,+30,+32)=(-10,40,10,0)`, and installs callback `01F7:3FF8`.
+The callback's nonzero-`DS:89EA` branch performs a transitional vertical-motion
+path and decrements the shared control word at `01F7:44DC`. Its zero branch
+updates input-driven state, calls the collision helpers reached at `648E`,
+`6484`, and `3A8A`, and preserves position snapshots at object `+0x44/+0x48`.
+
+The player tracer confirms this statically derived identity in W1L1: the pool
+uses selector `0x027F`, offset `0`, and stride `0x78`; `DS:881A` remains zero,
+the record starts with callback `3F27`, and subsequent samples show callback
+`3FF8` at the same record and position `(128,400)`. This is the first direct
+runtime correlation between the bounds helper's offset-zero record and the
+player initializer.
+
+The first controlled input pass now exercises this callback rather than only
+observing initialization. Holding `KBD_right` for 30 guest frames moved the
+record from `(128,400)` to `(170,400)` and `(219,400)` across repeated
+`3FF8` barriers. The candidate collision breakpoint `01F7:648E` fired in the
+same run, while a MAP-focused run reached `01F7:3376` at `(133,400)` and
+`(173,400)`, returning tile IDs `0x0b8` and `0x167`. These observations tie
+the right-input path to both the collision-helper call graph and the existing
+16-pixel MAP lookup; they do not yet assign floor/side semantics.
+
+The callback-focused probe now leaves all related breakpoints armed while the
+callback runs, so the near-return check is no longer confused with a helper
+entry. Ordinary W1L1 updates reach `648E -> 6484 -> 3A8A` and return to the
+expected offset `0x0F26`. At a long right-input transition near `(2132,368)`
+only `648E` is reached before the player record enters the `+0x3E=0x03E8`
+checkpoint/reset state; releasing input returns it to `(1673,368)`. A long
+left-input run instead remains at `(72,400)` with zero velocity, and its MAP
+sample is `(77,400)`, cell `0xEC8B`. These are controlled wall-versus-reset
+observations, not final gameplay names.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive

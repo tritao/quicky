@@ -30,6 +30,10 @@ class PlayerSample:
     offset: int
     object: dict[str, Any]
     globals: dict[str, Any]
+    collision: dict[str, Any] | None = None
+    map_lookup: dict[str, Any] | None = None
+    collisions: list[dict[str, Any]] | None = None
+    map_lookups: list[dict[str, Any]] | None = None
 
 
 def _as_int(value: Any, field: str) -> int:
@@ -106,6 +110,10 @@ def correlate_samples(trace: dict[str, Any], offset: int | None = None) -> list[
             offset=target_offset,
             object=matches[0],
             globals=globals_state,
+            collision=sample.get("collision") if isinstance(sample.get("collision"), dict) else None,
+            map_lookup=sample.get("map_lookup") if isinstance(sample.get("map_lookup"), dict) else None,
+            collisions=sample.get("collisions") if isinstance(sample.get("collisions"), list) else None,
+            map_lookups=sample.get("map_lookups") if isinstance(sample.get("map_lookups"), list) else None,
         ))
     return result
 
@@ -152,6 +160,55 @@ def render_report(samples: list[PlayerSample], stream: TextIO) -> None:
     print(f"callbacks={_hex_values(samples, 'callback')}", file=stream)
     print(f"sprite_slots={_hex_values(samples, 'sprite_slot')}", file=stream)
     print(f"kinds={_hex_values(samples, 'kind')}", file=stream)
+    tail_states = []
+    for sample in samples:
+        state = tuple(
+            sample.object.get(f"player_byte_0x{offset:02x}", "?")
+            for offset in range(0x36, 0x3c)
+        ) + (sample.object.get("player_word_0x3e", "?"),)
+        if state not in tail_states:
+            tail_states.append(state)
+    print(
+        "player_tail_states=" + ";".join(
+            ",".join(f"{value:02x}" if isinstance(value, int) else str(value)
+                      for value in state)
+            for state in tail_states
+        ) if tail_states else "player_tail_states=-",
+        file=stream,
+    )
+    collision_values = []
+    map_values = []
+    for sample in samples:
+        collision_states = sample.collisions or (
+            [sample.collision] if isinstance(sample.collision, dict) else []
+        )
+        for collision in collision_states:
+            if not isinstance(collision, dict):
+                continue
+            helper = collision.get("helper_offset")
+            if isinstance(helper, int) and helper not in collision_values:
+                collision_values.append(helper)
+        map_states = sample.map_lookups or (
+            [sample.map_lookup] if isinstance(sample.map_lookup, dict) else []
+        )
+        for lookup in map_states:
+            if not isinstance(lookup, dict):
+                continue
+            tile_id = lookup.get("tile_id")
+            if isinstance(tile_id, int) and tile_id not in map_values:
+                map_values.append(tile_id)
+    print(
+        "collision_helpers=" + (",").join(
+            f"0x{value:04x}" for value in collision_values
+        ) if collision_values else "collision_helpers=-",
+        file=stream,
+    )
+    print(
+        "map_tile_ids=" + (",").join(
+            f"0x{value:03x}" for value in map_values
+        ) if map_values else "map_tile_ids=-",
+        file=stream,
+    )
     print(
         "camera_values=" + ",".join(
             f"{sample.globals.get('camera_x', '?')}:{sample.globals.get('camera_y', '?')}"
