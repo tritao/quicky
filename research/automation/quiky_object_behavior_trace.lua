@@ -18,6 +18,11 @@ local probe_position_x = trace_config.probe_position_x or -1
 local probe_position_y = trace_config.probe_position_y or -1
 local probe_proximity_state = trace_config.probe_proximity_state or -1
 local probe_bounds_byte_37 = trace_config.probe_bounds_byte_37 or -1
+local probe_descriptor_delay = trace_config.probe_descriptor_delay or -1
+local probe_descriptor_timer = trace_config.probe_descriptor_timer or -1
+local probe_descriptor_table = trace_config.probe_descriptor_table or -1
+local probe_descriptor_cursor = trace_config.probe_descriptor_cursor or -1
+local probe_descriptor_mode = trace_config.probe_descriptor_mode or -1
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local movement_key = trace_config.movement_key or ""
@@ -118,6 +123,18 @@ end
 
 local function object_snapshot(selector, offset)
     local raw = dosbox.mem_read_selector(selector, offset, 64)
+    local sequence_base = word(raw, 0x22 + 1)
+    local sequence_words = {}
+    if sequence_base ~= 0 then
+        local ok, sequence_raw = pcall(
+            dosbox.mem_read, "ds", sequence_base, 16)
+        if ok and sequence_raw then
+            for index = 0, math.min(#sequence_raw // 2, 8) - 1 do
+                sequence_words[#sequence_words + 1] =
+                    word(sequence_raw, index * 2 + 1)
+            end
+        end
+    end
     return {
         selector = selector,
         offset = offset,
@@ -135,6 +152,14 @@ local function object_snapshot(selector, offset)
         state_field = word(raw, 0x2e + 1),
         update_state = word(raw, 0x32 + 1),
         object_class = string.byte(raw, 0x17 + 1),
+        descriptor = {
+            reload_delay = word(raw, 0x1e + 1),
+            timer = word(raw, 0x20 + 1),
+            sequence_base = sequence_base,
+            sequence_cursor = word(raw, 0x24 + 1),
+            mode = string.byte(raw, 0x28 + 1),
+            sequence_words = sequence_words,
+        },
     }
 end
 
@@ -159,6 +184,37 @@ local function apply_global_probe()
         dosbox.mem_write_selector(selector, offset + 0x37,
                                    string.char(probe_bounds_byte_37 & 0xff))
         applied.bounds_byte_37 = probe_bounds_byte_37
+    end
+    if next(applied) == nil then return nil end
+    return applied
+end
+
+local function apply_descriptor_probe(selector, offset)
+    local applied = {}
+    if probe_descriptor_delay >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x1e,
+                                   little_word(probe_descriptor_delay))
+        applied.reload_delay = probe_descriptor_delay
+    end
+    if probe_descriptor_timer >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x20,
+                                   little_word(probe_descriptor_timer))
+        applied.timer = probe_descriptor_timer
+    end
+    if probe_descriptor_table >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x22,
+                                   little_word(probe_descriptor_table))
+        applied.sequence_base = probe_descriptor_table
+    end
+    if probe_descriptor_cursor >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x24,
+                                   little_word(probe_descriptor_cursor))
+        applied.sequence_cursor = probe_descriptor_cursor
+    end
+    if probe_descriptor_mode >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x28,
+                                   string.char(probe_descriptor_mode & 0xff))
+        applied.mode = probe_descriptor_mode
     end
     if next(applied) == nil then return nil end
     return applied
@@ -675,8 +731,10 @@ while #samples < sample_count and attempts < sample_count * 128 do
         local natural_before = object_snapshot(object_selector, object_offset)
         local position_override = apply_position_probe(object_selector,
                                                         object_offset)
+        local descriptor_override = apply_descriptor_probe(object_selector,
+                                                            object_offset)
         local global_probe_override = apply_global_probe()
-        local before = position_override and
+        local before = (position_override or descriptor_override) and
             object_snapshot(object_selector, object_offset) or natural_before
         if initial_object.observed_scheduler_class == nil then
             initial_object = before
@@ -870,6 +928,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             object_after = after,
             natural_position_before = natural_before.position,
             position_override = position_override,
+            descriptor_override = descriptor_override,
             global_probe_override = global_probe_override,
             bounds_object_before = bounds_object_before,
             bounds_object_after = bounds_object_snapshot(),

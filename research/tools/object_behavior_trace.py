@@ -45,6 +45,11 @@ class ObjectBehaviorConfig:
     probe_position_y: int | None = None
     probe_proximity_state: int | None = None
     probe_bounds_byte_37: int | None = None
+    probe_descriptor_delay: int | None = None
+    probe_descriptor_timer: int | None = None
+    probe_descriptor_table: int | None = None
+    probe_descriptor_cursor: int | None = None
+    probe_descriptor_mode: int | None = None
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
     movement_key: str = ""
@@ -68,6 +73,11 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "probe_position_y": config.probe_position_y,
         "probe_proximity_state": config.probe_proximity_state,
         "probe_bounds_byte_37": config.probe_bounds_byte_37,
+        "probe_descriptor_delay": config.probe_descriptor_delay,
+        "probe_descriptor_timer": config.probe_descriptor_timer,
+        "probe_descriptor_table": config.probe_descriptor_table,
+        "probe_descriptor_cursor": config.probe_descriptor_cursor,
+        "probe_descriptor_mode": config.probe_descriptor_mode,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
         "movement_key": config.movement_key,
@@ -122,6 +132,14 @@ def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
     samples = ordered_lua_array(trace.get("samples", []))
     for sample in samples:
         if isinstance(sample, dict):
+            for object_name in ("object_before", "object_after"):
+                object_snapshot = sample.get(object_name)
+                if isinstance(object_snapshot, dict):
+                    descriptor = object_snapshot.get("descriptor")
+                    if isinstance(descriptor, dict):
+                        descriptor["sequence_words"] = ordered_lua_array(
+                            descriptor.get("sequence_words", [])
+                        )
             sample["changed_bytes"] = ordered_lua_array(
                 sample.get("changed_bytes", [])
             )
@@ -227,6 +245,16 @@ def build_parser() -> argparse.ArgumentParser:
                         help="override DS:85DA before each callback (type 0x34 gate probe)")
     parser.add_argument("--probe-bounds-byte-37", type=lambda value: int(value, 0),
                         help="override bounds/player object byte +0x37 before each callback")
+    parser.add_argument("--probe-descriptor-delay", type=lambda value: int(value, 0),
+                        help="override object +0x1E before each callback")
+    parser.add_argument("--probe-descriptor-timer", type=lambda value: int(value, 0),
+                        help="override object +0x20 before each callback")
+    parser.add_argument("--probe-descriptor-table", type=lambda value: int(value, 0),
+                        help="override object +0x22 before each callback")
+    parser.add_argument("--probe-descriptor-cursor", type=lambda value: int(value, 0),
+                        help="override object +0x24 before each callback")
+    parser.add_argument("--probe-descriptor-mode", type=lambda value: int(value, 0),
+                        help="override object byte +0x28 before each callback")
     parser.add_argument("--reactivate-camera-x", type=int,
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
@@ -272,6 +300,13 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--probe-proximity-state must be between 0 and 65535")
     if args.probe_bounds_byte_37 is not None and not 0 <= args.probe_bounds_byte_37 <= 0xff:
         raise TraceError("--probe-bounds-byte-37 must be between 0 and 255")
+    for name in ("probe_descriptor_delay", "probe_descriptor_timer",
+                 "probe_descriptor_table", "probe_descriptor_cursor"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if args.probe_descriptor_mode is not None and not 0 <= args.probe_descriptor_mode <= 0xff:
+        raise TraceError("--probe-descriptor-mode must be between 0 and 255")
     for name in ("reactivate_camera_x", "reactivate_camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
@@ -344,6 +379,11 @@ def main(argv: list[str] | None = None) -> int:
             probe_position_y=args.probe_position_y,
             probe_proximity_state=args.probe_proximity_state,
             probe_bounds_byte_37=args.probe_bounds_byte_37,
+            probe_descriptor_delay=args.probe_descriptor_delay,
+            probe_descriptor_timer=args.probe_descriptor_timer,
+            probe_descriptor_table=args.probe_descriptor_table,
+            probe_descriptor_cursor=args.probe_descriptor_cursor,
+            probe_descriptor_mode=args.probe_descriptor_mode,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
             movement_key=args.movement_key or "",

@@ -320,7 +320,21 @@ entries and returns for types `0x2C`, `0x33`, and `0x34`; the register-level
 findings and remaining MAP-helper questions are recorded in
 [`notes/object-behavior.md`](notes/object-behavior.md).
 Controlled branch probes additionally use `--probe-position-x/y`,
-`--probe-proximity-state`, and `--probe-bounds-byte-37`.
+`--probe-proximity-state`, and `--probe-bounds-byte-37`. Descriptor-state
+probes use `--probe-descriptor-delay`, `--probe-descriptor-timer`,
+`--probe-descriptor-table`, `--probe-descriptor-cursor`, and
+`--probe-descriptor-mode`.
+
+The first standalone C++ behavior model is in
+[`model/`](model/), covering the proven pool/scheduler operations, descriptor
+sequence state, and type-0x34 proximity output. Build and run its focused test
+with:
+
+~~~sh
+cmake -S research/model -B research/build/object-behavior-model
+cmake --build research/build/object-behavior-model -j16
+ctest --test-dir research/build/object-behavior-model --output-on-failure
+~~~
 
 For real-input lifetime checks, use the isolated movement driver. It waits for
 the selected entity to initialize, injects a guest-key sequence, and captures

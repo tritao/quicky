@@ -29,6 +29,11 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             probe_position_y=256,
             probe_proximity_state=0x32,
             probe_bounds_byte_37=1,
+            probe_descriptor_delay=10,
+            probe_descriptor_timer=0,
+            probe_descriptor_table=0x3506,
+            probe_descriptor_cursor=0x3508,
+            probe_descriptor_mode=0xff,
             movement_key="KBD_right",
         )
         payload = lua_config(config)
@@ -44,6 +49,11 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["probe_position_y"], 256)
         self.assertEqual(payload["probe_proximity_state"], 0x32)
         self.assertEqual(payload["probe_bounds_byte_37"], 1)
+        self.assertEqual(payload["probe_descriptor_delay"], 10)
+        self.assertEqual(payload["probe_descriptor_timer"], 0)
+        self.assertEqual(payload["probe_descriptor_table"], 0x3506)
+        self.assertEqual(payload["probe_descriptor_cursor"], 0x3508)
+        self.assertEqual(payload["probe_descriptor_mode"], 0xff)
         self.assertEqual(payload["movement_key"], "KBD_right")
         self.assertNotIn("player_callback_offset", payload)
 
@@ -64,6 +74,23 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(trace["samples"][1]["changed_bytes"][1]["offset"], 4)
         self.assertEqual(trace["samples"][1]["callback"]["related_hits"][0]["offset"], 0x1dee)
         self.assertEqual(trace["samples"][1]["callback"]["helper_calls"][0]["offset"], 0x5d38)
+
+    def test_normalizes_descriptor_sequence_words(self):
+        trace = normalize_behavior_trace({
+            "samples": [{
+                "object_before": {"descriptor": {
+                    "sequence_words": {"2": 0xfffc, "1": 0x00d6},
+                }},
+                "object_after": {"descriptor": {
+                    "sequence_words": {"1": 0x00d6},
+                }},
+                "changed_bytes": {},
+            }],
+        })
+        self.assertEqual(
+            trace["samples"][0]["object_before"]["descriptor"]["sequence_words"],
+            [0x00d6, 0xfffc],
+        )
 
     def test_normalizes_followup_pool_tables(self):
         trace = normalize_behavior_trace({

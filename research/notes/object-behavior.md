@@ -378,9 +378,55 @@ bounds derived from the object at `DS:0x881A` (`x/+0x2C`, `y/+0x2E`,
 `x/+0x30`, `y/+0x32`), or zeroes when `DS:0x89EA` is nonzero.
 
 These probes close the helper-input and branch conditions needed for the
-first C++ behavior models. The remaining work is to model the descriptor
-state mutation performed by `0x5D38/0x5D60`, then compare callback state and
-action outputs frame-by-frame against DOSBox.
+first C++ behavior models. The next comparison target is callback state and
+action output frame-by-frame against DOSBox.
+
+## Descriptor state-machine pass
+
+The tracer now records the descriptor fields and the first eight words at the
+sequence base in the live `DS` segment. This turns the previous provisional
+names into an exact state contract:
+
+| Object field | Semantic name | Exact behavior |
+| --- | --- | --- |
+| `+0x1E` | `descriptor_reload_delay` | Reload value copied from `[DS:SI]` by `5D38`. |
+| `+0x20` | `descriptor_timer` | Decremented once per `5D60` call; reloaded from `+0x1E` after an entry resolves. |
+| `+0x22` | `descriptor_sequence_base` | Set to `DS:SI+2` by `5D38`; remains fixed during the sequence. |
+| `+0x24` | `descriptor_sequence_cursor` | Advances by two bytes at expiry and follows signed relative jump words. |
+| `+0x28` | `descriptor_mode` | When byte `0xFF`, adds `0x32` to the resolved action value. |
+
+`5D38` therefore performs:
+
+```text
+reload_delay = word[DS:SI]
+timer        = reload_delay
+sequence_base = DS:SI + 2
+sequence_cursor = sequence_base
+action = sequence_word(sequence_cursor)
+         + (mode == 0xff ? 0x32 : 0)
+```
+
+`5D60` returns after only decrementing `timer` when it is nonzero. At zero it
+increments `sequence_cursor` by one word, reads a signed sequence value, and
+repeats `cursor += signed_value * 2` while that value is negative. It then
+publishes the nonnegative value as the action and reloads `timer`.
+
+The live W1L1 sequence windows are:
+
+| Family | `DS:SI` | Reload | Sequence words at `+0x22` | Jump result |
+| --- | ---: | ---: | --- | --- |
+| Type `0x33` | `0x3504` | `10` | `0x00D6, 0x00D7, 0x00D8, 0x00D9, 0xFFFC` | From `0x350E`, `-4` returns the cursor to `0x3506`. |
+| Type `0x34` | `0x3568` | `6` | `0x0190, 0x0192, 0x0193, 0x0191, 0xFFFF` | From `0x3572`, `-1` returns the cursor to `0x3570`. |
+
+The debugger-only timer/mode probe forces expiry on every callback. With
+`mode=0xFF`, type `0x33` publishes `0x0108..0x010B` before looping, and type
+`0x34` publishes `0x01C2, 0x01C4, 0x01C5, 0x01C3` before holding on the final
+entry. These values match the executable's `+0x32` adjustment exactly.
+
+This closes the descriptor mutation needed by the first model. MAP behavior
+remains a separate input to type `0x33`: the earlier X sweep established that
+`5C27`/`1C6E` choose the higher-level branch from raw MAP and descriptor data;
+the descriptor timer itself does not read MAP.
 
 ## Real-input reactivation and allocator choice
 

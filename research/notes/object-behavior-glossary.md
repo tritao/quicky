@@ -55,8 +55,10 @@ stable use seen so far, while the address remains the authoritative identity.
 | `+0x18` | `update_callback_offset` | confirmed | Near callback offset; zero means the record is free/inactive. |
 | `+0x1A` | `source_are_pointer` | confirmed | Object offset of the originating ARE declaration; its high marker byte is cleared on cull. |
 | `+0x1C` | `update_callback_segment` | confirmed | Far callback selector paired with `+0x18`. |
-| `+0x1E/+0x20` | `descriptor_delay_and_timer` | probable | Delay/timer pair initialized by `load_animation_descriptor`. |
-| `+0x22/+0x24` | `descriptor_cursor_pair` | probable | Cursor/table state advanced by `advance_animation_descriptor`. |
+| `+0x1E` | `descriptor_reload_delay` | confirmed | Reload value copied from the sequence's first word by `load_animation_descriptor`. |
+| `+0x20` | `descriptor_timer` | confirmed | Countdown decremented by `advance_animation_descriptor`; reloads from `+0x1E`. |
+| `+0x22` | `descriptor_sequence_base` | confirmed | Fixed sequence start, set to `DS:SI+2` by `load_animation_descriptor`. |
+| `+0x24` | `descriptor_sequence_cursor` | confirmed | Byte cursor advanced by two and redirected by signed jump words. |
 | `+0x28` | `descriptor_mode` | provisional | Selects an alternate descriptor adjustment when equal to `0xFFFF`. |
 | `+0x29` | `map_probe_direction` | confirmed | Direction byte used when forming the type-`0x33` MAP probe. |
 | `+0x2B` | `player_contact_state` | provisional | Set to `0xFF` by `apply_player_displacement`; broader state meaning is open. |
