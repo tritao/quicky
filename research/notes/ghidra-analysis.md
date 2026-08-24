@@ -404,6 +404,10 @@ Their post-slot boundaries are `01F7:8BF1`, `01F7:8C14`, and `01F7:8C37`.
 Target-typed archives with a one-record type-0 mutation confirm that all
 three are live removable pickup objects; the catalog names follow the
 previously established gameplay semantics.
+Native W1/W2 renderer probes resolve slots 607-610 through map indices
+185/186/187/144 and descriptor offsets 8140/8184/8228/6336. The live
+geometries are `26x34`, `21x22`, `22x22`, and `15x25`, all with origin `(0,0)`,
+matching WERBE.BOB records 0-3.
 
 Normal type `0x28` uses dispatch entry `01F7:9256`, object class `0`, and
 reserved byte `0`. Its initializer leaves `object+0x12` at `0xFFFF`; paired

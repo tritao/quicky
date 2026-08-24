@@ -701,6 +701,8 @@ W2L1 FISCH/KRABBE, W3L1 PENGO, W4L1 FLIEGE/SPINNE, W5L1 BUGGY/UFO, and W2L2
 PAPIER all produce live descriptors whose dimensions and origins match the
 catalogued BOB records. The per-type trace paths and descriptor offsets are
 recorded in `research/entity-types.json`.
+The four WERBE pickup types `0x6F`-`0x72` likewise resolve live descriptors
+for slots 607-610; their dimensions are `26x34`, `21x22`, `22x22`, and `15x25`.
 Types `0x1F`-`0x21` converge on update callback `01F7:8E4B`
 but leave `object+0x12` unset; they are confirmed animated world-ICO
 state-machine variants rather than standard BOB-slot objects.
