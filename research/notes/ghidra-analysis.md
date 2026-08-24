@@ -464,6 +464,17 @@ conservative. The path ledgers are `entity-65-dedicated-trace.json` through
 `entity-67-dedicated-trace.json`; the animation ledgers are the corresponding
 `entity-65/66/67-dedicated-animation-v8.json` traces under `research/build/`.
 
+The world-relative asset choice is independently confirmed with first-entity
+mutations in other levels. The W2L1 type-`0x66` trace matches
+`LOOP_W2.ICO` record 8 at `FS:0x035F:0xDE00`; W3L1 type-`0x67` matches
+`LOOP_W3.ICO` record 6; W4L1 type-`0x67` matches `LOOP_W4.ICO` record 22;
+and W5L1 type-`0x65` matches `LOOP_W5.ICO` record 4. Each comparison is an
+exact 256-byte block match, and the live selector remains `0x035F` while the
+loaded world resource changes. The cross-world traces are
+`dedicated-animation-w3-v1.json`, `dedicated-animation-w4-v1.json`,
+`dedicated-animation-w5-v1.json`, and
+`entity-66-dedicated-animation-w2l1-first-v1.json` under `research/build/traces/`.
+
 Controlled W1L1 anchor traces for `0x29` and `0x2A` stop at the common
 post-initializer boundary `01F7:474D` and write slots 700/703 in
 `object+0x12`. Both read the same `DS:3312`/`DS:3326` animation tables and

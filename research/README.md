@@ -367,6 +367,11 @@ is still unresolved. The durable path ledgers are
 `research/build/entity-65-dedicated-trace.json` through
 `entity-67-dedicated-trace.json`; the animation ledgers are the corresponding
 `entity-{65,66,67}-dedicated-animation-v8.json` traces under `research/build/`.
+Cross-world first-entity probes independently match the same live blocks to
+`LOOP_W2.ICO` record 8, `LOOP_W3.ICO` record 6, `LOOP_W4.ICO` record 22, and
+`LOOP_W5.ICO` record 4. This establishes the world-relative `LOOP_Wn.ICO`
+family rather than a W1-only coincidence; the gameplay names of the three
+dedicated ARE types remain intentionally conservative.
 
 ### QUIKY.EXE — initial static survey
 

@@ -1269,6 +1269,11 @@
           "research/build/traces/entity-65-dedicated-animation-v8.json",
           "research/build/traces/entity-65-dedicated-animation-v9.json"
         ],
+        "cross_world_animation_probes": [
+          {"level": "W1L1", "asset": "LOOP_W1.ICO", "record": 1, "state_field": 471, "trace": "research/build/traces/entity-65-dedicated-animation-v8.json"},
+          {"level": "W1L1", "asset": "LOOP_W1.ICO", "record": 2, "state_field": 472, "trace": "research/build/traces/entity-65-dedicated-animation-v9.json"},
+          {"level": "W5L1", "asset": "LOOP_W5.ICO", "record": 4, "state_field": 474, "trace": "research/build/traces/dedicated-animation-w5-v1.json"}
+        ],
         "trace_ledger": "research/build/entity-65-dedicated-trace.json",
         "experiment": "target_type_65_dedicated_event_path",
         "experiment_manifest": "research/build/entity-65-runtime-manifest.json",
@@ -1300,6 +1305,10 @@
         "event_animation_records_observed": [6],
         "event_animation_match": "256-byte FS:BX block matches LOOP_W1.ICO record 6 byte-for-byte",
         "event_animation_trace": "research/build/traces/entity-66-dedicated-animation-v8.json",
+        "cross_world_animation_probes": [
+          {"level": "W1L1", "asset": "LOOP_W1.ICO", "record": 6, "state_field": 476, "trace": "research/build/traces/entity-66-dedicated-animation-v8.json"},
+          {"level": "W2L1", "asset": "LOOP_W2.ICO", "record": 8, "state_field": 478, "trace": "research/build/traces/entity-66-dedicated-animation-w2l1-first-v1.json"}
+        ],
         "trace_ledger": "research/build/entity-66-dedicated-trace.json",
         "experiment": "target_type_66_dedicated_event_path",
         "experiment_manifest": "research/build/entity-66-runtime-manifest.json",
@@ -1331,6 +1340,11 @@
         "event_animation_records_observed": [6],
         "event_animation_match": "256-byte FS:BX block matches LOOP_W1.ICO record 6 byte-for-byte",
         "event_animation_trace": "research/build/traces/entity-67-dedicated-animation-v8.json",
+        "cross_world_animation_probes": [
+          {"level": "W1L1", "asset": "LOOP_W1.ICO", "record": 6, "state_field": 476, "trace": "research/build/traces/entity-67-dedicated-animation-v8.json"},
+          {"level": "W3L1", "asset": "LOOP_W3.ICO", "record": 6, "state_field": 476, "trace": "research/build/traces/dedicated-animation-w3-v1.json"},
+          {"level": "W4L1", "asset": "LOOP_W4.ICO", "record": 22, "state_field": 492, "trace": "research/build/traces/dedicated-animation-w4-v1.json"}
+        ],
         "trace_ledger": "research/build/entity-67-dedicated-trace.json",
         "experiment": "target_type_67_dedicated_event_path",
         "experiment_manifest": "research/build/entity-67-runtime-manifest.json",
