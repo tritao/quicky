@@ -227,6 +227,17 @@ active in these near-camera runs. The runs establish signed horizontal motion
 and opposite paired directions, but not timer reversal, MAP blocking, or
 player-contact response; see [`entity-effect-motion-evidence.json`](../entity-effect-motion-evidence.json).
 
+The callback state paths are now decoded in the segment as well. Wind `882F`
+uses states 0-3: horizontal clamp/flip, timer-driven vertical phases, and a
+player-range gate (`x-10..x+10`, `y-35..y+5`) before returning to state 0. Its
+MAP probes are the `+/-20` and `+/-25` directional checks, with `+0x2F` as the
+block flag and table selectors `DS:3504`/`DS:3510`. UFO effect `546D` uses
+states 0-6, direction-dependent `+/-20`/`+/-16` MAP probes, a 40-50 pixel
+player x window with a 120-pixel y window, and the camera-gated clear at
+`58A0`; common setup seeds `+/-0x15000` velocity and the paired types negate
+it. The normalized motion ledger now carries these static state rules as well
+as the direct trajectories.
+
 The platform carry branch is also live-observed. Eight direct updates of type
 `0x3D` in the synthetic W1L2 cell enter `A075` and `A0B2` every time; the
 position remains `(240,512)` because this cell is MAP-blocked/waiting, while
