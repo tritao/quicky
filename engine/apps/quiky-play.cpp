@@ -4,6 +4,9 @@
 #include "quiky/map.h"
 #include "quiky/palette.h"
 #include "quiky/level.h"
+#ifdef QUIKY_WITH_MUSIC
+#include "quiky/music.h"
+#endif
 #include "quiky/renderer.h"
 #include "quiky/runtime.h"
 #include "quiky/tileset.h"
@@ -28,7 +31,7 @@ const std::uint64_t kTickNanoseconds = 1000000000ULL / 60ULL;
 
 void usage() {
     std::cerr << "usage: quiky-play ARCHIVE [MAP-RESOURCE BOB-RESOURCE] "
-                 "[START-X START-Y] [--overlay-are] [--entities]\n"
+                 "[START-X START-Y] [--overlay-are] [--entities] [--no-music]\n"
                  "controls: arrows/A,D move, space/W/up jump, R reset, "
                  "P pause, N step, F1 toggle ARE, F2 toggle active entities, Esc quit\n";
 }
@@ -102,10 +105,23 @@ struct SdlState {
     SDL_Window *window;
     SDL_Renderer *renderer;
     SDL_Texture *texture;
+#ifdef QUIKY_WITH_MUSIC
+    SDL_AudioStream *musicStream;
+#endif
 
-    SdlState() : window(nullptr), renderer(nullptr), texture(nullptr) {}
+    SdlState()
+        : window(nullptr), renderer(nullptr), texture(nullptr)
+#ifdef QUIKY_WITH_MUSIC
+          , musicStream(nullptr)
+#endif
+    {}
 
     ~SdlState() {
+#ifdef QUIKY_WITH_MUSIC
+        if (musicStream != nullptr) {
+            SDL_DestroyAudioStream(musicStream);
+        }
+#endif
         if (texture != nullptr) {
             SDL_DestroyTexture(texture);
         }
@@ -118,6 +134,39 @@ struct SdlState {
         SDL_Quit();
     }
 };
+
+#ifdef QUIKY_WITH_MUSIC
+bool startGameplayMusic(const quiky::Archive &archive, SdlState &sdl) {
+    try {
+        quiky::MusicModule module(archive, "ONGAME2");
+        const quiky::Pcm16Stereo audio = module.render(0, 180, false);
+        SDL_AudioSpec spec;
+        SDL_zero(spec);
+        spec.freq = static_cast<int>(audio.sampleRate);
+        spec.format = SDL_AUDIO_S16LE;
+        spec.channels = 2;
+        sdl.musicStream = SDL_OpenAudioDeviceStream(
+            SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
+        if (sdl.musicStream == nullptr) {
+            std::cerr << "warning: gameplay music unavailable: " << SDL_GetError() << "\n";
+            return false;
+        }
+        const int bytes = static_cast<int>(audio.samples.size() * sizeof(std::int16_t));
+        if (!SDL_PutAudioStreamData(sdl.musicStream, audio.samples.data(), bytes) ||
+            !SDL_FlushAudioStream(sdl.musicStream) ||
+            !SDL_ResumeAudioStreamDevice(sdl.musicStream)) {
+            std::cerr << "warning: gameplay music could not start: " << SDL_GetError() << "\n";
+            SDL_DestroyAudioStream(sdl.musicStream);
+            sdl.musicStream = nullptr;
+            return false;
+        }
+        return true;
+    } catch (const std::exception &error) {
+        std::cerr << "warning: gameplay music unavailable: " << error.what() << "\n";
+        return false;
+    }
+}
+#endif
 
 void uploadSurface(SDL_Texture *texture, const quiky::IndexedSurface &surface,
                    const quiky::Palette &palette) {
@@ -213,12 +262,15 @@ int main(int argc, char **argv) {
         std::vector<std::string> positional;
         bool showArea = false;
         bool showEntities = false;
+        bool musicEnabled = true;
         for (int index = 2; index < argc; ++index) {
             const std::string argument(argv[index]);
             if (argument == "--overlay-are") {
                 showArea = true;
             } else if (argument == "--entities") {
                 showEntities = true;
+            } else if (argument == "--no-music") {
+                musicEnabled = false;
             } else {
                 positional.push_back(argument);
             }
@@ -275,6 +327,17 @@ int main(int argc, char **argv) {
 
         checkSdl(SDL_Init(SDL_INIT_VIDEO), "SDL_Init");
         SdlState sdl;
+#ifdef QUIKY_WITH_MUSIC
+        if (musicEnabled) {
+            if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
+                std::cerr << "warning: gameplay music unavailable: " << SDL_GetError() << "\n";
+            } else {
+                startGameplayMusic(archive, sdl);
+            }
+        }
+#else
+        (void)musicEnabled;
+#endif
         checkSdl(SDL_CreateWindowAndRenderer(
                      "Quiky", kViewportWidth * 2, kViewportHeight * 2,
                      SDL_WINDOW_RESIZABLE, &sdl.window, &sdl.renderer),

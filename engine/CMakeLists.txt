@@ -49,18 +49,53 @@ target_link_libraries(quiky-compare-trace PRIVATE quiky_core)
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 
+enable_testing()
+
+option(QUIKY_ENABLE_MUSIC "Build the TFMX music player" ON)
+
+if(QUIKY_ENABLE_MUSIC)
+    add_library(quiky_music src/music.cpp)
+    target_link_libraries(quiky_music PUBLIC quiky_core)
+    if(NOT MSVC)
+        target_compile_options(quiky_music PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    add_executable(quiky-music apps/quiky-music.cpp)
+    target_link_libraries(quiky-music PRIVATE quiky_music)
+
+    find_package(SDL3 CONFIG QUIET)
+    if(SDL3_FOUND AND TARGET SDL3::SDL3)
+        target_link_libraries(quiky-music PRIVATE SDL3::SDL3)
+        target_compile_definitions(quiky-music PRIVATE QUIKY_WITH_SDL=1)
+    endif()
+endif()
+
 option(QUIKY_ENABLE_FRONTEND "Build the SDL3 interactive frontend" ON)
 if(QUIKY_ENABLE_FRONTEND)
     find_package(SDL3 CONFIG QUIET)
     if(SDL3_FOUND AND TARGET SDL3::SDL3)
         add_executable(quiky-play apps/quiky-play.cpp)
         target_link_libraries(quiky-play PRIVATE quiky_core SDL3::SDL3)
+        if(QUIKY_ENABLE_MUSIC)
+            target_link_libraries(quiky-play PRIVATE quiky_music)
+            target_compile_definitions(quiky-play PRIVATE QUIKY_WITH_MUSIC=1)
+        endif()
     else()
         message(STATUS "SDL3 not found; interactive frontend disabled. Set QUIKY_ENABLE_FRONTEND=OFF to silence this message.")
     endif()
 endif()
 
-enable_testing()
+if(QUIKY_ENABLE_MUSIC)
+    add_test(NAME quiky-music-list
+        COMMAND quiky-music ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT list)
+    add_test(NAME quiky-music-info-title
+        COMMAND quiky-music ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT info TITEL)
+    add_test(NAME quiky-music-info-all
+        COMMAND quiky-music ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT info ONGAME2)
+    add_test(NAME quiky-music-render-title
+        COMMAND quiky-music ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT
+                render TITEL ${CMAKE_CURRENT_BINARY_DIR}/quiky-music-title.wav)
+endif()
 
 add_executable(quiky-tests tests/test_formats.cpp)
 target_link_libraries(quiky-tests PRIVATE quiky_core)
