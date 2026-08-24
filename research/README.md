@@ -361,6 +361,12 @@ avoiding the expensive full pool snapshots. A controlled `0x2B` run with
 camera `(500,0)` reaches `y=305` at sample 74 and records
 `01F7:1DCA -> 01F7:1DEE`, callback clear, and source marker
 `0x012B -> 0x002B`. The same object survives 192 samples at camera `(500,100)`.
+The other accepted families (`0x29`, `0x2A`, `0x2C`, `0x33`, and `0x34`) also
+complete 128-sample lightweight windows without callback clears or source
+marker changes. The complete accepted-camera set is therefore classified as
+`persistent_in_window`; the remaining lifecycle transition to characterize is
+what happens after an object-specific state change or real gameplay event,
+rather than ordinary visibility culling.
 
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry

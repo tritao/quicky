@@ -234,6 +234,14 @@ survives 192 samples and reaches `y=360` with callback `0x47E7` and source
 marker `0x012B`; type `0x28` survives 128 samples at a fixed position with
 callback `0x9269` and marker `0x0128`.
 
+The remaining accepted families complete the same 128-sample lightweight
+window: `0x29` and `0x2A` retain `0x47E7`, `0x2C` retains `0x8D20`, `0x33`
+retains `0x882F`, and `0x34` retains `0x9C0C`. Their source markers remain
+`0x0129`, `0x012A`, `0x012C`, `0x0133`, and `0x0134`, respectively. The full
+accepted-camera matrix therefore classifies all seven tested families as
+`persistent_in_window`; the only related site in those runs is the camera
+check at `0x1DCA`.
+
 A controlled boundary run moves the camera window upward without moving the
 object horizontally: type `0x2B` starts accepted at camera `(500,0)`, then
 reaches `y=305` on sample 74. That callback hits `01F7:0x1DCA` followed by
