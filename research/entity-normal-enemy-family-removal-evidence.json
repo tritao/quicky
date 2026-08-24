@@ -10,6 +10,6 @@
     {"family": "wurm2", "type": "0x01", "level": "W1L1", "record_offset": 6034, "object_position": [880, 416], "callback_before": "01F7:6DC4", "callback_after": 0, "evidence": "research/entity-normal-enemy-removal-evidence.json"},
     {"family": "biene", "type": "0x03", "level": "W1L1", "record_offset": 6034, "object_position": [768, 256], "callback_before": "01F7:68C0", "callback_after": 0, "changed_fields": ["object+0x18", "object+0x19"], "runtime": "/home/joao/dev/quicky/research/build/entity-03-evidence/baseline/game"}
   ],
-  "static_rule": "Normal enemy callbacks enter shared visibility helper 01F7:1DCA and its rejection path 01F7:1DEE; the representative traces verify callback clearing for two distinct family callbacks.",
-  "conclusion": "Off-camera deactivation is common across the normal-enemy family. Player-caused death, drops, and respawn are not inferred from this visibility lifecycle."
+  "static_rule": "Normal enemy callbacks enter shared visibility helper 01F7:1DCA and its rejection path 01F7:1DEE; the representative traces verify callback clearing for two distinct family callbacks. The shared removal routine also clears FS:[object+0x1A+1], the claimed bit in the source ARE record.",
+  "conclusion": "Off-camera deactivation is common across the normal-enemy family and resets the source declaration's claimed bit, allowing a later camera-region scan to respawn the object. Player contact uses the timed response path rather than this removal/reset path."
 }

@@ -17,7 +17,9 @@ local trace_overlap = trace_config.trace_overlap or false
 local trace_collision = trace_config.trace_collision or false
 local trace_platform = trace_config.trace_platform or false
 local trace_bump = trace_config.trace_bump or false
+local trace_contact = trace_config.trace_contact or false
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
+local force_contact_gate = trace_config.force_contact_gate or false
 local align_y_offset = trace_config.align_y_offset or 0
 local force_velocity_x = trace_config.force_velocity_x
 local force_velocity_y = trace_config.force_velocity_y
@@ -113,6 +115,9 @@ local function static_globals()
         tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
         action_word = dosbox.mem_read_word("ds", 0x612e),
         object_global_880c = dosbox.mem_read_word("ds", 0x880c),
+        object_global_8806 = dosbox.mem_read_word("ds", 0x8806),
+        contact_player_x = dosbox.mem_read_word("ds", 0x87de),
+        contact_player_y = dosbox.mem_read_word("ds", 0x87e0),
         object_global_881c = dosbox.mem_read_word("ds", 0x881c),
         object_global_8822 = dosbox.mem_read_word("ds", 0x8822),
         object_global_8824 = dosbox.mem_read_word("ds", 0x8824),
@@ -308,6 +313,15 @@ end
 local callback_offset = initialized_object.update_callback
 assert(callback_offset ~= 0,
        "initialized object has no per-object callback")
+if force_contact_gate then
+    -- Controlled branch probe: the native callback gates this path on
+    -- DS:8806 and compares the object integer coordinates against the
+    -- selected pair in DS:87DE/87E0.  Keep this explicit debugger-only
+    -- control separate from the unmodified overlap alignment.
+    dosbox.mem_write("ds", 0x8806, little_word(1))
+    dosbox.mem_write("ds", 0x87de, little_word(initialized_object.position.x))
+    dosbox.mem_write("ds", 0x87e0, little_word(initialized_object.position.y))
+end
 local samples = {}
 local attempts = 0
 while #samples < sample_count and attempts < sample_count * 128 do
@@ -361,15 +375,25 @@ while #samples < sample_count and attempts < sample_count * 128 do
             dosbox.mem_write_selector(object_selector, bounds_offset + 0x32,
                                       little_word(0x0000))
         end
-        local globals_before = static_globals()
         local before = object_snapshot(object_selector, object_offset)
+        if force_contact_gate then
+            dosbox.mem_write("ds", 0x8806, little_word(1))
+            dosbox.mem_write("ds", 0x87de, little_word(before.position.x))
+            -- WURM2's contact window is evaluated after its movement step;
+            -- place the controlled player sample just above the object's
+            -- post-update Y interval while leaving the branch mechanics
+            -- explicit.
+            dosbox.mem_write("ds", 0x87e0, little_word(before.position.y - 12))
+        end
+        local globals_before = static_globals()
         local returned = stack_return(callback_entry)
         assert(returned ~= nil, "object callback has no near return address")
         local overlap_probe = nil
         local collision_probe = nil
         local bump_probe = nil
+        local contact_probe = nil
         local callback_return = nil
-        if trace_overlap or trace_collision or trace_platform or trace_bump then
+        if trace_overlap or trace_collision or trace_platform or trace_bump or trace_contact then
             overlap_probe = {hits = {}}
             if trace_overlap then
                 dosbox.breakpoint_set(0x01f7, 0x8d36, {once = true})
@@ -409,6 +433,15 @@ while #samples < sample_count and attempts < sample_count * 128 do
                 dosbox.breakpoint_set(0x01f7, 0x9c64, {once = true})
                 dosbox.breakpoint_set(0x01f7, 0x9c6a, {once = true})
             end
+            if trace_contact then
+                contact_probe = {hits = {}}
+                dosbox.breakpoint_set(0x01f7, 0x707b, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x70c9, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x4ab3, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x4ba0, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x4c5d, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x4c74, {once = true})
+            end
             dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
             dosbox.debug_continue()
             for probe_attempt = 1, 16 do
@@ -436,6 +469,12 @@ while #samples < sample_count and attempts < sample_count * 128 do
                         probe_hit.offset == 0x9c57 or probe_hit.offset == 0x9c5f or
                         probe_hit.offset == 0x9c64 or probe_hit.offset == 0x9c6a) then
                     bump_probe.hits[#bump_probe.hits + 1] = hit_record
+                end
+                if trace_contact and (probe_hit.offset == 0x707b or
+                        probe_hit.offset == 0x70c9 or probe_hit.offset == 0x4ab3 or
+                        probe_hit.offset == 0x4ba0 or probe_hit.offset == 0x4c5d or
+                        probe_hit.offset == 0x4c74) then
+                    contact_probe.hits[#contact_probe.hits + 1] = hit_record
                 end
                 if probe_hit.segment == returned.segment and
                         probe_hit.offset == returned.offset then
@@ -478,6 +517,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             overlap_probe = overlap_probe,
             collision_probe = collision_probe,
             bump_probe = bump_probe,
+            contact_probe = contact_probe,
         }
         callback_offset = after.update_callback
         if callback_offset == 0 then break end

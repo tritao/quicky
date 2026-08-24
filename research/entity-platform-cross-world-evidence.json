@@ -1,0 +1,27 @@
+{
+  "schema": "entity-platform-cross-world-evidence-v1",
+  "purpose": "Cross-world PLATFW resource selection and live descriptor geometry for moving-platform types 0x3D-0x40.",
+  "inputs": {
+    "segment": "QUIKY_SEG03.bin",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "w5_executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "w5_archive_sha256": "6915b0b77a3fefd1861710278a789e7d638403d6111f2e271d05dd843366e4ed",
+    "w5_resource_trace_sha256": "d4678d56755ec253c5635c0245f4fc8f6d274640997d54c146cd07d00263294e"
+  },
+  "native_resource_trace": {
+    "level": "W5L1",
+    "runtime": "/home/joao/dev/quicky/research/build/entity-35-real-w5l1/baseline/game",
+    "lookup": "0207:18C7",
+    "resource": "GAMEDATA\\platfw5.BOB",
+    "archive_range": {"start": 2313658, "end": 2317418, "size": 3760},
+    "raw_trace": "/home/joao/dev/quicky/research/build/platform-w5-resource-trace.json"
+  },
+  "variant_table": [
+    {"type": "0x3D", "world": "W4", "resource": "PLATFW4.BOB", "slot": 301, "geometry": [32, 14], "origin": [0, 0], "evidence": "W4L1 selector/resource and descriptor probes"},
+    {"type": "0x3E", "world": "W3", "resource": "PLATFW3.BOB", "slot": 300, "geometry": [48, 16], "origin": [0, 0], "evidence": "W3L2 selector/resource and descriptor probes"},
+    {"type": "0x3F", "world": "W1", "resource": "PLATFW1.BOB", "slot": 301, "geometry": [32, 14], "origin": [0, 0], "evidence": "W1L3 selector/resource and descriptor probes"},
+    {"type": "0x40", "world": "W2", "resource": "PLATFW2.BOB", "slot": 300, "geometry": [48, 16], "origin": [0, 0], "evidence": "W2L1 selector/resource and descriptor probes"},
+    {"type": "W5 context", "world": "W5", "resource": "PLATFW5.BOB", "slot": "shared 300/301", "geometry": "world descriptor follows the selected initializer slot", "origin": [0, 0], "evidence": "W5L1 native resource trace above"}
+  ],
+  "conclusion": "PLATFW5.BOB is requested by the native W5L1 resource loader. Together with the four existing selector/resource and descriptor probes, this closes the moving-platform cross-world resource dimension; terminal/reset and player-carry semantics remain separate behavior questions."
+}

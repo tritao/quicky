@@ -1,0 +1,65 @@
+{
+  "schema": "entity-normal-enemy-contact-response-evidence-v1",
+  "purpose": "Static response routing and a controlled native WURM2 contact probe for the ten normal-enemy families.",
+  "inputs": {
+    "segment": "QUIKY_SEG03.bin",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "object_trace_script": "research/automation/quiky_object_behavior_trace.lua",
+    "object_trace_script_sha256": "6274f79826ad97d41a6cdd5b06e9569bb763576b6b01e8e04623506a3b34bb51"
+  },
+  "shared_gate": {
+    "guard": "Each normal callback's contact tail first requires DS:8806 != 0.",
+    "player_coordinates": "The selected pair is DS:87DE/DS:87E0 plus object+0x30*4; the callback compares those integer coordinates against family-specific object bounds.",
+    "response_routines": {
+      "01F7:4AB3": {
+        "action_word": 13,
+        "next_callback": "01F7:4C5D",
+        "response_lifetime": "4C5D increments object+0x2A and clears object+0x18 after 0x28 ticks.",
+        "effect_creation": "Calls 01F7:4C8B for the contact response objects; the setup selects table DS:3344."
+      },
+      "01F7:4BA0": {
+        "action_word": 2,
+        "next_callback": "01F7:4C5D",
+        "response_lifetime": "4C5D increments object+0x2A and clears object+0x18 after 0x28 ticks.",
+        "effect_creation": "Calls 01F7:4EC9 for the contact response objects; the setup selects table DS:334E."
+      }
+    },
+    "death_drop_conclusion": "The player-contact branches redirect the enemy object to a timed response callback; they do not clear the enemy object or dispatch a drop. Normal-enemy object removal remains the shared camera/visibility path 01F7:1DCA -> 01F7:1DEE, which clears object+0x18 and the ARE record high byte at FS:[object+0x1A+1]."
+  },
+  "authored_lifecycle": {
+    "stream_scan": "01F7:1CDA tracks 64-pixel camera regions and calls 01F7:1E04 for each loaded ARE declaration buffer.",
+    "record_guard": "01F7:1E04 treats the low byte of each record word as the type; a high byte of 1 skips the record, while a first visit sets that high byte to 1 before creating the object and stores the record pointer at object+0x1A.",
+    "removal_reset": "01F7:1DEE clears object+0x18 and writes zero to FS:[object+0x1A+1], undoing the streamed-record claimed mark.",
+    "respawn_trigger": "After an off-camera removal, a later camera-region scan can process the same ARE record again and recreate the family object. The 4AB3/4BA0 contact-response timeout clears only object+0x18 through 4C5D and is not an enemy death/drop path."
+  },
+  "families": [
+    {"id":"wurm2","types":["0x01","0x02"],"callback":"01F7:6DC4","contact_branch":"01F7:70C9","response_callback":"01F7:4AB3","action_word":13,"interaction":"WURM2 contact selects the 4AB3/4C5D response after the x/y range gate."},
+    {"id":"biene","types":["0x03","0x04"],"callback":"01F7:68C0","contact_branch":"01F7:6D4F","response_callback":"01F7:4AB3","action_word":13,"interaction":"BIENE contact selects the shared 4AB3/4C5D response."},
+    {"id":"fisch","types":["0x05","0x06"],"callback":"01F7:7B71","contact_branch":"01F7:7E68","response_callback":"01F7:4BA0","action_word":2,"interaction":"FISCH contact selects the alternate 4BA0/4C5D response."},
+    {"id":"krabbe","types":["0x07","0x08"],"callback":"01F7:778C","contact_branch":"01F7:7AD3","response_callback":"01F7:4BA0","action_word":2,"interaction":"KRABBE contact selects the alternate 4BA0/4C5D response."},
+    {"id":"pengo","types":["0x09","0x0A"],"callback":"01F7:715E","contact_branch":"01F7:770D","response_callback":"01F7:4AB3","action_word":13,"interaction":"PENGO contact selects the 4AB3/4C5D response."},
+    {"id":"schnee","types":["0x0B","0x0C"],"callback":"01F7:66E1 -> 01F7:6757","contact_branch":null,"response_callback":null,"action_word":null,"interaction":"SCHNEE has camera/MAP and timer callbacks but no DS:8806 player-contact tail or 4AB3/4BA0 response write in 66E1/6757."},
+    {"id":"fliege","types":["0x15","0x16"],"callback":"01F7:7EF8","contact_branch":"01F7:83FD","response_callback":"01F7:4AB3","action_word":13,"interaction":"FLIEGE contact selects the 4AB3/4C5D response."},
+    {"id":"spinne","types":["0x17","0x18"],"callback":"01F7:8472","contact_branch":"01F7:87C1","response_callback":"01F7:4AB3","action_word":13,"interaction":"SPINNE contact selects the 4AB3/4C5D response."},
+    {"id":"buggy","types":["0x19","0x1A"],"callback":"01F7:5071","contact_branch":"01F7:53E7 / 01F7:5911","response_callback":"01F7:4AB3","action_word":13,"interaction":"BUGGY contact paths converge on the 4AB3/4C5D response; one path publishes action word 13 before the callback switch."},
+    {"id":"ufo_enemy","types":["0x1B","0x1C"],"callback":"01F7:5F28","contact_branch":"01F7:6318","response_callback":"01F7:4AB3","action_word":13,"interaction":"UFO enemy contact publishes action word 13 on the first response phase and then switches to 4AB3/4C5D."}
+  ],
+  "runtime_probe": {
+    "fixture": "/home/joao/dev/quicky/research/build/entity-01-real-w1l1/baseline/game",
+    "type": "0x01",
+    "record_offset": "0x177A",
+    "controls": ["camera_x=640", "camera_y=100", "align_object_to_player", "force_contact_gate", "trace_contact"],
+    "samples": [
+      {"sequence":1,"callback_before":"01F7:6DA3","callback_after":"01F7:6DC4","contact_hits":[],"note":"Factory/initializer pass."},
+      {"sequence":2,"callback_before":"01F7:6DC4","callback_after":"01F7:4AB3","contact_hits":["01F7:707B","01F7:70C9"],"action_word_before":0,"action_word_after":0,"note":"Controlled gate reaches the WURM2 response switch; action is written by 4AB3 on the next callback."},
+      {"sequence":3,"callback_before":"01F7:4AB3","callback_after":"01F7:4C5D","contact_hits":["01F7:4AB3"],"action_word_before":0,"action_word_after":13,"response_state":"timed response callback"},
+      {"sequence":4,"callback_before":"01F7:4C5D","callback_after":"01F7:4C5D","contact_hits":["01F7:4C5D"],"action_word_before":13,"action_word_after":13,"response_timer":"object+0x2A 0x09 -> 0x08"}
+    ],
+    "raw_trace": "/home/joao/dev/quicky/research/build/entity-01-semantic-contact-forced-v8.json"
+  },
+  "conclusions": [
+    "Seven normal-enemy families route player contact through the action-13 4AB3/4C5D response; FISCH and KRABBE use action 2 through 4BA0/4C5D.",
+    "SCHNEE has no equivalent player-contact response branch in its callback pair.",
+    "The response is a timed hit/effect state, not an enemy death or drop path; per-level respawn is therefore a reset/streaming question rather than a missing enemy callback transition."
+  ]
+}

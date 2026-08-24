@@ -44,7 +44,9 @@ class ObjectBehaviorConfig:
     trace_collision: bool = False
     trace_platform: bool = False
     trace_bump: bool = False
+    trace_contact: bool = False
     force_active_player_bounds: bool = False
+    force_contact_gate: bool = False
     align_y_offset: int = 0
     force_velocity_x: int | None = None
     force_velocity_y: int | None = None
@@ -68,7 +70,9 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_collision": config.trace_collision,
         "trace_platform": config.trace_platform,
         "trace_bump": config.trace_bump,
+        "trace_contact": config.trace_contact,
         "force_active_player_bounds": config.force_active_player_bounds,
+        "force_contact_gate": config.force_contact_gate,
         "align_y_offset": config.align_y_offset,
         "force_velocity_x": config.force_velocity_x,
         "force_velocity_y": config.force_velocity_y,
@@ -197,8 +201,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="capture the BUMP player-range and hazard-effect branch",
     )
     parser.add_argument(
+        "--trace-contact", action="store_true",
+        help="capture normal-enemy player-contact response branches",
+    )
+    parser.add_argument(
         "--force-active-player-bounds", action="store_true",
         help="use the original active-player vertical bound (-40..0) for the controlled overlap probe",
+    )
+    parser.add_argument(
+        "--force-contact-gate", action="store_true",
+        help="debugger-only: enable the normal-enemy player-range gate and align its shared integer player coordinates",
     )
     parser.add_argument(
         "--align-y-offset", type=int, default=0,
@@ -304,7 +316,9 @@ def main(argv: list[str] | None = None) -> int:
         trace_collision=args.trace_collision,
         trace_platform=args.trace_platform,
         trace_bump=args.trace_bump,
+        trace_contact=args.trace_contact,
         force_active_player_bounds=args.force_active_player_bounds,
+        force_contact_gate=args.force_contact_gate,
         align_y_offset=args.align_y_offset,
         force_velocity_x=args.force_velocity_x,
         force_velocity_y=args.force_velocity_y,

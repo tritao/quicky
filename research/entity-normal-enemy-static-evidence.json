@@ -30,6 +30,6 @@
   ],
   "conclusions": [
     "All ten normal families have static initializer field writes, callback state storage/branches, fixed-point movement constants, MAP/player probe constants, and slot/table identities; the paired type variants reverse the seeded horizontal velocity through their dispatch wrappers.",
-    "The shared object layout and callback lifecycle are now explicit. Gameplay names for damage/effects and authored level reset semantics remain semantic questions, not missing callback fields."
+    "The shared object layout and callback lifecycle are now explicit. Gameplay names for the action/effect words remain semantic labels, while authored re-stream respawn is explained by 01F7:1DEE clearing the source ARE record high byte."
   ]
 }

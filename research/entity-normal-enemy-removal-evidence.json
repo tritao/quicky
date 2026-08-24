@@ -24,6 +24,7 @@
   },
   "conclusions": [
     "With the camera held at (0,0), the live normal-enemy callback takes the off-camera removal path and clears object+0x18 on its first update.",
-    "The callback-clear observation is removal/deactivation evidence; it does not establish player-caused death, drops, or respawn."
+    "Static 01F7:1DEE also clears the ARE record high byte at FS:[object+0x1A+1], so a later camera-region scan can recreate the object from that declaration.",
+    "The callback-clear observation is shared removal/deactivation evidence, not a player-caused death or drop path."
   ]
 }

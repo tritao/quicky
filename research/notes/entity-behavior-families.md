@@ -182,9 +182,21 @@ records the common object field layout, each initializer's velocity/orientation/
 phase/timer writes, callback state bytes and transition ranges, MAP/player probe
 constants, and animation delay/cursor plus BOB record mapping. This closes the
 normal families' initializer, state-machine, movement, collision, and animation
-dimensions. The remaining normal-enemy questions are semantic: what the
+dimensions. The remaining normal-enemy questions were semantic: what the
 player-range branch does to gameplay state, and which authored level events
 produce drops or respawn.
+
+The semantic contact pass now resolves the first of those questions. Static
+tails route WURM2, BIENE, PENGO, FLIEGE, SPINNE, BUGGY, and UFO enemies through
+`4AB3 -> 4C5D`, which publishes `DS:612E=13`, while FISCH and KRABBE use
+`4BA0 -> 4C5D` with `DS:612E=2`. SCHNEE has no equivalent `DS:8806` contact
+tail in `66E1/6757`. A controlled native WURM2 probe reaches `70C9`, switches
+the object to `4AB3`, then records the action-13 write and timed `4C5D`
+response. None of these contact branches clears the enemy object or creates a
+drop. The shared removal routine `1DEE` clears both `object+0x18` and the ARE
+record high byte at `FS:[object+0x1A+1]`, so a later camera-region scan can
+recreate the object; this is the normal re-stream respawn trigger. See
+[`entity-normal-enemy-contact-response-evidence.json`](../entity-normal-enemy-contact-response-evidence.json).
 
 The falling-leaf family is now decoded through its child callback. `01F7:474D`
 selects one of two PRNG tables (`DS:3312` delay 8 and `DS:3326` delay 10),
@@ -275,11 +287,14 @@ the signed `0x28000` directions. These traces prove integration and blocked
 state mechanics, but deliberately do not claim the authored terminal/reset
 table or an original-runtime player contact result; see
 [`entity-platform-motion-evidence.json`](../entity-platform-motion-evidence.json).
+The remaining W5 resource question is now closed by a native W5L1 selector
+trace that requests `GAMEDATA\\platfw5.BOB`; the normalized resource ledger is
+[`entity-platform-cross-world-evidence.json`](../entity-platform-cross-world-evidence.json).
 The platform animation dimension is intentionally not applicable: the four
 initializers choose static `PLATFW` records (slots 300/301), and callback
 `9DC7` never advances an object animation cursor. Remaining platform questions
 are semantic one-way-floor/player-carry outcomes, authored terminal/reset
-tables, W5 resource confirmation, and level-driven respawn.
+tables, and level-driven respawn.
 
 BUMP `0x34` is now bounded across all requested dimensions. Its callback uses
 the open player gate `object_x-25 < player_x < object_x+25` and
