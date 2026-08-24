@@ -83,6 +83,75 @@ std::uint16_t PlayerDescriptorRules::snapProbeY(std::uint16_t y) {
     return static_cast<std::uint16_t>(y & 0xfff8);
 }
 
+PlayerDescriptorTable::PlayerDescriptorTable() : _words() {
+    _words.fill(0);
+}
+
+PlayerDescriptorTable::PlayerDescriptorTable(
+    const std::array<std::uint16_t, PlayerDescriptorRules::kEntryCount> &words)
+    : _words(words) {
+}
+
+std::uint16_t PlayerDescriptorTable::word(std::uint16_t tileId) const {
+    return _words[tileId & 0x01ff];
+}
+
+void PlayerDescriptorTable::setWord(std::uint16_t tileId,
+                                    std::uint16_t descriptor) {
+    _words[tileId & 0x01ff] = descriptor;
+}
+
+MapDescriptorQuery::MapDescriptorQuery(
+    const Map &map, const PlayerDescriptorTable &descriptors)
+    : _map(map), _descriptors(descriptors) {
+}
+
+std::int32_t MapDescriptorQuery::floorTile(std::int32_t pixels) {
+    if (pixels >= 0) {
+        return pixels / 16;
+    }
+    return -static_cast<std::int32_t>(
+        (-static_cast<std::int64_t>(pixels) + 15) / 16);
+}
+
+std::uint16_t MapDescriptorQuery::tileIdAt(std::int32_t tileX,
+                                           std::int32_t tileY) const {
+    if (tileX < 0 || tileY < 0 ||
+        tileX >= static_cast<std::int32_t>(_map.width) ||
+        tileY >= static_cast<std::int32_t>(_map.height)) {
+        throw FormatError("MAP descriptor coordinate is outside the map");
+    }
+    return Map::tileId(_map.cell(static_cast<std::uint16_t>(tileX),
+                                 static_cast<std::uint16_t>(tileY)));
+}
+
+std::uint16_t MapDescriptorQuery::descriptorAt(std::int32_t tileX,
+                                               std::int32_t tileY) const {
+    return _descriptors.word(tileIdAt(tileX, tileY));
+}
+
+std::uint16_t MapDescriptorQuery::descriptorAtPixel(std::int32_t x,
+                                                    std::int32_t y) const {
+    return descriptorAt(floorTile(x), floorTile(y));
+}
+
+bool MapDescriptorQuery::blocksProbeAt(std::int32_t x,
+                                       std::int32_t y) const {
+    return PlayerDescriptorRules::blocksProbe(descriptorAtPixel(x, y),
+                                              static_cast<std::uint16_t>(x),
+                                              static_cast<std::uint16_t>(y));
+}
+
+bool MapDescriptorQuery::hasVerticalResponseAt(std::int32_t x,
+                                               std::int32_t y) const {
+    return PlayerDescriptorRules::hasVerticalResponse(descriptorAtPixel(x, y));
+}
+
+bool MapDescriptorQuery::alignsEightPixelsAt(std::int32_t x,
+                                              std::int32_t y) const {
+    return PlayerDescriptorRules::alignsEightPixels(descriptorAtPixel(x, y));
+}
+
 PlayerState::PlayerState()
     : x(), y(), velocityX(), velocityY(), grounded(false), facingRight(true) {
 }

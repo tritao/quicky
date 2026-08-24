@@ -17,6 +17,7 @@ The current iteration supports:
 - deterministic player simulation with provisional MAP collision masks;
 - standalone descriptor/quadrant rules recovered from the DOSBox player probes
   (kept separate until streamed MAP cells are linked to descriptor entries);
+- an explicit MAP-cell-to-descriptor-table query bridge for those rules;
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - ARE-backed level streaming with provisional collectible, hazard, and exit events;
 - synthetic unit tests for the format readers.

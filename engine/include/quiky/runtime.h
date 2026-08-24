@@ -3,6 +3,7 @@
 
 #include "quiky/map.h"
 
+#include <array>
 #include <cstdint>
 
 namespace quiky {
@@ -63,12 +64,52 @@ struct CollisionRules {
 // separate from CollisionRules because the current MAP-backed simulation does
 // not yet carry the executable's descriptor table alongside each cell.
 struct PlayerDescriptorRules {
+    static const std::size_t kEntryCount = 512;
+
     static std::uint16_t quadrantMask(std::uint16_t x, std::uint16_t y);
     static bool blocksProbe(std::uint16_t descriptor,
                             std::uint16_t x, std::uint16_t y);
     static bool hasVerticalResponse(std::uint16_t descriptor);
     static bool alignsEightPixels(std::uint16_t descriptor);
     static std::uint16_t snapProbeY(std::uint16_t y);
+};
+
+// The executable keeps collision descriptors in a runtime table separate
+// from the upper seven MAP-cell property bits.  The table is deliberately
+// supplied by the caller: its bytes come from the loaded game's descriptor
+// segment, not from the MAP archive payload.
+class PlayerDescriptorTable {
+public:
+    PlayerDescriptorTable();
+    explicit PlayerDescriptorTable(
+        const std::array<std::uint16_t, PlayerDescriptorRules::kEntryCount> &words);
+
+    std::uint16_t word(std::uint16_t tileId) const;
+    void setWord(std::uint16_t tileId, std::uint16_t descriptor);
+
+private:
+    std::array<std::uint16_t, PlayerDescriptorRules::kEntryCount> _words;
+};
+
+// Resolves a streamed MAP cell through the descriptor table.  This is a
+// read-only bridge for the recovered player helpers; it does not yet claim
+// that every descriptor flag has a final floor/ceiling gameplay name.
+class MapDescriptorQuery {
+public:
+    MapDescriptorQuery(const Map &map, const PlayerDescriptorTable &descriptors);
+
+    std::uint16_t tileIdAt(std::int32_t tileX, std::int32_t tileY) const;
+    std::uint16_t descriptorAt(std::int32_t tileX, std::int32_t tileY) const;
+    std::uint16_t descriptorAtPixel(std::int32_t x, std::int32_t y) const;
+    bool blocksProbeAt(std::int32_t x, std::int32_t y) const;
+    bool hasVerticalResponseAt(std::int32_t x, std::int32_t y) const;
+    bool alignsEightPixelsAt(std::int32_t x, std::int32_t y) const;
+
+private:
+    static std::int32_t floorTile(std::int32_t pixels);
+
+    const Map &_map;
+    const PlayerDescriptorTable &_descriptors;
 };
 
 // The player callback asks directional collision helpers about the current

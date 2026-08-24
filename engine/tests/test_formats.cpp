@@ -492,6 +492,27 @@ void testPlayerDescriptorRules() {
     assert(quiky::PlayerDescriptorRules::alignsEightPixels(0x0050));
     assert(!quiky::PlayerDescriptorRules::alignsEightPixels(0x0030));
     assert(quiky::PlayerDescriptorRules::snapProbeY(0x0191) == 0x0190);
+
+    const quiky::Map map = [] {
+        quiky::Bytes data = {'T', 'L', 'E', '1'};
+        appendU16BE(data, 2);
+        appendU16BE(data, 1);
+        appendU16BE(data, 9);
+        appendU16BE(data, 0x002a);
+        appendU16BE(data, 0x002d);
+        return quiky::Map::parse(data, "descriptor.MAP");
+    }();
+    quiky::PlayerDescriptorTable descriptors;
+    descriptors.setWord(0x2a, 0x0070);
+    descriptors.setWord(0x2d, 0x000c);
+    const quiky::MapDescriptorQuery query(map, descriptors);
+    assert(query.tileIdAt(0, 0) == 0x2a);
+    assert(query.descriptorAt(1, 0) == 0x000c);
+    assert(query.descriptorAtPixel(16, 0) == 0x000c);
+    assert(!query.blocksProbeAt(0, 0));
+    assert(query.blocksProbeAt(16, 0));
+    assert(query.hasVerticalResponseAt(0, 0));
+    assert(query.alignsEightPixelsAt(0, 0));
 }
 
 void testPlayerInputTraceAndCollisionQuery() {
