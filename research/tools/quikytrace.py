@@ -503,6 +503,17 @@ def main(argv: list[str] | None = None) -> int:
                     sample.get("nested_calls", [])
                 )
             entity["state_machine_samples"] = state_machine_samples
+            entity["state_machine_object_updates"] = ordered_lua_array(
+                entity.get("state_machine_object_updates", [])
+            )
+            for update in entity["state_machine_object_updates"]:
+                lookup = update.get("animation_lookup", {})
+                lookup["raw_prefix"] = ordered_lua_array(
+                    lookup.get("raw_prefix", [])
+                )
+                lookup["raw_bytes"] = ordered_lua_array(
+                    lookup.get("raw_bytes", [])
+                )
             entity["frames"] = ordered_lua_array(entity.get("frames", []))
             events = [entity]
             script_path = entity_script_path

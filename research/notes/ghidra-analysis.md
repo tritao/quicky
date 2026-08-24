@@ -473,9 +473,11 @@ state 4 queries five nearby cells through `01F7:3376`. The returned tile IDs
 `201, 200, 202, 203, 204` become effect indices `121, 120, 122, 123, 124`
 through `DS:6986`; each nonzero entry reaches `01F7:16CE` and creates a
 three-tick object using update callback `01F7:10B5`, still with no standard BOB
-slot. The three ARE types produce the same sequence, so their behavior is now
-confirmed as a shared tile-effect state machine. The direct animation-table
-resource/visual name remains unresolved.
+slot. A post-selector probe at `01F7:1186` catches the created object's actual
+animation lookup: effect index 121 selects `FS=0x0357`, offset `0x7900`, and
+the 256-byte block is byte-identical to raw tile 121 in `W1.ICO`. The three ARE
+types produce the same sequence, so their behavior is confirmed as a shared
+animated world-ICO tile-effect state machine.
 
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries

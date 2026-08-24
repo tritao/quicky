@@ -279,7 +279,7 @@ class QuikyCtlTests(unittest.TestCase):
         for entity_type in (0x1F, 0x20, 0x21):
             self.assertEqual(
                 names[entity_type].name,
-                f"tile_effect_state_machine_variant_{entity_type:02d}",
+                f"animated_tile_effect_variant_{entity_type:02d}",
             )
             self.assertEqual(names[entity_type].confidence, "confirmed")
         for entity_type, name, slot, asset, dimensions in (

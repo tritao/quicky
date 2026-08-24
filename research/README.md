@@ -340,12 +340,13 @@ five nearby MAP cells through `01F7:3376`, returning tile IDs
 each mapped value.
 
 The created objects have lifetime `3`, update callback `01F7:10B5`, and still
-have no standard BOB slot. Static inspection of `10B5` shows that it consumes
-the effect index through a separate animation-table path rather than the
-ordinary BOB-slot initializer. The three ARE types therefore have confirmed
-tile-effect behavior, while the human-facing visual/resource name remains
-open. The position/camera/bounds overrides are debugger-only and restored after
-the probe; they do not modify `QUIKY.EXE`, MAP files, or the archive.
+have no standard BOB slot. Static and runtime inspection of `10B5` shows that
+it consumes the effect index through the world ICO animation table: in the W1L1
+runtime, effect index 121 selects `FS:0x0357` at offset `0x7900`, and that
+256-byte block is byte-identical to raw tile 121 in `W1.ICO`. The same table
+structure is expected to use `Wn.ICO` in each world context. The position,
+camera, and bounds overrides are debugger-only and restored after the probe;
+they do not modify `QUIKY.EXE`, MAP files, or the archive.
 
 ### Dedicated transient event types `0x65`-`0x67`
 
