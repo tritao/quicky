@@ -23,6 +23,9 @@ struct IndexedSurface {
 };
 
 IndexedSurface renderMap(const Map &map, const Tileset &tileset);
+void drawIcoTile(IndexedSurface &surface, const Tileset &tileset,
+                 std::uint16_t tileIndex, std::int32_t worldX,
+                 std::int32_t worldY, bool transparentZero = true);
 void overlayArea(IndexedSurface &surface, Palette &palette, const Area &area);
 void writeBmp(const std::string &path, const IndexedSurface &surface, const Palette &palette);
 

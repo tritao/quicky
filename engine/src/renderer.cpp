@@ -69,6 +69,35 @@ IndexedSurface renderMap(const Map &map, const Tileset &tileset) {
     return surface;
 }
 
+void drawIcoTile(IndexedSurface &surface, const Tileset &tileset,
+                 std::uint16_t tileIndex, std::int32_t worldX,
+                 std::int32_t worldY, bool transparentZero) {
+    if (tileIndex >= tileset.tiles.size()) {
+        std::ostringstream message;
+        message << "ICO tile index " << tileIndex << " is outside the tileset";
+        throw FormatError(message.str());
+    }
+
+    const Tile &tile = tileset.tiles[tileIndex];
+    for (std::int32_t tileY = 0; tileY < 16; ++tileY) {
+        for (std::int32_t tileX = 0; tileX < 16; ++tileX) {
+            const byte color = tile[static_cast<std::size_t>(tileY) * 16 + tileX];
+            if (transparentZero && color == 0) {
+                continue;
+            }
+            const std::int32_t destinationX = worldX + tileX;
+            const std::int32_t destinationY = worldY + tileY;
+            if (destinationX < 0 || destinationY < 0 ||
+                static_cast<std::uint32_t>(destinationX) >= surface.width ||
+                static_cast<std::uint32_t>(destinationY) >= surface.height) {
+                continue;
+            }
+            surface.at(static_cast<std::uint32_t>(destinationX),
+                       static_cast<std::uint32_t>(destinationY)) = color;
+        }
+    }
+}
+
 void overlayArea(IndexedSurface &surface, Palette &palette, const Area &area) {
     const std::vector<AreaPlacement> placements = area.placements();
     for (std::size_t placementIndex = 0; placementIndex < placements.size(); ++placementIndex) {

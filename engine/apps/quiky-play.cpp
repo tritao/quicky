@@ -52,29 +52,75 @@ const quiky::BobRecord *findSlot(const quiky::Bob &bob, std::uint16_t slot) {
     return nullptr;
 }
 
+std::uint16_t animatedEntitySlot(const quiky::LevelEntity &entity) {
+    if (entity.type == 0x28) {
+        return static_cast<std::uint16_t>(413 + ((entity.animationFrame / 8) % 4));
+    }
+    if (entity.type >= 0x29 && entity.type <= 0x2b) {
+        return static_cast<std::uint16_t>(700 + ((entity.animationFrame / 8) % 8));
+    }
+    return entity.spriteSlot;
+}
+
+std::uint16_t worldEffectTile(const std::string &worldName,
+                              std::uint16_t animationFrame) {
+    // The ARE effect records emit short-lived tiles around their anchor. The
+    // emission table is not fully reconstructed yet, so this keeps the
+    // confirmed world-specific tile sequence visible at the source anchor.
+    const std::uint16_t frame = static_cast<std::uint16_t>(animationFrame / 3);
+    if (worldName == "W1" || worldName == "W2") {
+        const std::uint16_t sequence[] = {127, 126, 128, 129, 130};
+        return sequence[frame % 5];
+    }
+    if (worldName == "W3") {
+        const std::uint16_t sequence[] = {401, 400, 402, 403, 404};
+        return sequence[frame % 5];
+    }
+    if (worldName == "W4") {
+        const std::uint16_t sequence[] = {241, 240, 242, 243, 244};
+        return sequence[frame % 5];
+    }
+    if (worldName == "W5") {
+        const std::uint16_t sequence[] = {62, 61, 63, 64};
+        return sequence[frame % 4];
+    }
+    return 0xffff;
+}
+
 void drawEntitySprites(quiky::IndexedSurface &surface,
                        const quiky::LevelRuntime &runtime) {
     const quiky::LevelSession &level = runtime.session();
     const std::map<std::string, quiky::Bob> &resources = runtime.entityBobs();
     for (std::size_t index = 0; index < level.entities().size(); ++index) {
         const quiky::LevelEntity &entity = level.entities()[index];
-        if (entity.phase != quiky::EntityPhase::Active ||
-            entity.spriteResource.empty() || entity.spriteSlot == 0xffff) {
+        if (entity.phase != quiky::EntityPhase::Active) {
             continue;
         }
-        const std::map<std::string, quiky::Bob>::const_iterator resource =
-            resources.find(entity.spriteResource);
-        if (resource == resources.end()) {
-            continue;
+
+        if (!entity.spriteResource.empty() && entity.spriteSlot != 0xffff) {
+            const std::map<std::string, quiky::Bob>::const_iterator resource =
+                resources.find(entity.spriteResource);
+            if (resource != resources.end()) {
+                const std::uint16_t slot = animatedEntitySlot(entity);
+                const quiky::BobRecord *record = findSlot(resource->second, slot);
+                if (record == nullptr) {
+                    std::ostringstream message;
+                    message << entity.spriteResource << " is missing entity sprite slot "
+                            << slot;
+                    throw quiky::FormatError(message.str());
+                }
+                quiky::drawBobRecord(surface, *record, entity.x, entity.y);
+            }
         }
-        const quiky::BobRecord *record = findSlot(resource->second, entity.spriteSlot);
-        if (record == nullptr) {
-            std::ostringstream message;
-            message << entity.spriteResource << " is missing entity sprite slot "
-                    << entity.spriteSlot;
-            throw quiky::FormatError(message.str());
+
+        if (entity.effectResource == "WORLD") {
+            const std::uint16_t tile = worldEffectTile(
+                runtime.worldName(), entity.animationFrame);
+            if (tile != 0xffff) {
+                quiky::drawIcoTile(surface, runtime.tileset(), tile,
+                                   entity.x, entity.y);
+            }
         }
-        quiky::drawBobRecord(surface, *record, entity.x, entity.y);
     }
 }
 

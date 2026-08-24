@@ -128,6 +128,8 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.kind = classify(entity.type);
         entity.spriteSlot = spriteSlotFor(entity.type);
         entity.spriteResource = spriteResourceFor(entity.type);
+        entity.effectSlot = effectSlotFor(entity.type);
+        entity.effectResource = effectResourceFor(entity.type);
         entity.collisionWidth = collisionWidthFor(entity.type);
         entity.collisionHeight = collisionHeightFor(entity.type);
         _entities.push_back(entity);
@@ -210,6 +212,10 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
     case 0x1a: return 200;
     case 0x1b: return 264;
     case 0x1c: return 214;
+    case 0x28: return 413;
+    case 0x29:
+    case 0x2a:
+    case 0x2b: return 700;
     case 0x34: return 400;
     case 0x3d: return 301;
     case 0x3e: return 300;
@@ -223,6 +229,13 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
     if (type >= 0x79 && type <= 0x7f) {
         return static_cast<std::uint16_t>(600 + (type - 0x79));
     }
+    return 0xffff;
+}
+
+std::uint16_t LevelSession::effectSlotFor(std::uint16_t type) {
+    // World-ICO effects select their tile from the active world's state
+    // machine, so they deliberately do not have a fixed slot here.
+    (void)type;
     return 0xffff;
 }
 
@@ -277,6 +290,12 @@ std::string LevelSession::spriteResourceFor(std::uint16_t type) const {
     if (type >= 0x1b && type <= 0x1c) {
         return "UFO.BOB";
     }
+    if (type == 0x28) {
+        return "WOLKE.BOB";
+    }
+    if (type >= 0x29 && type <= 0x2b) {
+        return "BLATT.BOB";
+    }
     if (type == 0x34) {
         return "BUMP_" + worldForMap(_mapName) + ".BOB";
     }
@@ -297,6 +316,13 @@ std::string LevelSession::spriteResourceFor(std::uint16_t type) const {
     }
     if (type >= 0x79 && type <= 0x7f) {
         return "PUZZLE.BOB";
+    }
+    return std::string();
+}
+
+std::string LevelSession::effectResourceFor(std::uint16_t type) const {
+    if (type >= 0x1f && type <= 0x21) {
+        return "WORLD";
     }
     return std::string();
 }

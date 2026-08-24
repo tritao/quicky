@@ -122,11 +122,14 @@ void testMapPaletteTilesetAndRenderer() {
     assert(tileset.tiles[0][4] == 1);
     assert(tileset.tiles[1][100] == 7);
 
-    const quiky::IndexedSurface surface = quiky::renderMap(map, tileset);
+    quiky::IndexedSurface surface = quiky::renderMap(map, tileset);
     assert(surface.width == 32 && surface.height == 16);
     assert(surface.at(0, 0) == 0);
     assert(surface.at(1, 0) == 4);
     assert(surface.at(16, 0) == 7);
+
+    quiky::drawIcoTile(surface, tileset, 1, 0, 0);
+    assert(surface.at(0, 0) == 7);
 }
 
 void testAreaAndOverlay() {
@@ -288,6 +291,19 @@ void testLevelSession() {
     assert(platformSession.entities()[0].collisionHeight == 14);
     assert(platformSession.entities()[1].spriteSlot == 400);
     assert(platformSession.entities()[1].spriteResource == "BUMP_W1.BOB");
+
+    const quiky::Area effectArea = makeLevelArea(0x28, 0x29);
+    quiky::LevelSession effectSession("W1L1.MAP", map, effectArea, config);
+    assert(effectSession.entities()[0].spriteSlot == 413);
+    assert(effectSession.entities()[0].spriteResource == "WOLKE.BOB");
+    assert(effectSession.entities()[1].spriteSlot == 700);
+    assert(effectSession.entities()[1].spriteResource == "BLATT.BOB");
+
+    const quiky::Area worldEffectArea = makeLevelArea(0x1f, 0x20);
+    quiky::LevelSession worldEffectSession("W1L1.MAP", map,
+                                           worldEffectArea, config);
+    assert(worldEffectSession.entities()[0].effectResource == "WORLD");
+    assert(worldEffectSession.entities()[0].effectSlot == 0xffff);
 
     session.tick(player, simulation, quiky::InputState());
     quiky::LevelEvent event = session.consumeEvent();
