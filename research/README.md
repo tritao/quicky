@@ -977,3 +977,30 @@ the table is still zeroed at the menu. Normal entries contain a near update
 callback in segment `01F7`, an object-class byte, and a reserved byte. Types
 `0x65`, `0x66`, and `0x67` bypass this table and are reported as the distinct
 runtime-confirmed handlers `01F7:178D`, `01F7:1798`, and `01F7:17A3`.
+
+## Entity behavior-family matrix
+
+The current behavior-family research is tracked separately from the sprite
+identity catalog:
+
+- [`entity-behavior-families.json`](entity-behavior-families.json) covers all
+  50 used types in 21 families and gives every family an explicit status for
+  initializer fields, update state machine, movement/AI, collision/interaction,
+  animation, removal, and cross-world variants.
+- [`notes/entity-behavior-families.md`](notes/entity-behavior-families.md)
+  explains the evidence boundaries and the next controlled experiments.
+- `entity_behavior_report.py` validates the matrix and prints a compact status
+  report:
+
+```sh
+python3 research/tools/entity_behavior_report.py \
+  research/entity-behavior-families.json
+python3 research/tools/entity_behavior_report.py \
+  research/entity-behavior-families.json --json
+```
+
+The isolated lifecycle tracer is `object_behavior_trace.py`; it records the
+object bytes before and after scheduled callbacks and is intended for the
+movement, collision, animation-timing, and removal gaps called out by the
+matrix. It requires the debugger-enabled dosbox-automation binary described
+above.
