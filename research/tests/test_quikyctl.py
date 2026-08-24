@@ -242,8 +242,10 @@ class QuikyCtlTests(unittest.TestCase):
             self.assertEqual(len(match), 1)
             self.assertEqual((match[0]["width"], match[0]["height"]), dimensions)
 
-        self.assertEqual(names[0x73].confidence, "unknown")
-        self.assertEqual(names[0x74].confidence, "unknown")
+        self.assertEqual(names[0x73].name, "unimplemented_0x73")
+        self.assertEqual(names[0x74].name, "unimplemented_0x74")
+        self.assertEqual(names[0x73].confidence, "confirmed")
+        self.assertEqual(names[0x74].confidence, "confirmed")
         for entity_type, name in (
             (0x65, "dedicated_event_variant_65"),
             (0x66, "dedicated_event_variant_66"),

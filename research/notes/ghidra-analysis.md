@@ -498,5 +498,7 @@ recorded the expected slot. `bob-find` resolves slots 600-606 to records 0-6
 of `PUZZLE.BOB`, all 16x16 with origin `(0,0)`. Rendering them in slot order
 produces `N`, `E`, `S`, `Q`, `U`, `I`, `K`, establishing the names
 `puzzle_letter_N` through `puzzle_letter_K`. Types `0x73` and `0x74` have zero
-occurrences in the bundled ARE archive, so no runtime or sprite assignment is
-claimed for them.
+occurrences in the bundled ARE archive. Controlled W1L1 injections reach the
+common factory, but both dispatch slots are `0000:0000` with class `0`, callback
+`0`, and sprite slot `0xFFFF`; they are confirmed unused/unimplemented types,
+not unresolved sprite families.

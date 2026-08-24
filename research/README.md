@@ -293,7 +293,7 @@ and spikes. The tested object/reference values were:
 0x68/0x6d/0x6e nothing?
 0x6f ten-ammo box         0x70 extra health package
 0x71 health up            0x72 temporary invulnerability
-0x73/0x74 unobserved in the bundled ARE archive
+0x73/0x74 unused/unimplemented (zero dispatch entries)
 ~~~
 
 Use W1L3 for experiments; the article suggests entering QUIKYSUPERHERO in the
@@ -710,9 +710,11 @@ the screenshot diff is supporting evidence, while the callback, object slot,
 BOB record, and target-vs-inert runtime traces are the primary evidence.
 
 Types `0x73` and `0x74` do not occur in any of the 21 archived ARE payloads.
-They remain explicitly cataloged as unobserved rather than assigned a
-meaning from the neighboring puzzle range. The seven puzzle types occur ten
-times each across the archive and are present in every sampled W1L1 stream.
+Controlled injections into the W1L1 anchor reach the common factory, but their
+dispatch entries are `0000:0000` with class `0` and no sprite assignment, so
+they are cataloged as unused/unimplemented rather than assigned a meaning from
+the neighboring puzzle range. The seven puzzle types occur ten times each
+across the archive and are present in every sampled W1L1 stream.
 
 The confirmed cheat comparison path and debugger addresses are documented in
 [`research/notes/cheat-trace.md`](notes/cheat-trace.md). The debugger is

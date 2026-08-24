@@ -1283,20 +1283,38 @@
     },
     {
       "type": 115,
-      "name": "unobserved_0x73",
-      "confidence": "unknown",
+      "name": "unimplemented_0x73",
+      "confidence": "confirmed",
       "evidence": {
         "occurrences": 0,
-        "note": "No archived ARE declaration uses type 0x73; no gameplay meaning or sprite assignment inferred."
+        "dispatch_slot": "DS:81D2+0x1CC",
+        "dispatch_entry": "0000:0000 class 0",
+        "dispatch_raw_bytes": [0, 0, 0, 0],
+        "factory": "01F7:0E06",
+        "object_class": 0,
+        "sprite_slot": 65535,
+        "runtime_trace": "research/build/traces/entity-73-probe.json",
+        "experiment": "target_type_73_vs_inert_type_0",
+        "experiment_manifest": "research/build/entity-73-probe/manifest.json",
+        "note": "No archived ARE declaration uses type 0x73. Injecting it into the W1L1 streamed anchor reaches the common factory with a zero dispatch entry, class 0, callback 0, and no sprite assignment; classify it as unused/unimplemented."
       }
     },
     {
       "type": 116,
-      "name": "unobserved_0x74",
-      "confidence": "unknown",
+      "name": "unimplemented_0x74",
+      "confidence": "confirmed",
       "evidence": {
         "occurrences": 0,
-        "note": "No archived ARE declaration uses type 0x74; no gameplay meaning or sprite assignment inferred."
+        "dispatch_slot": "DS:81D2+0x1D0",
+        "dispatch_entry": "0000:0000 class 0",
+        "dispatch_raw_bytes": [0, 0, 0, 0],
+        "factory": "01F7:0E06",
+        "object_class": 0,
+        "sprite_slot": 65535,
+        "runtime_trace": "research/build/traces/entity-74-probe.json",
+        "experiment": "target_type_74_vs_inert_type_0",
+        "experiment_manifest": "research/build/entity-74-probe/manifest.json",
+        "note": "No archived ARE declaration uses type 0x74. Injecting it into the W1L1 streamed anchor reaches the common factory with a zero dispatch entry, class 0, callback 0, and no sprite assignment; classify it as unused/unimplemented."
       }
     },
     {
