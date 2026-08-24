@@ -812,6 +812,20 @@ not yet established a valid world-space X argument. This binds the descriptor
 word to the helper event without assuming that the streamed buffer is the
 archive's original coordinate window.
 
+The static leaf rules are now explicit enough to guide the next probes:
+
+* `3A1F` first exits when `object+0x38` is nonzero. Otherwise it tests the MAP
+  helper at `x-5` and, only when that test preserves zero, at `x+5`. A zero
+  result on the second test sets `object+0x3B = 0xFF`; the routine then returns
+  the `object+0x3B != 0` condition. This is a two-sided probe, but the MAP
+  helper's flag polarity still needs a controlled tile pair.
+* `3DF2` exits when `object+0x3B == 0` or `object+0x3A != 0`. Otherwise it
+  tests the same `x-5`/`x+5` pair. If the first test is the blocking result it
+  snaps `object+0x08` to `object+0x08 & 0xFFF8`; otherwise it tests the second
+  side before returning. The descriptor word observed in `DX` is therefore a
+  direct input to this leaf, while the exact blocking polarity remains an
+  experiment rather than an inferred name.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive
