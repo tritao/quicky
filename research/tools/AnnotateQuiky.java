@@ -57,7 +57,9 @@ public class AnnotateQuiky extends GhidraScript {
         label(0x3852, "path_template_map_secondary", "Pascal fragments: GAMEDATA\\ + .MAP");
         function(0x3861, "load_map_resource_secondary", "Second MAP-loading routine following the .MAP path fragments.");
         label(0x398e, "path_template_bob", "Pascal fragments: GAMEDATA\\ + .BOB");
-        function(0x399e, "load_bob_resource", "Builds/loads a BOB resource after the .BOB path fragments.");
+        function(0x399e, "load_bob_resource", "Builds/loads a BOB resource after the .BOB path fragments; the loader calls SEG03:05A0 to map the logical slot before filling DS:6D8A descriptor records.");
+        function(0x3a0b, "initialize_sprite_slot_map",
+            "Initializes one logical sprite-slot mapping through the segment-3 descriptor-table helper.");
         label(0x3bae, "path_template_ico", "Pascal fragments: GAMEDATA\\ + .ICO");
         function(0x3bbd, "load_ico_resource", "Builds/loads an ICO resource after the .ICO path fragments.");
 
@@ -150,12 +152,14 @@ public class AnnotateQuiky extends GhidraScript {
     }
 
     private void annotateSegment3() throws Exception {
-        int[] targets = {0x05a0, 0x106a, 0x1ec4, 0x332c, 0x335e, 0x33bf, 0x342f,
+        int[] targets = {0x106a, 0x1ec4, 0x332c, 0x335e, 0x33bf, 0x342f,
             0x5c27, 0x5cc3, 0x5d00, 0x5d38, 0x5d60, 0x6370};
         for (int target : targets) {
             relocationTarget(target, String.format("seg3_target_%04x", target),
                 "NE relocation target in segment 3; semantics not assigned yet.");
         }
+        function(0x05a0, "bob_slot_map_allocator",
+            "Maps a logical BOB slot to the first empty 0x2C-byte descriptor record in DS:6D8A and publishes the index in DS:6D8E.");
         function(0x1cda, "stream_are_regions",
             "Streams ARE declarations for newly visible 64-pixel regions using camera coordinates and the reference grid.");
         function(0x0e66, "object_pool_count_active",

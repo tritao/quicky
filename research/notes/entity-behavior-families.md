@@ -460,6 +460,22 @@ a WOLKE descriptor. The trace is recorded in
 with its output and script hashes; the remaining work is to find the alternate
 descriptor/resource path or a fixture that reaches it.
 
+The BOB resource path is now narrowed independently of the draw path. The
+generic loader `01D7:399E` calls `01F7:05A0`, which scans the 0x2C-byte records
+at `DS:6D8A` and publishes the selected descriptor index through `DS:6D8E`
+before the loader fills the record from the BOB stream. This explains how a
+global `WOLKE.BOB` table can be materialized without a WOLKE-specific call to
+the normal `0013` queue primitive. The exact WOLKE slot argument and the later
+pixel-draw caller are still open; see
+[`entity-targeted-decompile-evidence.json`](../entity-targeted-decompile-evidence.json).
+
+The extended native probe strengthens the negative result: 512 entries at
+`01F7:0013` all returned to `35B8` with parameters
+`flags=0, logical_slot=0, x=128, y=400` and descriptor-map index 0. No WOLKE
+slot 413-416 argument reached the generic blitter in this fixture. The next
+renderer experiment therefore needs a different execution context or a
+different primitive, rather than more samples of the ordinary queue.
+
 ## Reproducible next experiments
 
 The isolated object tracer now lives in
