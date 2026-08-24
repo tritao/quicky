@@ -59,10 +59,10 @@ struct CollisionRules {
     CollisionRules();
 };
 
-// The original player callback asks directional collision helpers about the
-// current object rather than consuming a MAP object directly. Keeping that
-// boundary explicit lets recovered tile semantics replace the current masks
-// without changing player movement code.
+// The player callback asks directional collision helpers about the current
+// object rather than consuming a MAP object directly. Keeping that boundary
+// explicit lets refined tile semantics replace the current masks without
+// changing player movement code.
 class CollisionQuery {
 public:
     virtual ~CollisionQuery() {}

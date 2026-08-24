@@ -69,16 +69,6 @@ void writeU32LE(std::ostream &output, std::uint32_t value) {
     output.write(bytes, sizeof(bytes));
 }
 
-std::int16_t clamp16(int value) {
-    if (value < -32768) {
-        return -32768;
-    }
-    if (value > 32767) {
-        return 32767;
-    }
-    return static_cast<std::int16_t>(value);
-}
-
 std::int16_t signedByte(byte value) {
     return static_cast<std::int16_t>(static_cast<std::int8_t>(value));
 }
@@ -111,11 +101,10 @@ std::vector<MusicTrack> listMusicTracks(const Archive &archive) {
 }
 
 /*
- * TFMX is deliberately implemented here instead of being wrapped around a
- * third-party decoder. The format is a table-driven sequencer: eight track
- * columns select four-byte pattern commands, and those commands select
- * four-byte macro commands. Quiky uses the original four-voice TFMX Pro
- * layout, with sample bytes in the matching SAM resource.
+ * TFMX is a table-driven sequencer: eight track columns select four-byte
+ * pattern commands, and those commands select four-byte macro commands.
+ * Quiky uses the four-voice TFMX Pro layout, with sample bytes in the
+ * matching SAM resource.
  *
  * This is a focused engine implementation. It covers the commands used by
  * the bundled Quiky modules and treats unsupported effects as harmless state
@@ -176,8 +165,10 @@ public:
                 ++frames;
             }
             frames = std::min(frames, maxFrames - output.frames());
-            mix(output, frames, sampleRate);
             tick();
+            // Advance the sequencer before filling each 20 ms audio block so
+            // delayed DMA and macro waits land on stable block boundaries.
+            mix(output, frames, sampleRate);
         }
         return output;
     }
@@ -226,7 +217,12 @@ private:
         bool macroStopped;
         std::size_t playbackStart;
         std::size_t playbackLength;
+        std::size_t playbackEnd;
         double samplePosition;
+        int stepPeriod;
+        std::uint32_t stepSpeed;
+        std::uint32_t stepSpeedPnt;
+        std::uint32_t stepSpeedAddPnt;
         int envelopeSpeed;
         int envelopeFlag;
         int envelopeCount;
@@ -388,7 +384,12 @@ private:
         voice.macroStopped = false;
         voice.playbackStart = 0;
         voice.playbackLength = 0;
+        voice.playbackEnd = 0;
         voice.samplePosition = 0.0;
+        voice.stepPeriod = 0;
+        voice.stepSpeed = 0;
+        voice.stepSpeedPnt = 0;
+        voice.stepSpeedAddPnt = 0;
         voice.envelopeSpeed = 0;
         voice.envelopeFlag = 0;
         voice.envelopeCount = 0;
@@ -560,11 +561,6 @@ private:
         }
         voice.active = true;
         voice.keyUp = false;
-        // A new pattern note replaces the current Paula buffer. The macro
-        // will program the next sample and queue DMA-on on a later VBI.
-        voice.dmaOn = false;
-        voice.dmaPending = false;
-        voice.playbackLength = 0;
         voice.previousNote = voice.note;
         voice.note = aa & 0x3f;
         voice.noteVolume = cd >> 4;
@@ -573,15 +569,12 @@ private:
         voice.macroStep = 0;
         voice.macroWait = 0;
         voice.macroLoops = -1;
-        voice.dmaPending = false;
         voice.macroStopped = false;
         // MAC_MOD_SEQ initializes the effects pass one VBI after a new macro
         // is installed. This prevents a freshly armed envelope/vibrato from
         // advancing before its first audible buffer.
         voice.effectsMode = 0;
         voice.samplePosition = 0.0;
-        voice.period = periodForNote(voice.note);
-        voice.outputPeriod = voice.period;
         if (_traceLimit != 0 && _tickNumber <= _traceLimit) {
             std::cerr << "TFMX note tick=" << _tickNumber << " voice=" << voiceIndex
                       << " note=" << voice.note << " macro=" << (bb & 0x7f)
@@ -738,6 +731,7 @@ private:
                 voice.dmaOn = false;
                 voice.dmaPending = false;
                 voice.playbackLength = 0;
+                voice.playbackEnd = 0;
                 voice.samplePosition = 0.0;
                 voice.envelopeFlag = 0;
                 voice.vibratoTime = 0;
@@ -748,9 +742,9 @@ private:
                 continue;
             }
             if (command == 1) {
-                // The original player queues DMA-on and applies it after the
-                // macro/effect pass. Keeping that one-VBI boundary matters for
-                // the short gaps between retriggered notes.
+                // Queue DMA-on and apply it after the macro/effect pass. The
+                // one-VBI boundary preserves short gaps between retriggered
+                // notes.
                 voice.dmaPending = true;
                 if (bb != 0) {
                     voice.effectsMode = 1;
@@ -760,6 +754,10 @@ private:
             }
             if (command == 2) {
                 voice.sampleStart = be24(_tfx, offset + 1);
+                if (!voice.dmaOn) {
+                    voice.playbackStart = voice.sampleStart;
+                    voice.playbackEnd = voice.playbackStart + voice.playbackLength;
+                }
                 voice.samplePosition = 0.0;
                 ++voice.macroStep;
                 continue;
@@ -768,6 +766,7 @@ private:
                 voice.sampleLength = be16(_tfx, offset + 2) * 2u;
                 if (!voice.dmaOn) {
                     voice.playbackLength = voice.sampleLength;
+                    voice.playbackEnd = voice.playbackStart + voice.playbackLength;
                 }
                 ++voice.macroStep;
                 continue;
@@ -803,16 +802,23 @@ private:
             if (command == 8 || command == 9) {
                 const int note = command == 8
                     ? voice.note + static_cast<std::int8_t>(bb)
-                    : voice.note;
-                const int extra = signedWord(static_cast<std::uint16_t>((cd << 8) | ee));
+                    : static_cast<std::int8_t>(bb);
+                // AddNote and SetNote both carry the note's pattern detune
+                // into the macro period calculation. TFMX applies the
+                // combined signed fine-tune as an 8.8 scale factor.
+                const int extra = voice.detune +
+                    signedWord(static_cast<std::uint16_t>((cd << 8) | ee));
                 voice.period = periodForNote(note);
                 if (extra != 0) {
-                    voice.period = std::max(1, voice.period +
-                        (voice.period * extra) / 256);
+                    voice.period = std::max(1,
+                        ((0x100 + extra) * voice.period) >> 8);
                 }
                 voice.outputPeriod = voice.period;
                 ++voice.macroStep;
-                continue;
+                // AddNote/SetNote use TFMX's default extra-wait behavior:
+                // stop evaluating this macro for the current VBI even when
+                // the command itself did not contain an explicit wait.
+                return;
             }
             if (command == 0x0a) {
                 voice.envelopeFlag = 0;
@@ -836,12 +842,15 @@ private:
                 continue;
             }
             if (command == 0x0d) {
-                voice.volume = std::max(0, std::min(64, voice.noteVolume * 3 + ee));
+                // TFMX's volume byte is passed through to Paula.  The
+                // bundled modules use 65 here; clamping to the nominal
+                // 0..64 range changes their first rendered samples.
+                voice.volume = std::max(0, voice.noteVolume * 3 + ee);
                 ++voice.macroStep;
                 continue;
             }
             if (command == 0x0e) {
-                voice.volume = std::max(0, std::min(64, static_cast<int>(ee)));
+                voice.volume = ee;
                 ++voice.macroStep;
                 continue;
             }
@@ -898,6 +907,7 @@ private:
                 voice.dmaOn = false;
                 voice.dmaPending = false;
                 voice.playbackLength = 0;
+                voice.playbackEnd = 0;
                 voice.samplePosition = 0.0;
                 ++voice.macroStep;
                 continue;
@@ -930,12 +940,16 @@ private:
             if (command == 0x18) {
                 const std::size_t amount = be24(_tfx, offset + 1);
                 voice.sampleStart += amount;
-                const std::size_t consumed = amount / 2;
-                voice.sampleLength = voice.sampleLength > consumed
-                    ? voice.sampleLength - consumed : 0;
+                // Sample lengths are stored here in bytes, while the TFMX
+                // The command's offset is already a byte offset. In the
+                // decoder's byte-based length representation, subtract it
+                // directly.
+                voice.sampleLength = voice.sampleLength > amount
+                    ? voice.sampleLength - amount : 0;
                 if (!voice.dmaOn) {
                     voice.playbackStart = voice.sampleStart;
                     voice.playbackLength = voice.sampleLength;
+                    voice.playbackEnd = voice.playbackStart + voice.playbackLength;
                     voice.samplePosition = 0.0;
                 }
                 ++voice.macroStep;
@@ -949,6 +963,7 @@ private:
                 if (!voice.dmaOn) {
                     voice.playbackStart = voice.sampleStart;
                     voice.playbackLength = voice.sampleLength;
+                    voice.playbackEnd = voice.playbackStart + voice.playbackLength;
                     voice.samplePosition = 0.0;
                 }
                 ++voice.macroStep;
@@ -965,8 +980,25 @@ private:
                       << " sequence-count=" << _sequenceCount << "\n";
         }
         for (std::size_t i = 0; i < _voices.size(); ++i) {
-            processEffects(_voices[i]);
             processMacro(_voices[i]);
+            // Quik uses TFMX's MAC_MOD_SEQ order: macro commands update the
+            // voice first, then modulation advances the resulting state.
+            processEffects(_voices[i]);
+            if (_traceLimit != 0 && _tickNumber <= _traceLimit) {
+                const Voice &voice = _voices[i];
+                std::cerr << "TFMX state voice=" << i
+                          << " active=" << voice.active
+                          << " dma=" << voice.dmaOn
+                          << " volume=" << voice.volume
+                          << " period=" << voice.period
+                          << " out=" << voice.outputPeriod
+                          << " macro-stopped=" << voice.macroStopped
+                          << " step=" << voice.macroStep
+                          << " wait=" << voice.macroWait
+                          << " effects=" << voice.effectsMode
+                          << " sample=" << voice.sampleStart << "/" << voice.sampleLength
+                          << " length=" << voice.playbackLength << "\n";
+            }
         }
         if (!_songEnd && --_sequenceCount < 0) {
             _sequenceCount = _speed;
@@ -1004,6 +1036,7 @@ private:
             voice.dmaOn = true;
             voice.playbackStart = voice.sampleStart;
             voice.playbackLength = voice.sampleLength;
+            voice.playbackEnd = voice.playbackStart + voice.playbackLength;
             voice.samplePosition = 0.0;
         }
     }
@@ -1030,7 +1063,7 @@ private:
                 voice.envelopeFlag = 0;
             }
         }
-        voice.volume = std::max(0, std::min(64, voice.volume));
+        voice.volume = std::max(0, voice.volume);
     }
 
     void processEffects(Voice &voice) {
@@ -1052,8 +1085,8 @@ private:
         voice.vibratoDelta += voice.vibratoIntensity;
         const int adjusted = ((0x800 + voice.vibratoDelta) * voice.period) >> 11;
         voice.outputPeriod = std::max(1, adjusted);
-        // The original counter is an unsigned byte; preserving its wrap is
-        // observable for the short vibrato commands used by ONGAME2.
+        // Preserve the unsigned-byte counter wrap used by the short vibrato
+        // commands in ONGAME2.
         voice.vibratoCount = (voice.vibratoCount + 255) & 0xff;
         if (voice.vibratoCount == 0) {
             voice.vibratoCount = voice.vibratoTime;
@@ -1061,55 +1094,91 @@ private:
         }
     }
 
+    void updatePaulaStep(Voice &voice, std::uint32_t sampleRate) {
+        if (voice.stepPeriod == voice.outputPeriod) {
+            return;
+        }
+        voice.stepPeriod = voice.outputPeriod;
+        if (voice.outputPeriod <= 0) {
+            voice.stepSpeed = 0;
+            voice.stepSpeedPnt = 0;
+            return;
+        }
+        // Use PAL fixed-point stepping with separate integer and fractional
+        // parts rather than advancing a floating-point position.
+        const float basePeriod = static_cast<float>(3546895.0f) /
+            static_cast<float>(sampleRate);
+        const float step = basePeriod / static_cast<float>(voice.outputPeriod);
+        voice.stepSpeed = static_cast<std::uint32_t>(step);
+        voice.stepSpeedPnt = static_cast<std::uint32_t>(
+            (step - static_cast<float>(voice.stepSpeed)) * 65536.0f);
+    }
+
     void mix(Pcm16Stereo &output, std::size_t frames, std::uint32_t sampleRate) {
-        static const double paulaClock = 3546895.0;
-        static const double filterCoefficient =
-            (6.28318530717958647692 * 4420.97) / 44100.0;
-        static const double filterComplement = 1.0 - filterCoefficient;
+        static const float filterCoefficient = static_cast<float>(
+            (3.14159265 * 2 * 4420.97) / 44100.0);
+        static const float filterComplement = static_cast<float>(
+            1.0 - ((3.14159265 * 2 * 4420.97) / 44100.0));
+        for (std::size_t voiceIndex = 0; voiceIndex < _voices.size(); ++voiceIndex) {
+            updatePaulaStep(_voices[voiceIndex], sampleRate);
+        }
         for (std::size_t frame = 0; frame < frames; ++frame) {
-            int left = 0;
-            int right = 0;
+            std::int16_t left = 0;
+            std::int16_t right = 0;
             for (std::size_t voiceIndex = 0; voiceIndex < _voices.size(); ++voiceIndex) {
                 Voice &voice = _voices[voiceIndex];
                 if (!voice.active || !voice.dmaOn || voice.playbackLength == 0 ||
                     voice.outputPeriod <= 0 || voice.playbackStart >= _sam.size()) {
                     continue;
                 }
-                const double step = (paulaClock / voice.outputPeriod) /
-                    static_cast<double>(sampleRate);
+                voice.stepSpeedAddPnt += voice.stepSpeedPnt;
+                const std::size_t advance = voice.stepSpeed +
+                    (voice.stepSpeedAddPnt > 65535u ? 1u : 0u);
+                voice.stepSpeedAddPnt &= 65535u;
                 // Paula advances the DMA pointer before returning the sample.
-                // This also means a loop begins at repeatStart + step, rather
-                // than replaying the first byte for one output frame.
-                voice.samplePosition += step;
-                if (voice.samplePosition >= voice.playbackLength) {
+                voice.playbackStart += advance;
+                if (voice.playbackStart >= voice.playbackEnd) {
+                    // At a loop boundary the pointer jumps to the repeat
+                    // buffer plus the integer step. Recompute this after
+                    // clearing the fractional carry for stable loop timing.
                     voice.playbackStart = voice.sampleStart;
                     voice.playbackLength = voice.sampleLength;
-                    voice.samplePosition = step;
+                    voice.playbackEnd = voice.playbackStart + voice.playbackLength;
+                    voice.playbackStart += voice.stepSpeed +
+                        (voice.stepSpeedAddPnt > 65535u ? 1u : 0u);
                 }
                 if (voice.playbackLength == 0) {
                     continue;
                 }
-                const std::size_t sampleIndex = voice.playbackStart +
-                    static_cast<std::size_t>(voice.samplePosition);
-                if (sampleIndex >= _sam.size()) {
+                if (voice.playbackStart >= _sam.size() ||
+                    voice.playbackStart >= voice.playbackEnd) {
                     continue;
                 }
                 // Four Paula channels share a signed 16-bit mix bus. Leave
                 // headroom for simultaneous voices instead of hard-clipping
                 // every full-volume sample.
-                const int value = signedByte(_sam[sampleIndex]) * voice.volume * 2;
+                // The player keeps the full volume byte for envelope math,
+                // while the Paula mixer clamps the register to 0..64.
+                const int mixVolume = std::max(0, std::min(64, voice.volume));
+                const int value = signedByte(_sam[voice.playbackStart]) * mixVolume * 2;
+                int leftContribution;
+                int rightContribution;
                 if (voiceIndex == 0 || voiceIndex == 3) {
-                    left += (value * 3) / 4;
-                    right += value / 4;
+                    leftContribution = (value * 3) / 4;
+                    rightContribution = value / 4;
                 } else {
-                    left += value / 4;
-                    right += (value * 3) / 4;
+                    leftContribution = value / 4;
+                    rightContribution = (value * 3) / 4;
                 }
+                left = static_cast<std::int16_t>(static_cast<int>(left) + leftContribution);
+                right = static_cast<std::int16_t>(static_cast<int>(right) + rightContribution);
             }
-            _filteredLeft = filterCoefficient * left + filterComplement * _filteredLeft;
-            _filteredRight = filterCoefficient * right + filterComplement * _filteredRight;
-            output.samples.push_back(clamp16(static_cast<int>(_filteredLeft)));
-            output.samples.push_back(clamp16(static_cast<int>(_filteredRight)));
+            _filteredLeft = static_cast<std::int16_t>(
+                filterCoefficient * left + filterComplement * _filteredLeft);
+            _filteredRight = static_cast<std::int16_t>(
+                filterCoefficient * right + filterComplement * _filteredRight);
+            output.samples.push_back(_filteredLeft);
+            output.samples.push_back(_filteredRight);
         }
     }
 
@@ -1135,8 +1204,8 @@ private:
     std::size_t _loadedSongForSimulation;
     int _traceLimit;
     int _tickNumber;
-    double _filteredLeft;
-    double _filteredRight;
+    std::int16_t _filteredLeft;
+    std::int16_t _filteredRight;
 };
 
 MusicModule::MusicModule(const Archive &archive, const std::string &track)

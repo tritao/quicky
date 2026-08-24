@@ -2,7 +2,7 @@
 
 This is the first standalone C++ slice of the Quiky engine recreation. It is
 kept independent of SDL and ScummVM so the format and renderer code can be
-tested against the original data before a ScummVM frontend is added.
+tested independently before a ScummVM frontend is added.
 
 The current iteration supports:
 
@@ -15,10 +15,33 @@ The current iteration supports:
 - ARE layout/entity parsing and optional debug overlays;
 - BOB sprite decoding and indexed contact sheets;
 - deterministic player simulation with provisional MAP collision masks;
+- an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
+- ARE-backed level streaming with provisional collectible, hazard, and exit events;
 - synthetic unit tests for the format readers.
 
-Music and interactive gameplay are intentionally deferred; the simulation
-probe only exercises the current deterministic runtime core.
+Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
+resources use TFMX, which needs a dedicated decoder. The engine includes an
+in-tree four-voice TFMX Pro parser, sequencer, and Paula-style mixer. It reads
+paired resources directly from `NESTLE.DAT`, renders WAV, and can play through
+SDL3 when SDL3 is discoverable by CMake.
+
+Build it with the normal engine configuration:
+
+```sh
+cmake -S engine -B build/engine -DSDL3_DIR=/path/to/SDL3/cmake/config
+cmake --build build/engine
+build/engine/quiky-music game/NESTLE.DAT list
+build/engine/quiky-music game/NESTLE.DAT render TITEL /tmp/TITEL.wav
+build/engine/quiky-music game/NESTLE.DAT play TITEL
+```
+
+For short sequencer diagnostics, set `QUIKY_TFMX_TRACE` to the number of
+50 Hz ticks to print before rendering:
+
+```sh
+QUIKY_TFMX_TRACE=50 build/engine/quiky-music game/NESTLE.DAT render \
+  TITEL /tmp/TITEL-trace.wav 2>/tmp/TITEL-trace.log
+```
 
 Build and test from the repository root:
 
@@ -27,6 +50,17 @@ cmake -S engine -B build/engine
 cmake --build build/engine
 ctest --test-dir build/engine --output-on-failure
 ```
+
+Launch the default W1L1 session without naming the derived world resources:
+
+```sh
+build/engine/quiky-play game/NESTLE.DAT
+build/engine/quiky-calibrate game/NESTLE.DAT W1L1.MAP 100 100 /tmp/W1L1-calibration.csv
+```
+
+The calibration command emits a frame-by-frame CSV and a summary of the
+current provisional movement constants. Its output is intended to be paired
+with future DOSBox traces before those constants are treated as authoritative.
 
 Inspect the bundled archive:
 

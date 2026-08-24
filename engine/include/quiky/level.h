@@ -41,7 +41,7 @@ struct LevelEvent {
 };
 
 struct LevelSessionConfig {
-    // ARE origins are aligned to 64 pixels in the original runtime.
+    // ARE origins are aligned to 64-pixel regions.
     std::int32_t streamRadiusRegions;
     std::int32_t collectibleRadius;
     std::int32_t hazardRadius;
