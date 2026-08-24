@@ -73,6 +73,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             trace_platform=True,
             force_active_player_bounds=True,
             force_bump_player_state=True,
+            force_cloud_player_state=True,
             align_object_to_player=True,
             align_y_offset=-32,
             force_platform_ready=True,
@@ -87,6 +88,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertTrue(payload["trace_platform"])
         self.assertTrue(payload["force_active_player_bounds"])
         self.assertTrue(payload["force_bump_player_state"])
+        self.assertTrue(payload["force_cloud_player_state"])
         self.assertEqual(payload["align_y_offset"], -32)
         self.assertTrue(payload["force_platform_ready"])
         self.assertTrue(payload["trace_bump"])
@@ -139,6 +141,12 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertIn("force_tile_mask", source)
         self.assertIn("puzzle_completion_probe", source)
         self.assertIn("puzzle_probe_frames", source)
+
+    def test_cloud_probe_has_player_state_control(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("force_cloud_player_state", source)
+        self.assertIn("apply_cloud_player_state", source)
 
 
 if __name__ == "__main__":

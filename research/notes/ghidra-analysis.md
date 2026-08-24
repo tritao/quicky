@@ -352,6 +352,13 @@ the same selector (observed offsets include `0168`, `01E0`, `02D0`, and
 `03C0`). `quikytrace --lifetime-samples N` records object identity, slot,
 delay, animation cursor, and the `+28` variant flag at each shared leaf update.
 
+The pooled-object allocator is the shared factory at `01F7:0E06`. It starts at
+`DS:755E`, advances by the runtime object stride `DS:30CE`, and scans exactly
+`0x40` entries. Its free test is `ES:[DI+0x18] == 0`; the first entry with no
+update callback receives the requested callback and default object fields
+before the type-specific initializer runs. This makes the leaf recycle rule
+explicit rather than inferred only from repeated offsets.
+
 ### Early normal enemy families
 
 The remaining early normal dispatch entries were traced at their
@@ -416,6 +423,16 @@ type 0. The corresponding four-frame `WOLKE.BOB` family is slots 413-416,
 each 32x16 with origin `(0,0)`. Because the standard logical-slot field is
 unused, the asset correlation is recorded as a special-renderer mapping, not
 as a direct slot write.
+
+The callback's relocated calls are only the shared camera gate `01F7:1DCA`,
+removal `01F7:1DEE`, bounds helper `01F7:393C`, animation helper `01F7:5D38`,
+and MAP helpers `01F7:1C4D`/`01F7:5C27`; it does not call the normal renderer.
+The standard renderer at `01F7:3529` returns immediately when
+`object+0x12 == 0xFFFF`. A controlled W1L1 probe with `DS:89EA=0`, a
+synthetic 16x16 bounds rectangle, and player byte `+0x37=0` reaches the
+accepted `01F7:9269` branch and records `DS:89E6: 0 -> FFFF` while the cloud
+callback remains active. The player-state gate is therefore resolved; only
+the outer consumer of the special WOLKE state remains to be located.
 
 Types `0x29` and `0x2A` use the same normal dispatch callback as `0x2B`:
 `01F7:4727`, object class `1`, reserved byte `0`.

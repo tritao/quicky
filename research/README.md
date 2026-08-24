@@ -862,7 +862,11 @@ Normal type `0x28` is a cloud emitter. Its dispatch entry is
 capture removes the large white cloud. This object deliberately leaves
 `object+0x12` at `0xFFFF`, so it does not follow the standard logical-slot
 path; the rendered cloud matches the four 32x16 records in `WOLKE.BOB`, slots
-413-416. The sheet is [`notes/type-28-wolke-sheet.png`](notes/type-28-wolke-sheet.png).
+413-416. A controlled callback probe confirms the player-state gate for
+`DS:89E6=FFFF` (`DS:89EA=0`, persistent player byte `+0x37=0`) while the
+cloud remains active. The standard `01F7:3529` renderer returns on `FFFF`, so
+the remaining question is only the outer consumer of this special WOLKE state.
+The sheet is [`notes/type-28-wolke-sheet.png`](notes/type-28-wolke-sheet.png).
 
 Types `0x29` and `0x2A` use the same `01F7:4727` leaf callback as confirmed
 type `0x2B`, with class 1 and the same `BLATT.BOB` slots 700-707/750-757,

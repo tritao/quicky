@@ -14,10 +14,10 @@
     "trace_script_sha256": "4d438c8bc6fe6ab460c8bc97f01d3eaae3d9bf8d820855e03187e8363d535372"
   },
   "trace": {
-    "samples": 64,
+    "samples": 256,
     "initializer": "01F7:474D",
     "update_callback": "01F7:4727",
-    "sprite_slots_observed": [700, 701, 703],
+    "sprite_slots_observed": [700, 701, 702, 703, 704],
     "pool_offsets_observed": [120, 240, 360, 480, 720, 840, 960, 1080],
     "first_cycle_offsets": [120, 240, 360, 480, 720, 840, 960, 1080],
     "recycled_cycle_offsets": [360, 480, 720, 840, 960, 1080],
@@ -32,10 +32,19 @@
       "slot_701": 13078
     }
   },
+  "allocator": {
+    "routine": "01F7:0E06",
+    "pool_head": "DS:755E",
+    "entry_stride": "DS:30CE",
+    "capacity": 64,
+    "free_predicate": "ES:[DI+0x18] == 0 (no update callback)",
+    "initialization": "The first free entry receives the requested callback at +0x18 and default class/state fields before the initializer call."
+  },
   "conclusions": [
     "The callback emits child leaves through a fixed pool rather than updating only the source ARE object.",
     "After the initial eight pool positions, the stream reuses offsets 360, 480, 720, 840, 960, and 1080 while animation delays continue decrementing.",
     "The animation table advances from slot 700 to 701 after the delay reaches zero; slot 703 uses the alternate table/cursor.",
-    "This proves child reuse/recycling and animation timing, but does not by itself identify the exact pool-free predicate or a child object callback-clear event."
+    "The extended 256-sample trace confirms the same fixed-pool reuse cadence across five slot phases and adds slots 702/704 to the observed animation progression.",
+    "Static 01F7:0E06 resolves the allocator free predicate: a pool entry is free exactly when its object+0x18 update callback is zero; the child callback's own off-camera path still uses shared 01F7:1DEE."
   ]
 }

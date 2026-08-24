@@ -28,15 +28,22 @@
     "fixture": "/home/joao/dev/quicky/research/build/entity-2b-complete/baseline/game",
     "level": "W1L1.ARE",
     "record_offset": 6034,
-    "samples": 64,
+    "samples": 256,
     "pool_offsets": [120, 240, 360, 480, 720, 840, 960, 1080],
     "recycled_offsets": [360, 480, 720, 840, 960, 1080],
-    "animation_slots": [700, 701, 703],
+    "animation_slots": [700, 701, 702, 703, 704],
     "delay_progression": {"slot_700": [8,7,6,5,4,3,2,1,0], "slot_703": [10,9,8,7,6,5,4,3,2,1]},
-    "evidence": "research/entity-leaf-pool-evidence.json"
+    "evidence": "research/entity-leaf-pool-evidence.json",
+    "allocator": {
+      "routine": "01F7:0E06",
+      "pool_head": "DS:755E",
+      "capacity": 64,
+      "entry_stride": "DS:30CE",
+      "free_predicate": "object+0x18 == 0"
+    }
   },
   "conclusions": [
     "The leaf family has a decoded initializer, fixed-point vertical motion, blocked/timer/reseed state machine, and shared off-camera removal path.",
-    "Leaves are visual pooled children; the exact allocator free predicate and any player collision response remain intentionally open."
+    "Leaves are visual pooled children; 01F7:0E06 identifies a free entry by object+0x18 == 0. No player collision response is present in the child callback."
   ]
 }

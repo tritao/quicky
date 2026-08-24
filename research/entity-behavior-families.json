@@ -230,7 +230,7 @@
       "initializer_fields": {"status": "confirmed", "known": "01F7:9256 installs callback 01F7:9269, leaves object+0x12 at 0xFFFF, and clears object+0x2A; object class is 0."},
       "update_callback_state_machine": {"status": "confirmed", "known": "01F7:9269 applies the visibility gate, checks overlap against the persistent player bounds object, and updates the cloud-related global flag; no normal sprite state machine is present."},
       "movement_ai": {"status": "confirmed", "known": "The callback contains no x/y integration. Three separated W1L1 captures keep the cloud at (368,304), so it is a stationary/camera-gated ambient object rather than a pursuing actor."},
-      "collision_shape_interaction": {"status": "confirmed", "known": "01F7:9269 checks the persistent player bounds with a 16x16 aligned gate: object_x < player_x+16 and object_x+16 > player_x, object_y aligned down to 16 with the same 16-pixel overlap. The accepted branch writes DS:89E6=FFFF; the player-state precondition is documented separately."},
+      "collision_shape_interaction": {"status": "confirmed", "known": "01F7:9269 checks the persistent player bounds with a 16x16 aligned gate: object_x < player_x+16 and object_x+16 > player_x, object_y aligned down to 16 with the same 16-pixel overlap. The accepted branch writes DS:89E6=FFFF only when DS:89EA is zero and the persistent player object byte +0x37 is zero; a controlled positive probe confirms the write."},
       "animation_table": {"status": "confirmed", "known": "Special renderer maps WOLKE.BOB frames to slots 413-416, each 32x16."},
       "death_removal": {"status": "confirmed", "known": "The visibility gate at 01F7:9269 takes the shared 01F7:1DCA -> 01F7:1DEE path when off camera and clears object+0x18; level-reset persistence remains separate."},
       "cross_world_variants": {"status": "confirmed", "known": "ARE parsing finds type 0x28 in W1-W5. Every context binds the same global WOLKE.BOB table (slots 413-416, 32x16); no WOLKE_Wn.BOB variants exist, and the logical slot is FFFF because the renderer is special."},
@@ -238,9 +238,10 @@
         {"type": "0x28", "fixture": "W1L1 redirected cloud anchor", "dispatch": "01F7:9256", "post_initializer": "01F7:9269", "object_callback": "01F7:9269", "sprite_slot": 65535, "position": [368, 304], "callback_samples": 3, "movement": "stationary", "inert_control": "paired type0 has no object", "native_world": "WOLKE.BOB slots 413-416, 32x16 origin 0,0"}
         ,{"type": "0x28", "fixture": "W1L1 visible camera-controlled callback", "dispatch": "01F7:9256", "post_initializer": "01F7:9269", "object_callback": "01F7:9269", "sprite_slot": 65535, "position": [784, 192], "callback_samples": 8, "camera": [700, 100], "movement": "stationary; callback active", "evidence": "research/entity-cloud-crossworld-evidence.json"}
         ,{"type": "0x28", "fixture": "W1L1 off-camera removal probe", "dispatch": "01F7:9256", "post_initializer": "01F7:9269", "object_callback": "01F7:9269", "sprite_slot": 65535, "position": [784, 192], "callback_samples": 1, "camera": [0, 262], "callback_after": 0, "evidence": "research/entity-cloud-crossworld-evidence.json"}
+        ,{"type": "0x28", "fixture": "W1L1 synthetic player-state gate", "dispatch": "01F7:9256", "post_initializer": "01F7:9269", "object_callback": "01F7:9269", "sprite_slot": 65535, "position": [784, 192], "callback_samples": 2, "camera": [700, 100], "cloud_global_before": 0, "cloud_global_after": 65535, "evidence": "research/entity-cloud-crossworld-evidence.json"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-28-wolke-sheet.png", "research/entity-cloud-crossworld-evidence.json"],
-      "open_questions": ["player-state precondition for DS:89E6 write", "renderer-internal WOLKE asset lookup"]
+      "open_questions": ["outer renderer consumer of special WOLKE state"]
     },
     {
       "id": "falling_leaves",
@@ -252,14 +253,14 @@
       "movement_ai": {"status": "confirmed", "known": "Falling leaves use a deterministic fixed-point vertical trajectory with a signed PRNG perturbation; MAP blocking pauses the trajectory and the timer-driven reseed restarts it. This is pooled ambient motion, not pursuit AI."},
       "collision_shape_interaction": {"status": "not_applicable", "known": "Leaf child callback 01F7:47E7 only uses visibility/MAP movement helpers and contains no persistent-player/entity collision branch. BLATT.BOB geometry is render-only (14x12, origin 7,12)."},
       "animation_table": {"status": "confirmed", "known": "BLATT.BOB slots 700-707 and bright 750-757; tables at DS:3312/3326 use delays 8/10 and loop marker -8."},
-      "death_removal": {"status": "confirmed", "known": "The shared visibility false branch at 01F7:47EC reaches 01F7:1DEE for off-camera child removal; blocked children are recycled by the +0x32 timer and fixed pool. The allocator's exact free predicate remains an implementation detail."},
+      "death_removal": {"status": "confirmed", "known": "The shared visibility false branch at 01F7:47EC reaches 01F7:1DEE for off-camera child removal; blocked children are recycled by the +0x32 timer and fixed pool. Common factory 01F7:0E06 scans 64 entries and treats object+0x18 == 0 as free."},
       "cross_world_variants": {"status": "not_applicable", "known": "The archive uses types 0x29-0x2B only in W1; no cross-world leaf type/resource variant is present to compare."},
       "verified_runs": [
         {"type": "0x2B", "fixture": "W1L1 falling-leaf anchor", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "sprite_slot": 700, "callback_samples": 6, "movement": "pooled child leaves; trajectory/cadence not fully reconstructed", "animation_tables": "DS:3312 / DS:3326", "native_world": "BLATT.BOB slots 700-707 and 750-757"},
-        {"type": "0x2B", "fixture": "W1L1 lifetime trace, 64 matching child updates", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "callback_samples": 64, "pool_offsets": [120, 240, 360, 480, 720, 840, 960, 1080], "recycled_offsets": [360, 480, 720, 840, 960, 1080], "animation_slots": [700, 701, 703], "evidence": "research/entity-leaf-pool-evidence.json"}
+        {"type": "0x2B", "fixture": "W1L1 lifetime trace, 256 matching child updates", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "callback_samples": 256, "pool_offsets": [120, 240, 360, 480, 720, 840, 960, 1080], "recycled_offsets": [360, 480, 720, 840, 960, 1080], "animation_slots": [700, 701, 702, 703, 704], "evidence": "research/entity-leaf-pool-evidence.json"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-leaf-pool-evidence.json", "research/entity-leaf-state-evidence.json", "research/notes/type-2b-falling-leaves-sheet.png"],
-    "open_questions": ["allocator free predicate", "spawn cadence across authored levels"]
+    "open_questions": ["spawn cadence across authored levels"]
     },
     {
       "id": "paper",

@@ -15,7 +15,7 @@
   },
   "inputs": {
     "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
-    "trace_script_sha256": "8369134fbe6cc99c36576fec02a3fd0333c16a234bb3e659b8b9dd0ce55dc57b"
+    "trace_script_sha256": "1991db566018cf6fab24dc81519b5fc01584dde2b148c03e7b52a3383b64d3a4"
   },
   "are_usage": {
     "W1": ["W1L1", "W1L2", "W1L4"],
@@ -32,5 +32,20 @@
     "offcamera_probe": {"camera": [0, 262], "callback_after": 0},
     "resource_selector_note": "WOLKE.BOB is not independently requested by the normal per-level resource batch; the callback uses a special renderer with object+0x12=FFFF."
   },
-  "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. World-specific cloud sprite variants are therefore not present in the archive; the remaining uncertainty is only the renderer's internal asset binding, not a missing world file."
+  "player_state_probe": {
+    "fixture": "/home/joao/dev/quicky/research/build/entity-28-multiframe/baseline/game",
+    "controls": "camera=(700,100); synthetic DS:881A points at cloud object; DS:89EA=0; bounds fields +0x2C/+0x30=0/16 and +0x2E/+0x32=0/16; object+0x37=0",
+    "trace": "research/build/entity-28-cloud-player-state-forced.json",
+    "samples": [
+      {"callback": "01F7:9256", "next_callback": "01F7:9269", "cloud_global_before": 0, "cloud_global_after": 0},
+      {"callback": "01F7:9269", "next_callback": "01F7:9269", "bounds_object_offset": 120, "player_state_byte": 0, "cloud_global_before": 0, "cloud_global_after": 65535, "callback_active": true}
+    ],
+    "conclusion": "The native 9269 branch writes DS:89E6=FFFF only when the persistent bounds gate is active and player object byte +0x37 is zero; the controlled positive probe keeps the cloud stationary and callback active."
+  },
+  "renderer_static_scan": {
+    "standard_renderer": "01F7:3529 returns immediately when object+0x12 == 0xFFFF, so the cloud does not use the normal DS:6D8E logical-slot path.",
+    "cloud_callback_calls": ["01F7:1DCA", "01F7:1DEE", "01F7:393C", "01F7:5D38", "01F7:1C4D", "01F7:5C27"],
+    "conclusion": "The cloud callback contains no direct sprite/resource call; WOLKE.BOB remains a special/outer renderer binding rather than a normal object-slot draw."
+  },
+  "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. The player-state gate is now directly evidenced; the remaining uncertainty is the outer renderer consumer of the special cloud state, not cross-world coverage."
 }

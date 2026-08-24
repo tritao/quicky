@@ -20,6 +20,7 @@ local trace_bump = trace_config.trace_bump or false
 local trace_contact = trace_config.trace_contact or false
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
 local force_bump_player_state = trace_config.force_bump_player_state or false
+local force_cloud_player_state = trace_config.force_cloud_player_state or false
 local force_contact_gate = trace_config.force_contact_gate or false
 local align_x_offset = trace_config.align_x_offset or 0
 local align_y_offset = trace_config.align_y_offset or 0
@@ -369,6 +370,23 @@ end
 local callback_offset = initialized_object.update_callback
 assert(callback_offset ~= 0,
        "initialized object has no per-object callback")
+local function apply_cloud_player_state()
+    -- Debugger-only WOLKE probe: make the cloud object its own synthetic
+    -- player-bounds object.  This preserves the callback's native overlap
+    -- arithmetic while satisfying the player-state gate at 92A2.
+    dosbox.mem_write("ds", 0x89ea, little_word(0))
+    dosbox.mem_write("ds", 0x881a, little_word(object_offset))
+    dosbox.mem_write_selector(object_selector, object_offset + 0x2c,
+                              little_word(0x0000))
+    dosbox.mem_write_selector(object_selector, object_offset + 0x2e,
+                              little_word(0x0000))
+    dosbox.mem_write_selector(object_selector, object_offset + 0x30,
+                              little_word(0x0010))
+    dosbox.mem_write_selector(object_selector, object_offset + 0x32,
+                              little_word(0x0010))
+    dosbox.mem_write_selector(object_selector, object_offset + 0x37,
+                              string.char(0x00))
+end
 if force_contact_gate then
     -- Controlled branch probe: the native callback gates this path on
     -- DS:8806 and compares the object integer coordinates against the
@@ -396,6 +414,12 @@ while #samples < sample_count and attempts < sample_count * 128 do
         if camera_x >= 0 then
             dosbox.mem_write("ds", 0x81c0, little_word(camera_x))
             dosbox.mem_write("ds", 0x81c4, little_word(camera_y))
+        end
+        -- Let the 9256 initializer run with the native player pointer first;
+        -- apply the synthetic bounds only once the steady-state 9269 callback
+        -- has been installed.
+        if force_cloud_player_state and callback_offset ~= 0x9256 then
+            apply_cloud_player_state()
         end
         if #samples == 0 then
             if force_platform_ready then

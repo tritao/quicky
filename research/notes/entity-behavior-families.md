@@ -216,16 +216,18 @@ adds the fixed-point velocity to y, pauses and toggles the sprite high bit on a
 MAP block, and restores/reseeds the source position when the timer expires. Its
 visibility-false path reaches shared removal `1DEE`.
 
-The 64-sample lifetime ledger closes the runtime side of that gap. After the initial pool
+The 256-sample lifetime ledger closes the runtime side of that gap. After the initial pool
 offsets `120, 240, 360, 480, 720, 840, 960, 1080`, later emissions reuse
 `360, 480, 720, 840, 960, 1080`; animation delay counts down through zero and
-the cursor advances from slot 700 to 701, while the alternate table emits slot
-703. This is direct evidence of pooled child reuse and animation rollover. The
-remaining leaf questions are the allocator's exact free predicate and authored
-spawn cadence across levels. The child callback has no persistent player/entity
-collision branch; BLATT geometry is render-only, so collision is not applicable
-to this family. See [`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json)
-and [`entity-leaf-state-evidence.json`](../entity-leaf-state-evidence.json).
+the cursor advances through slots 700-704, while the alternate table emits slot
+703. Static factory `01F7:0E06` scans 64 entries from `DS:755E` at stride
+`DS:30CE` and selects the first entry whose `object+0x18` callback is zero.
+This resolves the exact free predicate as well as direct pooled reuse and
+animation rollover. Spawn cadence across authored levels remains open. The
+child callback has no persistent player/entity collision branch; BLATT geometry
+is render-only, so collision is not applicable to this family. See
+[`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json) and
+[`entity-leaf-state-evidence.json`](../entity-leaf-state-evidence.json).
 
 The remaining effect-family uncertainty is no longer object identity: all of
 these callbacks and resource bindings are now bounded below. The open parts
@@ -367,10 +369,13 @@ the same global `WOLKE.BOB` table (slots 413-416, 32x16, origin 0,0); no
 `WOLKE_Wn.BOB` files occur. The initializer keeps logical slot `FFFF`, which
 matches the special renderer rather than a missing sprite. Native callback
 `9269` is camera-gated, performs a 16x16 aligned player-bounds test, and writes
-`DS:89E6=FFFF` on the accepted branch. A visible camera-controlled run stays
-active and stationary; an off-camera run clears the callback through the shared
-removal path. The remaining uncertainty is the renderer's internal asset
-binding and the player-state precondition, not cross-world coverage; see
+`DS:89E6=FFFF` on the accepted branch. A controlled positive probe points
+`DS:881A` at the cloud object, sets `DS:89EA=0`, supplies a 16x16 bounds
+rectangle, and confirms `DS:89E6: 0 -> FFFF` while callback `9269` remains
+active and stationary; the static `+0x37 == 0` test is therefore resolved. The
+standard renderer `01F7:3529` returns immediately for logical slot `FFFF`, and
+`9269` has no direct draw/resource call, so only the outer consumer of the
+special WOLKE state remains open. See
 [`entity-cloud-crossworld-evidence.json`](../entity-cloud-crossworld-evidence.json).
 
 ## Reproducible next experiments
@@ -476,14 +481,11 @@ and platform-carry boundaries. Remaining experiments are deliberately narrower:
 2. If platform approach polarity is required, capture player-state variants
    just outside the accepted A075 band; native integration, carry offsets, MAP
    stop, and the absence of a platform-specific terminal table are confirmed.
-3. If renderer provenance is required, trace the special WOLKE draw helper and
-   satisfy its player-state precondition; cross-world usage and removal are now
-   confirmed.
-4. Decode the exact falling-leaf pool-free predicate and continuous vertical
-   trajectory from a longer child-object trace.
-5. For normal enemies, isolate an unmodified player-overlap run and a death or
-   drop state; off-camera deactivation is now confirmed across representative
-   WURM2 and BIENE callbacks, but gameplay death is still separate.
+3. If renderer provenance is required, identify the outer draw consumer of the
+   special WOLKE state. The player-state gate, cross-world usage, and removal
+   path are now confirmed.
+4. If leaf timing across authored content is required, compare spawn cadence in
+   additional levels; the fixed-pool free predicate is resolved at `01F7:0E06`.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a
