@@ -31,6 +31,26 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["sprite_init_offset"], 0x6DB0)
         self.assertNotIn("player_callback_offset", payload)
 
+    def test_interaction_probe_flags_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1606,
+            entity_type=0x3D,
+            samples=8,
+            startup_recording=Path("startup.json"),
+            trace_overlap=True,
+            trace_collision=True,
+            trace_platform=True,
+            force_active_player_bounds=True,
+            align_object_to_player=True,
+            align_y_offset=-32,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["trace_overlap"])
+        self.assertTrue(payload["trace_collision"])
+        self.assertTrue(payload["trace_platform"])
+        self.assertTrue(payload["force_active_player_bounds"])
+        self.assertEqual(payload["align_y_offset"], -32)
+
     def test_normalizes_lua_numeric_tables(self):
         trace = normalize_behavior_trace({
             "samples": {

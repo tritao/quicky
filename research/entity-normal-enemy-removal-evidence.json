@@ -1,0 +1,29 @@
+{
+  "schema": "entity-normal-enemy-removal-evidence-v1",
+  "purpose": "Live off-camera removal probe for the normal-enemy callback.",
+  "fixture": {
+    "level": "W1L1.ARE",
+    "record_offset": 6034,
+    "entity_type": "0x01",
+    "dispatch": "01F7:6DA3",
+    "post_initializer": "01F7:6DB0",
+    "object_callback": "01F7:6DC4",
+    "runtime": "/tmp/entity-normal-01/baseline/game"
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "002a640774e5487f03c396742a1dc96b1d84850e66fb1a213a19a25d933cf040",
+    "trace_script_sha256": "54b50fbe4cac7e8cec81c326fc6f180f91a53a0f612f1fda700a6d677ad177c6"
+  },
+  "controls": {"camera_x": 0, "camera_y": 0, "callback_samples_requested": 4},
+  "sample": {
+    "object_position": [880, 416],
+    "object_callback_before": "01F7:6DC4",
+    "object_callback_after": 0,
+    "changed_bytes": [{"offset": "0x18", "before": 196, "after": 0}, {"offset": "0x19", "before": 109, "after": 0}]
+  },
+  "conclusions": [
+    "With the camera held at (0,0), the live normal-enemy callback takes the off-camera removal path and clears object+0x18 on its first update.",
+    "The callback-clear observation is removal/deactivation evidence; it does not establish player-caused death, drops, or respawn."
+  ]
+}

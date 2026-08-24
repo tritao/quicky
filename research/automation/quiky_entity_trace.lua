@@ -20,6 +20,7 @@ local capture_frame_count = trace_config.capture_frames or 1
 local capture_frame_step = trace_config.frame_step or 30
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
+local interaction_align_player = trace_config.interaction_align_player or false
 local runtime_offset = record_offset - 0x160
 local startup_camera_x = nil
 local startup_camera_y = nil
@@ -35,6 +36,11 @@ end
 
 local function little_word(value)
     return string.char(value & 0xff, (value >> 8) & 0xff)
+end
+
+local function little_dword(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff,
+                       (value >> 16) & 0xff, (value >> 24) & 0xff)
 end
 
 local function hex(s)
@@ -315,6 +321,19 @@ local function capture_timeline(entity, object_selector, object_offset, first_ca
             frame.position = {x = dword(state, 3) >> 16,
                               y = dword(state, 7) >> 16}
             frame.sprite_slot = word(state, 0x12 + 1)
+            if interaction_align_player then
+                local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+                local bounds_state = dosbox.mem_read_selector(
+                    object_selector, bounds_offset, 64)
+                frame.bounds_object = {
+                    selector = object_selector,
+                    offset = bounds_offset,
+                    position = {
+                        x = dword(bounds_state, 3) >> 16,
+                        y = dword(bounds_state, 7) >> 16,
+                    },
+                }
+            end
         end
         entity.frames[index + 1] = frame
         entity.capture_index = index
@@ -674,6 +693,7 @@ for attempt = 1, 4096 do
         end
 
         local sprite_initialization = nil
+        local interaction_alignment = nil
         local lifetime_samples = {}
         if entity_type >= 0x29 and entity_type <= 0x2b then
             -- The leaf update initializes the visible sprite through a far
@@ -770,6 +790,37 @@ for attempt = 1, 4096 do
                         word(initialized_state, 0x12 + 1)
                     ),
                 }
+            if interaction_align_player then
+                local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+                local bounds_state = dosbox.mem_read_selector(
+                    object_selector, bounds_offset, 64)
+                local object_state_before = dosbox.mem_read_selector(
+                    object_selector, object_offset, 64)
+                local player_x_fixed = dword(bounds_state, 3)
+                local player_y_fixed = dword(bounds_state, 7)
+                dosbox.mem_write_selector(
+                    object_selector, object_offset + 0x02,
+                    little_dword(player_x_fixed))
+                dosbox.mem_write_selector(
+                    object_selector, object_offset + 0x06,
+                    little_dword(player_y_fixed))
+                interaction_alignment = {
+                    bounds_object = {selector = object_selector,
+                                     offset = bounds_offset,
+                                     position = {
+                                         x = player_x_fixed >> 16,
+                                         y = player_y_fixed >> 16,
+                                     }},
+                    object_before = {
+                        x = dword(object_state_before, 3) >> 16,
+                        y = dword(object_state_before, 7) >> 16,
+                    },
+                    object_after = {
+                        x = player_x_fixed >> 16,
+                        y = player_y_fixed >> 16,
+                    },
+                }
+            end
             dosbox.debug_continue()
         end
         local state_machine_samples = {}
@@ -1353,6 +1404,7 @@ for attempt = 1, 4096 do
             factory_return = {segment = 0x01f7, offset = 0x1e8e},
             object = {selector = object_selector, offset = object_offset},
             sprite_initialization = sprite_initialization,
+            interaction_alignment = interaction_alignment,
             sprite_animation_tables = sprite_animation_tables,
             lifetime_samples = lifetime_samples,
             state_machine_samples = state_machine_samples,

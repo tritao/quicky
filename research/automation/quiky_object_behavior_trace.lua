@@ -12,6 +12,14 @@ local selector_frames = trace_config.selector_frames or 60
 local camera_x = trace_config.camera_x or -1
 local camera_y = trace_config.camera_y or -1
 local sprite_init_offset = trace_config.sprite_init_offset or 0
+local align_object_to_player = trace_config.align_object_to_player or false
+local trace_overlap = trace_config.trace_overlap or false
+local trace_collision = trace_config.trace_collision or false
+local trace_platform = trace_config.trace_platform or false
+local force_active_player_bounds = trace_config.force_active_player_bounds or false
+local align_y_offset = trace_config.align_y_offset or 0
+local force_velocity_x = trace_config.force_velocity_x
+local force_velocity_y = trace_config.force_velocity_y
 local runtime_offset = record_offset - 0x160
 
 local function word(s, index)
@@ -27,6 +35,11 @@ local function little_word(value)
     return string.char(value & 0xff, (value >> 8) & 0xff)
 end
 
+local function little_dword(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff,
+                       (value >> 16) & 0xff, (value >> 24) & 0xff)
+end
+
 local function hex(s)
     return (s:gsub(".", function(c)
         return string.format("%02x", string.byte(c))
@@ -40,7 +53,7 @@ local function wait_hit(label)
 end
 
 local function object_snapshot(selector, offset)
-    local raw = dosbox.mem_read_selector(selector, offset, 64)
+    local raw = dosbox.mem_read_selector(selector, offset, 128)
     return {
         selector = selector,
         offset = offset,
@@ -95,6 +108,13 @@ local function static_globals()
         keyboard_flags = dosbox.mem_read_word("ds", 0x88bc),
         bounds_object_offset = dosbox.mem_read_word("ds", 0x881a),
         bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
+        tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
+        action_word = dosbox.mem_read_word("ds", 0x612e),
+        object_global_880c = dosbox.mem_read_word("ds", 0x880c),
+        object_global_881c = dosbox.mem_read_word("ds", 0x881c),
+        object_global_8822 = dosbox.mem_read_word("ds", 0x8822),
+        object_global_8824 = dosbox.mem_read_word("ds", 0x8824),
+        cloud_global_89e6 = dosbox.mem_read_word("ds", 0x89e6),
     }
 end
 
@@ -251,6 +271,38 @@ if sprite_init_offset ~= 0 then
         registers = initialized.registers,
     }
 end
+local interaction_alignment = nil
+if align_object_to_player then
+    local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+    local player = object_snapshot(object_selector, bounds_offset)
+    local player_bounds_before = dosbox.mem_read_selector(
+        object_selector, bounds_offset + 0x2c, 8)
+    if force_active_player_bounds then
+        dosbox.mem_write_selector(object_selector, bounds_offset + 0x2c,
+                                  little_word(0xfff6))
+        dosbox.mem_write_selector(object_selector, bounds_offset + 0x2e,
+                                  little_word(0xffd8))
+        dosbox.mem_write_selector(object_selector, bounds_offset + 0x30,
+                                  little_word(0x000a))
+        dosbox.mem_write_selector(object_selector, bounds_offset + 0x32,
+                                  little_word(0x0000))
+    end
+    dosbox.mem_write_selector(object_selector, object_offset + 0x02,
+                              little_dword(player.position.x_fixed))
+    local aligned_y_fixed = player.position.y_fixed + align_y_offset * 0x10000
+    dosbox.mem_write_selector(object_selector, object_offset + 0x06,
+                              little_dword(aligned_y_fixed))
+    initialized_object = object_snapshot(object_selector, object_offset)
+    interaction_alignment = {
+        bounds_object = {selector = object_selector, offset = bounds_offset,
+                         position = player.position},
+        player_bounds_before_hex = hex(player_bounds_before),
+        player_bounds_after_hex = hex(dosbox.mem_read_selector(
+            object_selector, bounds_offset + 0x2c, 8)),
+        object_position = initialized_object.position,
+        y_offset = align_y_offset,
+    }
+end
 local callback_offset = initialized_object.update_callback
 assert(callback_offset ~= 0,
        "initialized object has no per-object callback")
@@ -269,12 +321,102 @@ while #samples < sample_count and attempts < sample_count * 128 do
         dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
         dosbox.debug_continue()
     else
+        if #samples == 0 then
+            if force_velocity_x ~= nil then
+                dosbox.mem_write_selector(object_selector, object_offset + 0x0a,
+                                          little_dword(force_velocity_x))
+            end
+            if force_velocity_y ~= nil then
+                dosbox.mem_write_selector(object_selector, object_offset + 0x0e,
+                                          little_dword(force_velocity_y))
+            end
+        end
+        if force_active_player_bounds then
+            local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+            dosbox.mem_write_selector(object_selector, bounds_offset + 0x2c,
+                                      little_word(0xfff6))
+            dosbox.mem_write_selector(object_selector, bounds_offset + 0x2e,
+                                      little_word(0xffd8))
+            dosbox.mem_write_selector(object_selector, bounds_offset + 0x30,
+                                      little_word(0x000a))
+            dosbox.mem_write_selector(object_selector, bounds_offset + 0x32,
+                                      little_word(0x0000))
+        end
+        local globals_before = static_globals()
         local before = object_snapshot(object_selector, object_offset)
         local returned = stack_return(callback_entry)
         assert(returned ~= nil, "object callback has no near return address")
-        dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
-        dosbox.debug_continue()
-        local callback_return = wait_hit("object callback return")
+        local overlap_probe = nil
+        local collision_probe = nil
+        local callback_return = nil
+        if trace_overlap or trace_collision or trace_platform then
+            overlap_probe = {hits = {}}
+            if trace_overlap then
+                dosbox.breakpoint_set(0x01f7, 0x8d36, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x8d4a, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x8d60, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x8e08, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x8e29, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x8e42, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x8e48, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x8e49, {once = true})
+            end
+            if trace_collision then
+                collision_probe = {hits = {}}
+                dosbox.breakpoint_set(0x01f7, 0x1b77, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x1c4d, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x1c6e, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x1dca, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
+            end
+            if trace_platform then
+                collision_probe = {hits = {}}
+                dosbox.breakpoint_set(0x01f7, 0x9e75, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9fb2, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0xa075, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0xa0b2, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
+            end
+            dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
+            dosbox.debug_continue()
+            for probe_attempt = 1, 16 do
+                local probe_hit = dosbox.wait_for_breakpoint(timeout_ms)
+                if not probe_hit then break end
+                local hit_record = {
+                    segment = probe_hit.segment,
+                    offset = probe_hit.offset,
+                    registers = probe_hit.registers,
+                }
+                overlap_probe.hits[#overlap_probe.hits + 1] = hit_record
+                if trace_collision and (probe_hit.offset == 0x1b77 or
+                        probe_hit.offset == 0x1c4d or probe_hit.offset == 0x1c6e or
+                        probe_hit.offset == 0x1dca or probe_hit.offset == 0x1dee) then
+                    collision_probe.hits[#collision_probe.hits + 1] = hit_record
+                end
+                if trace_platform and (probe_hit.offset == 0x9e75 or
+                        probe_hit.offset == 0x9fb2 or probe_hit.offset == 0xa075 or
+                        probe_hit.offset == 0xa0b2 or probe_hit.offset == 0x1dee) then
+                    collision_probe.hits[#collision_probe.hits + 1] = hit_record
+                end
+                if probe_hit.segment == returned.segment and
+                        probe_hit.offset == returned.offset then
+                    callback_return = probe_hit
+                    break
+                end
+                if probe_hit.segment == 0x01f7 and probe_hit.offset == 0x8d36 then
+                    dosbox.breakpoint_set(0x01f7, 0x8e42, {once = true})
+                elseif probe_hit.segment == 0x01f7 and probe_hit.offset == 0x8e42 then
+                    dosbox.breakpoint_set(returned.segment, returned.offset,
+                                          {once = true})
+                end
+                dosbox.debug_continue()
+            end
+        else
+            dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
+            dosbox.debug_continue()
+            callback_return = wait_hit("object callback return")
+        end
+        assert(callback_return ~= nil, "overlap probe did not reach callback return")
         local after = object_snapshot(object_selector, object_offset)
         samples[#samples + 1] = {
             sequence = #samples + 1,
@@ -289,10 +431,13 @@ while #samples < sample_count and attempts < sample_count * 128 do
                 offset = callback_return.offset,
                 registers = callback_return.registers,
             },
-            globals_before = static_globals(),
+            globals_before = globals_before,
+            globals_after = static_globals(),
             object_before = before,
             object_after = after,
             changed_bytes = changed_bytes(before.raw_hex, after.raw_hex),
+            overlap_probe = overlap_probe,
+            collision_probe = collision_probe,
         }
         callback_offset = after.update_callback
         if callback_offset == 0 then break end
@@ -319,6 +464,7 @@ dosbox.output.behavior_trace = {
     object = {selector = object_selector, offset = object_offset},
     initial_object = initial_object,
     initialized_object = initialized_object,
+    interaction_alignment = interaction_alignment,
     initializer_breakpoint = initializer_breakpoint,
     camera_override = {x = camera_x, y = camera_y},
     samples = samples,

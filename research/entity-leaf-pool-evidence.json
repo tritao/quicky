@@ -1,0 +1,41 @@
+{
+  "schema": "entity-leaf-pool-evidence-v1",
+  "purpose": "Normalized 0x2B pooled-child lifetime trace.",
+  "fixture": {
+    "level": "W1L1.ARE",
+    "record_offset": 6034,
+    "entity_type": "0x2B",
+    "world_position": [768, 224],
+    "runtime": "/home/joao/dev/quicky/research/build/entity-2b-complete/baseline/game"
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace_script_sha256": "4d438c8bc6fe6ab460c8bc97f01d3eaae3d9bf8d820855e03187e8363d535372"
+  },
+  "trace": {
+    "samples": 64,
+    "initializer": "01F7:474D",
+    "update_callback": "01F7:4727",
+    "sprite_slots_observed": [700, 701, 703],
+    "pool_offsets_observed": [120, 240, 360, 480, 720, 840, 960, 1080],
+    "first_cycle_offsets": [120, 240, 360, 480, 720, 840, 960, 1080],
+    "recycled_cycle_offsets": [360, 480, 720, 840, 960, 1080],
+    "animation_delay_progression": {
+      "slot_700": [8, 7, 6, 5, 4, 3, 2, 1, 0],
+      "slot_703": [10, 9, 8, 7, 6, 5, 4, 3, 2, 1],
+      "slot_701": [8, 7]
+    },
+    "animation_cursor_progression": {
+      "slot_700": 13076,
+      "slot_703": 13096,
+      "slot_701": 13078
+    }
+  },
+  "conclusions": [
+    "The callback emits child leaves through a fixed pool rather than updating only the source ARE object.",
+    "After the initial eight pool positions, the stream reuses offsets 360, 480, 720, 840, 960, and 1080 while animation delays continue decrementing.",
+    "The animation table advances from slot 700 to 701 after the delay reaches zero; slot 703 uses the alternate table/cursor.",
+    "This proves child reuse/recycling and animation timing, but does not by itself identify the exact pool-free predicate or a child object callback-clear event."
+  ]
+}

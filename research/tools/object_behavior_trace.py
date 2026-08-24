@@ -39,6 +39,14 @@ class ObjectBehaviorConfig:
     camera_x: int | None = None
     camera_y: int | None = None
     sprite_init_offset: int = 0
+    align_object_to_player: bool = False
+    trace_overlap: bool = False
+    trace_collision: bool = False
+    trace_platform: bool = False
+    force_active_player_bounds: bool = False
+    align_y_offset: int = 0
+    force_velocity_x: int | None = None
+    force_velocity_y: int | None = None
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -53,6 +61,14 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "camera_x": config.camera_x,
         "camera_y": config.camera_y,
         "sprite_init_offset": config.sprite_init_offset,
+        "align_object_to_player": config.align_object_to_player,
+        "trace_overlap": config.trace_overlap,
+        "trace_collision": config.trace_collision,
+        "trace_platform": config.trace_platform,
+        "force_active_player_bounds": config.force_active_player_bounds,
+        "align_y_offset": config.align_y_offset,
+        "force_velocity_x": config.force_velocity_x,
+        "force_velocity_y": config.force_velocity_y,
     }
 
 
@@ -156,6 +172,34 @@ def build_parser() -> argparse.ArgumentParser:
         "--sprite-init-offset", type=lambda value: int(value, 0), default=0,
         help="post-initializer breakpoint used to obtain the live object callback",
     )
+    parser.add_argument(
+        "--align-object-to-player", action="store_true",
+        help="write the live player's fixed-point position into the traced object before its first callback",
+    )
+    parser.add_argument(
+        "--trace-overlap", action="store_true",
+        help="capture the shared collectible overlap helper and clear branch",
+    )
+    parser.add_argument(
+        "--trace-collision", action="store_true",
+        help="capture normal-object visibility, bounds, MAP, and offscreen helpers",
+    )
+    parser.add_argument(
+        "--trace-platform", action="store_true",
+        help="capture moving-platform MAP, offscreen, and player-carry helpers",
+    )
+    parser.add_argument(
+        "--force-active-player-bounds", action="store_true",
+        help="use the original active-player vertical bound (-40..0) for the controlled overlap probe",
+    )
+    parser.add_argument(
+        "--align-y-offset", type=int, default=0,
+        help="integer-pixel Y offset from the live player when aligning the traced object",
+    )
+    parser.add_argument("--force-velocity-x", type=lambda value: int(value, 0),
+                        help="debugger-only fixed-point X velocity written before the first callback")
+    parser.add_argument("--force-velocity-y", type=lambda value: int(value, 0),
+                        help="debugger-only fixed-point Y velocity written before the first callback")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -243,6 +287,14 @@ def main(argv: list[str] | None = None) -> int:
         camera_x=args.camera_x,
         camera_y=args.camera_y,
         sprite_init_offset=args.sprite_init_offset,
+        align_object_to_player=args.align_object_to_player,
+        trace_overlap=args.trace_overlap,
+        trace_collision=args.trace_collision,
+        trace_platform=args.trace_platform,
+        force_active_player_bounds=args.force_active_player_bounds,
+        align_y_offset=args.align_y_offset,
+        force_velocity_x=args.force_velocity_x,
+        force_velocity_y=args.force_velocity_y,
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {

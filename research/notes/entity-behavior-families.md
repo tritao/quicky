@@ -147,11 +147,34 @@ counter evidence but still need a complete state-table decode. Rendered BOB
 width/height/origin values remain sprite geometry, not proof of the gameplay
 collision rectangle.
 
+A controlled type `0x01` callback probe now confirms those shared helper edges
+in the live executable. With the target aligned to the player and the active
+player bounds forced to `f6 ff d8 ff 0a 00 00 00` (a debugger control), one
+update enters `1DCA`, `1B77`, `1C4D`, and `1C6E`, changes object byte `+0x2F`
+from `FF` to `1`, and keeps callback `6DC4` active. This establishes a real
+MAP/bounds-block result and first movement step; it does not identify the
+unmodified player damage rectangle or the gameplay death path. The normalized
+ledger is [`entity-normal-enemy-collision-evidence.json`](../entity-normal-enemy-collision-evidence.json).
+
+The same type-`0x01` callback also has a live removal ledger: holding the
+camera at `(0,0)` places the object at `(880,416)` outside the visibility
+rectangle, and the first callback clears `object+0x18` (`6DC4 -> 0000`). This
+confirms off-camera deactivation while keeping player-caused death, drops, and
+respawn separate. See [`entity-normal-enemy-removal-evidence.json`](../entity-normal-enemy-removal-evidence.json).
+
 The falling-leaf family is further along: `01F7:5D38` reads one of two PRNG
 selected tables (`DS:3312` delay 8 and `DS:3326` delay 10), uses slots 700-707,
 and switches to the bright 750-757 row when `object+0x28 == 0xFF`. The seeded
 object produces pooled child leaves, but the continuous trajectory, cadence,
 collision, and recycling rules are not yet fully captured.
+
+The 64-sample lifetime ledger closes part of that gap. After the initial pool
+offsets `120, 240, 360, 480, 720, 840, 960, 1080`, later emissions reuse
+`360, 480, 720, 840, 960, 1080`; animation delay counts down through zero and
+the cursor advances from slot 700 to 701, while the alternate table emits slot
+703. This is direct evidence of pooled child reuse and animation rollover, but
+not of the allocator's exact free predicate or a callback-clear event. See
+[`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json).
 
 The remaining effect-family uncertainty is no longer object identity: all of
 these callbacks and resource bindings are now bounded below. The open parts
@@ -184,6 +207,22 @@ MAP blocks, and carry player-relative offsets through `A0B2`; their offscreen
 branch reaches `1DEE`. These static facts close initializer, movement, and
 deactivation boundaries while preserving the unresolved gameplay response
 names in the matrix.
+
+Current-build 64-sample direct traces add a bounded trajectory observation:
+wind `0x33` moves horizontally from x `240` to `225` at constant y `544`, while
+UFO effects `0x35` and `0x36` share callback `546D` and move from x `240` to
+`157` and `322` respectively, also at constant y `544`. All callbacks remain
+active in these near-camera runs. The runs establish signed horizontal motion
+and opposite paired directions, but not timer reversal, MAP blocking, or
+player-contact response; see [`entity-effect-motion-evidence.json`](../entity-effect-motion-evidence.json).
+
+The platform carry branch is also live-observed. Eight direct updates of type
+`0x3D` in the synthetic W1L2 cell enter `A075` and `A0B2` every time; the
+position remains `(240,512)` because this cell is MAP-blocked/waiting, while
+phase/timer fields advance and the callback stays active. This confirms that
+the original callback reaches its player-carry path without pretending the
+blocked fixture is a free-running trajectory. The normalized result is
+[`entity-platform-carry-evidence.json`](../entity-platform-carry-evidence.json).
 
 ## Cross-world rules
 
@@ -245,23 +284,21 @@ family variant, then run a one-record target-vs-inert mutation with
 change. Keep the generated traces under ignored `research/build/`; only
 normalized conclusions and hashes belong in tracked notes/catalogs.
 
-The broad family pass is complete. The next experiments should target only
-the remaining partial claims, in this order:
+The broad family pass is complete. The targeted probes now close the shared
+collectible overlap, pooled-leaf reuse, normal-enemy helper, and platform-carry
+boundaries. Remaining experiments are deliberately narrower:
 
-1. Patch the player/bounds object and capture a controlled overlap for one
-   pickup subtype and one puzzle letter. Record the global fields changed by
-   `8D20`, then repeat for paper subtype 5.
-2. Hold the camera on a wind/UFO-effect pair and a moving platform long enough
-   to catch timer reversal, MAP blocking, and player-carry branches. This turns
-   the static velocity bounds into named trajectories and confirms the platform
-   one-way response.
-3. Run the same visibility/deactivation probe across W1-W5 cloud, paper, and
-   BUMP resources, and compare descriptor geometry plus resource filenames.
-4. Extend the falling-leaf pool trace until a child recycles, then test whether
-   the W1-only family has any hidden world-specific resource branch.
-5. For normal enemies, repeat a long run through a MAP block and a player
-   overlap to separate patrol reversal, damage, and death from the already
-   confirmed off-camera `1DEE` removal path.
+1. Repeat the overlap probe for pickup subtypes `0x70`-`0x72` only if the
+   inventory names or their persistence semantics are required.
+2. Capture an unblocked/native platform trajectory and an original-runtime
+   player-carry contact to resolve one-way-floor and terminal/reset semantics.
+3. Run visibility/deactivation and descriptor probes across W1-W5 cloud and
+   BUMP resources; cloud's WOLKE.BOB world binding is still partial.
+4. Decode the exact falling-leaf pool-free predicate and continuous vertical
+   trajectory from a longer child-object trace.
+5. For normal enemies, isolate an unmodified player-overlap run and a death or
+   drop state; off-camera deactivation is now confirmed, but gameplay death is
+   still separate.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a

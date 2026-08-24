@@ -21,15 +21,17 @@
       "initializer_fields": {"status": "partial", "known": "Common factory 01F7:0E06, class 1; variants install slots 281 and 231 in object+0x12. Other movement/state writes are not decoded."},
       "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:6DA3/6DB1 converge on live callback 01F7:6DC4. A 32-sample run stayed in update state 0; camera removal and shared movement/collision helper structure are known, but later transitions are not decoded."},
       "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x01 moving left (x 240->226) and type 0x02 moving right (x 240->253), with y fixed at 400; the countdown at +0x20 and phase byte +0x2A advance each tick. Pursuit and long-term bounds remain open."},
-      "collision_shape_interaction": {"status": "partial", "known": "The callback reaches the shared bounds/map collision helpers and sets the object collision flag. Render geometry is 52x16, origin 26,16; exact gameplay shape and response are not isolated."},
+      "collision_shape_interaction": {"status": "partial", "known": "The callback reaches visibility 01F7:1DCA, bounds helper 01F7:1B77, and directional MAP helpers 01F7:1C4D/1C6E; a controlled type-0x01 run changes object+0x2F from FF to 1. Render geometry is 52x16, origin 26,16; exact gameplay shape and player response are not isolated."},
       "animation_table": {"status": "partial", "known": "WURM2.BOB records 1 and 0 resolve the two slots; frame timing/table ownership is unknown."},
-      "death_removal": {"status": "partial", "known": "Target-vs-inert ARE mutation removes the object; in-game death, drops, and respawn semantics are unknown."},
+      "death_removal": {"status": "confirmed", "known": "The live 01F7:6DC4 callback takes the off-camera 01F7:1DCA -> 01F7:1DEE path and clears object+0x18; gameplay death, drops, and respawn semantics remain separate questions."},
       "cross_world_variants": {"status": "confirmed", "known": "W1 resource context selects WURM2.BOB; slot collisions are resolved by resource context."},
       "verified_runs": [
         {"type": "0x01", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "sprite_slot": 281, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->226, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 WURM2 descriptor 52x16 origin 26,16"},
-        {"type": "0x02", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6DB1", "post_initializer": "01F7:6DC3", "object_callback": "01F7:6DC4", "sprite_slot": 231, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->253, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 WURM2 descriptor 52x16 origin 26,16"}
+        {"type": "0x02", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6DB1", "post_initializer": "01F7:6DC3", "object_callback": "01F7:6DC4", "sprite_slot": 231, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->253, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 WURM2 descriptor 52x16 origin 26,16"},
+        {"type": "0x01", "fixture": "W1L1 synthetic collision-helper probe", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "sprite_slot": 281, "callback_samples": 1, "collision_helpers": ["01F7:1DCA", "01F7:1B77", "01F7:1C4D", "01F7:1C6E"], "collision_flag": "object+0x2F FF->1", "evidence": "research/entity-normal-enemy-collision-evidence.json"},
+        {"type": "0x01", "fixture": "W1L1 synthetic off-camera removal probe", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "callback_samples": 1, "camera": [0, 0], "object_callback_after": 0, "evidence": "research/entity-normal-enemy-removal-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-normal-enemy-collision-evidence.json", "research/entity-normal-enemy-removal-evidence.json"],
       "open_questions": ["movement constants", "player/enemy collision", "animation timing", "death path"]
     },
     {
@@ -243,15 +245,16 @@
       "worlds": ["W1"],
       "initializer_fields": {"status": "partial", "known": "Types 0x29-0x2B converge on 01F7:4727/class 1; type-specific movement/orientation setup is only partially decoded."},
       "update_callback_state_machine": {"status": "partial", "known": "Shared callback reaches 01F7:474D and 5D38; PRNG selects one of two animation tables and pooled child leaves update through the shared leaf path."},
-      "movement_ai": {"status": "partial", "known": "Runtime proves pooled child objects and two PRNG-selected sequences; continuous falling trajectory and spawn cadence are not fully reconstructed."},
+      "movement_ai": {"status": "partial", "known": "Runtime proves pooled child objects, fixed pool offsets, and two PRNG-selected animation sequences. The callback emits/reuses children, but continuous falling trajectory and spawn cadence constants are not fully reconstructed."},
       "collision_shape_interaction": {"status": "partial", "known": "The shared leaf callback reaches the normal MAP/bounds helper path; player interaction is not established. Leaf geometry is 14x12, origin 7,12."},
       "animation_table": {"status": "confirmed", "known": "BLATT.BOB slots 700-707 and bright 750-757; tables at DS:3312/3326 use delays 8/10 and loop marker -8."},
-      "death_removal": {"status": "partial", "known": "ARE target-vs-inert mutation removes the seeded effect; pooled child lifetime/recycling is only sampled, not fully specified."},
+      "death_removal": {"status": "partial", "known": "ARE target-vs-inert mutation removes the seeded effect. A 64-sample run proves child-pool offset reuse and animation-delay rollover, but the exact pool-free predicate and callback-clear event remain unverified."},
       "cross_world_variants": {"status": "not_applicable", "known": "The archive uses types 0x29-0x2B only in W1; no cross-world leaf type/resource variant is present to compare."},
       "verified_runs": [
-        {"type": "0x2B", "fixture": "W1L1 falling-leaf anchor", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "sprite_slot": 700, "callback_samples": 6, "movement": "pooled child leaves; trajectory/cadence not fully reconstructed", "animation_tables": "DS:3312 / DS:3326", "native_world": "BLATT.BOB slots 700-707 and 750-757"}
+        {"type": "0x2B", "fixture": "W1L1 falling-leaf anchor", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "sprite_slot": 700, "callback_samples": 6, "movement": "pooled child leaves; trajectory/cadence not fully reconstructed", "animation_tables": "DS:3312 / DS:3326", "native_world": "BLATT.BOB slots 700-707 and 750-757"},
+        {"type": "0x2B", "fixture": "W1L1 lifetime trace, 64 matching child updates", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "callback_samples": 64, "pool_offsets": [120, 240, 360, 480, 720, 840, 960, 1080], "recycled_offsets": [360, 480, 720, 840, 960, 1080], "animation_slots": [700, 701, 703], "evidence": "research/entity-leaf-pool-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-2b-falling-leaves-sheet.png"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-leaf-pool-evidence.json", "research/notes/type-2b-falling-leaves-sheet.png"],
       "open_questions": ["trajectory constants", "collision", "child pool removal"]
     },
     {
@@ -262,15 +265,16 @@
       "initializer_fields": {"status": "confirmed", "known": "01F7:8C4E installs shared callback 01F7:8D20, slot 710, offsets +0x04/+0x08 adjustments, lifetime/subtype byte +0x2C=5, and bit field +0x2A=0."},
       "update_callback_state_machine": {"status": "confirmed", "known": "Shared 01F7:8D20 gates visibility, tests a 16-pixel-aligned overlap against the player bounds, dispatches subtype cases, applies the corresponding global effect, then clears object+0x18."},
       "movement_ai": {"status": "confirmed", "known": "The 8D20 callback never integrates x/y; paper is a fixed ARE placement whose only transition is the overlap-triggered global-effect branch."},
-      "collision_shape_interaction": {"status": "partial", "known": "The exact overlap gate is decoded (object x range +16, y aligned to 16 with +16 extension); subtype 5 takes the paper branch, but the complete gameplay meaning of its global updates is not assigned."},
-      "animation_table": {"status": "partial", "known": "Slot 710 resolves to PAPIER.BOB record 0; timing/table ownership is unknown."},
-      "death_removal": {"status": "partial", "known": "Shared 8D20 clears object+0x18 after the subtype interaction branch; persistence/respawn and off-camera removal remain unverified."},
-      "cross_world_variants": {"status": "partial", "known": "Types occur in W1-W5 levels, but the world-specific resource selection has not been traced."},
+      "collision_shape_interaction": {"status": "confirmed", "known": "01F7:8D31/393C applies the original x-overlap and 16-aligned y-overlap gate. A controlled subtype-5 overlap reaches 8D08, publishes DS:612E=12 and increments DS:881C by 500 before clearing object+0x18."},
+      "animation_table": {"status": "confirmed", "known": "PAPIER.BOB record 0 is slot 710, 18x15 origin 0,0; the type-0x2C initializer uses this static slot and 8D20 does not advance an animation table."},
+      "death_removal": {"status": "confirmed", "known": "The original subtype-5 interaction path clears object+0x18 (callback becomes 0000); persistence/respawn and off-camera removal remain separate lifecycle questions."},
+      "cross_world_variants": {"status": "confirmed", "known": "Resource-selector traces capture PAPIER.BOB in W1, W2, W3, W4, and W5 batches; the type and slot remain 0x2C/710."},
       "verified_runs": [
-        {"type": "0x2C", "fixture": "W1L1 anchor from main-tree entity trace", "dispatch": "01F7:8C4E", "post_initializer": "01F7:8C70", "object_callback": "01F7:8D20", "sprite_slot": 710, "position": [771, 231], "callback_samples": 1, "movement": "stationary placement", "subtype": 5, "native_world": "W2L2 PAPIER descriptor 18x15"}
+        {"type": "0x2C", "fixture": "W1L1 anchor from main-tree entity trace", "dispatch": "01F7:8C4E", "post_initializer": "01F7:8C70", "object_callback": "01F7:8D20", "sprite_slot": 710, "position": [771, 231], "callback_samples": 1, "movement": "stationary placement", "subtype": 5, "native_world": "W2L2 PAPIER descriptor 18x15"},
+        {"type": "0x2C", "fixture": "W1L2 synthetic overlap aligned to original player bounds", "dispatch": "01F7:8C4E", "post_initializer": "01F7:8C70", "object_callback": "01F7:8D20", "sprite_slot": 710, "callback_samples": 1, "overlap_helper_hits": ["01F7:8D36", "01F7:8D4A", "01F7:8D60", "01F7:8E08", "01F7:8E42"], "effect_globals": {"DS:612E": 12, "DS:881C": 500}, "callback_after": 0, "evidence": "research/entity-interaction-overlap-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-2c-papier-sheet.png"],
-      "open_questions": ["collision/global effect meaning", "animation timing", "removal/persistence", "world asset variants"]
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-interaction-overlap-evidence.json", "research/notes/type-2c-papier-sheet.png"],
+      "open_questions": ["global effect name", "removal persistence"]
     },
     {
       "id": "wind",
@@ -279,15 +283,16 @@
       "worlds": ["W4"],
       "initializer_fields": {"status": "confirmed", "known": "01F7:87D1 loads animation table DS:3504, installs callback 01F7:882F, writes slot 214, offsets y by 0x20, seeds direction/orientation, velocity -0xB000, timer +0x2D=0x14, and collision flag +0x2F=FF."},
       "update_callback_state_machine": {"status": "partial", "known": "01F7:882F follows the shared visibility, MAP collision, velocity-clamp, direction-flip, and player-range structure; the complete later state path is not decoded."},
-      "movement_ai": {"status": "partial", "known": "Static code seeds a horizontal fixed-point velocity and reverses direction after a timer or map block; a controlled multi-tick trajectory is still needed for exact patrol semantics."},
+      "movement_ai": {"status": "partial", "known": "Static code seeds a horizontal fixed-point velocity and reverses direction after a timer or map block. A current-build 64-sample run moves type 0x33 from x=240 to 225 with y fixed at 544; reversal semantics remain open."},
       "collision_shape_interaction": {"status": "partial", "known": "01F7:882F uses directional MAP checks with constants around +/-20 and +/-25 and records blocking in +0x2F. Render geometry is 33x29, origin 16,29; exact gameplay response remains open."},
       "animation_table": {"status": "partial", "known": "Slot 214 resolves to WIND.BOB in W4 context; timing/table ownership is unknown."},
       "death_removal": {"status": "partial", "known": "Callback 01F7:882F takes the off-camera path 01F7:1DCA -> 01F7:1DEE, which clears object+0x18; wind-specific death/reset behavior is not established."},
       "cross_world_variants": {"status": "confirmed", "known": "W4 resource context disambiguates slot 214 as WIND.BOB."},
       "verified_runs": [
-        {"type": "0x33", "fixture": "W4L1 native selector trace", "dispatch": "01F7:87D1", "post_initializer": "01F7:882E", "object_callback": "01F7:882F", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "y+0x20, direction/orientation, velocity -0xB000, timer 0x14", "native_world": "W4 WIND descriptor 33x29 origin 16,29"}
+        {"type": "0x33", "fixture": "W4L1 native selector trace", "dispatch": "01F7:87D1", "post_initializer": "01F7:882E", "object_callback": "01F7:882F", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "y+0x20, direction/orientation, velocity -0xB000, timer 0x14", "native_world": "W4 WIND descriptor 33x29 origin 16,29"},
+        {"type": "0x33", "fixture": "W1L2 synthetic current-build motion trace", "dispatch": "01F7:87D1", "post_initializer": "01F7:882E", "object_callback": "01F7:882F", "sprite_slot": 214, "callback_samples": 64, "trajectory": "x 240->225, y 544", "callback_active_all_samples": true, "evidence": "research/entity-effect-motion-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-33-schnee-sheet.png"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json", "research/notes/type-33-schnee-sheet.png"],
       "open_questions": ["exact trajectory/state names", "collision response", "animation timing", "death/reset"]
     },
     {
@@ -315,16 +320,17 @@
       "worlds": ["W5"],
       "initializer_fields": {"status": "confirmed", "known": "01F7:544C/545A set direction/orientation, call common setup 01F7:53F7, install callback 01F7:546D, and negate the seeded velocity for type 0x36; slots are 264/214."},
       "update_callback_state_machine": {"status": "partial", "known": "01F7:546D follows the shared visibility, MAP collision, velocity-clamp, direction-flip, and player-range structure; the complete later state path is not decoded."},
-      "movement_ai": {"status": "partial", "known": "Static code seeds horizontal fixed-point motion and reverses direction after timer/map events; exact long-term trajectory is not yet sampled."},
+      "movement_ai": {"status": "partial", "known": "Static code seeds horizontal fixed-point motion and reverses direction after timer/map events. Current-build 64-sample runs move type 0x35 from x=240 to 157 and type 0x36 from x=240 to 322 with y fixed at 544; reversal semantics remain open."},
       "collision_shape_interaction": {"status": "partial", "known": "01F7:546D uses directional MAP checks and the shared player-range gate, recording blocking in +0x2F. Render geometry is 31x31, origin 15,31; exact response remains open."},
       "animation_table": {"status": "partial", "known": "W5 context resolves slots 264/214 to UFO.BOB records 1/0; timing/table ownership is unknown."},
       "death_removal": {"status": "partial", "known": "Callback 01F7:546D follows the shared visibility/deactivation path; effect-specific death/reset behavior is not established."},
       "cross_world_variants": {"status": "confirmed", "known": "W5 resource context resolves archive-wide slot collisions to UFO.BOB."},
       "verified_runs": [
         {"type": "0x35", "fixture": "W5L1 native selector trace", "dispatch": "01F7:544C", "post_initializer": "01F7:5459", "object_callback": "01F7:546D", "sprite_slot": 264, "callback_samples": 1, "initializer_fields": "direction/orientation and common setup 53F7", "native_world": "W5 UFO descriptor 31x31 origin 15,31"},
-        {"type": "0x36", "fixture": "W5L1 native selector trace", "dispatch": "01F7:545A", "post_initializer": "01F7:546C", "object_callback": "01F7:546D", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "opposite direction with negated velocity", "native_world": "W5 UFO descriptor 31x31 origin 15,31"}
+        {"type": "0x36", "fixture": "W5L1 native selector trace", "dispatch": "01F7:545A", "post_initializer": "01F7:546C", "object_callback": "01F7:546D", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "opposite direction with negated velocity", "native_world": "W5 UFO descriptor 31x31 origin 15,31"},
+        {"type": "0x35/0x36", "fixture": "W1L2 synthetic current-build motion traces", "object_callback": "01F7:546D", "callback_samples": 64, "trajectories": {"0x35": "x 240->157, y 544", "0x36": "x 240->322, y 544"}, "callback_active_all_samples": true, "evidence": "research/entity-effect-motion-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json"],
       "open_questions": ["exact trajectory/state names", "collision response", "animation timing", "death/reset"]
     },
     {
@@ -333,9 +339,9 @@
       "role": "moving_platform",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
       "initializer_fields": {"status": "confirmed", "known": "Distinct initializers 01F7:9CF5/9D19/9D5E/9D82 converge on callback 01F7:9DC7 and seed x/y velocities, grid flags, timer fields, and slots 301/300/301/300."},
-      "update_callback_state_machine": {"status": "partial", "known": "01F7:9DC7 gates on camera and bounds, maintains horizontal/vertical velocity branches, snaps to 16-pixel grid on MAP collision, and routes player-carry state through helper 01F7:A0B2; the terminal/reset table is not fully named."},
+      "update_callback_state_machine": {"status": "partial", "known": "01F7:9DC7 gates on camera and bounds, maintains horizontal/vertical velocity branches, snaps to 16-pixel grid on MAP collision, and routes player-carry state through helper 01F7:A0B2. An eight-sample type-0x3D run reaches A075 and A0B2 every update while blocked; the terminal/reset table is not fully named."},
       "movement_ai": {"status": "confirmed", "known": "The callback directly integrates x or y fixed-point velocity, reverses at MAP boundaries, uses timer +0x54/+0x52 phases, and snaps to grid after blocked motion. It is a deterministic motion-table platform, not pursuit AI."},
-      "collision_shape_interaction": {"status": "partial", "known": "01F7:9DC7 performs repeated MAP collision checks and computes player-relative carry offsets; native geometry is 32x14 or 48x16 with origin 0,0. One-way floor response is an engine-side compatibility hypothesis, not yet an original-runtime proof."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:9DC7 performs repeated MAP collision checks and computes player-relative carry offsets through A0B2; the controlled blocked-cell run reaches that carry helper but has no free-running player contact. Native geometry is 32x14 or 48x16 with origin 0,0. One-way floor response is an engine-side compatibility hypothesis, not yet an original-runtime proof."},
       "animation_table": {"status": "partial", "known": "PLATFW world resources resolve slots 300/301; frame/timing tables are not decoded."},
       "death_removal": {"status": "partial", "known": "The offscreen branch at 01F7:A06F calls 01F7:1DEE and clears the platform callback; level-reset and respawn behavior remain open."},
       "cross_world_variants": {"status": "confirmed", "known": "Resource traces cover PLATFW1, PLATFW2, PLATFW3, and PLATFW4; W5 usage is cataloged but not independently traced."},
@@ -343,9 +349,10 @@
         {"type": "0x3D", "fixture": "W4L1 native selector trace", "dispatch": "01F7:9CF5", "post_initializer": "01F7:9D18", "object_callback": "01F7:9DC7", "sprite_slot": 301, "callback_samples": 1, "motion_fields": "x/y velocity, grid phase, timer, carry flags", "native_world": "PLATFW4 descriptor 32x14 origin 0,0"},
         {"type": "0x3E", "fixture": "W3L2 native selector trace", "dispatch": "01F7:9D19", "post_initializer": "01F7:9D38", "object_callback": "01F7:9DC7", "sprite_slot": 300, "callback_samples": 1, "native_world": "PLATFW3 descriptor 48x16 origin 0,0"},
         {"type": "0x3F", "fixture": "W1L3 native selector trace", "dispatch": "01F7:9D5E", "post_initializer": "01F7:9D81", "object_callback": "01F7:9DC7", "sprite_slot": 301, "callback_samples": 1, "native_world": "PLATFW1 descriptor 32x14 origin 0,0"},
-        {"type": "0x40", "fixture": "W2L1 native selector trace", "dispatch": "01F7:9D82", "post_initializer": "01F7:9DA1", "object_callback": "01F7:9DC7", "sprite_slot": 300, "callback_samples": 1, "native_world": "PLATFW2 descriptor 48x16 origin 0,0"}
+        {"type": "0x40", "fixture": "W2L1 native selector trace", "dispatch": "01F7:9D82", "post_initializer": "01F7:9DA1", "object_callback": "01F7:9DC7", "sprite_slot": 300, "callback_samples": 1, "native_world": "PLATFW2 descriptor 48x16 origin 0,0"},
+        {"type": "0x3D", "fixture": "W1L2 synthetic blocked-cell helper probe", "dispatch": "01F7:9CF5", "post_initializer": "01F7:9D18", "object_callback": "01F7:9DC7", "sprite_slot": 301, "callback_samples": 8, "motion_helpers": ["01F7:A075", "01F7:A0B2"], "position": [240, 512], "state": "blocked/waiting; carry helper reached", "evidence": "research/entity-platform-carry-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "engine/src/level.cpp"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-platform-carry-evidence.json", "engine/src/level.cpp"],
       "open_questions": ["terminal/reset table", "player-carry collision response", "world W5 resource confirmation", "animation timing", "removal"]
     },
     {
@@ -371,18 +378,19 @@
       "initializer_fields": {"status": "confirmed", "known": "Initializers 01F7:8BC2/8BE5/8C08/8C2B install slots 607-610, shared callback 01F7:8D20, and subtype bytes +0x2C=1/2/3/4 with bit field +0x2A=0."},
       "update_callback_state_machine": {"status": "confirmed", "known": "Shared 01F7:8D20 gates visibility, checks a 16-pixel-aligned player overlap, dispatches subtype cases, applies global inventory/score effects, and clears object+0x18 on the interaction path."},
       "movement_ai": {"status": "confirmed", "known": "The callback contains no x/y integration; pickups are fixed ARE placements and remain idle until the overlap branch."},
-      "collision_shape_interaction": {"status": "partial", "known": "The exact overlap gate is decoded (x range +16 and y range aligned to 16 with +16 extension); subtype branches are present, but the complete inventory/score semantics are not assigned."},
-      "animation_table": {"status": "partial", "known": "WERBE.BOB records 0-3 resolve slots 607-610 with dimensions 26x34, 21x22, 22x22, and 15x25; timing tables are unknown."},
-      "death_removal": {"status": "partial", "known": "Target-vs-inert mutations remove the objects and the engine marks collected entities inactive; persistence/respawn semantics are unverified."},
-      "cross_world_variants": {"status": "confirmed", "known": "Native W1/W2 probes resolve the same WERBE.BOB family; all-world usage is cataloged but later-world resource traces are missing."},
+      "collision_shape_interaction": {"status": "confirmed", "known": "01F7:8D31 calls 01F7:393C and applies the original x-overlap and 16-aligned y-overlap gate. A controlled type 0x6F overlap reaches subtype case 1, publishes DS:612E=9, increments DS:880C by 10 and DS:881C by 50, then clears object+0x18."},
+      "animation_table": {"status": "confirmed", "known": "WERBE.BOB is a four-record static table: slots 607/608/609/610 map to records 0/1/2/3 with dimensions 26x34, 21x22, 22x22, and 15x25 (all origin 0,0); 8D20 has no animation advance for pickups."},
+      "death_removal": {"status": "confirmed", "known": "The original overlap path clears object+0x18 (callback becomes 0000) after the subtype effect; target-vs-inert mutations independently remove the objects. Level persistence and respawn remain outside this callback."},
+      "cross_world_variants": {"status": "confirmed", "known": "Resource-selector traces capture WERBE.BOB in W1, W2, W3, W4, and W5 contexts; slots 607-610 retain the same four-record table."},
       "verified_runs": [
         {"type": "0x6F", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8BC2", "post_initializer": "01F7:8BCE", "object_callback": "01F7:8D20", "sprite_slot": 607, "position": [801, 238], "callback_samples": 1, "subtype": 1, "native_world": "WERBE.BOB record 0, 26x34 origin 0,0"},
         {"type": "0x70", "fixture": "W1L2 native selector trace", "dispatch": "01F7:8BE5", "post_initializer": "01F7:8BF1", "object_callback": "01F7:8D20", "sprite_slot": 608, "callback_samples": 1, "subtype": 2, "native_world": "WERBE.BOB record 1, 21x22 origin 0,0"},
         {"type": "0x71", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C08", "post_initializer": "01F7:8C14", "object_callback": "01F7:8D20", "sprite_slot": 609, "callback_samples": 1, "subtype": 3, "native_world": "WERBE.BOB record 2, 22x22 origin 0,0"},
-        {"type": "0x72", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C2B", "post_initializer": "01F7:8C37", "object_callback": "01F7:8D20", "sprite_slot": 610, "callback_samples": 1, "subtype": 4, "native_world": "WERBE.BOB record 3, 15x25 origin 0,0"}
+        {"type": "0x72", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C2B", "post_initializer": "01F7:8C37", "object_callback": "01F7:8D20", "sprite_slot": 610, "callback_samples": 1, "subtype": 4, "native_world": "WERBE.BOB record 3, 15x25 origin 0,0"},
+        {"type": "0x6F", "fixture": "W1L2 synthetic overlap aligned to original player bounds", "dispatch": "01F7:8BC2", "post_initializer": "01F7:8BCE", "object_callback": "01F7:8D20", "sprite_slot": 607, "callback_samples": 1, "overlap_helper_hits": ["01F7:8D36", "01F7:8D4A", "01F7:8D60", "01F7:8E42"], "effect_globals": {"DS:612E": 9, "DS:880C": 10, "DS:881C": 50}, "callback_after": 0, "evidence": "research/entity-interaction-overlap-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "engine/src/level.cpp"],
-      "open_questions": ["collision response", "inventory effects", "respawn", "animation timing"]
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-interaction-overlap-evidence.json", "engine/src/level.cpp"],
+      "open_questions": ["inventory names", "respawn"]
     },
     {
       "id": "puzzle_letter",
@@ -394,7 +402,7 @@
       "movement_ai": {"status": "confirmed", "known": "The shared callback contains no x/y integration; letters are fixed ARE placements and remain idle until collected."},
       "collision_shape_interaction": {"status": "confirmed", "known": "01F7:8D20 performs the original player-overlap gate (x range +16, 16-aligned y range +16); letter collection ORs the initializer bitmask into DS:60D8."},
       "animation_table": {"status": "confirmed", "known": "PUZZLE.BOB records 0-6 are 16x16 and render N,E,S,Q,U,I,K in slot order."},
-      "death_removal": {"status": "partial", "known": "Shared 8D20 clears object+0x18 after letter collection and records the bit in DS:60D8; level completion, persistence, and respawn semantics remain open."},
+      "death_removal": {"status": "confirmed", "known": "The original letter overlap path clears object+0x18 (callback becomes 0000) after OR-ing the bit into DS:60D8; level completion, persistence, and respawn remain separate lifecycle questions."},
       "cross_world_variants": {"status": "confirmed", "known": "All five worlds use the same slot sequence/resource family in the catalog; world-specific asset substitutions are not indicated."},
       "verified_runs": [
         {"type": "0x79", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C71", "post_initializer": "01F7:8C7D", "object_callback": "01F7:8D20", "sprite_slot": 600, "position": [768, 224], "callback_samples": 1, "collection_bit": 1, "native_world": "PUZZLE.BOB record 0, N 16x16 origin 0,0"},
@@ -403,10 +411,11 @@
         {"type": "0x7C", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8CBC", "post_initializer": "01F7:8CC8", "object_callback": "01F7:8D20", "sprite_slot": 603, "callback_samples": 1, "collection_bit": 8, "native_world": "PUZZLE.BOB record 3, Q 16x16 origin 0,0"},
         {"type": "0x7D", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8CD5", "post_initializer": "01F7:8CE1", "object_callback": "01F7:8D20", "sprite_slot": 604, "callback_samples": 1, "collection_bit": 16, "native_world": "PUZZLE.BOB record 4, U 16x16 origin 0,0"},
         {"type": "0x7E", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8CEE", "post_initializer": "01F7:8CFA", "object_callback": "01F7:8D20", "sprite_slot": 605, "callback_samples": 1, "collection_bit": 32, "native_world": "PUZZLE.BOB record 5, I 16x16 origin 0,0"},
-        {"type": "0x7F", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8D07", "post_initializer": "01F7:8D13", "object_callback": "01F7:8D20", "sprite_slot": 606, "callback_samples": 1, "collection_bit": 64, "native_world": "PUZZLE.BOB record 6, K 16x16 origin 0,0"}
+        {"type": "0x7F", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8D07", "post_initializer": "01F7:8D13", "object_callback": "01F7:8D20", "sprite_slot": 606, "callback_samples": 1, "collection_bit": 64, "native_world": "PUZZLE.BOB record 6, K 16x16 origin 0,0"},
+        {"type": "0x79", "fixture": "W1L2 synthetic overlap aligned to original player bounds", "dispatch": "01F7:8C71", "post_initializer": "01F7:8C7D", "object_callback": "01F7:8D20", "sprite_slot": 600, "callback_samples": 1, "overlap_helper_hits": ["01F7:8D36", "01F7:8D4A", "01F7:8D60", "01F7:8E29", "01F7:8E42"], "effect_globals": {"DS:612E": 11, "DS:60D8": 1, "DS:881C": 100}, "callback_after": 0, "evidence": "research/entity-interaction-overlap-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-7a-puzzle-sheet.png", "engine/src/level.cpp"],
-      "open_questions": ["level completion", "persistence/removal", "respawn"]
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-interaction-overlap-evidence.json", "research/notes/type-7a-puzzle-sheet.png", "engine/src/level.cpp"],
+      "open_questions": ["level completion", "persistence", "respawn"]
     }
   ]
 }

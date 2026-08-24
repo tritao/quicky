@@ -1,0 +1,41 @@
+{
+  "schema": "entity-normal-enemy-collision-evidence-v1",
+  "purpose": "Controlled live helper trace for the shared normal-enemy update path.",
+  "fixture": {
+    "level": "W1L1.ARE",
+    "record_offset": 6034,
+    "entity_type": "0x01",
+    "dispatch": "01F7:6DA3",
+    "post_initializer": "01F7:6DB0",
+    "object_callback": "01F7:6DC4",
+    "runtime": "/tmp/entity-normal-01/baseline/game",
+    "synthetic_stream_cell": [2, 5]
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "002a640774e5487f03c396742a1dc96b1d84850e66fb1a213a19a25d933cf040",
+    "trace_script_sha256": "6bb6be96d52f1802fb648a5a0ec7b37090a9c57c3ef74adeb167e6c19c1f0468"
+  },
+  "controls": {
+    "align_object_to_player": true,
+    "align_y_offset": -32,
+    "force_active_player_bounds": true,
+    "forced_player_bounds_hex": "f6ffd8ff0a000000",
+    "callback_samples": 1
+  },
+  "sample": {
+    "object_before_position": [128, 368],
+    "object_after_position": [126, 368],
+    "object_callback_after": "01F7:6DC4",
+    "collision_helper_hits": ["01F7:1DCA", "01F7:1B77", "01F7:1C4D", "01F7:1C6E"],
+    "collision_flag_byte": {"offset": "0x2F", "before": 255, "after": 1},
+    "state_word": {"offset": "0x20", "before": 20, "after": 13},
+    "action_word_after": 1,
+    "map_direction_helpers": ["01F7:1C4D", "01F7:1C6E"]
+  },
+  "conclusions": [
+    "The live normal-enemy callback enters visibility/deactivation and both directional MAP helper branches while the object remains active.",
+    "The callback records a blocking result in object+0x2F and integrates the first movement step; this is evidence of MAP/collision state, not a claim about player damage or gameplay death.",
+    "The forced player bounds are a debugger control, so the run does not establish the unmodified player collision rectangle."
+  ]
+}

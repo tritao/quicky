@@ -71,6 +71,7 @@ class EntityTraceConfig:
     screenshot_mode: str = "rendered"
     select_level: str | None = None
     selector_frames: int = 60
+    interaction_align_player: bool = False
 
 
 @dataclass(frozen=True)
@@ -154,6 +155,7 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
         "frame_step": config.frame_step,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "interaction_align_player": config.interaction_align_player,
     }
 
 
@@ -704,6 +706,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames between synchronized entity frames")
     parser.add_argument("--screenshot-mode", choices=("rendered", "raw"),
                         default="rendered")
+    parser.add_argument(
+        "--interaction-align-player", action="store_true",
+        help="align the traced object's fixed-point position to the live player before its first update",
+    )
     return parser
 
 
@@ -917,6 +923,7 @@ def main(argv: list[str] | None = None) -> int:
                 screenshot_mode=args.screenshot_mode,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
+                interaction_align_player=args.interaction_align_player,
             )
             entity, entity_screenshots = trace_entity_lua(
                 api, entity_script_path, entity_config,
