@@ -298,6 +298,18 @@ to a 64-pixel-aligned streamed-region origin. The engine creates objects at
 fixed-point positions. Simon changed the byte at 0x14e9 while testing object
 types. Individual type meanings still require visual correlation.
 
+The normal object lifecycle is recovered in a separate probe documented in
+[`notes/object-behavior.md`](notes/object-behavior.md). A 64-entry pool at
+`DS:755E` uses `+0x18 == 0` as its free test; the two scheduler banks at
+`DS:7566`/`DS:7766` are rebuilt by callback registration and dispatched in
+`+0x17` phase order. The visibility gate at `01F7:1DCA` clears the object
+callback and the source declaration's processed-marker byte through
+`01F7:1DEE`, leaving the rest of the pool record intact. A later `1CDA` region
+visit re-enters `1E04`, restores the marker, reuses the first free slot, and
+puts the object back into the scheduler banks. This is confirmed for W1L1
+types `0x01` and `0x2B`, including the exact source-marker and pool-slot
+transitions.
+
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry
 and spikes. The tested object/reference values were:

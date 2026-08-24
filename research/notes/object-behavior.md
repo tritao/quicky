@@ -17,7 +17,68 @@ The scheduler uses class-specific near-return sites `0x0ED3`, `0x0EFD`, and
 `0x0F26`. The dispatch table at `DS:81D2 + type*4` supplies the type-specific
 initializer; the actual callback used by the scheduler is read from the pool
 entry at the scheduler breakpoint. This distinction is important because the
-initializer can populate `object+0x18` with a different callback.
+initializer can populate `object+0x18` with a different callback. The tracer
+now also captures the scheduler post-callback sites (`0x0EDB`, `0x0F05`, and
+`0x0F2E`), both scheduler banks, the source ARE record, and the callback's
+internal visibility-gate calls.
+
+## Recovered scheduler and pool lifecycle
+
+The normal object pool is a 64-entry array at `DS:[0x755E]`, with stride
+`DS:0x30CE = 0x78`. The allocator at `01F7:0E06` scans those 64 records and
+treats an object as free when its word at `+0x18` is zero. It does not clear
+the rest of the record, so a logically freed object can still retain its
+position, lifetime, class, source pointer, and state bytes in memory.
+
+The scheduler is a two-bank list at `DS:0x7566` and `DS:0x7766`. Each entry is
+eight bytes: callback offset, callback selector, object offset, and an unused
+object-selector word. `DS:0x7966` is both the insertion cursor and bank bit.
+The registration path at `01F7:0x1036` appends an object only when
+`object+0x18 != 0`, copies `object+0x18`/`+0x1C` into the callback far pointer,
+copies the object offset, advances `DS:0x7966` by eight, and writes a `0xFFFF`
+callback sentinel after the new entry.
+
+At `01F7:0x0E96`, the update pass flips the bank, walks the previously built
+bank to its `0xFFFF` sentinel, and dispatches in three phases selected by
+object byte `+0x17 == 0, 1, 2`. The near callback returns to `0x0ED3`,
+`0x0EFD`, or `0x0F26`; the following far helper and post sites then finish the
+entry and increment `DS:0x88C8`. This explains why a table entry can remain
+visible in a snapshot after its object callback has been cleared: the table is
+the current pass's immutable work list, while the next bank is rebuilt for a
+later pass.
+
+## Visibility, deactivation, and reactivation marker
+
+The camera gate at `01F7:0x1DCA` accepts approximately
+`camera_x - 0x80 <= object.x <= camera_x + 0x1C0` and
+`camera_y - 0x80 <= object.y <= camera_y + 0x130`, using unsigned arithmetic.
+On rejection, `01F7:0x1DEE` clears `object+0x18` and clears byte `FS:[BX+1]`,
+where `BX = object+0x1A` and `FS = DS:0x796E`.
+
+`01F7:0x1E96` stores the source ARE declaration pointer in `object+0x1A`.
+Therefore the second write is the source declaration's processed marker: a
+normal declaration word changes from `0x0101`/`0x012B`/`0x0128` to
+`0x0001`/`0x002B`/`0x0028` when the object is rejected by the camera gate.
+The record is not zeroed, but it becomes logically free (`+0x18 == 0`) and is
+eligible for allocation and for later declaration processing. The streaming
+routine at `01F7:0x1CDA` only revisits declarations in newly visible 64-pixel
+regions, so clearing this marker prepares reactivation; it does not
+immediately recreate the object in the same pass.
+
+Runtime evidence:
+
+| Controlled case | Gate path | Source marker | Next scheduler bank |
+| --- | --- | --- | --- |
+| Type `0x01`, actual camera `(0,150)` | `1DCA -> 1DEE` | `0x0101 -> 0x0001` | target absent; pool bytes retained |
+| Type `0x2B`, actual camera `(0,262)` | `1DCA -> 1DEE` | `0x012B -> 0x002B` | target absent; pool bytes retained |
+| Type `0x01`, forced gate camera `(700,150)` | `1DCA`, no `1DEE` | remains `0x0101` | target present with callback `0x6DC4` |
+| Type `0x2B`, forced gate camera `(500,100)` | `1DCA`, no `1DEE` | remains `0x012B` | target present with callback `0x47E7` |
+| Type `0x28`, forced gate camera `(700,100)` | class-0 `1DCA`, no `1DEE` | remains `0x0128` | target present with callback `0x9269` |
+
+The requested camera override is written after factory creation, but the game
+can overwrite `DS:0x81C0` before the callback. The tracer therefore reasserts
+the override at the `1DCA` breakpoint and records both values. This is a
+measurement aid, not a claim that the game normally writes the camera there.
 
 The first controlled W1L1 samples use prepared type mutations:
 
@@ -26,8 +87,45 @@ The first controlled W1L1 samples use prepared type mutations:
 | `0x01` | `(816,272)` | `0x6DC4` | clears `object+0x18` (`0x6DC4 -> 0`) |
 | `0x2B` | `(768,224)` | `0x47E7` | clears `object+0x18` (`0x47E7 -> 0`) |
 
-These are first-callback observations, not yet complete behavior names. The
-objects stop producing additional samples after this transition, so the next
-pass must capture the callback's internal calls and determine whether the
-clear is a visibility/lifetime gate, a handoff to another pool, or normal
-one-shot behavior. Camera overrides are supported for that controlled pass.
+The original one-sample result was caused by the camera gate, not by a hidden
+second pool: after the rejected callback, the object remains in the same pool
+slot but is absent from the newly built scheduler bank. With an accepted gate,
+the same slot is registered in the next bank and continues updating. The
+shared-callback tracer also handles callbacks that are used by several objects
+and verifies the selected `ES:DI` before accepting a callback entry.
+
+## Region reactivation confirmed
+
+The stream pass at `01F7:1CDA` is directional and circular. When the camera
+advances in X it scans a newly exposed column, starting from the previous Y
+stream tracker; its reference-grid stride is `DS:0x7968 = 136` bytes. The
+reactivation probe sets that tracker to the target declaration's row and moves
+the camera across the corresponding column, then stops at the exact
+`01F7:1E04` call. This writes only debugger state; the declaration walker,
+allocator, initializer, and scheduler table are the original game paths.
+
+Two controlled W1L1 runs establish the complete return path:
+
+| Type / source | Before re-entry | Re-entry result | Pool/scheduler result |
+| --- | --- | --- | --- |
+| `0x01` / `0x161A` | source `0x0001`, object `027F:0078` callback clear | `1E04` revisited; source `0x0001 -> 0x0101`; factory returns `027F:0078` | object callback restored; target appears in both banks at offset `0x0078` |
+| `0x2B` / `0x1632` | source `0x002B`, object `027F:0078` callback clear | `1E04` revisited; source `0x002B -> 0x012B`; factory returns `027F:0078` | object callback `0x4727` restored; target appears in both banks at offset `0x0078` |
+
+The source marker is therefore the durable reactivation latch: rejection
+clears its high byte, and a later visit to the declaration sets it again before
+allocation. The allocator then scans from the start and reuses the first free
+record in this fixture, which is the same record that was just deactivated.
+The immediate post-initialization pool snapshot contains the recreated object
+in the current and next scheduler banks, so reactivation is not merely source
+visibility—it restores active scheduling. The machine-readable probes are
+`entity-01-w1l1-reactivate-camera10.json` and
+`entity-2b-w1l1-reactivate-camera1.json` under the ignored object-behavior
+build directory.
+
+This closes the object lifecycle slice: declaration processing, pool
+allocation/reuse, callback initialization, visibility deactivation, source
+marker clearing, scheduler bank handoff, and region reactivation are now
+static-plus-runtime established. The only variable not generalized by these
+two samples is which other free slot the allocator chooses when the original
+slot has already been reused by another object; the static first-free scan
+defines that rule.

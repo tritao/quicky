@@ -38,6 +38,9 @@ class ObjectBehaviorConfig:
     selector_frames: int = 60
     camera_x: int | None = None
     camera_y: int | None = None
+    followup_passes: int = 0
+    reactivate_camera_x: int | None = None
+    reactivate_camera_y: int | None = None
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -51,6 +54,9 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "selector_frames": config.selector_frames,
         "camera_x": config.camera_x,
         "camera_y": config.camera_y,
+        "followup_passes": config.followup_passes,
+        "reactivate_camera_x": config.reactivate_camera_x,
+        "reactivate_camera_y": config.reactivate_camera_y,
     }
 
 
@@ -87,6 +93,17 @@ def ordered_lua_array(value: Any) -> list[Any]:
     return []
 
 
+def normalize_pool_tables(pool: Any) -> Any:
+    if not isinstance(pool, dict):
+        return pool
+    banks = ordered_lua_array(pool.get("banks", []))
+    for bank in banks:
+        if isinstance(bank, dict):
+            bank["entries"] = ordered_lua_array(bank.get("entries", []))
+    pool["banks"] = banks
+    return pool
+
+
 def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
     samples = ordered_lua_array(trace.get("samples", []))
     for sample in samples:
@@ -94,7 +111,32 @@ def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["changed_bytes"] = ordered_lua_array(
                 sample.get("changed_bytes", [])
             )
+            for pool_name in ("pool_before", "pool_after"):
+                normalize_pool_tables(sample.get(pool_name))
     trace["samples"] = samples
+
+    followup_passes = ordered_lua_array(trace.get("followup_passes", []))
+    for followup in followup_passes:
+        if not isinstance(followup, dict):
+            continue
+        followup["entries"] = ordered_lua_array(followup.get("entries", []))
+        for pool_name in ("pool", "end_pool"):
+            normalize_pool_tables(followup.get(pool_name))
+    trace["followup_passes"] = followup_passes
+
+    reactivation = trace.get("reactivation")
+    if isinstance(reactivation, dict):
+        reactivation["stream_entries"] = ordered_lua_array(
+            reactivation.get("stream_entries", [])
+        )
+        reactivation["declaration_call_sites"] = ordered_lua_array(
+            reactivation.get("declaration_call_sites", [])
+        )
+        for snapshot_name in ("before", "after"):
+            snapshot = reactivation.get(snapshot_name)
+            if isinstance(snapshot, dict):
+                normalize_pool_tables(snapshot.get("pool"))
+        normalize_pool_tables(reactivation.get("initialized_pool"))
     return trace
 
 
@@ -150,6 +192,12 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--selector-frames", type=int, default=60)
     parser.add_argument("--camera-x", type=int)
     parser.add_argument("--camera-y", type=int)
+    parser.add_argument("--followup-passes", type=int, default=0,
+                        help="capture scheduler entries through this many later passes")
+    parser.add_argument("--reactivate-camera-x", type=int,
+                        help="write this camera X after a rejected object and trace its ARE reactivation")
+    parser.add_argument("--reactivate-camera-y", type=int,
+                        help="write this camera Y after a rejected object and trace its ARE reactivation")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -165,13 +213,21 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.samples < 1:
         raise TraceError("--samples must be positive")
+    if args.followup_passes < 0:
+        raise TraceError("--followup-passes must not be negative")
     if not 0 <= args.entity_type <= 0xff:
         raise TraceError("--entity-type must be between 0 and 255")
     if args.select_level is not None and len(args.select_level) != 4:
         raise TraceError("--select-level must look like W4L1")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
+    if (args.reactivate_camera_x is None) != (args.reactivate_camera_y is None):
+        raise TraceError("--reactivate-camera-x and --reactivate-camera-y must be used together")
     for name in ("camera_x", "camera_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    for name in ("reactivate_camera_x", "reactivate_camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
@@ -236,6 +292,9 @@ def main(argv: list[str] | None = None) -> int:
             selector_frames=args.selector_frames,
             camera_x=args.camera_x,
             camera_y=args.camera_y,
+            followup_passes=args.followup_passes,
+            reactivate_camera_x=args.reactivate_camera_x,
+            reactivate_camera_y=args.reactivate_camera_y,
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {
