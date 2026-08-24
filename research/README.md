@@ -330,6 +330,23 @@ below dosbox-automation's Lua instruction budget. The resulting traces show
 both original-slot reuse and next-free-slot reactivation; details are in
 [`notes/object-behavior.md`](notes/object-behavior.md).
 
+To combine static writes with these runtime observations, use the lifecycle
+matrix tool:
+
+~~~sh
+PYTHONPATH=research/tools python3 research/tools/object_lifecycle_matrix.py \
+  --catalog research/entity-types.json \
+  --disassembly research/build/quiky-exe-i8086.asm \
+  --trace research/build/object-behavior/entity-01-source-out-back-direct.json \
+  --trace research/build/object-behavior/entity-2b-source-long-out-back-direct.json \
+  --trace research/build/object-behavior/entity-28-w1l1-v31.json \
+  --output research/build/object-behavior/lifecycle-matrix.json
+~~~
+
+The report is conservative: source-marker transitions classify visibility
+culling/reactivation; callback persistence or callback end is only classified
+when the source marker remains processed.
+
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry
 and spikes. The tested object/reference values were:

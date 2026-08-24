@@ -130,12 +130,15 @@ two samples is which other free slot the allocator chooses when the original
 slot has already been reused by another object; the static first-free scan
 defines that rule.
 
-## Real-input lifetime pass
+## Real-input lifetime pass: callback end versus visibility cull
 
 The separate `object_movement_trace.py` driver reuses the proven entity
 factory trace, injects a real `KBD_right` sequence only after initialization,
-and captures synchronized object bytes every five guest frames. This avoids
-confusing a type callback's own lifetime with the camera visibility gate.
+and captures synchronized object bytes every five guest frames. The older
+`entity-01-real-right40.json` and `entity-2b-real-right40.json` probes did not
+capture the source declaration marker, so their callback clears are useful
+observations but cannot distinguish type-specific end logic from the camera
+gate by themselves.
 
 The W1L1 type `0x2B` run (`entity-2b-real-right40.json`) kept object
 `027F:0078` at `(768,224)` with callback `0x47E7`, source `0x1632`, and slot
@@ -143,19 +146,22 @@ The W1L1 type `0x2B` run (`entity-2b-real-right40.json`) kept object
 became zero while the position and source pointer were still unchanged. The
 record was then reused: by index 11 its source pointer was `0xFFFF`, slot was
 `0xFFFF`, and the transient callback `0x10B5` appeared intermittently in the
-same pool slot.
+same pool slot. This is a callback/pool transition, not yet a proof of
+self-termination.
 
 The type `0x01` run (`entity-01-real-right40.json`) first settled from its
 factory callback `0x6DA3` to its live callback `0x6DC4`, slot 281, and source
 `0x161A`. Around capture index 19 the live callback cleared; the source pointer
 and old slot bytes remained for several captures before the same slot was
-reused by callback `0x10B5`.
+reused by callback `0x10B5`. As with type `0x2B`, the missing source-marker
+timeline leaves the exact cause open.
 
-These are type-specific self-termination/recycling paths, not proof of an
-off-screen camera rejection: both objects die while their position and source
-pointer are still intact. The source-aware movement driver now scans all 64
-pool records and both scheduler banks at every barrier, keyed by
-`object+0x1A == source_offset`.
+The source-aware movement driver now scans all 64 pool records and both
+scheduler banks at every barrier, keyed by `object+0x1A == source_offset`.
+Those traces provide the missing discriminator: when the marker high byte
+changes from nonzero to zero at the same transition, the callback clear is the
+camera visibility rejection. A type-specific self-termination claim requires
+an accepted-camera trace with the marker remaining processed.
 
 ## Real-input reactivation and allocator choice
 
@@ -175,7 +181,8 @@ different allocator state. After the target marker changes from `0x0101` to
 `0x0001`, pool slot index 1 is occupied by another source when the declaration
 is revisited. The allocator chooses the first free slot after it, index 4 at
 offset `0x01E0`; the source marker returns to `0x0101` and both scheduler banks
-register that new slot.
+register that new slot. The source-aware timeline therefore shows a
+visibility-cull, reactivation, and first-free allocation—not self-termination.
 
 Together with the static allocator scan, these runs establish the normal
 rule: reactivation is source-marker driven, and allocation is a first-free
@@ -183,3 +190,31 @@ pool scan. Reuse of the original slot is common but not required; if another
 object occupies it first, the source moves to the next available slot. The
 scheduler entries follow the selected pool offset, so they are rebuilt for the
 new slot rather than retaining object identity by declaration alone.
+
+## Lifecycle matrix and current coverage
+
+`tools/object_lifecycle_matrix.py` turns the static and runtime observations
+into one ignored JSON report. It parses only stores whose destination is
+`%es:0x18(%di)` or `%es:0x1a(%di)` (loads are excluded), adds the anchored
+factory/gate/scheduler sites above, and classifies movement traces as
+visibility cull, reactivation, or callback end. Entity/resource traces are
+kept as factory snapshots rather than being over-promoted to lifecycle proof.
+
+For a local report using the current evidence set:
+
+```sh
+PYTHONPATH=research/tools python3 research/tools/object_lifecycle_matrix.py \
+  --catalog research/entity-types.json \
+  --disassembly research/build/quiky-exe-i8086.asm \
+  --trace research/build/object-behavior/entity-01-source-out-back-direct.json \
+  --trace research/build/object-behavior/entity-2b-source-long-out-back-direct.json \
+  --trace research/build/object-behavior/entity-28-w1l1-v31.json \
+  --output research/build/object-behavior/lifecycle-matrix.json
+```
+
+The machine-readable categories are deliberately conservative: an accepted
+camera with a processed source marker and a callback that survives is
+`persistent_in_window`; a callback that clears while that marker remains set
+is `self_terminated_or_state_ended`; a marker high-byte clear is
+`visibility_culled`, with a later high-byte restore classified as
+`visibility_culled_then_reactivated`.
