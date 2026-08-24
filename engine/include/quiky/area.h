@@ -24,6 +24,7 @@ struct AreaReference {
 };
 
 struct AreaPlacement {
+    std::uint32_t recordOffset;
     std::uint16_t type;
     std::uint16_t reference;
     std::uint16_t regionX;

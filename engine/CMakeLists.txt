@@ -15,6 +15,7 @@ add_library(quiky_core
     src/palette.cpp
     src/renderer.cpp
     src/runtime.cpp
+    src/level.cpp
     src/tileset.cpp
 )
 
@@ -38,6 +39,9 @@ target_link_libraries(quiky-bob-sheet PRIVATE quiky_core)
 
 add_executable(quiky-simulate apps/quiky-simulate.cpp)
 target_link_libraries(quiky-simulate PRIVATE quiky_core)
+
+add_executable(quiky-calibrate apps/quiky-calibrate.cpp)
+target_link_libraries(quiky-calibrate PRIVATE quiky_core)
 
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)

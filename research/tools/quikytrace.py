@@ -153,6 +153,7 @@ def trace_entity_lua(
     state_machine_position_x: int | None = None,
     state_machine_position_y: int | None = None,
     state_machine_force_emission: bool = False,
+    state_machine_patch_map_run: bool = False,
     sprite_init_offset: int = 0, capture_frames: int = 1,
     frame_step: int = 30, screenshot: Path | None = None,
     screenshot_mode: str = "rendered", select_level: str | None = None,
@@ -171,6 +172,7 @@ def trace_entity_lua(
         f"TRACE_STATE_MACHINE_POSITION_X={state_machine_position_x if state_machine_position_x is not None else -1}\n"
         f"TRACE_STATE_MACHINE_POSITION_Y={state_machine_position_y if state_machine_position_y is not None else -1}\n"
         f"TRACE_STATE_MACHINE_FORCE_EMISSION={'true' if state_machine_force_emission else 'false'}\n"
+        f"TRACE_STATE_MACHINE_PATCH_MAP_RUN={'true' if state_machine_patch_map_run else 'false'}\n"
         f"TRACE_SPRITE_INIT_OFFSET={sprite_init_offset}\n"
         f"TRACE_CAPTURE_FRAMES={capture_frames}\n"
         f"TRACE_FRAME_STEP={frame_step}\n"
@@ -391,6 +393,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="temporarily override the traced object's integer Y position")
     parser.add_argument("--state-machine-force-emission", action="store_true",
                         help="temporarily widen the bounds helper for a controlled 0x1f-0x21 emission probe")
+    parser.add_argument("--state-machine-patch-map-run", action="store_true",
+                        help="debugger-only: patch five live MAP cells to the first effect run")
     parser.add_argument("--sprite-init-offset", type=lambda value: int(value, 0),
                         default=0, help="break at a type-specific sprite initializer")
     parser.add_argument("--capture-frames", type=int, default=1,
@@ -528,6 +532,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.state_machine_keep_camera,
                 args.state_machine_position_x, args.state_machine_position_y,
                 args.state_machine_force_emission,
+                args.state_machine_patch_map_run,
                 args.sprite_init_offset,
                 args.capture_frames, args.frame_step, args.screenshot,
                 args.screenshot_mode,

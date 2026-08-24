@@ -67,6 +67,14 @@ struct PlayerState {
     PlayerState();
 };
 
+struct SpawnPoint {
+    std::int32_t x;
+    std::int32_t y;
+
+    SpawnPoint(std::int32_t xValue = 0, std::int32_t yValue = 0)
+        : x(xValue), y(yValue) {}
+};
+
 class PlayerSimulation {
 public:
     PlayerSimulation(const PlayerConfig &config = PlayerConfig(),

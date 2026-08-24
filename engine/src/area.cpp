@@ -103,6 +103,7 @@ std::vector<AreaPlacement> Area::placements() const {
              entityIndex < reference->second->entities.size(); ++entityIndex) {
             const AreaEntity &entity = reference->second->entities[entityIndex];
             AreaPlacement placement;
+            placement.recordOffset = entity.recordOffset;
             placement.type = entity.type;
             placement.reference = referenceValue;
             placement.regionX = regionX;

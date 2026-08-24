@@ -11,6 +11,7 @@ local state_machine_keep_camera = TRACE_STATE_MACHINE_KEEP_CAMERA or false
 local state_machine_position_x = TRACE_STATE_MACHINE_POSITION_X or -1
 local state_machine_position_y = TRACE_STATE_MACHINE_POSITION_Y or -1
 local state_machine_force_emission = TRACE_STATE_MACHINE_FORCE_EMISSION or false
+local state_machine_patch_map_run = TRACE_STATE_MACHINE_PATCH_MAP_RUN or false
 local sprite_init_offset = TRACE_SPRITE_INIT_OFFSET or 0
 local capture_frame_count = TRACE_CAPTURE_FRAMES or 1
 local capture_frame_step = TRACE_FRAME_STEP or 30
@@ -183,6 +184,51 @@ local function state_machine_tile_effects()
         end
     end
     return {raw_hex = hex(raw), nonzero = nonzero}
+end
+
+local function state_machine_effect_run_base()
+    local raw = dosbox.mem_read("ds", 0x6986, 0x400) or ""
+    local run = 0
+    for tile = 0, 0x1ff do
+        if word(raw, tile * 2 + 1) ~= 0 then
+            run = run + 1
+            if run == 5 then return tile - 4 end
+        else
+            run = 0
+        end
+    end
+    return nil
+end
+
+local function patch_state_machine_map_run(x, y, base_tile)
+    if not state_machine_patch_map_run or base_tile == nil then return nil end
+    local pointer = dword(dosbox.mem_read("ds", 0x657a, 4), 1)
+    local map_base = pointer & 0xffff
+    local map_selector = (pointer >> 16) & 0xffff
+    local row_stride = dosbox.mem_read_word("ds", 0x657e)
+    local base_offset = map_base + (y >> 4) * row_stride + (x >> 4) * 2
+    local cells = {}
+    for index = 0, 4 do
+        local offset = base_offset + index * 2
+        local before = dosbox.mem_read_word(map_selector, offset)
+        local after = base_tile + index
+        dosbox.mem_write_selector(map_selector, offset, little_word(after))
+        cells[#cells + 1] = {
+            selector = map_selector,
+            offset = offset,
+            before = before,
+            after = after,
+        }
+    end
+    return {
+        selector = map_selector,
+        base_offset = base_offset,
+        row_stride = row_stride,
+        x = x,
+        y = y,
+        base_tile = base_tile,
+        cells = cells,
+    }
 end
 
 -- Globals selected by the static input/camera slice.  Keep this probe
@@ -757,6 +803,10 @@ for attempt = 1, 4096 do
                 local bounds_object_state = dosbox.mem_read_selector(
                     object_selector, bounds_object_offset, 128)
                 local tile_effect_table = state_machine_tile_effects()
+                local map_run_base = state_machine_patch_map_run and
+                    state_machine_effect_run_base() or nil
+                local map_run_patch = patch_state_machine_map_run(
+                    probe_position_x, probe_position_y, map_run_base)
                 local sample = {
                     sequence = sequence,
                     breakpoint = {segment = update_entry.segment,
@@ -787,6 +837,8 @@ for attempt = 1, 4096 do
                     },
                     static_slice_globals = static_slice_globals(),
                     tile_effect_table = tile_effect_table,
+                    map_run_base = map_run_base,
+                    map_run_patch = map_run_patch,
                     nested_calls = {},
                 }
                 if state_machine_camera_x >= 0 then
@@ -892,27 +944,40 @@ for attempt = 1, 4096 do
                                 },
                             }
                             if nested.offset == 0x3376 then
-                                local map_offset = nested.registers.esi & 0xffff
+                                local pointer = dword(
+                                    dosbox.mem_read("ds", 0x657a, 4), 1)
+                                local map_base = pointer & 0xffff
+                                local map_selector = (pointer >> 16) & 0xffff
+                                local row_stride = dosbox.mem_read_word("ds", 0x657e)
+                                local map_offset = map_base +
+                                    ((nested.registers.eax & 0xffff) >> 4) * row_stride +
+                                    ((nested.registers.ebx & 0xffff) >> 4) * 2
                                 call.map_pointer = {
-                                    selector = nested.registers.fs,
+                                    selector = map_selector,
                                     offset = map_offset,
+                                    register_offset = nested.registers.esi & 0xffff,
                                     word = dosbox.mem_read_word(
-                                        nested.registers.fs, map_offset),
+                                        map_selector, map_offset),
                                 }
                             end
                             if nested.offset == 0x171c then
                                 local nested_selector = nested.registers.es
                                 local nested_offset = nested.registers.edi & 0xffff
-                                local nested_state = dosbox.mem_read_selector(
+                                local read_ok, nested_state = pcall(
+                                    dosbox.mem_read_selector,
                                     nested_selector, nested_offset, 64)
-                                call.object = {
-                                    selector = nested_selector,
-                                    offset = nested_offset,
-                                    state_hex = hex(nested_state),
-                                    sprite_slot = word(nested_state, 0x12 + 1),
-                                    update_callback = word(nested_state, 0x18 + 1),
-                                    state_field = word(nested_state, 0x2e + 1),
-                                }
+                                if read_ok then
+                                    call.object = {
+                                        selector = nested_selector,
+                                        offset = nested_offset,
+                                        state_hex = hex(nested_state),
+                                        sprite_slot = word(nested_state, 0x12 + 1),
+                                        update_callback = word(nested_state, 0x18 + 1),
+                                        state_field = word(nested_state, 0x2e + 1),
+                                    }
+                                else
+                                    call.object_read_error = tostring(nested_state)
+                                end
                             end
                             sample.nested_calls[#sample.nested_calls + 1] = call
                             assert(call.return_offset and call.return_segment,

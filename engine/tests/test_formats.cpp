@@ -4,6 +4,7 @@
 #include "quiky/binary_reader.h"
 #include "quiky/map.h"
 #include "quiky/palette.h"
+#include "quiky/level.h"
 #include "quiky/renderer.h"
 #include "quiky/runtime.h"
 #include "quiky/tileset.h"
@@ -207,6 +208,85 @@ quiky::Map makePhysicsMap() {
     return quiky::Map::parse(data, "physics.MAP");
 }
 
+quiky::Map makeLevelMap() {
+    quiky::Bytes data = {'T', 'L', 'E', '1'};
+    appendU16BE(data, 16);
+    appendU16BE(data, 8);
+    appendU16BE(data, 9);
+    for (int index = 0; index < 16 * 8; ++index) {
+        appendU16BE(data, 0);
+    }
+    return quiky::Map::parse(data, "level.MAP");
+}
+
+quiky::Area makeLevelArea(std::uint16_t firstType, std::uint16_t secondType) {
+    quiky::Bytes data(0x14e8, 0);
+    writeU16BEAt(data, 0x0e, 2);
+    writeU16BEAt(data, 0x10, 1);
+    writeU16BEAt(data, 0x160, 0x1388);
+    writeU16BEAt(data, 0x162, 0x1390);
+    appendU16BE(data, firstType);
+    appendU16BE(data, 16);
+    appendU16BE(data, 16);
+    appendU16BE(data, 0xffff);
+    appendU16BE(data, secondType);
+    appendU16BE(data, 16);
+    appendU16BE(data, 16);
+    appendU16BE(data, 0xffff);
+    return quiky::Area::parse(data, "W1L1.ARE");
+}
+
+void testLevelSession() {
+    const quiky::Map map = makeLevelMap();
+    quiky::Area area = makeLevelArea(0x6f, 0x01);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+    quiky::PlayerConfig playerConfig;
+    playerConfig.gravity = 0;
+    playerConfig.acceleration = 0;
+    playerConfig.friction = 0;
+    quiky::PlayerSimulation simulation(playerConfig);
+    quiky::PlayerState player;
+    quiky::LevelSession session("W1L1.MAP", map, area, config);
+    session.reset(player, simulation);
+    session.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+    assert(session.entities().size() == 2);
+    assert(session.entities()[0].active);
+    assert(!session.entities()[1].active);
+
+    session.tick(player, simulation, quiky::InputState());
+    quiky::LevelEvent event = session.consumeEvent();
+    assert(event.type == quiky::LevelEventType::Collected);
+    assert(session.score() == 10);
+    assert(session.entities()[0].collected);
+
+    quiky::LevelSessionConfig hazardConfig = config;
+    hazardConfig.streamRadiusRegions = 2;
+    quiky::Area hazardArea = makeLevelArea(0x01, 0x28);
+    quiky::LevelSession hazardSession("W1L1.MAP", map, hazardArea, hazardConfig);
+    hazardSession.reset(player, simulation);
+    hazardSession.tick(player, simulation, quiky::InputState());
+    event = hazardSession.consumeEvent();
+    assert(event.type == quiky::LevelEventType::PlayerDied);
+    assert(hazardSession.deaths() == 1);
+    assert(player.x.floorPixels() == 16 && player.y.floorPixels() == 16);
+
+    quiky::LevelSessionConfig exitConfig = config;
+    exitConfig.spawnX = 232;
+    exitConfig.enableEdgeExit = true;
+    quiky::Area exitArea = makeLevelArea(0x28, 0x28);
+    quiky::LevelSession exitSession("W1L1.MAP", map, exitArea, exitConfig);
+    exitSession.reset(player, simulation);
+    exitSession.tick(player, simulation, quiky::InputState());
+    event = exitSession.consumeEvent();
+    assert(event.type == quiky::LevelEventType::LevelExit);
+    assert(event.targetLevel == "W1L2.MAP");
+}
+
 void testPlayerSimulation() {
     const quiky::Map map = makePhysicsMap();
     quiky::PlayerConfig config;
@@ -255,6 +335,7 @@ int main() {
         testAreaAndOverlay();
         testBobParserDecoderAndSheet();
         testPlayerSimulation();
+        testLevelSession();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;
