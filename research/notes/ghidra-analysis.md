@@ -454,17 +454,19 @@ Additional callback families now have runtime slot evidence. Type `0x2C`
 (`01F7:8C4E`) writes slot 710 at the post-callback boundary `01F7:8C70`,
 which resolves uniquely to the 18x15 record 0 of `PAPIER.BOB`. Types `0x33`
 (`01F7:87D1`), `0x35` (`01F7:544C`), and `0x36` (`01F7:545A`) write slots
-214/264/214 respectively; their W4/W5 level context points to the
-corresponding 48x26 `SCHNEE.BOB` records, although those logical slots also
-exist in unrelated archive BOBs. Type `0x34` (`01F7:9BEE`) writes slot 400,
-matching the world-specific `BUMP_W1.BOB`-`BUMP_W5.BOB` family.
+214/264/214 respectively. Direct selector-mode resource traces resolve the
+archive-wide collisions: W4L1 loads `WIND.BOB` (slot 214), while W5L1 loads
+`UFO.BOB` (slots 264 and 214); neither world loads `SCHNEE.BOB` in its initial
+resource batch. Type `0x34` (`01F7:9BEE`) writes slot 400, matching the
+world-specific `BUMP_W1.BOB`-`BUMP_W5.BOB` family; W1L2 resource tracing
+directly captures `BUMP_W1.BOB`.
 
 Types `0x3D`-`0x40` share update callback `01F7:9DC7` after their distinct
 initializers. Their post-callback slots are 301, 300, 301, and 300, matching
-the world-specific `PLATFW*.BOB` records 1, 0, 1, and 0. The current names are
-kept probable because the controlled synthetic anchor proves the object and
-slot chain, while exact per-level BOB loading still needs a direct resource
-lookup capture.
+the world-specific `PLATFW*.BOB` records 1, 0, 1, and 0. Selector-mode
+resource traces directly capture `PLATFW4.BOB` in W4L1,
+`PLATFW3.BOB` in W3L2, `PLATFW1.BOB` in W1L3, and `PLATFW2.BOB` in W2L1;
+the catalog now marks this family confirmed.
 
 The normal types `0x1F`-`0x21` initialize `object+0x2E` to 1, 2, and 3 and
 converge on update callback `01F7:8E4B`, but leave `object+0x12` at `0xFFFF`.

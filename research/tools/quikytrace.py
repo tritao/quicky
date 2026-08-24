@@ -96,20 +96,26 @@ def trace_resources_lua(
     api: ApiClient, script_path: Path, count: int, timeout: float,
     poll_interval: float, prepare_w1l3: bool, navigate_w1l3: bool,
     selector_frames: int, startup_recording: Path | None = None,
+    navigate_level: str | None = None, select_level: str | None = None,
+    tail_count: int = 0,
 ) -> list[dict[str, Any]]:
     source = script_path.read_text(encoding="utf-8")
+    requested_level = navigate_level or ("W1L3" if navigate_w1l3 else "")
     prefix = (
         f"TRACE_COUNT={count}\n"
         f"TRACE_TIMEOUT_MS={round(timeout * 1000)}\n"
         f"TRACE_PREPARE_W1L3={'true' if prepare_w1l3 else 'false'}\n"
         f"TRACE_NAVIGATE_W1L3={'true' if navigate_w1l3 else 'false'}\n"
+        f"TRACE_NAVIGATE_LEVEL={json.dumps(requested_level)}\n"
+        f"TRACE_SELECT_LEVEL={json.dumps(select_level or '')}\n"
         f"TRACE_SELECTOR_FRAMES={selector_frames}\n"
+        f"TRACE_TAIL_COUNT={tail_count}\n"
     )
     name = urllib.parse.quote("quiky-resource-trace")
     api.request("POST", f"/api/v1/script/load?name={name}", text_body=prefix + source)
     api.post("/api/v1/script/start")
-    deadline = time.monotonic() + timeout * (count * 2 + 1) + 15
-    if navigate_w1l3:
+    deadline = time.monotonic() + timeout * ((count + tail_count) * 2 + 1) + 15
+    if navigate_w1l3 or navigate_level or select_level:
         if startup_recording is None:
             raise TraceError("navigation requires a startup input recording")
         recording = json.loads(startup_recording.read_text(encoding="utf-8"))
@@ -344,7 +350,13 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--prepare-w1l3", action="store_true", help="continue from 01D7:491D, select W1L3, and inject Space")
     parser.add_argument("--navigate-w1l3", action="store_true",
                         help="launch from the menu and redirect W1L1 resource paths to W1L3 at lookup time")
+    parser.add_argument("--navigate-level",
+                        help="launch from the menu and redirect W1L1 resource paths to a four-character level such as W4L1")
+    parser.add_argument("--select-level",
+                        help="launch the cheat level selector and choose a four-character level such as W4L1")
     parser.add_argument("--selector-frames", type=int, default=60)
+    parser.add_argument("--tail-count", type=int, default=0,
+                        help="continue after the initial resource batch and collect optional lazy lookups")
     parser.add_argument("--launch", action="store_true", help="launch and own an isolated dosbox-automation process")
     parser.add_argument("--headless", action="store_true", help="use dummy SDL video/audio drivers with --launch")
     parser.add_argument("--startup-timeout", type=float, default=15.0)
@@ -403,12 +415,32 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--capture-frames must be positive")
     if args.frame_step < 0:
         raise TraceError("--frame-step cannot be negative")
+    if args.tail_count < 0:
+        raise TraceError("--tail-count cannot be negative")
     if args.prepare_w1l3 and args.navigate_w1l3:
         raise TraceError("--prepare-w1l3 and --navigate-w1l3 are mutually exclusive")
+    if args.navigate_w1l3 and args.navigate_level:
+        raise TraceError("--navigate-w1l3 and --navigate-level are mutually exclusive")
+    if args.prepare_w1l3 and args.navigate_level:
+        raise TraceError("--prepare-w1l3 and --navigate-level are mutually exclusive")
+    if args.select_level and (args.prepare_w1l3 or args.navigate_w1l3 or args.navigate_level):
+        raise TraceError("--select-level cannot be combined with another level navigation mode")
+    for option_name, option_value in (("navigate-level", args.navigate_level),
+                                      ("select-level", args.select_level)):
+        if option_value is not None and (
+                len(option_value) != 4 or option_value[0] != "W" or
+                option_value[1] not in "12345" or option_value[2] != "L" or
+                option_value[3] not in "1234"):
+            raise TraceError(f"--{option_name} must look like W4L1")
     if args.entity_record_offset is not None and (args.prepare_w1l3 or args.navigate_w1l3):
         raise TraceError("entity tracing cannot be combined with level navigation modes")
+    if args.entity_record_offset is not None and args.navigate_level:
+        raise TraceError("entity tracing cannot be combined with level navigation modes")
+    if args.entity_record_offset is not None and args.select_level:
+        raise TraceError("entity tracing cannot be combined with level navigation modes")
     if args.dispatch_table and (args.entity_record_offset is not None or
-                                args.prepare_w1l3 or args.navigate_w1l3):
+                                args.prepare_w1l3 or args.navigate_w1l3 or
+                                args.navigate_level or args.select_level):
         raise TraceError("--dispatch-table cannot be combined with another trace mode")
     repo_root = Path(__file__).resolve().parents[2]
     process = None
@@ -522,6 +554,9 @@ def main(argv: list[str] | None = None) -> int:
                 api, script_path, args.count, args.timeout, args.poll_interval,
                 args.prepare_w1l3, args.navigate_w1l3, args.selector_frames,
                 startup_recording,
+                args.navigate_level or ("W1L3" if args.navigate_w1l3 else None),
+                args.select_level,
+                args.tail_count,
             )
         if args.screenshot is not None and not entity_screenshots:
             screenshot_bytes = api.get_binary(
@@ -553,14 +588,19 @@ def main(argv: list[str] | None = None) -> int:
         "inputs": {"executable": str(executable), "executable_sha256": sha256(executable),
                    "archive": str(archive), "archive_sha256": sha256(archive),
                    "prepare_w1l3": args.prepare_w1l3,
-                   "navigate_w1l3": args.navigate_w1l3},
+                   "navigate_w1l3": args.navigate_w1l3,
+                   "navigate_level": args.navigate_level or ("W1L3" if args.navigate_w1l3 else None),
+                   "select_level": args.select_level,
+                   "tail_count": args.tail_count},
         "engine": "lua-debugger-api",
         "trace_kind": ("dispatch" if args.dispatch_table else
                        "entity" if args.entity_record_offset is not None else "resource"),
         "script": str(script_path),
         "script_sha256": sha256(script_path),
-        "startup_recording": str(startup_recording) if args.navigate_w1l3 else None,
-        "startup_recording_sha256": sha256(startup_recording) if args.navigate_w1l3 else None,
+        "startup_recording": str(startup_recording)
+        if args.navigate_w1l3 or args.navigate_level or args.select_level else None,
+        "startup_recording_sha256": sha256(startup_recording)
+        if args.navigate_w1l3 or args.navigate_level or args.select_level else None,
         "breakpoint": {"segment": LOOKUP[0], "offset": LOOKUP[1]}, "events": events,
     }
     if entity_screenshots:

@@ -536,6 +536,15 @@ and rewrites matching `W1L1` Pascal paths to `W1L3` at the confirmed resource
 lookup entry before the loader reads them. Each event records both
 `original_path` and the effective `path`, making this deterministic live-memory
 redirection explicit in the ledger.
+`--navigate-level W4L1` generalizes that controlled path redirect to any
+`W[1-5]L[1-4]` target. For the game's real world-resource context, use
+`--select-level W4L1`; this enters the confirmed `QUIKYSUPERHERO` selector
+path, writes the selector index at the documented input wait, and captures
+the actual `W4L1.MAP`, `W4L1.ARE`, world ICO, and world BOB requests. Use
+`--tail-count N` when checking BOBs that may be requested lazily after the
+initial level-load batch. Resource ranges are sampled at the lookup routine's
+far return, after `DS:97E4` has been updated, so they can be matched directly
+against the parsed archive directory.
 Alternatively, `--prepare-w1l3` continues from the documented `01D7:491D` cheat breakpoint,
 performs the previously validated live-memory selector setup, and presses
 Space. Omit it to trace normal manual play without changing guest memory. The
@@ -670,15 +679,19 @@ The next resolved normal families are cataloged with explicit confidence:
 | ARE types | runtime slot(s) | asset family | status |
 | --- | --- | --- | --- |
 | `0x2C` | 710 | `PAPIER.BOB` | confirmed paper effect |
-| `0x33`, `0x35`, `0x36` | 214/264 | `SCHNEE.BOB` in W4/W5 context | probable weather variants |
-| `0x34` | 400 | `BUMP_W1.BOB` through `BUMP_W5.BOB` | probable bump effect |
-| `0x3D`-`0x40` | 300/301 | `PLATFW1.BOB` through `PLATFW5.BOB` | probable moving-platform variants |
+| `0x33` | 214 | `WIND.BOB` in W4L1 context | confirmed wind effect |
+| `0x35`, `0x36` | 264/214 | `UFO.BOB` in W5L1 context | confirmed UFO effect variants |
+| `0x34` | 400 | `BUMP_W1.BOB` through `BUMP_W5.BOB` | confirmed bump effect |
+| `0x3D`-`0x40` | 300/301 | `PLATFW1.BOB` through `PLATFW5.BOB` | confirmed moving-platform variants |
 
 The slot evidence is from post-callback debugger stops, not the factory's
 initial `0xFFFF` field. `bob-find` reports archive-wide collisions for some
-shared logical slots, so the catalog records the level/world resource context
-and retains `probable` confidence where a direct resource lookup has not yet
-been captured. Types `0x1F`-`0x21` converge on update callback `01F7:8E4B`
+shared logical slots, so the catalog records the level/world resource context.
+Direct selector-mode resource traces now resolve the W4/W5 collision cases:
+W4L1 loads `WIND.BOB` and `PLATFW4.BOB`, W5L1 loads `UFO.BOB` and
+`PLATFW5.BOB`, W3L2 loads `PLATFW3.BOB`, W2L1 loads `PLATFW2.BOB`, and W1L3
+loads `PLATFW1.BOB`. W1L2 also directly loads `BUMP_W1.BOB` for type `0x34`.
+Types `0x1F`-`0x21` converge on update callback `01F7:8E4B`
 but leave `object+0x12` unset; they remain explicitly unknown state-machine
 variants.
 

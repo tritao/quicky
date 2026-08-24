@@ -58,6 +58,41 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("TRACE_COUNT=2", api.loaded_source)
         self.assertIn("TRACE_PREPARE_W1L3=true", api.loaded_source)
         self.assertIn("TRACE_NAVIGATE_W1L3=false", api.loaded_source)
+        self.assertIn("TRACE_NAVIGATE_LEVEL=", api.loaded_source)
+        self.assertIn('TRACE_SELECT_LEVEL=""', api.loaded_source)
+        self.assertIn("TRACE_TAIL_COUNT=0", api.loaded_source)
+
+    def test_navigation_trace_quotes_level_and_replays_startup(self):
+        class FakeApi:
+            loaded_source = ""
+            status_calls = 0
+            replayed = False
+
+            def request(self, method, path, text_body=None):
+                self.loaded_source = text_body
+                return {"status": "loaded"}
+
+            def post(self, path, body=None):
+                if path == "/api/v1/input/sequence":
+                    self.replayed = True
+                return {"status": "started"}
+
+            def get(self, path):
+                self.status_calls += 1
+                if not self.replayed:
+                    return {"state": "running", "output": {"awaiting_startup_replay": True}}
+                return {"state": "completed", "output": {"events": {"1": {"sequence": 1}}}}
+
+        api = FakeApi()
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_resource_trace.lua"
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        events = trace_resources_lua(
+            api, script, 1, 1, 0.01, False, False, 30, recording,
+            "W4L1", None, 0,
+        )
+        self.assertEqual([event["sequence"] for event in events], [1])
+        self.assertIn('TRACE_NAVIGATE_LEVEL="W4L1"', api.loaded_source)
+        self.assertTrue(api.replayed)
 
 
 if __name__ == "__main__":

@@ -287,6 +287,8 @@ class QuikyCtlTests(unittest.TestCase):
             (0x34, "bump_effect", 400, "BUMP_W1.BOB", (32, 23)),
         ):
             self.assertEqual(names[entity_type].name, name)
+            if entity_type == 0x34:
+                self.assertEqual(names[entity_type].confidence, "confirmed")
             match = [
                 item for item in find_archive_bob_slots(archive, {slot})
                 if item["asset"] == asset
@@ -294,15 +296,16 @@ class QuikyCtlTests(unittest.TestCase):
             self.assertEqual(len(match), 1)
             self.assertEqual((match[0]["width"], match[0]["height"]), dimensions)
         for entity_type, name in (
-            (0x33, "snow_effect_variant_51"),
-            (0x35, "snow_effect_variant_53"),
-            (0x36, "snow_effect_variant_54"),
+            (0x33, "wind_effect_variant_51"),
+            (0x35, "ufo_effect_variant_53"),
+            (0x36, "ufo_effect_variant_54"),
             (0x3D, "moving_platform_variant_61"),
             (0x3E, "moving_platform_variant_62"),
             (0x3F, "moving_platform_variant_63"),
             (0x40, "moving_platform_variant_64"),
         ):
             self.assertEqual(names[entity_type].name, name)
+            self.assertEqual(names[entity_type].confidence, "confirmed")
         for entity_type, name, slot in (
             (0x29, "falling_leaves_variant_29", 700),
             (0x2A, "falling_leaves_variant_2a", 700),
