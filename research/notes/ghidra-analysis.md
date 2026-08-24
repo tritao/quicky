@@ -812,6 +812,14 @@ not yet established a valid world-space X argument. This binds the descriptor
 word to the helper event without assuming that the streamed buffer is the
 archive's original coordinate window.
 
+The debugger-only `3DF2` patch provides a controlled descriptor pair. Replacing
+the live `(x-5,y)` cell with tile `0x2A` changes the selector-safe descriptor
+read and returned `DX` to `0x0070`; tile `0x2B` produces `0x0030`. Both patches
+restore the original cell after the near return, and the player callback state
+remains otherwise stable in the short horizontal run. This verifies dataflow
+from MAP tile to descriptor register while leaving surface polarity and
+one-way behavior unresolved.
+
 The static leaf rules are now explicit enough to guide the next probes:
 
 * `3A1F` first exits when `object+0x38` is nonzero. Otherwise it tests the MAP

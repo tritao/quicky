@@ -90,6 +90,7 @@ class PlayerTraceConfig:
     property_helper_offset: int | None = None
     branch_focus: bool = False
     branch_patch_tile: int | None = None
+    collision_patch_tile: int | None = None
     descriptor_census: bool = False
     descriptor_count: int = 512
     map_width: int = 270
@@ -172,6 +173,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "property_helper_offset": config.property_helper_offset,
         "branch_focus": config.branch_focus,
         "branch_patch_tile": config.branch_patch_tile,
+        "collision_patch_tile": config.collision_patch_tile,
         "descriptor_census": config.descriptor_census,
         "descriptor_count": config.descriptor_count,
         "map_width": config.map_width,
@@ -658,6 +660,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="trace the 01F7:3D02 descriptor branch masks and return path")
     parser.add_argument("--player-branch-patch-tile", type=lambda value: int(value, 0),
                         help="debugger-only: substitute this low-9-bit tile at the 3D02 probe")
+    parser.add_argument("--player-collision-patch-tile", type=lambda value: int(value, 0),
+                        help="debugger-only: substitute this low-9-bit tile at the 3DF2 MAP probe")
     parser.add_argument("--player-descriptor-census", action="store_true",
                         help="dump the loaded descriptor table and MAP cells")
     parser.add_argument("--player-descriptor-count", type=int, default=512,
@@ -732,6 +736,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-branch-patch-tile requires --player-branch-focus")
     if args.player_branch_patch_tile is not None and not 0 <= args.player_branch_patch_tile <= 0x1ff:
         raise TraceError("--player-branch-patch-tile must be between 0 and 511")
+    if args.player_collision_patch_tile is not None and not args.player_collision_focus:
+        raise TraceError("--player-collision-patch-tile requires --player-collision-focus")
+    if args.player_collision_patch_tile is not None and not 0 <= args.player_collision_patch_tile <= 0x1ff:
+        raise TraceError("--player-collision-patch-tile must be between 0 and 511")
     if args.player_descriptor_count < 1 or args.player_descriptor_count > 512:
         raise TraceError("--player-descriptor-count must be between 1 and 512")
     if args.player_map_width < 1 or args.player_map_height < 1:
@@ -860,6 +868,7 @@ def main(argv: list[str] | None = None) -> int:
                 property_helper_offset=args.player_property_helper,
                 branch_focus=args.player_branch_focus,
                 branch_patch_tile=args.player_branch_patch_tile,
+                collision_patch_tile=args.player_collision_patch_tile,
                 descriptor_census=args.player_descriptor_census,
                 descriptor_count=args.player_descriptor_count,
                 map_width=args.player_map_width,

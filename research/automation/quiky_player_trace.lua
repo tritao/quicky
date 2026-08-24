@@ -13,6 +13,7 @@ local property_focus = trace_config.property_focus or false
 local property_helper_offset = trace_config.property_helper_offset or 0
 local branch_focus = trace_config.branch_focus or false
 local branch_patch_tile = trace_config.branch_patch_tile
+local collision_patch_tile = trace_config.collision_patch_tile
 local descriptor_census = trace_config.descriptor_census or false
 local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
@@ -603,12 +604,40 @@ local function record_collision(sample, hit)
     -- still intact; this avoids needing a second breakpoint mode and keeps
     -- the tile/descriptor evidence attached to the helper event.
     if hit.offset == 0x3df2 then
+        if collision_patch_tile ~= nil then
+            local lookup = map_lookup_snapshot(hit)
+            if lookup.cell_word ~= nil then
+                local original = lookup.cell_word
+                local patched = (original & 0xfe00) | (collision_patch_tile & 0x1ff)
+                dosbox.mem_write_selector(
+                    lookup.map_selector, lookup.cell_offset,
+                    string.char(patched & 0xff, (patched >> 8) & 0xff)
+                )
+                collision.patch = {
+                    selector = lookup.map_selector,
+                    offset = lookup.cell_offset,
+                    original = original,
+                    patched = patched,
+                    readback = selector_word(lookup.map_selector, lookup.cell_offset),
+                    tile_id = collision_patch_tile & 0x1ff,
+                }
+            end
+        end
         collision.map_property = map_property_snapshot(hit)
     end
     sample.collisions = sample.collisions or {}
     sample.collisions[#sample.collisions + 1] = collision
     sample.collision = collision
     return collision
+end
+
+local function restore_collision_patch(collision)
+    if collision == nil or collision.patch == nil then return end
+    local patch = collision.patch
+    dosbox.mem_write_selector(
+        patch.selector, patch.offset,
+        string.char(patch.original & 0xff, (patch.original >> 8) & 0xff)
+    )
 end
 
 local function stop_for_capture()
@@ -817,6 +846,7 @@ for sequence = 1, sample_count do
                             offset = candidate.offset,
                             registers = candidate.registers,
                         }
+                        restore_collision_patch(collision_return_event)
                     end
                     collision_return = nil
                     collision_return_event = nil

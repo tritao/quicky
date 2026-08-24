@@ -547,6 +547,26 @@ low-nine-bit tile at the live `3D02` probe, records the original word, and
 restores it when the branch returns. This is debugger-only state and does not
 modify the archive or executable.
 
+For the side/vertical leaf, `--player-collision-patch-tile 0xNN` applies the
+same reversible substitution at the live `3DF2` `(x-5,y)` cell. It requires
+`--player-collision-focus`; use callback focus so the patch is restored at the
+near helper return:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-collision-focus --player-focus-callback \
+  --player-collision-patch-tile 0x2a --select-level W1L1 \
+  --player-input-key KBD_right --player-input-frames 60 \
+  --player-input-samples 2 --player-samples 3 --player-frames-between 6 \
+  --output research/build/player-helpers-w1l1-patched-2a.json
+~~~
+
+The controlled pair reads descriptor `0x0070` for tile `0x2A` and `0x0030`
+for tile `0x2B`, with the returned `DX` matching those words (`0x70` versus
+`0x30`) and the original MAP cell restored after each helper. This confirms
+the descriptor reaches the leaf; it does not by itself name the surface or
+prove its blocking polarity.
+
 ### Dedicated transient event types `0x65`-`0x67`
 
 These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to
