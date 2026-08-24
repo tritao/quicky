@@ -442,6 +442,11 @@ samples then contain the complete `0x78`-byte record before and after
 deltas. The mode is opt-in so existing collision/property traces retain their
 smaller records.
 
+The current controller assumptions are audited in
+[`notes/player-cpp-audit.md`](notes/player-cpp-audit.md); the C++ player is
+not treated as frame-faithful until that audit's unresolved entries are
+closed.
+
 MAP and descriptor pointers are protected-mode selectors. Traces produced
 before the selector-read correction used the real-mode `mem_read_word` helper
 for those pointers; their tile/descriptor fields are archived but invalid.
