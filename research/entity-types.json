@@ -157,6 +157,201 @@
         "experiment": "target_type_72_vs_inert_type_0",
         "experiment_manifest": "research/build/entity-72-confirm/experiment.json"
       }
+    },
+    {
+      "type": 115,
+      "name": "unobserved_0x73",
+      "confidence": "unknown",
+      "evidence": {
+        "occurrences": 0,
+        "note": "No archived ARE declaration uses type 0x73; no gameplay meaning or sprite assignment inferred."
+      }
+    },
+    {
+      "type": 116,
+      "name": "unobserved_0x74",
+      "confidence": "unknown",
+      "evidence": {
+        "occurrences": 0,
+        "note": "No archived ARE declaration uses type 0x74; no gameplay meaning or sprite assignment inferred."
+      }
+    },
+    {
+      "type": 121,
+      "name": "puzzle_letter_N",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [624, 192],
+        "record_offset": 6018,
+        "dispatch_slot": "DS:81D2+0x1E4",
+        "initializer_callback": "01F7:8C71",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 600,
+        "sprite_initializer_return": "01F7:8C7D",
+        "bob_asset": "PUZZLE.BOB",
+        "bob_record_index": 0,
+        "bob_record_offset": 0,
+        "bob_dimensions": [16, 16],
+        "bob_origin": [0, 0],
+        "sprite_preview": "research/notes/type-79-slot-600.png",
+        "sprite_sheet": "research/notes/type-7a-puzzle-sheet.png",
+        "trace_ledger": "research/build/traces/entity-79-puzzle.json"
+      }
+    },
+    {
+      "type": 122,
+      "name": "puzzle_letter_E",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [880, 128],
+        "record_offset": 5668,
+        "dispatch_slot": "DS:81D2+0x1E8",
+        "initializer_callback": "01F7:8C8A",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 601,
+        "sprite_initializer_return": "01F7:8C96",
+        "bob_asset": "PUZZLE.BOB",
+        "bob_record_index": 1,
+        "bob_record_offset": 935,
+        "bob_dimensions": [16, 16],
+        "bob_origin": [0, 0],
+        "sprite_preview": "research/notes/type-7a-slot-601.png",
+        "sprite_sheet": "research/notes/type-7a-puzzle-sheet.png",
+        "trace_ledger": "research/build/traces/entity-7a-puzzle.json"
+      }
+    },
+    {
+      "type": 123,
+      "name": "puzzle_letter_S",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [1344, 176],
+        "record_offset": 5756,
+        "dispatch_slot": "DS:81D2+0x1EC",
+        "initializer_callback": "01F7:8CA3",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 602,
+        "sprite_initializer_return": "01F7:8CAF",
+        "bob_asset": "PUZZLE.BOB",
+        "bob_record_index": 2,
+        "bob_record_offset": 1870,
+        "bob_dimensions": [16, 16],
+        "bob_origin": [0, 0],
+        "sprite_sheet": "research/notes/type-7a-puzzle-sheet.png",
+        "trace_ledger": "research/build/traces/entity-7b-puzzle.json"
+      }
+    },
+    {
+      "type": 124,
+      "name": "puzzle_letter_Q",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [1648, 192],
+        "record_offset": 6064,
+        "dispatch_slot": "DS:81D2+0x1F0",
+        "initializer_callback": "01F7:8CBC",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 603,
+        "sprite_initializer_return": "01F7:8CC8",
+        "bob_asset": "PUZZLE.BOB",
+        "bob_record_index": 3,
+        "bob_record_offset": 2805,
+        "bob_dimensions": [16, 16],
+        "bob_origin": [0, 0],
+        "sprite_sheet": "research/notes/type-7a-puzzle-sheet.png",
+        "trace_ledger": "research/build/traces/entity-7c-puzzle.json"
+      }
+    },
+    {
+      "type": 125,
+      "name": "puzzle_letter_U",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [2144, 144],
+        "record_offset": 5818,
+        "dispatch_slot": "DS:81D2+0x1F4",
+        "initializer_callback": "01F7:8CD5",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 604,
+        "sprite_initializer_return": "01F7:8CE1",
+        "bob_asset": "PUZZLE.BOB",
+        "bob_record_index": 4,
+        "bob_record_offset": 3740,
+        "bob_dimensions": [16, 16],
+        "bob_origin": [0, 0],
+        "sprite_sheet": "research/notes/type-7a-puzzle-sheet.png",
+        "trace_ledger": "research/build/traces/entity-7d-puzzle.json"
+      }
+    },
+    {
+      "type": 126,
+      "name": "puzzle_letter_I",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [2640, 144],
+        "record_offset": 5838,
+        "dispatch_slot": "DS:81D2+0x1F8",
+        "initializer_callback": "01F7:8CEE",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 605,
+        "sprite_initializer_return": "01F7:8CFA",
+        "bob_asset": "PUZZLE.BOB",
+        "bob_record_index": 5,
+        "bob_record_offset": 4675,
+        "bob_dimensions": [16, 16],
+        "bob_origin": [0, 0],
+        "sprite_sheet": "research/notes/type-7a-puzzle-sheet.png",
+        "trace_ledger": "research/build/traces/entity-7e-puzzle.json"
+      }
+    },
+    {
+      "type": 127,
+      "name": "puzzle_letter_K",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [3568, 192],
+        "record_offset": 6130,
+        "dispatch_slot": "DS:81D2+0x1FC",
+        "initializer_callback": "01F7:8D07",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 606,
+        "sprite_initializer_return": "01F7:8D13",
+        "bob_asset": "PUZZLE.BOB",
+        "bob_record_index": 6,
+        "bob_record_offset": 5610,
+        "bob_dimensions": [16, 16],
+        "bob_origin": [0, 0],
+        "sprite_sheet": "research/notes/type-7a-puzzle-sheet.png",
+        "trace_ledger": "research/build/traces/entity-7f-puzzle.json"
+      }
     }
   ]
 }

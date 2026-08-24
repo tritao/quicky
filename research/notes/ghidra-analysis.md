@@ -382,3 +382,20 @@ with each dedicated type independently confirmed all three runtime branches at
 the unchanged calculated world position `(768,224)`. The trace ledgers are
 `entity-65-handler-trace.json`, `entity-66-handler-trace.json`, and
 `entity-67-handler-trace.json` under `research/build/`.
+
+The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
+letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
+at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive
+sprite slot (600 through 606) into `object+0x12`, then returns to the common
+object setup. The callbacks are `01F7:8C71`, `8C8A`, `8CA3`, `8CBC`, `8CD5`,
+`8CEE`, and `8D07`; their post-slot boundaries are `8C7D`, `8C96`, `8CAF`,
+`8CC8`, `8CE1`, `8CFA`, and `8D13`. All use update callback `01F7:8D20` and
+object class 1.
+
+Runtime traces from controlled W1L1 anchor mutations reached each callback and
+recorded the expected slot. `bob-find` resolves slots 600-606 to records 0-6
+of `PUZZLE.BOB`, all 16x16 with origin `(0,0)`. Rendering them in slot order
+produces `N`, `E`, `S`, `Q`, `U`, `I`, `K`, establishing the names
+`puzzle_letter_N` through `puzzle_letter_K`. Types `0x73` and `0x74` have zero
+occurrences in the bundled ARE archive, so no runtime or sprite assignment is
+claimed for them.

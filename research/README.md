@@ -293,7 +293,7 @@ and spikes. The tested object/reference values were:
 0x67 one ammo             0x68/0x6d/0x6e nothing?
 0x6f ten-ammo box         0x70 extra health package
 0x71 health up            0x72 temporary invulnerability
-0x73/0x74/0x7a nothing?
+0x73/0x74 unobserved in the bundled ARE archive
 ~~~
 
 Use W1L3 for experiments; the article suggests entering QUIKYSUPERHERO in the
@@ -585,6 +585,25 @@ three `WERBE.BOB` records:
 
 Each slot is resolved by `bob-find`, and each target-typed archive was
 compared against an inert type-0 mutation at the same streamed W1L1 anchor.
+
+The puzzle-letter family `0x79`-`0x7F` is also resolved. The seven normal
+dispatch entries use consecutive callbacks at `01F7:8C71`-`01F7:8D07`, all
+converge on update callback `01F7:8D20`, and write slots 600-606 in
+`object+0x12`. Those slots are records 0-6 of `PUZZLE.BOB`, each 16x16; the
+decoded sheet reads `N E S Q U I K` in slot order:
+
+[`notes/type-79-slot-600.png`](notes/type-79-slot-600.png) is the N preview and
+[`notes/type-7a-slot-601.png`](notes/type-7a-slot-601.png) is the E preview.
+The complete family is shown in
+[`notes/type-7a-puzzle-sheet.png`](notes/type-7a-puzzle-sheet.png). Each
+mapping was checked with a controlled W1L1 record mutation to inert type 0;
+the screenshot diff is supporting evidence, while the callback, object slot,
+BOB record, and target-vs-inert runtime traces are the primary evidence.
+
+Types `0x73` and `0x74` do not occur in any of the 21 archived ARE payloads.
+They remain explicitly cataloged as unobserved rather than assigned a
+meaning from the neighboring puzzle range. The seven puzzle types occur ten
+times each across the archive and are present in every sampled W1L1 stream.
 
 The confirmed cheat comparison path and debugger addresses are documented in
 [`research/notes/cheat-trace.md`](notes/cheat-trace.md). The debugger is

@@ -231,6 +231,23 @@ class QuikyCtlTests(unittest.TestCase):
             self.assertEqual(len(match), 1)
             self.assertEqual((match[0]["width"], match[0]["height"]), dimensions)
 
+        self.assertEqual(names[0x73].confidence, "unknown")
+        self.assertEqual(names[0x74].confidence, "unknown")
+        for entity_type, name, slot in (
+            (0x79, "puzzle_letter_N", 600),
+            (0x7A, "puzzle_letter_E", 601),
+            (0x7B, "puzzle_letter_S", 602),
+            (0x7C, "puzzle_letter_Q", 603),
+            (0x7D, "puzzle_letter_U", 604),
+            (0x7E, "puzzle_letter_I", 605),
+            (0x7F, "puzzle_letter_K", 606),
+        ):
+            self.assertEqual(names[entity_type].name, name)
+            match = find_archive_bob_slots(archive, {slot})
+            self.assertEqual(len(match), 1)
+            self.assertEqual(match[0]["asset"], "PUZZLE.BOB")
+            self.assertEqual((match[0]["width"], match[0]["height"]), (16, 16))
+
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = create_entity_variant(
                 archive,
