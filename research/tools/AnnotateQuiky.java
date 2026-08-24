@@ -169,7 +169,7 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x3ab9, "player_collision_probe_3ab9",
             "Player callback helper reached near the final object update path; semantics remain provisional.");
         function(0x3d02, "player_collision_helper_3d02",
-            "Static target used by player movement and state-machine paths; exact collision role remains under test.");
+            "Calls the descriptor query, retries after an eight-pixel Y adjustment when DX&30 is clear, then branches on DX&20 and DX&40 before returning the correction result.");
         function(0x3df2, "player_collision_helper_3df2",
             "Static target used by player movement and state-machine paths; exact collision role remains under test.");
         function(0x3e41, "player_collision_probe_3e41",

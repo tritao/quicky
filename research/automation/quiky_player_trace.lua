@@ -11,6 +11,7 @@ local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
 local property_helper_offset = trace_config.property_helper_offset or 0
+local branch_focus = trace_config.branch_focus or false
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
@@ -157,6 +158,16 @@ local function map_property_snapshot(hit)
     local tile_id = lookup.tile_id or 0
     local x = (registers.ebx or 0) & 0xffff
     local y = (registers.eax or 0) & 0xffff
+    local stack_raw = dosbox.mem_read(
+        "ss", (registers.esp or 0) & 0xffff, 4
+    ) or ""
+    local caller_return = nil
+    if #stack_raw >= 4 then
+        caller_return = {
+            offset = word(stack_raw, 1),
+            segment = word(stack_raw, 3),
+        }
+    end
     local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
     local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
     local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
@@ -186,6 +197,7 @@ local function map_property_snapshot(hit)
     return {
         helper_offset = hit.offset,
         breakpoint = {segment = hit.segment, offset = hit.offset},
+        caller_return = caller_return,
         registers = registers,
         coordinates = {
             x = x,
@@ -242,6 +254,38 @@ local function arm_property_targets()
     end
 end
 
+local branch_entry_offset = 0x3d02
+local branch_offsets = {0x3d1e, 0x3d36, 0x3d40, 0x3d45, 0x3dd0,
+                        0x3d44, 0x3df1}
+
+local function arm_branch_targets(exclude_offset)
+    for _, offset in ipairs(branch_offsets) do
+        if offset ~= exclude_offset then
+            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        end
+    end
+end
+
+local function is_branch_target(offset)
+    if not branch_focus then return false end
+    if offset == branch_entry_offset then return true end
+    for _, target in ipairs(branch_offsets) do
+        if target == offset then return true end
+    end
+    return false
+end
+
+local function is_branch_return(offset)
+    return offset == 0x3d44 or offset == 0x3df1
+end
+
+local function clear_branch_targets()
+    dosbox.breakpoint_remove(0x01f7, branch_entry_offset)
+    for _, offset in ipairs(branch_offsets) do
+        dosbox.breakpoint_remove(0x01f7, offset)
+    end
+end
+
 local function is_property_target(offset)
     return property_focus and (offset == 0x5c27 or offset == 0x5cc3) and
            (property_helper_offset == 0 or offset == property_helper_offset)
@@ -262,7 +306,11 @@ local function arm_targets()
     if property_focus then
         arm_property_targets()
     end
-    if focus_callback or map_focus or collision_focus or property_focus then
+    if branch_focus then
+        dosbox.breakpoint_set(0x01f7, branch_entry_offset, {once = true})
+        arm_branch_targets()
+    end
+    if focus_callback or map_focus or collision_focus or property_focus or branch_focus then
         return
     end
     dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
@@ -301,6 +349,52 @@ local function record_property(sample, hit)
     sample.map_properties = sample.map_properties or {}
     sample.map_properties[#sample.map_properties + 1] = property
     if sample.map_property == nil then sample.map_property = property end
+end
+
+local function record_branch(sample, hit)
+    local registers = hit.registers or {}
+    local dx = (registers.edx or 0) & 0xffff
+    local event = {
+        offset = hit.offset,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        registers = registers,
+        dx = dx,
+        dx_mask_0x30 = dx & 0x30,
+        dx_mask_0x20 = dx & 0x20,
+        dx_mask_0x40 = dx & 0x40,
+        object = callback_object_snapshot(hit),
+        globals = static_globals(),
+    }
+    sample.branch_events = sample.branch_events or {}
+    sample.branch_events[#sample.branch_events + 1] = event
+    sample.branch_event = event
+end
+
+local function capture_branch_sequence(sample, initial_hit)
+    local hit = initial_hit
+    local guard = 0
+    while true do
+        if not is_branch_target(hit.offset) then
+            error(string.format("unexpected collision branch breakpoint 0x%04x", hit.offset))
+        end
+        sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+            segment = hit.segment, offset = hit.offset,
+        }
+        record_branch(sample, hit)
+        if is_branch_return(hit.offset) then
+            sample.branch_return = {
+                segment = hit.segment, offset = hit.offset,
+                registers = hit.registers,
+            }
+            clear_branch_targets()
+            return hit
+        end
+        guard = guard + 1
+        if guard > 32 then error("collision branch sequence exceeded 32 events") end
+        arm_branch_targets(hit.offset)
+        dosbox.debug_continue()
+        hit = wait_hit("collision branch sequence")
+    end
 end
 
 local function far_return_location(hit)
@@ -444,6 +538,9 @@ for sequence = 1, sample_count do
             segment = initial_hit.segment, offset = initial_hit.offset,
         }
         record_collision(sample, initial_hit)
+    end
+    if branch_focus and is_branch_target(initial_hit.offset) then
+        hit = capture_branch_sequence(sample, initial_hit)
     end
     if focus_callback and initial_hit.offset ~= focus_callback_offset and
        initial_hit.offset ~= 0x3f27 then

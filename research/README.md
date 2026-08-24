@@ -445,6 +445,30 @@ at `(72,400)` querying raw cell `0xEC8B`/tile `0x08B`, while the right and jump
 paths query different descriptor words. Descriptor-bit gameplay names remain
 provisional.
 
+To capture the caller's branch path, use `--player-branch-focus`. It watches
+the `3D02` entry, the post-`5CC3` `DX&30` tests, and the `DX&20`/`DX&40`
+branches, then records the return site, `AL`, and `object+0x3A`:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-branch-focus --select-level W1L1 \
+  --player-input-key KBD_right --player-input-frames 240 \
+  --player-input-samples 6 --output research/build/player-branch-right.json
+
+python3 research/tools/player_branch_report.py \
+  --label baseline --label left --label right --label up \
+  research/build/player-branch-w1l1-baseline-v3.json \
+  research/build/player-branch-w1l1-left.json \
+  research/build/player-branch-w1l1-right.json \
+  research/build/player-branch-w1l1-up.json \
+  --json-output research/build/player-branch-calibration.json
+~~~
+
+The W1L1 branch matrix shows the right transition taking `DX=0x0050` through
+the `DX&30`/`DX&40` path and returning with `AL=1`; neutral, left, and jump
+cases keep those masks clear and return through `3D44`. This is evidence for
+separating descriptor-driven reset behavior from the stable left wall.
+
 ### Dedicated transient event types `0x65`-`0x67`
 
 These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to

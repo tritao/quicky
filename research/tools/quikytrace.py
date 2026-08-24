@@ -88,6 +88,7 @@ class PlayerTraceConfig:
     collision_focus: bool = False
     property_focus: bool = False
     property_helper_offset: int | None = None
+    branch_focus: bool = False
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
@@ -164,6 +165,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "collision_focus": config.collision_focus,
         "property_focus": config.property_focus,
         "property_helper_offset": config.property_helper_offset,
+        "branch_focus": config.branch_focus,
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
@@ -506,6 +508,10 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["map_properties"] = ordered_lua_array(
                 sample.get("map_properties", [])
             )
+        if "branch_events" in sample:
+            sample["branch_events"] = ordered_lua_array(
+                sample.get("branch_events", [])
+            )
     trace["samples"] = samples
     for key in ("final_pool",):
         pool = trace.get(key)
@@ -625,6 +631,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-property-helper", type=lambda value: int(value, 0),
                         choices=(0x5C27, 0x5CC3),
                         help="limit --player-property-focus to helper 0x5c27 or 0x5cc3")
+    parser.add_argument("--player-branch-focus", action="store_true",
+                        help="trace the 01F7:3D02 descriptor branch masks and return path")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
     parser.add_argument("--player-input-frames", type=int, default=0,
@@ -684,6 +692,9 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-map-focus and --player-collision-focus are mutually exclusive")
     if args.player_property_focus and (args.player_map_focus or args.player_collision_focus):
         raise TraceError("--player-property-focus cannot be combined with another player focus mode")
+    if args.player_branch_focus and (args.player_map_focus or args.player_collision_focus or
+                                    args.player_property_focus):
+        raise TraceError("--player-branch-focus cannot be combined with another player focus mode")
     if args.player_property_helper is not None and not args.player_property_focus:
         raise TraceError("--player-property-helper requires --player-property-focus")
     if not 0 <= args.player_callback_offset <= 0xffff:
@@ -806,6 +817,7 @@ def main(argv: list[str] | None = None) -> int:
                 collision_focus=args.player_collision_focus,
                 property_focus=args.player_property_focus,
                 property_helper_offset=args.player_property_helper,
+                branch_focus=args.player_branch_focus,
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,

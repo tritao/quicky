@@ -118,6 +118,44 @@ velocity and `DX & 0x40` for the final eight-pixel alignment adjustment. Those
 bit consumers are confirmed, but their gameplay names remain provisional
 until the corresponding floor, ceiling, and side boundary cases are traced.
 
+The new `--player-branch-focus` probe watches `3D02` entry, the three
+`DX & 0x30` tests (`3D1E`, `3D36`, `3D40`), the `DX & 0x20` test (`3D45`),
+the `DX & 0x40` test (`3DD0`), and both return sites. W1L1 runtime results
+are consistent across repeated samples:
+
+* Neutral, left-wall (`x=72`), and jump samples follow
+  `3D02 -> 3D1E -> 3D36 -> 3D40 -> 3D44`, with `DX=0x000C` on the first
+  query and all three masks clear.
+* The right transition at `(1163,338)` follows
+  `3D02 -> 3D1E -> 3D45 -> 3DD0 -> 3DF1`, with `DX=0x0050`, so
+  `DX&0x30=0x10`, `DX&0x20=0`, and `DX&0x40=0x40`; the object returns with
+  `AL=1` and `object+0x3A=1` before the later checkpoint reset.
+
+This proves the right-side reset path is the descriptor-flag branch, while
+the stable left wall is handled by a different collision path. The observed
+`AL` at the `3D44` early return is caller-state residue and is not treated as
+a boolean result. Descriptor-bit gameplay names remain provisional until a
+controlled case exercises `DX&0x20`.
+
+The callback-focused tracer now records each helper's far-return address, so
+runtime observations can be tied to static call sites: `0x3A3E/0x3A50` are
+the two `3A1F` probes, `0x3E10/0x3E22` the `3DF2` probes, `0x3D1E/0x3D36`
+the `3D02` descriptor reads, and `0x41FC/0x420E` the vertical-path probes.
+The call sites use a zero result from `5C27` to enter their correction path;
+when the selected low-nibble bit is set, the branch skips that correction.
+
+Boundary traces provide these correlations without over-naming them:
+
+* At the stable left wall (`x=72`), both `3A1F` probes at `x=67,y=400`
+  read tile `139` with descriptor `0`, producing zero results.
+* Near `x=1165,y=338`, the two `3A1F` probes read descriptor `0x000f`
+  (selected bit set) and descriptor `0` (selected bit clear), showing the
+  directional low-nibble behavior in one movement update.
+* On jump descent, the `41F7/420E` probes read tile `42`, descriptor
+  `0xe803`/low nibble `3`, on one side and tile `190`, descriptor `0`, on the
+  other as the player returns toward the ground. The exact floor-versus-
+  ceiling name remains open.
+
 The reproducible W1L1 property matrix now covers neutral, left, right, and
 upward input. The independent `5CC3` rows show `(128,400)` reading raw cell
 `0x08B8`/tile `0x0B8` with descriptor `0x0000`; the stable left wall at

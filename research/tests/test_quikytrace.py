@@ -195,6 +195,7 @@ class QuikyTraceTests(unittest.TestCase):
                         "pool": {"objects": {}, "kind_0x64": {}},
                         "scheduler": {"entries": {"1": {"index": 0}}},
                         "map_properties": {"1": {"helper_offset": 0x5C27}},
+                        "branch_events": {"1": {"offset": 0x3D1E}},
                     }},
                     "final_pool": {"objects": {}, "kind_0x64": {}},
                 }}}
@@ -221,6 +222,7 @@ class QuikyTraceTests(unittest.TestCase):
             "pool": {"objects": [], "kind_0x64": []},
             "scheduler": {"entries": [{"index": 0}]},
             "map_properties": [{"helper_offset": 0x5C27}],
+            "branch_events": [{"offset": 0x3D1E}],
         }])
         self.assertNotIn("related_breakpoints", normalized["samples"][0])
         self.assertIn("TRACE_CONFIG = ", api.loaded_source)
@@ -237,6 +239,13 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["property_focus"])
         self.assertEqual(payload["property_helper_offset"], 0x5C27)
+
+    def test_player_branch_focus_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, branch_focus=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["branch_focus"])
 
 
 if __name__ == "__main__":
