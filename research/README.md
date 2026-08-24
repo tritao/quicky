@@ -864,8 +864,10 @@ capture removes the large white cloud. This object deliberately leaves
 path; the rendered cloud matches the four 32x16 records in `WOLKE.BOB`, slots
 413-416. A controlled callback probe confirms the player-state gate for
 `DS:89E6=FFFF` (`DS:89EA=0`, persistent player byte `+0x37=0`) while the
-cloud remains active. The standard `01F7:3529` renderer returns on `FFFF`, so
-the remaining question is only the outer consumer of this special WOLKE state.
+cloud remains active. The standard `01F7:3529` renderer returns on `FFFF`.
+One-shot native reader probes hit both player-side consumers `01F7:4087` and
+`01F7:4406` with `DS:89E6=FFFF`; the remaining question is the outer draw
+binding for this special WOLKE state.
 The sheet is [`notes/type-28-wolke-sheet.png`](notes/type-28-wolke-sheet.png).
 
 Types `0x29` and `0x2A` use the same `01F7:4727` leaf callback as confirmed
@@ -875,7 +877,9 @@ target-to-inert experiments at a common streamed anchor reached the expected
 leaf slots for both types and removed their target contribution. They are
 cataloged as `falling_leaves_variant_29` and `falling_leaves_variant_2a`; the
 three types are behaviorally grouped because the executable dispatch callback
-does not distinguish them after lookup.
+does not distinguish them after lookup. The extended 256-callback pool trace
+resolves the W1L1 spawn/recycle cadence; archive coverage contains no authored
+W2-W5 leaf declarations, so there is no cross-world cadence to compare.
 
 The next resolved normal families are cataloged with explicit confidence:
 

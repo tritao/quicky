@@ -4,7 +4,7 @@
   "inputs": {
     "segment": "QUIKY_SEG03.bin",
     "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
-    "trace_script_sha256": "3a7ebdb122e7139c50a6a4a7e47351fc02d2da9241c7001842ed75b16100581a",
+    "trace_script_sha256": "644df8702a72cefa9bfad694268fcb33e208d7d4c8d9171530c76c7b4fa18af8",
     "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
     "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85"
   },
@@ -31,9 +31,26 @@
       {"sequence":2,"object_position":[504,392],"helpers":["01F7:A075","01F7:A0B2"],"object_fields":{"+0x52":"20 -> 19","+0x58":"0 -> 20","+0x5A":"0xFF -> 0"},"interpretation":"The carry latch enters its 0x14-tick phase while the callback remains active."}
     ]
   },
+  "approach_polarity_probe": {
+    "accepted": {
+      "trace": "research/build/entity-platform-native-accepted-v2.json",
+      "offsets": {"x": -8, "y": -8},
+      "object_position": [504, 392],
+      "latch": "DS:5006 0 -> 0xFFFF",
+      "carry_helpers": ["01F7:A075", "01F7:A0B2"]
+    },
+    "rejected_horizontal": {
+      "trace": "research/build/entity-platform-native-rejected-x40-v2.json",
+      "offsets": {"x": 40, "y": -8},
+      "object_position": [552, 392],
+      "latch": "DS:5006 remains 0",
+      "carry_helpers": ["01F7:A075", "01F7:A0B2"]
+    },
+    "interpretation": "Holding the vertical band constant while moving the platform 40 pixels to the right changes the native result from accepted carry publication to no latch. This directly demonstrates strict horizontal approach polarity in the live callback."
+  },
   "conclusions": [
     "The original platform callback performs a strict horizontal overlap plus a 12-pixel vertical band test; it is not an inert sprite-only path.",
     "An accepted overlap publishes platform-to-player fixed-point carry offsets consumed by the native player update, and starts the platform carry latch.",
-    "The decoded callback has MAP-driven stop/reversal and wait phases, not a separate per-platform terminal table. Exact player-state preconditions for approaches outside the accepted band remain a narrower follow-up."
+    "The decoded callback has MAP-driven stop/reversal and wait phases, not a separate per-platform terminal table. The accepted/rejected pair now directly resolves horizontal approach polarity while preserving the same vertical offset."
   ]
 }

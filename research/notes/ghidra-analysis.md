@@ -431,8 +431,10 @@ The standard renderer at `01F7:3529` returns immediately when
 `object+0x12 == 0xFFFF`. A controlled W1L1 probe with `DS:89EA=0`, a
 synthetic 16x16 bounds rectangle, and player byte `+0x37=0` reaches the
 accepted `01F7:9269` branch and records `DS:89E6: 0 -> FFFF` while the cloud
-callback remains active. The player-state gate is therefore resolved; only
-the outer consumer of the special WOLKE state remains to be located.
+callback remains active. One-shot reader probes then hit both player-side
+consumers `01F7:4087` and `01F7:4406` with `DS:89E6=FFFF`; the player-state
+consumer path is therefore resolved, while the outer draw binding remains to
+be located.
 
 Types `0x29` and `0x2A` use the same normal dispatch callback as `0x2B`:
 `01F7:4727`, object class `1`, reserved byte `0`.

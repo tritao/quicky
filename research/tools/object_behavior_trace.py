@@ -48,6 +48,8 @@ class ObjectBehaviorConfig:
     force_active_player_bounds: bool = False
     force_bump_player_state: bool = False
     force_cloud_player_state: bool = False
+    trace_cloud_consumers: bool = False
+    cloud_consumer_offset: int = 0
     force_contact_gate: bool = False
     align_x_offset: int = 0
     align_y_offset: int = 0
@@ -83,6 +85,8 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "force_active_player_bounds": config.force_active_player_bounds,
         "force_bump_player_state": config.force_bump_player_state,
         "force_cloud_player_state": config.force_cloud_player_state,
+        "trace_cloud_consumers": config.trace_cloud_consumers,
+        "cloud_consumer_offset": config.cloud_consumer_offset,
         "force_contact_gate": config.force_contact_gate,
         "align_x_offset": config.align_x_offset,
         "align_y_offset": config.align_y_offset,
@@ -139,6 +143,16 @@ def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
                 sample.get("changed_bytes", [])
             )
     trace["samples"] = samples
+    cloud_probe = trace.get("cloud_consumer_probe")
+    if isinstance(cloud_probe, dict):
+        cloud_probe["reader_offsets"] = ordered_lua_array(
+            cloud_probe.get("reader_offsets", [])
+        )
+        cloud_samples = ordered_lua_array(cloud_probe.get("samples", []))
+        for sample in cloud_samples:
+            if isinstance(sample, dict):
+                sample["hits"] = ordered_lua_array(sample.get("hits", []))
+        cloud_probe["samples"] = cloud_samples
     return trace
 
 
@@ -235,6 +249,14 @@ def build_parser() -> argparse.ArgumentParser:
         help="debugger-only: point the cloud bounds gate at its object and enable the DS:89E6 write",
     )
     parser.add_argument(
+        "--trace-cloud-consumers", action="store_true",
+        help="trace player-side readers of the cloud DS:89E6 state",
+    )
+    parser.add_argument(
+        "--cloud-consumer-offset", type=lambda value: int(value, 0), default=0,
+        help="one player-side DS:89E6 reader to capture (0x4087 or 0x4406)",
+    )
+    parser.add_argument(
         "--force-contact-gate", action="store_true",
         help="debugger-only: enable the normal-enemy player-range gate and align its shared integer player coordinates",
     )
@@ -307,6 +329,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--force-tile-mask must be between 0 and 65535")
     if args.puzzle_probe_frames < 0:
         raise TraceError("--puzzle-probe-frames must be non-negative")
+    if args.trace_cloud_consumers and args.cloud_consumer_offset not in (0x4087, 0x4406):
+        raise TraceError("--cloud-consumer-offset must be 0x4087 or 0x4406")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
     for name in ("camera_x", "camera_y"):
@@ -384,6 +408,8 @@ def main(argv: list[str] | None = None) -> int:
         force_active_player_bounds=args.force_active_player_bounds,
         force_bump_player_state=args.force_bump_player_state,
         force_cloud_player_state=args.force_cloud_player_state,
+        trace_cloud_consumers=args.trace_cloud_consumers,
+        cloud_consumer_offset=args.cloud_consumer_offset,
         force_contact_gate=args.force_contact_gate,
         align_x_offset=args.align_x_offset,
         align_y_offset=args.align_y_offset,

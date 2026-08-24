@@ -223,8 +223,9 @@ the cursor advances through slots 700-704, while the alternate table emits slot
 703. Static factory `01F7:0E06` scans 64 entries from `DS:755E` at stride
 `DS:30CE` and selects the first entry whose `object+0x18` callback is zero.
 This resolves the exact free predicate as well as direct pooled reuse and
-animation rollover. Spawn cadence across authored levels remains open. The
-child callback has no persistent player/entity collision branch; BLATT geometry
+animation rollover. The archive contains leaf declarations only in W1L1, so
+the cadence claim is explicitly W1L1-scoped rather than an unobserved
+cross-world comparison. The child callback has no persistent player/entity collision branch; BLATT geometry
 is render-only, so collision is not applicable to this family. See
 [`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json) and
 [`entity-leaf-state-evidence.json`](../entity-leaf-state-evidence.json).
@@ -233,8 +234,8 @@ The remaining effect-family uncertainty is no longer object identity: all of
 these callbacks and resource bindings are now bounded below. The open parts
 are exact gameplay names for global effects, collision response details, and
 level persistence/respawn semantics. The native platform pass now confirms the
-accepted carry band and its player-offset consumers; only the player-state
-precondition for approaches outside that band remains open.
+accepted carry band and its player-offset consumers; a paired native W4L1
+probe also resolves horizontal approach polarity at fixed vertical offset.
 
 The shared effect/collectible callbacks are now statically bounded as well.
 Cloud `0x28` initializes callback `9269`, leaves the logical slot at `FFFF`,
@@ -253,7 +254,7 @@ now reconstructs the same declaration and reinstalls callback `01F7:8D20`, so
 pickup reload persistence is resolved as reset/reconstruction behavior in the
 tested fixture. A final-letter W1L1 probe then forced `DS:60D8=0x3F`, collected
 type `0x7F`, reached `DS:60D8=0x7F`, emitted action `11`, and cleared the letter;
-after 120 gameplay frames the mask and W1L1 resource span were unchanged and
+after 1,800 gameplay frames the mask and W1L1 resource span were unchanged and
 no level transition occurred. Direct segment scanning finds `01F7:5940` as the
 presentation/update consumer of changed `DS:60D8` bits, with no direct all-seven
 bits comparator or transition call. The authored completion trigger remains
@@ -335,8 +336,10 @@ and changes object `+0x59/+0x5A` into its carry phase; player callbacks
 Static `9DC7` control flow contains no separate authored terminal table:
 `+0x52/+0x54` are wait counters and `9F35/9F4A`, `A03D/A051` reverse only
 after MAP tests. Off-camera `A06F -> 1DEE` resets the ARE record claim for
-re-stream respawn. The remaining platform question is the player-state
-precondition for approaches outside the accepted carry band.
+re-stream respawn. The accepted/rejected native pair keeps the vertical offset
+constant and moves the platform from x=-8 to x=+40 relative to the player:
+`DS:5006` changes from `0 -> FFFF` to remaining `0`, directly resolving the
+horizontal approach polarity.
 
 BUMP `0x34` is now bounded across all requested dimensions. Its callback uses
 the open player gate `object_x-25 < player_x < object_x+25` and
@@ -374,8 +377,9 @@ matches the special renderer rather than a missing sprite. Native callback
 rectangle, and confirms `DS:89E6: 0 -> FFFF` while callback `9269` remains
 active and stationary; the static `+0x37 == 0` test is therefore resolved. The
 standard renderer `01F7:3529` returns immediately for logical slot `FFFF`, and
-`9269` has no direct draw/resource call, so only the outer consumer of the
-special WOLKE state remains open. See
+`9269` has no direct draw/resource call. One-shot native probes hit both
+player-side readers `01F7:4087` and `01F7:4406` with `DS:89E6=FFFF`; only the
+outer draw binding of the special WOLKE state remains open. See
 [`entity-cloud-crossworld-evidence.json`](../entity-cloud-crossworld-evidence.json).
 
 ## Reproducible next experiments
@@ -455,7 +459,7 @@ python3 research/tools/object_behavior_trace.py --launch --headless \
   --select-level W1L1 --sprite-init-offset 0x8d13 \
   --align-object-to-player --align-y-offset -32 --force-active-player-bounds \
   --trace-overlap --force-tile-mask 0x3f --trace-puzzle-completion \
-  --puzzle-probe-frames 120 --output research/build/entity-7f-puzzle-completion.json
+  --puzzle-probe-frames 1800 --output research/build/entity-7f-puzzle-completion-1800.json
 ```
 
 This reaches `0x7F`, action `11`, and callback clear, but remains in gameplay
@@ -475,17 +479,13 @@ collectible overlap and pickup reload, pooled-leaf reuse, normal-enemy helper,
 and platform-carry boundaries. Remaining experiments are deliberately narrower:
 
 1. Authored puzzle-letter level completion/transition remains open. The final
-   bit reaches `DS:60D8=0x7F` without a transition in the controlled run, and
-   the direct mask consumer is presentation bookkeeping rather than a completion
-   comparator; the remaining target is the level-specific trigger, if any.
-2. If platform approach polarity is required, capture player-state variants
-   just outside the accepted A075 band; native integration, carry offsets, MAP
-   stop, and the absence of a platform-specific terminal table are confirmed.
-3. If renderer provenance is required, identify the outer draw consumer of the
+   bit reaches `DS:60D8=0x7F` without a transition in the 1,800-frame controlled
+   run, and the direct mask consumer is presentation bookkeeping rather than a
+   completion comparator; the remaining target is the level-specific trigger,
+   if any.
+2. If renderer provenance is required, identify the outer draw consumer of the
    special WOLKE state. The player-state gate, cross-world usage, and removal
-   path are now confirmed.
-4. If leaf timing across authored content is required, compare spawn cadence in
-   additional levels; the fixed-pool free predicate is resolved at `01F7:0E06`.
+   path plus both player-side readers are now confirmed.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a

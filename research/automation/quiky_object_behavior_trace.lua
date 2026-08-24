@@ -21,6 +21,9 @@ local trace_contact = trace_config.trace_contact or false
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
 local force_bump_player_state = trace_config.force_bump_player_state or false
 local force_cloud_player_state = trace_config.force_cloud_player_state or false
+local trace_cloud_consumers = trace_config.trace_cloud_consumers or false
+local cloud_probe_frames = trace_config.cloud_probe_frames or 8
+local cloud_consumer_offset = trace_config.cloud_consumer_offset or 0
 local force_contact_gate = trace_config.force_contact_gate or false
 local align_x_offset = trace_config.align_x_offset or 0
 local align_y_offset = trace_config.align_y_offset or 0
@@ -767,6 +770,28 @@ if reload_after_collect then
         end
     end
 end
+local cloud_consumer_probe = nil
+if trace_cloud_consumers and expected_type == 0x28 then
+    -- 4087 and 4406 are the player-side readers of DS:89E6.  Capture one
+    -- reader from the paused post-callback state.  A one-shot capture avoids
+    -- perturbing the scheduler with nested player-callback breakpoints.
+    assert(cloud_consumer_offset == 0x4087 or cloud_consumer_offset == 0x4406,
+           "cloud consumer offset must be 0x4087 or 0x4406")
+    cloud_consumer_probe = {
+        frames = 1,
+        reader_offsets = {string.format("01F7:%04X", cloud_consumer_offset)},
+        samples = {},
+    }
+    dosbox.breakpoint_set(0x01f7, cloud_consumer_offset, {once = true})
+    dosbox.debug_continue()
+    local hit = wait_hit("cloud consumer reader")
+    cloud_consumer_probe.samples[1] = {
+        sequence = 1,
+        hit = {segment = hit.segment, offset = hit.offset,
+               registers = hit.registers},
+        cloud_global_89e6 = dosbox.mem_read_word("ds", 0x89e6),
+    }
+end
 dosbox.output.behavior_trace = {
     trace_schema_version = 1,
     trace_kind = "object-behavior",
@@ -789,6 +814,7 @@ dosbox.output.behavior_trace = {
     initializer_breakpoint = initializer_breakpoint,
     camera_override = {x = camera_x, y = camera_y},
     puzzle_completion_probe = puzzle_completion_probe,
+    cloud_consumer_probe = cloud_consumer_probe,
     reload_probe = reload_probe,
     samples = samples,
 }

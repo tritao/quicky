@@ -74,6 +74,8 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             force_active_player_bounds=True,
             force_bump_player_state=True,
             force_cloud_player_state=True,
+            trace_cloud_consumers=True,
+            cloud_consumer_offset=0x4087,
             align_object_to_player=True,
             align_y_offset=-32,
             force_platform_ready=True,
@@ -89,6 +91,8 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertTrue(payload["force_active_player_bounds"])
         self.assertTrue(payload["force_bump_player_state"])
         self.assertTrue(payload["force_cloud_player_state"])
+        self.assertTrue(payload["trace_cloud_consumers"])
+        self.assertEqual(payload["cloud_consumer_offset"], 0x4087)
         self.assertEqual(payload["align_y_offset"], -32)
         self.assertTrue(payload["force_platform_ready"])
         self.assertTrue(payload["trace_bump"])
@@ -147,6 +151,14 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
                   "quiky_object_behavior_trace.lua").read_text()
         self.assertIn("force_cloud_player_state", source)
         self.assertIn("apply_cloud_player_state", source)
+
+    def test_cloud_consumer_probe_has_reader_barrier(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("cloud_consumer_probe", source)
+        self.assertIn("0x4087", source)
+        self.assertIn("0x4406", source)
+        self.assertIn("cloud_consumer_offset", source)
 
 
 if __name__ == "__main__":

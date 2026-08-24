@@ -15,7 +15,7 @@
   },
   "inputs": {
     "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
-    "trace_script_sha256": "1991db566018cf6fab24dc81519b5fc01584dde2b148c03e7b52a3383b64d3a4"
+    "trace_script_sha256": "644df8702a72cefa9bfad694268fcb33e208d7d4c8d9171530c76c7b4fa18af8"
   },
   "are_usage": {
     "W1": ["W1L1", "W1L2", "W1L4"],
@@ -41,6 +41,22 @@
       {"callback": "01F7:9269", "next_callback": "01F7:9269", "bounds_object_offset": 120, "player_state_byte": 0, "cloud_global_before": 0, "cloud_global_after": 65535, "callback_active": true}
     ],
     "conclusion": "The native 9269 branch writes DS:89E6=FFFF only when the persistent bounds gate is active and player object byte +0x37 is zero; the controlled positive probe keeps the cloud stationary and callback active."
+  },
+  "player_reader_probe": {
+    "controls": "same W1L1 synthetic cloud state; one-shot breakpoint after the 9269 callback",
+    "reader_4087": {
+      "trace": "research/build/entity-28-cloud-consumer-4087.json",
+      "offset": "01F7:4087",
+      "cloud_global_89e6_at_hit": 65535,
+      "samples": 1
+    },
+    "reader_4406": {
+      "trace": "research/build/entity-28-cloud-consumer-4406.json",
+      "offset": "01F7:4406",
+      "cloud_global_89e6_at_hit": 65535,
+      "samples": 1
+    },
+    "conclusion": "Both player-side DS:89E6 readers execute in the positive synthetic state, so the cloud flag is consumed by the player callback path rather than being write-only."
   },
   "renderer_static_scan": {
     "standard_renderer": "01F7:3529 returns immediately when object+0x12 == 0xFFFF, so the cloud does not use the normal DS:6D8E logical-slot path.",
