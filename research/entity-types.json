@@ -459,8 +459,8 @@
         "sprite_slot": 65535,
         "state_field": "object+0x2E = 3; update callback object+0x32 = 0",
         "trace_ledger": "research/build/traces/entity-21-post.json",
-        "experiment": "target_type_33_vs_inert_type_0",
-        "experiment_manifest": "research/build/entity-33-evidence/experiment.json",
+        "experiment": "target_type_21_vs_inert_type_0",
+        "experiment_manifest": "research/build/entity-21-evidence/experiment.json",
         "note": "The generic initializer leaves the standard sprite slot unset. No BOB asset is assigned until the object state machine at 01F7:8E4B is understood."
       }
     },
