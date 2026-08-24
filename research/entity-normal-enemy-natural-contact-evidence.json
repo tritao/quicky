@@ -1,0 +1,27 @@
+{
+  "schema": "entity-normal-enemy-natural-contact-evidence-v1",
+  "purpose": "Natural-player-position overlap probe for a normal WURM2 enemy.",
+  "fixture": {
+    "level": "W1L1.ARE",
+    "record_offset": 6010,
+    "entity_type": "0x01",
+    "dispatch": "01F7:6DA3",
+    "post_initializer": "01F7:6DB0",
+    "object_callback": "01F7:6DC4",
+    "runtime": "/home/joao/dev/quicky/research/build/entity-01-real-w1l1/baseline/game"
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "6f88546406d5c470dcaf8a133613b1d847dda5159933e4bb6ead5f841f3efaa2",
+    "trace_script_sha256": "8369134fbe6cc99c36576fec02a3fd0333c16a234bb3e659b8b9dd0ce55dc57b"
+  },
+  "controls": {"align_object_to_player": true, "force_active_player_bounds": false, "callback_samples": 1},
+  "sample": {
+    "object_position_before": [128, 400],
+    "object_position_after": [126, 400],
+    "helper_hits": ["01F7:1DCA", "01F7:1B77", "01F7:1C4D", "01F7:1C6E"],
+    "changed_fields": {"object+0x2F": {"before": 0, "after": 1}, "object+0x20": {"before": 14, "after": 13}},
+    "callback_after": "01F7:6DC4"
+  },
+  "conclusion": "The original callback reaches visibility, player-bounds, and both MAP helpers at the natural player position and takes one movement step. No action/global damage flag changed, so this is helper/contact evidence, not proof of gameplay death or damage semantics."
+}

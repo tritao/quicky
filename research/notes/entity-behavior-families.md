@@ -156,6 +156,13 @@ MAP/bounds-block result and first movement step; it does not identify the
 unmodified player damage rectangle or the gameplay death path. The normalized
 ledger is [`entity-normal-enemy-collision-evidence.json`](../entity-normal-enemy-collision-evidence.json).
 
+A native W1L1 run with the object aligned to the live player, without forcing
+the player bounds, reaches the same `1DCA`, `1B77`, `1C4D`, and `1C6E` helpers;
+the enemy moves one step (`x=128->126`) and sets `+0x2F` from 0 to 1. No
+player action/global damage flag changes. This is the strongest unmodified
+contact probe currently available, and it still deliberately stops short of a
+player-death claim; see [`entity-normal-enemy-natural-contact-evidence.json`](../entity-normal-enemy-natural-contact-evidence.json).
+
 The same type-`0x01` callback also has a live removal ledger: holding the
 camera at `(0,0)` places the object at `(880,416)` outside the visibility
 rectangle, and the first callback clears `object+0x18` (`6DC4 -> 0000`). This
