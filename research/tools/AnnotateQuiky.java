@@ -90,6 +90,10 @@ public class AnnotateQuiky extends GhidraScript {
             "Authored NESQUIK bonus presentation and score/state updates.");
         function(0x1704, "puzzle_completion_presentation_return",
             "Return from the authored puzzle-completion presentation.");
+        function(0x1084, "gameplay_state_update_candidate",
+            "Candidate gameplay-state routine; writes the paper/effect counter during level-state setup.");
+        function(0x14e1, "completion_effect_consumer_candidate",
+            "Candidate completion/effect consumer reading DS:880C and DS:881C.");
     }
 
     private void annotateSegment2() throws Exception {
@@ -202,6 +206,14 @@ public class AnnotateQuiky extends GhidraScript {
             "Reads the persistent offset-zero player record while comparing another object position; higher-level role remains provisional.");
         function(0x44dc, "player_control_transition_44dc",
             "Decrements DS:89EA and handles the transitional vertical-motion control path.");
+        function(0x44ff, "effect_table_reset",
+            "Clears the shared DS:87DE coordinate table, sets capacity DS:8808=4, and resets active flag DS:8806.");
+        function(0x4519, "effect_table_spawn_entry",
+            "Allocates a shared DS:87DE coordinate entry and installs the transient effect callback at 01F7:45AB.");
+        function(0x45ab, "effect_table_entry_update",
+            "Updates one shared DS:87DE coordinate entry and removes it through 01F7:470C when off camera or expired.");
+        function(0x470c, "effect_table_remove_entry",
+            "Clears one shared DS:87DE coordinate entry, decrements DS:8806, and deactivates its pooled object.");
         function(0x0e06, "are_object_factory",
             "Scans the 64-entry pooled-object array and initializes a free object; the normal ARE path returns ES:DI and type 0x2B is initialized by the caller.");
         function(0x1749, "create_dedicated_are_effect",
@@ -273,6 +285,10 @@ public class AnnotateQuiky extends GhidraScript {
             "Dedicated event type 0x67 wrapper.");
         function(0x0013, "special_render_entry_candidate",
             "Candidate segment-3 special render entry outside the normal logical-slot path.");
+        function(0x5936, "paper_counter_hud_consumer_candidate",
+            "Candidate HUD/update routine that reads DS:880A to select a displayed value.");
+        function(0x5bee, "paper_counter_hud_reset_candidate",
+            "Candidate HUD reset tail following the DS:880A display update.");
         function(0x3376, "map_tile_id_lookup_16px",
             "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E and returns only the low 9-bit tile ID.");
         function(0x5c27, "map_tile_descriptor_query_5c27",

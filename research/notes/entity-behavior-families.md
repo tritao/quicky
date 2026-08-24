@@ -323,16 +323,25 @@ resource evidence still establish slots 413-416.
 The same pass closes the branch-level behavior for the remaining effects:
 
 - Wind `87D1 -> 882F` seeds `-0xB000` velocity and traverses states 0-3;
-  it clears matching `DS:8806` entries and removes off camera through the shared
-  `1DCA -> 1DEE` path.
+  it clears matching entries in the shared `DS:8806`/`DS:87DE` effect table
+  and removes off camera through the shared `1DCA -> 1DEE` path.
 - UFO effect `53F7 -> 546D` seeds `-0x15000` (negated for type `0x36`) and
-  traverses states 0-6; its directional `DS:8806` scan leads to `4AB3` on a
-  second match or sound action `DS:612E=0x0D`, then it clears off camera at
-  `58A0`.
+  traverses states 0-6; its directional scan of the same table leads to `4AB3`
+  on a second match or sound action `DS:612E=0x0D`, then it clears off camera
+  at `58A0`. The shared table lifecycle is now recovered: `44FF` resets the
+  table, `4519` allocates/spawns an entry, `45AB` updates one x/y row, and
+  `470C` removes it; `DS:8806` is the active-entry count, `DS:8808` the
+  capacity bound, and `DS:880C` the pending-effect count consumed by
+  `01D7:14E1`.
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
-  500 to `DS:881C`, emits `DS:612E=0x0C`, increments `DS:880A`, and clears the
-  live callback. The unresolved part is the counter's human-facing meaning and
-  authored reload persistence.
+  500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
+  while below 9), and clears the live callback. `01D7:1084` initializes the
+  counter from `DS:88B0+3`, while `01F7:5936` clamps and renders changed values
+  and `01F7:5BEE` resets its display cache. The remaining uncertainty is the
+  counter's human-facing label and authored reload persistence. A main-tree
+  W1L1 trace captured `8C4E -> 8D20` with `DS:880A=4`; the controlled fixture
+  did not enter the overlap effect branch, so the increment itself remains
+  supported by the existing W1L2 overlap ledger plus the static consumer pass.
 - Dedicated events `178D/1798/17A3 -> 1749` seed subtype bytes `0x00/0x08/0x10`;
   child callback `10B5` decrements its lifetime and clears at zero, while
   `1186 -> 11B4` renders world-specific ICO data without collision.
@@ -422,6 +431,12 @@ controlled run hits the outer main-loop consumer `01D7:4EA0` repeatedly with
 that flag set. The exact low-level WOLKE.BOB pixel primitive is still outside
 the normal logical-slot queue. See
 [`entity-cloud-crossworld-evidence.json`](../entity-cloud-crossworld-evidence.json).
+
+Raw-segment relocation scanning narrows that renderer gap: the only direct
+reference to `01F7:0013` is the ordinary queue call at `01F7:35B3`, returning to
+`35B8`. No additional WOLKE-specific caller of the generic blitter was found;
+the remaining branch must either select a WOLKE descriptor through another
+entry or render through the outer cloud consumer without calling `0013`.
 
 ## Reproducible next experiments
 
@@ -526,9 +541,9 @@ and platform-carry boundaries. Remaining experiments are deliberately narrower:
    caller or direct record selection after the outer `01D7:4EA0` state consumer.
    The generic `0013` VGA/BOB primitive, ordinary queue path, player-state gate,
    cross-world usage, removal path, and both player-side readers are confirmed.
-3. If effect semantics are required beyond control flow, correlate the
-   `DS:8806` table entries and authored reset paths for Wind/UFO, then name the
-   paper `DS:880A` counter from the surrounding gameplay consumers.
+3. If effect semantics are required beyond control flow, correlate authored
+   producers/reset paths for the now-decoded `DS:8806` table, and assign the
+   paper `DS:880A` bounded HUD counter its human-facing label.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a

@@ -56,7 +56,18 @@
         "interpretation": "The controlled probe repeatedly observed the ordinary queue draw, not a WOLKE slot 413-416 call."
       }
     },
-    "conclusion": "The generic VGA/BOB blitter and ordinary queue are now statically identified. The WOLKE-specific caller or direct record selection remains unresolved; slots 413-416 are still confirmed only by archive and cross-world resource evidence."
+    "conclusion": "The generic VGA/BOB blitter and ordinary queue are now statically identified. Raw-segment relocation scanning finds only the ordinary queue caller for 01F7:0013 (01F7:35B3 -> return 35B8); the WOLKE-specific caller or direct record selection remains unresolved. Slots 413-416 are still confirmed only by archive and cross-world resource evidence."
+  },
+  "effect_table": {
+    "reset": "01F7:44FF",
+    "spawn": "01F7:4519",
+    "update": "01F7:45AB",
+    "remove": "01F7:470C",
+    "active_count": "DS:8806",
+    "capacity": "DS:8808",
+    "coordinate_table": "DS:87DE, shared x/y entry storage",
+    "pending_effect_counter": "DS:880C is decremented by the spawn path and consumed by 01D7:14E1",
+    "interpretation": "Shared transient effect/contact table. Wind, UFO, and normal-effect callbacks scan the table for matching x/y entries and clear rows through the remove path; the reset path clears the table storage and restores the active-count state."
   },
   "wind": {
     "initializer": "01F7:87D1",
@@ -67,9 +78,9 @@
       "2": "short vertical phase with a 0x2E-tick timer",
       "3": "return phase that clamps velocity and returns to state 0"
     },
-    "interaction": "The callback scans the DS:8806 effect table with a 10-pixel x and 35-pixel y band and clears a matching table entry; it emits no DS:612E sound action directly.",
+    "interaction": "The shared DS:8806/DS:87DE effect table is scanned with a 10-pixel x and 35-pixel y band and clears a matching table entry; it emits no DS:612E sound action directly.",
     "removal": "The shared visibility gate clears object+0x18 off camera.",
-    "remaining": ["semantic meaning of DS:8806 entries", "authored reset/respawn behavior"]
+    "remaining": ["authored producers and reset/respawn behavior outside the shared table lifecycle"]
   },
   "ufo_effect": {
     "common_setup": "01F7:53F7",
@@ -81,15 +92,21 @@
       "3-4": "return/acceleration phases with fixed timers",
       "5-6": "exit phase; camera rejection clears object+0x18 at 01F7:58A0"
     },
-    "interaction": "The DS:8806 effect table is scanned with a directional 0x23-0x28 x band and a 0x19..0x05 y band. A second matching entry selects callback 01F7:4AB3; otherwise the callback emits sound action DS:612E=0x0D.",
-    "remaining": ["semantic meaning of DS:8806 entries", "authored reset/respawn behavior outside the callback"]
+    "interaction": "The shared DS:8806/DS:87DE effect table is scanned with a directional 0x23-0x28 x band and a 0x19..0x05 y band. A second matching entry selects callback 01F7:4AB3; otherwise the callback emits sound action DS:612E=0x0D.",
+    "remaining": ["authored producers and reset/respawn behavior outside the shared table lifecycle"]
   },
   "paper": {
     "initializer": "01F7:8C4E",
     "callback": "01F7:8D20",
     "subtype": 5,
-    "interaction": "The shared overlap branch adds 500 to DS:881C, emits sound action DS:612E=0x0C, increments DS:880A, and clears object+0x18.",
-    "remaining": ["human-facing meaning of the DS:880A paper counter", "respawn/persistence across authored reloads"]
+    "interaction": "The shared overlap branch adds 500 to DS:881C, emits sound action DS:612E=0x0C, increments the bounded DS:880A counter (capped at 9), and clears object+0x18. Static consumers show 01D7:1084 initializes it from DS:88B0+3 and 01F7:5936 renders changed values.",
+    "dynamic_validation": {
+      "trace": "research/build/entity-2c-paper-counter-camera.json",
+      "trace_sha256": "e3ced790d363f3ed36d25eb0d00d7807e5d5dc2e9d01fac1da5b7e7c771999de",
+      "fixture": "W1L1 main-tree entity-2c evidence fixture",
+      "observation": "The runtime captured initializer 01F7:8C4E followed by 01F7:8D20 with DS:880A=4 before and after; this controlled anchor did not enter the overlap-effect branch, so the increment is retained from the existing W1L2 overlap ledger and static branch decompile."
+    },
+    "remaining": ["human-facing label of the bounded DS:880A HUD counter", "respawn/persistence across authored reloads"]
   },
   "dedicated_events": {
     "wrappers": {"0x65": "01F7:178D -> subtype 0x00", "0x66": "01F7:1798 -> subtype 0x08", "0x67": "01F7:17A3 -> subtype 0x10"},
