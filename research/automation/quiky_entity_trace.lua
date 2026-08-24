@@ -25,6 +25,8 @@ local movement_key = trace_config.movement_key or ""
 local movement_frames = trace_config.movement_frames or 0
 local return_key = trace_config.return_key or ""
 local return_frames = trace_config.return_frames or 0
+local movement_camera_x = trace_config.movement_camera_x or -1
+local movement_camera_y = trace_config.movement_camera_y or -1
 local runtime_offset = record_offset - 0x160
 local startup_camera_x = nil
 local startup_camera_y = nil
@@ -151,6 +153,65 @@ local function stop_for_capture()
     local current = dosbox.cpu_state()
     dosbox.breakpoint_set(current.cs, current.eip, {once = true})
     return wait_hit("capture barrier")
+end
+
+local function write_movement_camera_lock()
+    if movement_camera_x >= 0 then
+        dosbox.mem_write("ds", 0x81c0, little_word(movement_camera_x))
+    end
+    if movement_camera_y >= 0 then
+        dosbox.mem_write("ds", 0x81c4, little_word(movement_camera_y))
+    end
+end
+
+-- Advance from one scheduler frame boundary to the next while servicing the
+-- camera update sites.  A plain wait_frames() cannot do this: a debugger stop
+-- during that wait freezes the Lua coroutine, so the camera breakpoint would
+-- never be observed.  0E96 is the normal frame/scheduler boundary, 1ED7 is
+-- the camera-scroll routine, and 1DCA is the object visibility gate used by
+-- the object callback tracer.
+local function advance_locked_frames(count)
+    local boundary = nil
+    for _ = 1, count do
+        dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
+        dosbox.breakpoint_set(0x01f7, 0x1ed7, {once = true})
+        dosbox.breakpoint_set(0x01f7, 0x1dca, {once = true})
+        dosbox.debug_continue()
+        while true do
+            local hit = wait_hit("camera-locked frame advance")
+            if hit.segment == 0x01f7 and hit.offset == 0x1ed7 then
+                local stack = dosbox.mem_read(
+                    "ss", hit.registers.esp & 0xffff, 4) or ""
+                assert(#stack >= 2, "camera-scroll call has no near return")
+                local return_offset = word(stack, 1)
+                dosbox.breakpoint_set(hit.registers.cs, return_offset,
+                                      {once = true})
+                dosbox.debug_continue()
+                local returned = wait_hit("camera-scroll return")
+                assert(returned.offset == return_offset,
+                       "unexpected camera-scroll return breakpoint")
+                write_movement_camera_lock()
+                dosbox.breakpoint_set(0x01f7, 0x1ed7, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x1dca, {once = true})
+                dosbox.debug_continue()
+            elseif hit.segment == 0x01f7 and hit.offset == 0x1dca then
+                write_movement_camera_lock()
+                dosbox.breakpoint_set(0x01f7, 0x1dca, {once = true})
+                dosbox.debug_continue()
+            else
+                assert(hit.segment == 0x01f7 and hit.offset == 0x0e96,
+                       "unexpected camera-locked frame breakpoint")
+                -- 0E96 is the hand-off into the next object pass.  Reapply
+                -- here as well as after 1ED7/1DCA so the next pass observes
+                -- the requested camera even on frames where the normal
+                -- camera path is skipped or clamped by the level bounds.
+                write_movement_camera_lock()
+                boundary = hit
+                break
+            end
+        end
+    end
+    return boundary
 end
 
 -- Optional source-aware lifecycle ledger for movement experiments. Keep this
@@ -463,6 +524,8 @@ local function capture_timeline(entity, object_selector, object_offset, first_ca
                                 source_selector, source_offset)
     if capture_frame_count <= 1 then return end
     entity.frames = {}
+    local camera_lock_enabled = movement_camera_x >= 0 and movement_camera_y >= 0
+    if camera_lock_enabled then write_movement_camera_lock() end
     local input_elapsed = 0
     local movement_pressed = false
     local return_pressed = false
@@ -472,13 +535,26 @@ local function capture_timeline(entity, object_selector, object_offset, first_ca
         movement_pressed = true
     end
     for index = 0, capture_frame_count - 1 do
-        if index > 0 then dosbox.wait_frames(capture_frame_step) end
-        local capture = (index == 0 and first_capture) or stop_for_capture()
+        local capture = nil
+        if index == 0 then
+            capture = first_capture
+        else
+            if camera_lock_enabled then
+                capture = advance_locked_frames(capture_frame_step)
+            else
+                dosbox.wait_frames(capture_frame_step)
+                capture = stop_for_capture()
+            end
+        end
         -- A stopped Lua breakpoint can precede the renderer's present call on
         -- the inert branch. Advance one frame and stop again so the REST video
         -- endpoint sees a fully rendered surface for both variants.
         if capture_frame_count > 1 then
-            dosbox.wait_frames(1)
+            if camera_lock_enabled then
+                capture = advance_locked_frames(1)
+            else
+                dosbox.wait_frames(1)
+            end
             input_elapsed = input_elapsed + capture_frame_step + 1
             if movement_pressed and input_elapsed >= movement_frames then
                 dosbox.key(movement_key, false)
@@ -492,7 +568,7 @@ local function capture_timeline(entity, object_selector, object_offset, first_ca
                 dosbox.key(return_key, false)
                 return_pressed = false
             end
-            capture = stop_for_capture()
+            if not camera_lock_enabled then capture = stop_for_capture() end
         end
         local frame = {
             index = index,

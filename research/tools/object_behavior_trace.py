@@ -42,6 +42,7 @@ class ObjectBehaviorConfig:
     capture_pool: bool = True
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
+    movement_key: str = ""
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -59,6 +60,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "capture_pool": config.capture_pool,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
+        "movement_key": config.movement_key,
     }
 
 
@@ -203,6 +205,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
                         help="write this camera Y after a rejected object and trace its ARE reactivation")
+    parser.add_argument("--movement-key",
+                        help="hold a guest key while callback samples run")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -301,6 +305,7 @@ def main(argv: list[str] | None = None) -> int:
             capture_pool=args.capture_pool,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
+            movement_key=args.movement_key or "",
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {

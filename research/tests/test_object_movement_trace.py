@@ -15,6 +15,8 @@ class ObjectMovementTraceTests(unittest.TestCase):
         self.assertEqual(args.movement_frames, 240)
         self.assertEqual(args.return_key, "KBD_left")
         self.assertEqual(args.return_frames, 0)
+        self.assertIsNone(args.camera_lock_x)
+        self.assertIsNone(args.camera_lock_y)
         self.assertEqual(args.capture_frames, 32)
         self.assertEqual(args.frame_step, 5)
 
@@ -27,6 +29,8 @@ class ObjectMovementTraceTests(unittest.TestCase):
             "--movement-frames", "90",
             "--return-key", "KBD_right",
             "--return-frames", "120",
+            "--camera-lock-x", "0x1f4",
+            "--camera-lock-y", "0x64",
             "--capture-frames", "12",
             "--frame-step", "3",
         ])
@@ -36,6 +40,8 @@ class ObjectMovementTraceTests(unittest.TestCase):
         self.assertEqual(args.movement_frames, 90)
         self.assertEqual(args.return_key, "KBD_right")
         self.assertEqual(args.return_frames, 120)
+        self.assertEqual(args.camera_lock_x, 0x1f4)
+        self.assertEqual(args.camera_lock_y, 0x64)
         self.assertEqual(args.capture_frames, 12)
         self.assertEqual(args.frame_step, 3)
 

@@ -191,6 +191,22 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x17a3, "create_are_type_67", "Dedicated ARE type 0x67 wrapper.");
         function(0x4727, "update_falling_leaves_types_29_2b",
             "Dispatch-table callback shared by ARE types 0x29, 0x2A, and confirmed falling-leaves type 0x2B.");
+        function(0x8c4e, "init_are_type_2c",
+            "Observed initializer callback for ARE type 0x2C; runtime changes its slot to 0x8D20 after the first update.");
+        function(0x8d20, "update_are_type_2c",
+            "Observed steady callback for ARE type 0x2C; input-trace samples show stable state fields and a persistent object callback.");
+        function(0x8d31, "update_are_type_2c_action_helper",
+            "Type 0x2C callback helper: consumes bounds from 0x393C, branches on object+0x2C, and has a terminal callback-clear path at 0x8E42.");
+        function(0x87d1, "init_are_type_33",
+            "Observed initializer callback for ARE type 0x33; runtime changes its slot to 0x882F after the first update.");
+        function(0x882f, "update_are_type_33",
+            "Observed steady callback for ARE type 0x33; runtime state transitions during initialization settle to state 0x0100.");
+        function(0x9bee, "init_are_type_34",
+            "Observed initializer callback for ARE type 0x34; runtime changes its slot to 0x9C0C after the first update.");
+        function(0x9c0c, "update_are_type_34",
+            "Observed steady callback for ARE type 0x34; input-trace samples show stable state fields and a persistent object callback.");
+        function(0x9c29, "update_are_type_34_proximity_helper",
+            "Type 0x34 helper reached after visibility and MAP-state checks; compares the object position against a small active region.");
         function(0x9256, "update_are_type_28",
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
         function(0x3376, "map_tile_id_lookup_16px",

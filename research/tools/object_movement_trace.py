@@ -42,6 +42,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--return-key", default="KBD_left")
     parser.add_argument("--return-frames", type=int, default=0,
                         help="hold a return key after movement; zero disables the return traversal")
+    parser.add_argument("--camera-lock-x", type=lambda value: int(value, 0),
+                        help="keep the guest camera x fixed while advancing movement")
+    parser.add_argument("--camera-lock-y", type=lambda value: int(value, 0),
+                        help="keep the guest camera y fixed while advancing movement")
     parser.add_argument("--timeout", type=float, default=90.0)
     parser.add_argument("--poll-interval", type=float, default=0.05)
     parser.add_argument("--select-level")
@@ -103,6 +107,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--frame-step must be nonnegative and --movement-frames positive")
     if args.return_frames < 0:
         raise TraceError("--return-frames must be nonnegative")
+    if (args.camera_lock_x is None) != (args.camera_lock_y is None):
+        raise TraceError("--camera-lock-x and --camera-lock-y must be provided together")
+    for name in ("camera_lock_x", "camera_lock_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 0xffff")
     if args.select_level is not None and len(args.select_level) != 4:
         raise TraceError("--select-level must look like W4L1")
 
@@ -163,6 +173,8 @@ def main(argv: list[str] | None = None) -> int:
             movement_frames=args.movement_frames,
             return_key=args.return_key,
             return_frames=args.return_frames,
+            movement_camera_x=args.camera_lock_x,
+            movement_camera_y=args.camera_lock_y,
         )
         entity = run_trace(api, script_path, config)
         envelope = {
@@ -183,6 +195,8 @@ def main(argv: list[str] | None = None) -> int:
                 "movement_frames": args.movement_frames,
                 "return_key": args.return_key,
                 "return_frames": args.return_frames,
+                "camera_lock_x": config.movement_camera_x,
+                "camera_lock_y": config.movement_camera_y,
                 "select_level": config.select_level or "",
             },
             "events": [entity],

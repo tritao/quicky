@@ -181,6 +181,17 @@ class QuikyTraceTests(unittest.TestCase):
         payload = entity_trace_lua_config(config)
         self.assertTrue(payload["source_scan"])
 
+    def test_entity_movement_camera_lock_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = EntityTraceConfig(
+            record_offset=0x1792, entity_type=0x2B,
+            startup_recording=recording, movement_key="KBD_right",
+            movement_frames=30, movement_camera_x=500, movement_camera_y=100,
+        )
+        payload = entity_trace_lua_config(config)
+        self.assertEqual(payload["movement_camera_x"], 500)
+        self.assertEqual(payload["movement_camera_y"], 100)
+
     def test_player_trace_loader_uses_structured_config(self):
         class FakeApi:
             loaded_source = ""

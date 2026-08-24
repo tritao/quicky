@@ -251,6 +251,42 @@ the trace `terminated=true`. This is the complete runtime signature of camera
 culling, distinct from a callback-specific end: the same callback survives
 192 accepted-camera samples when the object remains inside the window.
 
+## Static callback slices and real-input result
+
+The raw segment-3 Ghidra pass now includes the custom callback families and
+their initializer-to-steady transitions. NE relocations resolve the important
+internal calls even though the raw-segment decompiler cannot connect all far
+call targets automatically:
+
+| Type | Initializer writes | Steady callback structure |
+| ---: | --- | --- |
+| `0x2C` | `+0x18=0x8D20`, sprite slot `0x02C6`, position `+3,+7`, `+0x2C=5` | `0x1DCA` visibility check, optional `0x1DEE`, then local `0x8D31`; that helper calls `0x393C` for bounds and contains a terminal callback-clear path at `0x8E42` |
+| `0x33` | `+0x18=0x882F`, Y `+0x20`, velocity `-0x5000`, direction/phase bytes, timer `+0x2D=0x14` | `0x1DCA`/`0x1DEE`, then `0x1B77`, `0x1C4D`, and two `0x5C27` MAP-descriptor probes; runtime `+0x2E` settles at `0x0100` |
+| `0x34` | `+0x18=0x9C0C`, X `+0x10`, Y `+0x20`, then `0x5D38` | tests `DS:0x85DA < 0x32`, uses `0x1DCA`/`0x1DEE`, `0x5D60`, and local `0x9C29`; accepted path writes action word `DS:0x612E=4` through the helper chain |
+
+The static slices show that these are autonomous object behaviors, not player
+callback branches. Their steady routines do not directly load the normalized
+keyboard words `DS:0x8196`/`DS:0x88BC`; type `0x33` and `0x34` do consult MAP or
+state helpers indirectly, so this is a bounded negative result rather than a
+claim that every downstream helper is input-independent.
+
+The bounded negative result is also confirmed dynamically. The callback tracer
+held guest key `KBD_right` while collecting 48 real callbacks for each of the
+three fixtures at accepted camera `(500,100)`:
+
+| Type | Input trace | Callback sequence | Position/state versus no-input trace | Lifecycle result |
+| ---: | --- | --- | --- | --- |
+| `0x2C` | `input-callback-2c-right48.json` | `0x8C4E → 0x8D20`, then `0x8D20` | identical; state `0/0` | 48 callbacks survived |
+| `0x33` | `input-callback-33-right48.json` | `0x87D1 → 0x882F`, then `0x882F` | identical autonomous motion; state settles `0xFF00 → 0x0100` | 48 callbacks survived |
+| `0x34` | `input-callback-34-right48.json` | `0x9BEE → 0x9C0C`, then `0x9C0C` | identical; state `0/0` | 48 callbacks survived |
+
+Every input trace retained its processed source marker and hit only the
+accepted `0x1DCA` check; none reached `0x1DEE`, a known state-machine exit, or
+a callback-specific clear. The next useful static/runtime target is therefore
+the unresolved far-helper semantics (`0x1B77`, `0x1C4D`, `0x39FE`, and the
+`0x5D38`/`0x5D60` MAP helpers), followed by controlled MAP/player proximity
+experiments rather than more right-input runs against these same objects.
+
 ## Real-input reactivation and allocator choice
 
 The guest-timed movement probe holds the key through `dosbox.key` while the

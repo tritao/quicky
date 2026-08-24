@@ -15,6 +15,7 @@ local followup_passes = trace_config.followup_passes or 0
 local capture_pool = trace_config.capture_pool ~= false
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
+local movement_key = trace_config.movement_key or ""
 local runtime_offset = record_offset - 0x160
 local class_entry_offsets = {0x0ec7, 0x0eee, 0x0f14}
 local class_loop_offsets = {[0] = 0x0eba, [1] = 0x0ee4, [2] = 0x0f0d}
@@ -389,6 +390,7 @@ local initial_object = object_snapshot(object_selector, object_offset)
 local source_selector = entry.registers.fs
 if camera_x >= 0 then dosbox.mem_write("ds", 0x81c0, little_word(camera_x)) end
 if camera_y >= 0 then dosbox.mem_write("ds", 0x81c4, little_word(camera_y)) end
+if movement_key ~= "" then dosbox.key(movement_key, true) end
 -- DS:81D2 contains the normal object update callback. The object word at
 -- +0x18 is a separate per-object callback slot used by some sprite paths.
 local object_class = string.byte(dispatch, 3)
@@ -668,6 +670,7 @@ end
 
 assert(#samples == sample_count or terminated,
        string.format("captured %d/%d object callbacks", #samples, sample_count))
+if movement_key ~= "" then dosbox.key(movement_key, false) end
 local reactivation = {}
 if reactivate_camera_x >= 0 and reactivate_camera_y >= 0 then
     local tracked_source_offset = samples[1].object_after.source_offset

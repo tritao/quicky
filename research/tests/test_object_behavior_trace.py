@@ -24,6 +24,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             reactivate_camera_x=816,
             reactivate_camera_y=272,
             capture_pool=False,
+            movement_key="KBD_right",
         )
         payload = lua_config(config)
         self.assertEqual(payload["record_offset"], 0x177A)
@@ -33,6 +34,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["reactivate_camera_x"], 816)
         self.assertEqual(payload["reactivate_camera_y"], 272)
         self.assertFalse(payload["capture_pool"])
+        self.assertEqual(payload["movement_key"], "KBD_right")
         self.assertNotIn("player_callback_offset", payload)
 
     def test_normalizes_lua_numeric_tables(self):

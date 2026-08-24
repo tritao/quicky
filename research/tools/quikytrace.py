@@ -76,6 +76,8 @@ class EntityTraceConfig:
     movement_frames: int = 0
     return_key: str = ""
     return_frames: int = 0
+    movement_camera_x: int | None = None
+    movement_camera_y: int | None = None
 
 
 @dataclass(frozen=True)
@@ -159,6 +161,8 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
         "movement_frames": config.movement_frames,
         "return_key": config.return_key,
         "return_frames": config.return_frames,
+        "movement_camera_x": config.movement_camera_x,
+        "movement_camera_y": config.movement_camera_y,
     }
 
 
