@@ -59,7 +59,7 @@ The static routines are:
 | `01F7:0E06` | Find a free pool entry and initialize it; returns the object in `ES:DI`. |
 | `01F7:0E66` | Count occupied pool entries into `DS:88C8`. |
 | `01F7:0E96` | Run callbacks grouped by phase values `0`, `1`, and `2` in `+0x17`. |
-| `01F7:0FA2` | Run callbacks for list entries whose state word is nonzero. |
+| `01F7:0FA2` | Run callbacks for list entries with a non-null callback pointer; the list/object state meaning is unresolved. |
 | `01F7:0F3C` | Search for `+0x14 == 0x64`; this is a useful breakpoint candidate, not yet a player identification. |
 
 This explains why a compatible engine should model a stable pooled-object
@@ -73,11 +73,12 @@ target bounds in `DS:36FC/36FE/3700/3702`. It publishes the integer camera at
 `DS:81C0/81C4` and derives `DS:81CE/81D0`. `01F7:1CDA` then uses those camera
 values to stream 64-pixel ARE regions.
 
-`01F7:3376` is a MAP cell-address helper. It shifts the supplied coordinates by
-four bits, multiplies one axis by the loaded MAP width (`DS:657E`), and adds
-the result to the MAP base (`DS:657A`). The helper proves the 16-pixel cell
-addressing used by the state-machine traces. It does not, by itself, prove
-which high MAP property bits are solid, hazardous, or otherwise collidable.
+`01F7:3376` converts the supplied coordinates to a MAP cell using four-bit
+shifts, the loaded MAP width (`DS:657E`), and the MAP base (`DS:657A`), then
+masks the result to the low nine-bit tile ID. It therefore proves the
+16-pixel addressing used by the state-machine traces, while also showing that
+this helper intentionally discards the high MAP property bits; collision and
+hazard semantics still need a separate path.
 
 ## Runtime follow-up
 
@@ -86,4 +87,6 @@ words, camera words, and camera target bounds at each `01F7:8E4B` update entry
 and exit. That gives the static labels a repeatable runtime check without
 guessing the player object. The next pass can set a breakpoint on the first
 confirmed player callback once a live object has been correlated to a stable
-kind/callback pair.
+kind/callback pair. The annotation and targeted decompiler scripts were also
+rerun against disposable raw-segment Ghidra imports; generated projects and C
+reports remain outside the repository.

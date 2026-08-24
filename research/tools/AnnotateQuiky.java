@@ -70,9 +70,6 @@ public class AnnotateQuiky extends GhidraScript {
             "Clears DS:8196 and DS:88BC before the state-machine/gameplay dispatch loop.");
         function(0x4ac2, "level_selector_input_loop",
             "Runtime-confirmed selector loop: consumes normalized flags 1/2 for level movement and 0x20 for launch.");
-        function(0x4727, "init_falling_leaves_entity_type_2b",
-            "Runtime-confirmed dispatch entry for ARE type 0x2B; controlled replacement with inert type 0 removes the falling leaves at W1L1 record 0x1792.");
-
     }
 
     private void annotateSegment2() throws Exception {
@@ -143,7 +140,7 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x0f3c, "find_object_kind_0x64",
             "Scans the object list for an object whose +0x14 kind field equals 0x64; ownership semantics remain unresolved.");
         function(0x0fa2, "object_update_pass_nonzero_state",
-            "Runs callbacks for active list entries whose object +0x02 state word is nonzero.");
+            "Runs callbacks for list entries with a non-null callback pointer; list/object state semantics remain unresolved.");
         function(0x1ed7, "update_camera_scroll",
             "Updates 16.16 camera scroll from DS:36FC/36FE/3700/3702 target bounds, clamps it, and derives DS:81CE/81D0.");
         function(0x1e04, "instantiate_are_declaration",
@@ -159,8 +156,8 @@ public class AnnotateQuiky extends GhidraScript {
             "Dispatch-table callback shared by ARE types 0x29, 0x2A, and confirmed falling-leaves type 0x2B.");
         function(0x9256, "update_are_type_28",
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
-        function(0x3376, "map_cell_lookup_16px",
-            "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E; tile property semantics are not assigned here.");
+        function(0x3376, "map_tile_id_lookup_16px",
+            "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E and returns only the low 9-bit tile ID.");
         function(0xf17f, "keyboard_irq1_handler",
             "IRQ1 handler: stores port-60 scan bytes in the 32-byte ring at selector FFFF:501E and advances DS:503E.");
         function(0xf1a8, "poll_keyboard_ring_to_input_flags",

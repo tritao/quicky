@@ -81,11 +81,15 @@ public class DumpQuikyDecomp extends GhidraScript {
     private String[][] targetsFor(String segment) {
         if ("SEG01".equals(segment)) {
             return new String[][] {
+                {"01ac", "menu_input_action_pending"},
+                {"0203", "wait_for_input_release"},
                 {"34c8", "load_are_resource"},
                 {"365b", "load_map_resource_primary"},
                 {"3861", "load_map_resource_secondary"},
                 {"399e", "load_bob_resource"},
                 {"3bbd", "load_ico_resource"},
+                {"47f0", "reset_game_input_flags"},
+                {"4ac2", "level_selector_input_loop"},
             };
         }
         if ("SEG02".equals(segment)) {
@@ -96,13 +100,24 @@ public class DumpQuikyDecomp extends GhidraScript {
         }
         if ("SEG03".equals(segment)) {
             return new String[][] {
+                {"0e06", "are_object_factory"},
+                {"0e66", "object_pool_count_active"},
+                {"0e96", "object_update_pass_by_phase"},
+                {"0f3c", "find_object_kind_0x64"},
+                {"0fa2", "object_update_pass_nonzero_state"},
                 {"05a0", "seg3_target_05a0"},
                 {"106a", "seg3_target_106a"},
+                {"1cda", "stream_are_regions"},
                 {"1ec4", "seg3_target_1ec4"},
+                {"1ed7", "update_camera_scroll"},
                 {"332c", "seg3_target_332c"},
                 {"335e", "seg3_target_335e"},
                 {"33bf", "seg3_target_33bf"},
+                {"3376", "map_tile_id_lookup_16px"},
                 {"342f", "seg3_target_342f"},
+                {"f17f", "keyboard_irq1_handler"},
+                {"f1a8", "poll_keyboard_ring_to_input_flags"},
+                {"f21b", "read_normalized_input_flags"},
             };
         }
         if ("SEG04".equals(segment)) {
