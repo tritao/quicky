@@ -43,6 +43,8 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             force_active_player_bounds=True,
             align_object_to_player=True,
             align_y_offset=-32,
+            force_platform_ready=True,
+            trace_bump=True,
         )
         payload = lua_config(config)
         self.assertTrue(payload["trace_overlap"])
@@ -50,6 +52,8 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertTrue(payload["trace_platform"])
         self.assertTrue(payload["force_active_player_bounds"])
         self.assertEqual(payload["align_y_offset"], -32)
+        self.assertTrue(payload["force_platform_ready"])
+        self.assertTrue(payload["trace_bump"])
 
     def test_normalizes_lua_numeric_tables(self):
         trace = normalize_behavior_trace({

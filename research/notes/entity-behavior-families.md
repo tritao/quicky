@@ -162,19 +162,30 @@ rectangle, and the first callback clears `object+0x18` (`6DC4 -> 0000`). This
 confirms off-camera deactivation while keeping player-caused death, drops, and
 respawn separate. See [`entity-normal-enemy-removal-evidence.json`](../entity-normal-enemy-removal-evidence.json).
 
-The falling-leaf family is further along: `01F7:5D38` reads one of two PRNG
-selected tables (`DS:3312` delay 8 and `DS:3326` delay 10), uses slots 700-707,
-and switches to the bright 750-757 row when `object+0x28 == 0xFF`. The seeded
-object produces pooled child leaves, but the continuous trajectory, cadence,
-collision, and recycling rules are not yet fully captured.
+The shared rule is independently exercised by BIENE type `0x03`: a native W1L1
+probe at `(768,256)` with camera `(0,0)` clears callback `68C0` on its first
+update. Together with the static `1DCA -> 1DEE` path in the other normal
+callbacks, this confirms off-camera removal across the enemy families; it does
+not turn the still-open player-caused death/drop path into a claim. See
+[`entity-normal-enemy-family-removal-evidence.json`](../entity-normal-enemy-family-removal-evidence.json).
 
-The 64-sample lifetime ledger closes part of that gap. After the initial pool
+The falling-leaf family is now decoded through its child callback. `01F7:474D`
+selects one of two PRNG tables (`DS:3312` delay 8 and `DS:3326` delay 10),
+seeds `object+0x0E` with `0x13000-(signed_random_byte<<7)`, copies the source
+position to `+0x2A/+0x2E`, and starts `+0x32=0x000C`. Child callback `47E7`
+adds the fixed-point velocity to y, pauses and toggles the sprite high bit on a
+MAP block, and restores/reseeds the source position when the timer expires. Its
+visibility-false path reaches shared removal `1DEE`.
+
+The 64-sample lifetime ledger closes the runtime side of that gap. After the initial pool
 offsets `120, 240, 360, 480, 720, 840, 960, 1080`, later emissions reuse
 `360, 480, 720, 840, 960, 1080`; animation delay counts down through zero and
 the cursor advances from slot 700 to 701, while the alternate table emits slot
-703. This is direct evidence of pooled child reuse and animation rollover, but
-not of the allocator's exact free predicate or a callback-clear event. See
-[`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json).
+703. This is direct evidence of pooled child reuse and animation rollover. The
+remaining leaf questions are the allocator's exact free predicate, authored
+spawn cadence across levels, and any player collision (the family is otherwise
+visual/ambient). See [`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json)
+and [`entity-leaf-state-evidence.json`](../entity-leaf-state-evidence.json).
 
 The remaining effect-family uncertainty is no longer object identity: all of
 these callbacks and resource bindings are now bounded below. The open parts
@@ -224,6 +235,28 @@ the original callback reaches its player-carry path without pretending the
 blocked fixture is a free-running trajectory. The normalized result is
 [`entity-platform-carry-evidence.json`](../entity-platform-carry-evidence.json).
 
+The platform motion path is now live-observed in the native W4L1 fixture using
+only debugger controls recorded with the trace. Clearing the carry latch and
+injecting `0x28000` fixed-point x velocity produces 128 active `9DC7` updates
+from `(752,336)` to `(1072,336)` while `A075` and `A0B2` remain reachable. A
+second run with injected `0x100000` velocity reaches the native MAP stop at
+sample 85: x snaps at `2112`, `object+0x0A` is zeroed, and `object+0x54` starts
+its `0x46` wait phase. Static branches at `9F35/9F4A` and `A03D/A051` select
+the signed `0x28000` directions. These traces prove integration and blocked
+state mechanics, but deliberately do not claim the authored terminal/reset
+table or an original-runtime player contact result; see
+[`entity-platform-motion-evidence.json`](../entity-platform-motion-evidence.json).
+
+BUMP `0x34` is now bounded across all requested dimensions. Its callback uses
+the open player gate `object_x-25 < player_x < object_x+25` and
+`object_y-8 < player_y < object_y`; the accepted branch writes `DS:612E=4`.
+A 128-sample native run cycles slots `400,402,403,401` with a seven-tick
+`object+0x20` counter, and the five `BUMP_Wn.BOB` tables are cataloged with
+exact geometry. A camera-(0,0) run takes `1DCA -> 1DEE` and clears the callback.
+The controlled overlap did not satisfy the original player-state precondition,
+so the hazard write is static/branch evidence rather than an unmodified
+player-hit claim; see [`entity-bump-evidence.json`](../entity-bump-evidence.json).
+
 ## Cross-world rules
 
 World-specific resource selection is a separate axis from logical sprite slot:
@@ -234,6 +267,18 @@ in W5), slot 200/250 across enemy families, and slot 400 for the
 the logical slot and the resource context. A cross-world claim is complete only
 when the live descriptor geometry or exact ICO block has been matched in that
 world; filename ordering alone remains partial evidence.
+
+Cloud `0x28` is the cross-world exception to ordinary slot lookup. ARE parsing
+finds it in W1, W2, W3, W4, and W5 contexts, while every archive contributes
+the same global `WOLKE.BOB` table (slots 413-416, 32x16, origin 0,0); no
+`WOLKE_Wn.BOB` files occur. The initializer keeps logical slot `FFFF`, which
+matches the special renderer rather than a missing sprite. Native callback
+`9269` is camera-gated, performs a 16x16 aligned player-bounds test, and writes
+`DS:89E6=FFFF` on the accepted branch. A visible camera-controlled run stays
+active and stationary; an off-camera run clears the callback through the shared
+removal path. The remaining uncertainty is the renderer's internal asset
+binding and the player-state precondition, not cross-world coverage; see
+[`entity-cloud-crossworld-evidence.json`](../entity-cloud-crossworld-evidence.json).
 
 ## Reproducible next experiments
 
@@ -290,15 +335,17 @@ boundaries. Remaining experiments are deliberately narrower:
 
 1. Repeat the overlap probe for pickup subtypes `0x70`-`0x72` only if the
    inventory names or their persistence semantics are required.
-2. Capture an unblocked/native platform trajectory and an original-runtime
-   player-carry contact to resolve one-way-floor and terminal/reset semantics.
-3. Run visibility/deactivation and descriptor probes across W1-W5 cloud and
-   BUMP resources; cloud's WOLKE.BOB world binding is still partial.
+2. Capture an original-runtime player-carry contact and authored platform
+   terminal/reset transition to resolve one-way-floor and reset semantics; the
+   native integration and MAP stop are now confirmed under recorded controls.
+3. If renderer provenance is required, trace the special WOLKE draw helper and
+   satisfy its player-state precondition; cross-world usage and removal are now
+   confirmed.
 4. Decode the exact falling-leaf pool-free predicate and continuous vertical
    trajectory from a longer child-object trace.
 5. For normal enemies, isolate an unmodified player-overlap run and a death or
-   drop state; off-camera deactivation is now confirmed, but gameplay death is
-   still separate.
+   drop state; off-camera deactivation is now confirmed across representative
+   WURM2 and BIENE callbacks, but gameplay death is still separate.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a

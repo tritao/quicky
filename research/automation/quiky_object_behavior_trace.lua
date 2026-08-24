@@ -16,10 +16,12 @@ local align_object_to_player = trace_config.align_object_to_player or false
 local trace_overlap = trace_config.trace_overlap or false
 local trace_collision = trace_config.trace_collision or false
 local trace_platform = trace_config.trace_platform or false
+local trace_bump = trace_config.trace_bump or false
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
 local align_y_offset = trace_config.align_y_offset or 0
 local force_velocity_x = trace_config.force_velocity_x
 local force_velocity_y = trace_config.force_velocity_y
+local force_platform_ready = trace_config.force_platform_ready or false
 local runtime_offset = record_offset - 0x160
 
 local function word(s, index)
@@ -321,7 +323,24 @@ while #samples < sample_count and attempts < sample_count * 128 do
         dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
         dosbox.debug_continue()
     else
+        if camera_x >= 0 then
+            dosbox.mem_write("ds", 0x81c0, little_word(camera_x))
+            dosbox.mem_write("ds", 0x81c4, little_word(camera_y))
+        end
         if #samples == 0 then
+            if force_platform_ready then
+                -- Debugger-only control: clear the carry latch that the
+                -- normal player branch sets, allowing the platform's own
+                -- horizontal/vertical motion branch to execute.
+                dosbox.mem_write_selector(object_selector, object_offset + 0x58,
+                                          string.char(0))
+                dosbox.mem_write_selector(object_selector, object_offset + 0x59,
+                                          string.char(0))
+                dosbox.mem_write_selector(object_selector, object_offset + 0x5a,
+                                          string.char(0))
+                dosbox.mem_write_selector(object_selector, object_offset + 0x54,
+                                          little_word(0))
+            end
             if force_velocity_x ~= nil then
                 dosbox.mem_write_selector(object_selector, object_offset + 0x0a,
                                           little_dword(force_velocity_x))
@@ -348,8 +367,9 @@ while #samples < sample_count and attempts < sample_count * 128 do
         assert(returned ~= nil, "object callback has no near return address")
         local overlap_probe = nil
         local collision_probe = nil
+        local bump_probe = nil
         local callback_return = nil
-        if trace_overlap or trace_collision or trace_platform then
+        if trace_overlap or trace_collision or trace_platform or trace_bump then
             overlap_probe = {hits = {}}
             if trace_overlap then
                 dosbox.breakpoint_set(0x01f7, 0x8d36, {once = true})
@@ -377,6 +397,18 @@ while #samples < sample_count and attempts < sample_count * 128 do
                 dosbox.breakpoint_set(0x01f7, 0xa0b2, {once = true})
                 dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
             end
+            if trace_bump then
+                bump_probe = {hits = {}}
+                dosbox.breakpoint_set(0x01f7, 0x9c13, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c20, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c29, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c2e, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c45, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c57, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c5f, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c64, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x9c6a, {once = true})
+            end
             dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
             dosbox.debug_continue()
             for probe_attempt = 1, 16 do
@@ -397,6 +429,13 @@ while #samples < sample_count and attempts < sample_count * 128 do
                         probe_hit.offset == 0x9fb2 or probe_hit.offset == 0xa075 or
                         probe_hit.offset == 0xa0b2 or probe_hit.offset == 0x1dee) then
                     collision_probe.hits[#collision_probe.hits + 1] = hit_record
+                end
+                if trace_bump and (probe_hit.offset == 0x9c13 or
+                        probe_hit.offset == 0x9c20 or probe_hit.offset == 0x9c29 or
+                        probe_hit.offset == 0x9c2e or probe_hit.offset == 0x9c45 or
+                        probe_hit.offset == 0x9c57 or probe_hit.offset == 0x9c5f or
+                        probe_hit.offset == 0x9c64 or probe_hit.offset == 0x9c6a) then
+                    bump_probe.hits[#bump_probe.hits + 1] = hit_record
                 end
                 if probe_hit.segment == returned.segment and
                         probe_hit.offset == returned.offset then
@@ -438,6 +477,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             changed_bytes = changed_bytes(before.raw_hex, after.raw_hex),
             overlap_probe = overlap_probe,
             collision_probe = collision_probe,
+            bump_probe = bump_probe,
         }
         callback_offset = after.update_callback
         if callback_offset == 0 then break end

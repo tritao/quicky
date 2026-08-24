@@ -1,0 +1,48 @@
+{
+  "schema": "entity-platform-motion-evidence-v1",
+  "purpose": "Controlled native callback traces for moving-platform integration, MAP stop, and carry state.",
+  "fixture": {
+    "level": "W4L1.ARE",
+    "record_offset": 6296,
+    "entity_type": "0x3D",
+    "dispatch": "01F7:9CF5",
+    "post_initializer": "01F7:9D18",
+    "object_callback": "01F7:9DC7",
+    "runtime": "/home/joao/dev/quicky/research/build/entity-3d-real-w4l1/baseline/game",
+    "runtime_position_after_stream": [752, 336]
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85",
+    "trace_script_sha256": "8369134fbe6cc99c36576fec02a3fd0333c16a234bb3e659b8b9dd0ce55dc57b"
+  },
+  "static_callback": {
+    "visibility_gate": "01F7:9DC7 -> 01F7:A06F -> 01F7:1DEE",
+    "horizontal_integration": "object+0x0A fixed-point velocity is added to x; MAP checks at 01F7:9E75/9EA6 stop, snap, and set object+0x54=0x46",
+    "vertical_integration": "object+0x0E fixed-point velocity is added to y; MAP checks at 01F7:9FB2/9FDF stop, snap, and set object+0x54=0x46",
+    "direction_reversal": "01F7:9F35/9F4A and 01F7:A03D/A051 select +/-0x28000 and update direction bytes",
+    "carry_helpers": ["01F7:A075", "01F7:A0B2"]
+  },
+  "controlled_motion": {
+    "controls": ["debugger-only force_platform_ready clears +0x58/+0x59/+0x5A/+0x54", "debugger-only force_velocity_x=0x28000"],
+    "samples": 128,
+    "position_first_last": [[752, 336], [1072, 336]],
+    "position_checkpoints": [[752, 336], [817, 336], [887, 336], [957, 336], [1027, 336], [1072, 336]],
+    "callback_active_all_samples": true,
+    "carry_helper_hits": ["01F7:A075", "01F7:A0B2"],
+    "interpretation": "With the carry latch cleared, the original callback integrates the injected horizontal velocity; this is a controlled motion proof, not an unmodified level trajectory."
+  },
+  "controlled_block": {
+    "controls": ["debugger-only force_platform_ready clears +0x58/+0x59/+0x5A/+0x54", "debugger-only force_velocity_x=0x100000"],
+    "samples": 128,
+    "position_first_block_last": [[752, 336], [2112, 336], [2112, 336]],
+    "first_stop_sample": 85,
+    "stop_fields": {"object+0x0A": 0, "object+0x54": 70},
+    "callback_active_all_samples": true,
+    "interpretation": "The native MAP branch stops and snaps the platform at x=2112, zeros velocity, and counts down the 0x46 phase timer."
+  },
+  "conclusions": [
+    "Static and controlled native traces now establish fixed-point integration, MAP stop/snap, direction-selection branches, and player-carry helper reachability for the shared 9DC7 callback.",
+    "The injected-velocity traces intentionally do not claim the level's authored terminal/reset table or an original-runtime player-contact outcome; those remain separate open questions."
+  ]
+}

@@ -43,10 +43,12 @@ class ObjectBehaviorConfig:
     trace_overlap: bool = False
     trace_collision: bool = False
     trace_platform: bool = False
+    trace_bump: bool = False
     force_active_player_bounds: bool = False
     align_y_offset: int = 0
     force_velocity_x: int | None = None
     force_velocity_y: int | None = None
+    force_platform_ready: bool = False
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -65,10 +67,12 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_overlap": config.trace_overlap,
         "trace_collision": config.trace_collision,
         "trace_platform": config.trace_platform,
+        "trace_bump": config.trace_bump,
         "force_active_player_bounds": config.force_active_player_bounds,
         "align_y_offset": config.align_y_offset,
         "force_velocity_x": config.force_velocity_x,
         "force_velocity_y": config.force_velocity_y,
+        "force_platform_ready": config.force_platform_ready,
     }
 
 
@@ -189,6 +193,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="capture moving-platform MAP, offscreen, and player-carry helpers",
     )
     parser.add_argument(
+        "--trace-bump", action="store_true",
+        help="capture the BUMP player-range and hazard-effect branch",
+    )
+    parser.add_argument(
         "--force-active-player-bounds", action="store_true",
         help="use the original active-player vertical bound (-40..0) for the controlled overlap probe",
     )
@@ -200,6 +208,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="debugger-only fixed-point X velocity written before the first callback")
     parser.add_argument("--force-velocity-y", type=lambda value: int(value, 0),
                         help="debugger-only fixed-point Y velocity written before the first callback")
+    parser.add_argument(
+        "--force-platform-ready", action="store_true",
+        help="debugger-only: clear the platform carry latch before its first callback",
+    )
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -291,10 +303,12 @@ def main(argv: list[str] | None = None) -> int:
         trace_overlap=args.trace_overlap,
         trace_collision=args.trace_collision,
         trace_platform=args.trace_platform,
+        trace_bump=args.trace_bump,
         force_active_player_bounds=args.force_active_player_bounds,
         align_y_offset=args.align_y_offset,
         force_velocity_x=args.force_velocity_x,
         force_velocity_y=args.force_velocity_y,
+        force_platform_ready=args.force_platform_ready,
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {

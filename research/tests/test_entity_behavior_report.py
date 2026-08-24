@@ -63,7 +63,7 @@ class EntityBehaviorReportTests(unittest.TestCase):
         self.assertEqual(summary["type_count"], 50)
         self.assertEqual(
             summary["dimension_status_counts"]["update_callback_state_machine"]["confirmed"],
-            7,
+            9,
         )
         self.assertGreater(
             summary["dimension_status_counts"]["movement_ai"]["partial"], 0

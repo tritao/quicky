@@ -1,0 +1,36 @@
+{
+  "schema": "entity-cloud-crossworld-evidence-v1",
+  "purpose": "Cross-world inventory and asset identity for special-rendered cloud type 0x28.",
+  "archive": {
+    "archive_sha256": "c30da6ccb4b5e10da5405b974b18da149fd375cd465170d7ec4ebc184ee935ac",
+    "wolke_bob_sha256": "5f7003b66b878322fc3752ff9a509481284f4e785962888349cf36d1a50bd2c6",
+    "wolke_bob_records": [
+      {"slot": 413, "width": 32, "height": 16, "origin": [0, 0]},
+      {"slot": 414, "width": 32, "height": 16, "origin": [0, 0]},
+      {"slot": 415, "width": 32, "height": 16, "origin": [0, 0]},
+      {"slot": 416, "width": 32, "height": 16, "origin": [0, 0]}
+    ],
+    "world_resource_entries": ["WOLKE.BOB"],
+    "world_specific_wolke_entries": []
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace_script_sha256": "8369134fbe6cc99c36576fec02a3fd0333c16a234bb3e659b8b9dd0ce55dc57b"
+  },
+  "are_usage": {
+    "W1": ["W1L1", "W1L2", "W1L4"],
+    "W2": ["W2L1", "W2L2", "W2L4"],
+    "W3": ["W3L1", "W3L2", "W3L4"],
+    "W4": ["W4L1", "W4L2", "W4L4"],
+    "W5": ["W5L1", "W5L2", "W5L4"]
+  },
+  "runtime": {
+    "dispatch": "01F7:9256",
+    "callback": "01F7:9269",
+    "logical_slot": 65535,
+    "visible_probe": {"samples": 8, "position": [784, 192], "callback_active": true, "movement": "none", "camera_control": [700, 100]},
+    "offcamera_probe": {"camera": [0, 262], "callback_after": 0},
+    "resource_selector_note": "WOLKE.BOB is not independently requested by the normal per-level resource batch; the callback uses a special renderer with object+0x12=FFFF."
+  },
+  "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. World-specific cloud sprite variants are therefore not present in the archive; the remaining uncertainty is only the renderer's internal asset binding, not a missing world file."
+}

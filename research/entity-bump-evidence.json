@@ -1,0 +1,44 @@
+{
+  "schema": "entity-bump-evidence-v1",
+  "purpose": "BUMP collision-shape, animation, and removal evidence.",
+  "fixture": {
+    "level": "W1L2.ARE",
+    "record_offset": 5638,
+    "entity_type": "0x34",
+    "dispatch": "01F7:9BEE",
+    "post_initializer": "01F7:9C0B",
+    "object_callback": "01F7:9C0C",
+    "runtime": "/home/joao/dev/quicky/research/build/entity-34-real-w1l2/baseline/game"
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "e8cf1616c3e749d35ae527b06368d453505b0eb9c8384ac67083e49e9ad6f704",
+    "trace_script_sha256": "8369134fbe6cc99c36576fec02a3fd0333c16a234bb3e659b8b9dd0ce55dc57b"
+  },
+  "collision": {
+    "shape_static": {"x_interval": "object_x-25 < player_x < object_x+25", "y_interval": "object_y-8 < player_y < object_y"},
+    "helper_path": ["01F7:9C13", "01F7:9C20", "01F7:9C29"],
+    "hazard_action": "DS:612E=4 at 01F7:9C64 after the overlap gate",
+    "controlled_overlap": {"object_position": [240, 512], "player_bounds": "f6ffd8ff0a000000", "post_helper": "01F7:9C2E", "hazard_branch_reached": false}
+  },
+  "animation": {
+    "samples": 128,
+    "slot_sequence_transitions": [[1, 400], [7, 402], [14, 403], [21, 401]],
+    "steady_state_slot": 401,
+    "frame_counter_offset": "object+0x20",
+    "frame_counter_cycle": [6, 5, 4, 3, 2, 1, 0],
+    "world_tables": {
+      "BUMP_W1.BOB": {"sha256": "80681473572a4d3784fa44df1322f22d3794a137fec3726b039fb348a3626054", "records": [[400, 32, 23, 16, 23], [401, 32, 23, 16, 23], [402, 32, 23, 16, 23], [403, 32, 23, 16, 23]]},
+      "BUMP_W2.BOB": {"sha256": "61e44733cf1a757421dd661298086e8544dac93993bb3170924ad3ac4db93b21", "records": [[400, 32, 17, 16, 17], [401, 32, 20, 16, 20], [402, 32, 23, 16, 23], [403, 32, 23, 16, 23]]},
+      "BUMP_W3.BOB": {"sha256": "83fbad65151249e64df46d01196f7d7be7176bdfa06e9ffd51ff3f85ac4d4f0a", "records": [[400, 31, 23, 15, 23], [401, 31, 23, 15, 23], [402, 31, 23, 15, 23], [403, 31, 23, 15, 23]]},
+      "BUMP_W4.BOB": {"sha256": "9efcb0522aed59e45160e36b620e3b2d0dd4ff730309ed42d8078201432d23b7", "records": [[400, 28, 11, 14, 11], [401, 24, 14, 12, 14], [402, 22, 15, 11, 15], [403, 20, 17, 10, 17]]},
+      "BUMP_W5.BOB": {"sha256": "53972f77ba4e306a48d9b6a3ffdc56974900d10b5365d4dbfa7ead11f2939a25", "records": [[400, 32, 22, 16, 22], [401, 32, 22, 16, 22], [402, 32, 22, 16, 22], [403, 32, 22, 16, 22]]}
+    }
+  },
+  "removal": {"camera": [0, 0], "object_position": [256, 400], "callback_before": "01F7:9C0C", "callback_after": 0},
+  "conclusions": [
+    "The BUMP callback has a precisely decoded 50-by-8 player overlap gate and writes hazard action 4 after the gate.",
+    "A 128-sample live run proves the four-frame 400-403 animation cycle and seven-tick frame counter; all five world-specific BUMP tables are cataloged with geometry.",
+    "A live off-camera run clears object+0x18; the controlled overlap did not reach the hazard write because the original helper's player-state precondition was not satisfied."
+  ]
+}
