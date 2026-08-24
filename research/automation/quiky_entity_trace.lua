@@ -63,7 +63,21 @@ local function sprite_descriptor_probe(slot)
     local base_offset = dosbox.mem_read_word("ds", 0x6d8a)
     local selector = dosbox.mem_read_word("ds", 0x6d8c)
     local descriptor_offset = (base_offset + map_index * stride) & 0xffff
-    local raw = dosbox.mem_read_selector(selector, descriptor_offset, 0x30) or ""
+    local ok, raw_or_error = pcall(
+        dosbox.mem_read_selector, selector, descriptor_offset, 0x30
+    )
+    if not ok then
+        return {
+            map_address = map_address,
+            map_index = map_index,
+            stride = stride,
+            base_offset = base_offset,
+            selector = selector,
+            offset = descriptor_offset,
+            read_error = tostring(raw_or_error),
+        }
+    end
+    local raw = raw_or_error or ""
     return {
         map_address = map_address,
         map_index = map_index,

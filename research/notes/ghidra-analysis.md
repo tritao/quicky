@@ -474,6 +474,13 @@ resource traces directly capture `PLATFW4.BOB` in W4L1,
 `PLATFW3.BOB` in W3L2, `PLATFW1.BOB` in W1L3, and `PLATFW2.BOB` in W2L1;
 the catalog now marks this family confirmed.
 
+Native-context renderer probes independently resolve the shared-slot effect
+families: W4 type `0x33` reaches the slot-214 descriptor at map index 137 with
+geometry `33x29`, origin `(16,29)`, matching `WIND.BOB`; W5 types `0x35` and
+`0x36` reach map indices 138/137 with geometry `31x31`, origin `(15,31)`,
+matching `UFO.BOB` records 1/0. This verifies the resource-context selection
+at the live descriptor layer, not only from archive path ordering.
+
 The normal types `0x1F`-`0x21` initialize `object+0x2E` to 1, 2, and 3 and
 converge on update callback `01F7:8E4B`, but leave `object+0x12` at `0xFFFF`.
 Controlled W1L1 probes redirect the traced object to world `(3072,272)`, where
