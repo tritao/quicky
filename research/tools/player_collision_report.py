@@ -130,6 +130,13 @@ def collision_rows(paths: list[Path], labels: list[str] | None = None) -> list[d
                     raise CollisionReportError(
                         f"{path}: collision.return_breakpoint.registers must be an object"
                     )
+                map_property = event.get("map_property")
+                map_lookup = (map_property.get("map_lookup", {})
+                              if isinstance(map_property, dict) else {})
+                if not isinstance(map_lookup, dict):
+                    raise CollisionReportError(
+                        f"{path}: collision.map_property.map_lookup must be an object"
+                    )
                 row = {
                     "trace": str(path),
                     "scenario": scenario,
@@ -152,6 +159,20 @@ def collision_rows(paths: list[Path], labels: list[str] | None = None) -> list[d
                     "return_flags": (return_registers.get("flags")
                                       if isinstance(return_registers.get("flags"), int)
                                       else None),
+                    "map_x": (map_lookup.get("x")
+                              if isinstance(map_lookup.get("x"), int) else None),
+                    "map_y": (map_lookup.get("y")
+                              if isinstance(map_lookup.get("y"), int) else None),
+                    "map_cell_word": (map_lookup.get("cell_word")
+                                       if isinstance(map_lookup.get("cell_word"), int)
+                                       else None),
+                    "map_tile_id": (map_lookup.get("tile_id")
+                                     if isinstance(map_lookup.get("tile_id"), int)
+                                     else None),
+                    "descriptor_word": (map_property.get("descriptor_word")
+                                         if isinstance(map_property, dict) and
+                                         isinstance(map_property.get("descriptor_word"), int)
+                                         else None),
                 }
                 row.update(_tail(object_state))
                 rows.append(row)
@@ -185,6 +206,7 @@ CSV_FIELDS = [
     "helper_offset", "helper_name", "player_x", "player_y",
     "eax", "ebx", "ecx", "edx", "event_index",
     "return_offset", "return_ax", "return_dx", "return_flags",
+    "map_x", "map_y", "map_cell_word", "map_tile_id", "descriptor_word",
     "object_0x36", "object_0x37", "object_0x38", "object_0x39",
     "object_0x3a", "object_0x3b",
 ]

@@ -272,6 +272,7 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("local function collision_return_location", source)
         self.assertIn("hit.offset ~= 0x3a1f and hit.offset ~= 0x3df2", source)
         self.assertIn("collision_return_event.return_breakpoint", source)
+        self.assertIn("collision.map_property = map_property_snapshot(hit)", source)
 
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

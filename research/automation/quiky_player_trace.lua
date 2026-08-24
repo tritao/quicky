@@ -598,6 +598,13 @@ local function record_collision(sample, hit)
         object = callback_object_snapshot(hit),
         globals = static_globals(),
     }
+    -- 3DF2 is the leaf that passes the current world probe through the MAP
+    -- descriptor path.  Read the live cell here while its AX/BX arguments are
+    -- still intact; this avoids needing a second breakpoint mode and keeps
+    -- the tile/descriptor evidence attached to the helper event.
+    if hit.offset == 0x3df2 then
+        collision.map_property = map_property_snapshot(hit)
+    end
     sample.collisions = sample.collisions or {}
     sample.collisions[#sample.collisions + 1] = collision
     sample.collision = collision

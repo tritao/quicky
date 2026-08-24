@@ -32,6 +32,11 @@ def trace(*helpers):
                 "registers": {"eax": 0x90 + index, "edx": 0xA0 + index,
                                "flags": 0x200},
             },
+            "map_property": {
+                "map_lookup": {"x": 123, "y": 400, "cell_word": 0x2D,
+                                "tile_id": 0x2D},
+                "descriptor_word": 0x0C,
+            },
         })
     return {"events": [{"samples": [{
         "sequence": 1,
@@ -58,6 +63,8 @@ class PlayerCollisionReportTests(unittest.TestCase):
         self.assertEqual(rows[-1]["object_0x3a"], 5)
         self.assertEqual(rows[-1]["return_ax"], 0x92)
         self.assertEqual(rows[-1]["return_offset"], 0x4002)
+        self.assertEqual(rows[-1]["map_tile_id"], 0x2D)
+        self.assertEqual(rows[-1]["descriptor_word"], 0x0C)
 
     def test_report_groups_path_by_sample(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -87,6 +94,7 @@ class PlayerCollisionReportTests(unittest.TestCase):
         self.assertIn("eax", header)
         self.assertIn("object_0x3a", header)
         self.assertIn("return_ax", header)
+        self.assertIn("descriptor_word", header)
 
 
 if __name__ == "__main__":

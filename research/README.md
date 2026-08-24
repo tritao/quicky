@@ -536,8 +536,10 @@ to `01F7:42B7` and `01F7:42CC`. Fresh W1L1 captures show the stable horizontal
 path `648E -> 6484 -> 3A8A -> 3A1F -> 3DF2`; during the jump, the final two
 property/descriptor probes disappear on the upward sample and reappear as the
 player descends. The return matrix is still evidence, not a semantic name:
-the next pass correlates each return value and descriptor read with the MAP
-cell and animation/state transition before implementing collision rules.
+the `3DF2` rows now also include a selector-safe MAP cell/tile and descriptor
+word (the moved W1L1 samples read tile `0x02d`, descriptor `0x000c`). The next
+pass correlates each return value and descriptor read with the animation/state
+transition before implementing collision rules.
 
 To isolate descriptor semantics without depending on the MAP stream's active
 window, `--player-branch-patch-tile 0x160` temporarily replaces only the

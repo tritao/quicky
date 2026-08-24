@@ -805,6 +805,12 @@ helpers return `AX=0x0190`, `DX=0x000C`. During the upward jump sample the
 chain stops after `3A8A`, and the leaf probes resume on descent. These values
 are the next correlation inputs for distinguishing vertical response from
 side-wall handling; they are not yet assigned gameplay names.
+At the `3DF2` entry, the tracer also reads the live MAP cell with its protected
+selector. After horizontal movement, the probe is `(x-5, y)` and W1L1 returns
+raw/tile `0x002d` with descriptor `0x000c`; the initial stationary sample has
+not yet established a valid world-space X argument. This binds the descriptor
+word to the helper event without assuming that the streamed buffer is the
+archive's original coordinate window.
 
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
