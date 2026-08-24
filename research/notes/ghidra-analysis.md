@@ -834,6 +834,16 @@ The static leaf rules are now explicit enough to guide the next probes:
   direct input to this leaf, while the exact blocking polarity remains an
   experiment rather than an inferred name.
 
+The NE relocation table identifies both `3DF2` calls as `01F7:5C27`. Combined
+property/collision traces confirm the short-circuit in vivo: at `(128,400)`,
+the left probe `(123,400)` with descriptor `0x000c` returns flags `0x3202`
+(`ZF=0`) and the right probe is skipped; replacing only the left cell with
+tile `0x2A` (`0x0070`) or `0x2B` (`0x0030`) returns `0x3246` (`ZF=1`) and the
+right `(133,400)` probe executes. A `both` run reaches both probes, each with
+the patched descriptor and `ZF=1`. This establishes probe ordering and flag
+polarity; it still does not assign one-way/platform semantics to the high
+descriptor bits.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive

@@ -37,6 +37,8 @@ def trace(*helpers):
                                 "tile_id": 0x2D},
                 "descriptor_word": 0x0C,
             },
+            "patches": [{"side": "right", "tile_id": 0x2A,
+                          "descriptor_word": 0x70, "readback": 0x2A}],
         })
     return {"events": [{"samples": [{
         "sequence": 1,
@@ -65,6 +67,8 @@ class PlayerCollisionReportTests(unittest.TestCase):
         self.assertEqual(rows[-1]["return_offset"], 0x4002)
         self.assertEqual(rows[-1]["map_tile_id"], 0x2D)
         self.assertEqual(rows[-1]["descriptor_word"], 0x0C)
+        self.assertEqual(rows[-1]["patch_sides"], "right")
+        self.assertEqual(rows[-1]["patch_descriptors"], "0x0070")
 
     def test_report_groups_path_by_sample(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -95,6 +99,19 @@ class PlayerCollisionReportTests(unittest.TestCase):
         self.assertIn("object_0x3a", header)
         self.assertIn("return_ax", header)
         self.assertIn("descriptor_word", header)
+        self.assertIn("patch_sides", header)
+
+    def test_accepts_lua_numeric_object_for_patch_array(self):
+        payload = trace(0x3DF2)
+        payload["events"][0]["samples"][0]["collisions"][0]["patches"] = {
+            "1": {"side": "left", "tile_id": 0x2A,
+                   "descriptor_word": 0x70, "readback": 0x2A},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "trace.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            rows = collision_rows([path])
+        self.assertEqual(rows[0]["patch_sides"], "left")
 
 
 if __name__ == "__main__":

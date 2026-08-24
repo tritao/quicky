@@ -91,6 +91,7 @@ class PlayerTraceConfig:
     branch_focus: bool = False
     branch_patch_tile: int | None = None
     collision_patch_tile: int | None = None
+    collision_patch_side: str = "left"
     descriptor_census: bool = False
     descriptor_count: int = 512
     map_width: int = 270
@@ -174,6 +175,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "branch_focus": config.branch_focus,
         "branch_patch_tile": config.branch_patch_tile,
         "collision_patch_tile": config.collision_patch_tile,
+        "collision_patch_side": config.collision_patch_side,
         "descriptor_census": config.descriptor_census,
         "descriptor_count": config.descriptor_count,
         "map_width": config.map_width,
@@ -662,6 +664,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="debugger-only: substitute this low-9-bit tile at the 3D02 probe")
     parser.add_argument("--player-collision-patch-tile", type=lambda value: int(value, 0),
                         help="debugger-only: substitute this low-9-bit tile at the 3DF2 MAP probe")
+    parser.add_argument("--player-collision-patch-side", choices=("left", "right", "both"),
+                        default="left",
+                        help="3DF2 patch probe: x-5, x+5, or both (default left)")
     parser.add_argument("--player-descriptor-census", action="store_true",
                         help="dump the loaded descriptor table and MAP cells")
     parser.add_argument("--player-descriptor-count", type=int, default=512,
@@ -725,10 +730,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-samples cannot be negative")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
-    if args.player_map_focus and args.player_collision_focus:
-        raise TraceError("--player-map-focus and --player-collision-focus are mutually exclusive")
-    if args.player_property_focus and (args.player_map_focus or args.player_collision_focus):
-        raise TraceError("--player-property-focus cannot be combined with another player focus mode")
+    if args.player_property_focus and args.player_map_focus:
+        raise TraceError("--player-property-focus cannot be combined with --player-map-focus")
     if args.player_branch_focus and (args.player_map_focus or args.player_collision_focus or
                                     args.player_property_focus):
         raise TraceError("--player-branch-focus cannot be combined with another player focus mode")
@@ -736,8 +739,9 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-branch-patch-tile requires --player-branch-focus")
     if args.player_branch_patch_tile is not None and not 0 <= args.player_branch_patch_tile <= 0x1ff:
         raise TraceError("--player-branch-patch-tile must be between 0 and 511")
-    if args.player_collision_patch_tile is not None and not args.player_collision_focus:
-        raise TraceError("--player-collision-patch-tile requires --player-collision-focus")
+    if args.player_collision_patch_tile is not None and not (
+            args.player_collision_focus or args.player_property_focus):
+        raise TraceError("--player-collision-patch-tile requires collision or property focus")
     if args.player_collision_patch_tile is not None and not args.player_focus_callback:
         raise TraceError("--player-collision-patch-tile requires --player-focus-callback")
     if args.player_collision_patch_tile is not None and not 0 <= args.player_collision_patch_tile <= 0x1ff:
@@ -871,6 +875,7 @@ def main(argv: list[str] | None = None) -> int:
                 branch_focus=args.player_branch_focus,
                 branch_patch_tile=args.player_branch_patch_tile,
                 collision_patch_tile=args.player_collision_patch_tile,
+                collision_patch_side=args.player_collision_patch_side,
                 descriptor_census=args.player_descriptor_census,
                 descriptor_count=args.player_descriptor_count,
                 map_width=args.player_map_width,

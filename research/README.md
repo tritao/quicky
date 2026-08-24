@@ -547,10 +547,11 @@ low-nine-bit tile at the live `3D02` probe, records the original word, and
 restores it when the branch returns. This is debugger-only state and does not
 modify the archive or executable.
 
-For the side/vertical leaf, `--player-collision-patch-tile 0xNN` applies the
-same reversible substitution at the live `3DF2` `(x-5,y)` cell. It requires
-`--player-collision-focus`; use callback focus so the patch is restored at the
-near helper return:
+For the side/vertical leaf, `--player-collision-patch-tile 0xNN` applies a
+reversible substitution at the live `5C27` probe when property focus is used,
+or at the `3DF2` `(x-5,y)` cell for collision-only focus. It requires collision
+or property focus; use callback focus so the patch is restored at the helper
+return:
 
 ~~~sh
 python3 research/tools/quikytrace.py --launch --headless \
@@ -565,7 +566,11 @@ The controlled pair reads descriptor `0x0070` for tile `0x2A` and `0x0030`
 for tile `0x2B`, with the returned `DX` matching those words (`0x70` versus
 `0x30`) and the original MAP cell restored after each helper. This confirms
 the descriptor reaches the leaf; it does not by itself name the surface or
-prove its blocking polarity.
+prove its blocking polarity. Combined property/collision traces show the
+short-circuit: at `(128,400)`, patching only `x-5=123` makes `5C27` return
+`ZF=1` and permits the `x+5=133` call, while the unpatched `0x02D` at `x-5`
+returns `ZF=0` and skips the right probe. A `both` run reaches both probes and
+records their independent descriptor/flag rows.
 
 ### Dedicated transient event types `0x65`-`0x67`
 

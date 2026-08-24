@@ -262,9 +262,13 @@ class QuikyTraceTests(unittest.TestCase):
         config = PlayerTraceConfig(
             startup_recording=recording, collision_focus=True,
             collision_patch_tile=0x2A,
+            collision_patch_side="right",
         )
         self.assertEqual(
             player_trace_lua_config(config)["collision_patch_tile"], 0x2A
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["collision_patch_side"], "right"
         )
 
     def test_player_trace_uses_selector_safe_map_reads(self):
@@ -288,6 +292,7 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertIn("collision_patch_tile=args.player_collision_patch_tile", host_source)
         self.assertIn("collision-patch-tile requires --player-focus-callback", host_source)
+        self.assertIn("collision_patch_side=args.player_collision_patch_side", host_source)
 
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

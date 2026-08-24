@@ -14,6 +14,7 @@ local property_helper_offset = trace_config.property_helper_offset or 0
 local branch_focus = trace_config.branch_focus or false
 local branch_patch_tile = trace_config.branch_patch_tile
 local collision_patch_tile = trace_config.collision_patch_tile
+local collision_patch_side = trace_config.collision_patch_side or "left"
 local descriptor_census = trace_config.descriptor_census or false
 local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
@@ -503,16 +504,147 @@ end
 
 local function record_map_lookup(sample, hit)
     local lookup = map_lookup_snapshot(hit)
+    lookup.breakpoint = {segment = hit.segment, offset = hit.offset}
+    lookup.registers = hit.registers
+    if collision_patch_tile ~= nil then
+        local player_x = nil
+        local globals = sample.globals or {}
+        local pool = sample.pool or {}
+        local target_offset = globals.player_object_offset
+        for _, candidate in ipairs(pool.objects or {}) do
+            if candidate.offset == target_offset and candidate.position then
+                player_x = candidate.position.x
+                break
+            end
+        end
+        if player_x == nil then
+            local object = callback_object_snapshot(hit)
+            player_x = object and object.position and object.position.x
+        end
+        local side = nil
+        if type(player_x) == "number" then
+            if lookup.x < player_x then side = "left"
+            elseif lookup.x > player_x then side = "right"
+            else side = "center" end
+        end
+        local side_allowed = collision_patch_side == "both" or side == collision_patch_side
+        if side_allowed and side ~= "center" and lookup.cell_word ~= nil then
+            local original = lookup.cell_word
+            local patched = (original & 0xfe00) | (collision_patch_tile & 0x1ff)
+            dosbox.mem_write_selector(
+                lookup.map_selector, lookup.cell_offset,
+                string.char(patched & 0xff, (patched >> 8) & 0xff)
+            )
+            local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
+            local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
+            local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
+            local descriptor_offset = descriptor_base +
+                (collision_patch_tile & 0x1ff) * descriptor_stride + 2
+            local d_ok, descriptor_word = pcall(
+                selector_word, descriptor_selector, descriptor_offset
+            )
+            lookup.patch = {
+                side = side,
+                x = lookup.x,
+                y = lookup.y,
+                selector = lookup.map_selector,
+                offset = lookup.cell_offset,
+                original = original,
+                patched = patched,
+                readback = selector_word(lookup.map_selector, lookup.cell_offset),
+                tile_id = collision_patch_tile & 0x1ff,
+                descriptor_word = d_ok and descriptor_word or nil,
+            }
+        end
+    end
     sample.map_lookups = sample.map_lookups or {}
     sample.map_lookups[#sample.map_lookups + 1] = lookup
     sample.map_lookup = lookup
+    return lookup
+end
+
+local function restore_map_patch(lookup)
+    if lookup == nil or lookup.patch == nil then return end
+    local patch = lookup.patch
+    dosbox.mem_write_selector(
+        patch.selector, patch.offset,
+        string.char(patch.original & 0xff, (patch.original >> 8) & 0xff)
+    )
+end
+
+local function arm_map_target()
+    if map_focus then
+        dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+    end
 end
 
 local function record_property(sample, hit)
     local property = map_property_snapshot(hit)
+    if collision_patch_tile ~= nil and hit.offset == 0x5c27 and
+       (not collision_focus or collision_patch_side == "left") and
+       sample.player_callback ~= nil then
+        local player_x = nil
+        local globals = sample.globals or {}
+        local pool = sample.pool or {}
+        local target_offset = globals.player_object_offset
+        for _, candidate in ipairs(pool.objects or {}) do
+            if candidate.offset == target_offset and candidate.position then
+                player_x = candidate.position.x
+                break
+            end
+        end
+        local side = nil
+        if type(player_x) == "number" then
+            if property.coordinates.x < player_x then side = "left"
+            elseif property.coordinates.x > player_x then side = "right"
+            else side = "center" end
+        end
+        local side_allowed = collision_patch_side == "both" or side == collision_patch_side
+        if side_allowed and side ~= "center" and property.raw_cell_word ~= nil then
+            local original = property.raw_cell_word
+            local patched = (original & 0xfe00) | (collision_patch_tile & 0x1ff)
+            dosbox.mem_write_selector(
+                property.map_lookup.map_selector, property.map_lookup.cell_offset,
+                string.char(patched & 0xff, (patched >> 8) & 0xff)
+            )
+            local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
+            local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
+            local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
+            local descriptor_offset = descriptor_base +
+                (collision_patch_tile & 0x1ff) * descriptor_stride + 2
+            local d_ok, descriptor_word = pcall(
+                selector_word, descriptor_selector, descriptor_offset
+            )
+            local patch = {
+                side = side,
+                x = property.coordinates.x,
+                y = property.coordinates.y,
+                selector = property.map_lookup.map_selector,
+                offset = property.map_lookup.cell_offset,
+                original = original,
+                patched = patched,
+                readback = selector_word(property.map_lookup.map_selector,
+                                         property.map_lookup.cell_offset),
+                tile_id = collision_patch_tile & 0x1ff,
+                descriptor_word = d_ok and descriptor_word or nil,
+            }
+            property = map_property_snapshot(hit)
+            property.patch = patch
+        end
+    end
     sample.map_properties = sample.map_properties or {}
     sample.map_properties[#sample.map_properties + 1] = property
     if sample.map_property == nil then sample.map_property = property end
+    return property
+end
+
+local function restore_property_patch(property)
+    if property == nil or property.patch == nil then return end
+    local patch = property.patch
+    dosbox.mem_write_selector(
+        patch.selector, patch.offset,
+        string.char(patch.original & 0xff, (patch.original >> 8) & 0xff)
+    )
 end
 
 local function record_branch(sample, hit)
@@ -603,24 +735,53 @@ local function record_collision(sample, hit)
     -- descriptor path.  Read the live cell here while its AX/BX arguments are
     -- still intact; this avoids needing a second breakpoint mode and keeps
     -- the tile/descriptor evidence attached to the helper event.
-    if hit.offset == 0x3df2 then
+    if hit.offset == 0x3df2 and not map_focus and
+       (not property_focus or collision_patch_side ~= "left") then
         if collision_patch_tile ~= nil then
             local lookup = map_lookup_snapshot(hit)
-            if lookup.cell_word ~= nil then
-                local original = lookup.cell_word
-                local patched = (original & 0xfe00) | (collision_patch_tile & 0x1ff)
-                dosbox.mem_write_selector(
-                    lookup.map_selector, lookup.cell_offset,
-                    string.char(patched & 0xff, (patched >> 8) & 0xff)
-                )
-                collision.patch = {
-                    selector = lookup.map_selector,
-                    offset = lookup.cell_offset,
-                    original = original,
-                    patched = patched,
-                    readback = selector_word(lookup.map_selector, lookup.cell_offset),
-                    tile_id = collision_patch_tile & 0x1ff,
-                }
+            local sides = {}
+            if collision_patch_side == "left" or collision_patch_side == "both" then
+                sides[#sides + 1] = {name = "left", x = lookup.x}
+            end
+            if collision_patch_side == "right" or collision_patch_side == "both" then
+                sides[#sides + 1] = {name = "right", x = lookup.x + 10}
+            end
+            local patches = {}
+            for _, side in ipairs(sides) do
+                local offset = lookup.map_base + (lookup.y >> 4) * lookup.row_stride +
+                               ((side.x >> 3) & 0xfffe)
+                local ok, original = pcall(selector_word, lookup.map_selector, offset)
+                if ok then
+                    local patched = (original & 0xfe00) | (collision_patch_tile & 0x1ff)
+                    dosbox.mem_write_selector(
+                        lookup.map_selector, offset,
+                        string.char(patched & 0xff, (patched >> 8) & 0xff)
+                    )
+                    local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
+                    local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
+                    local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
+                    local descriptor_offset = descriptor_base +
+                        (collision_patch_tile & 0x1ff) * descriptor_stride + 2
+                    local d_ok, descriptor_word = pcall(
+                        selector_word, descriptor_selector, descriptor_offset
+                    )
+                    patches[#patches + 1] = {
+                        side = side.name,
+                        x = side.x,
+                        y = lookup.y,
+                        selector = lookup.map_selector,
+                        offset = offset,
+                        original = original,
+                        patched = patched,
+                        readback = selector_word(lookup.map_selector, offset),
+                        tile_id = collision_patch_tile & 0x1ff,
+                        descriptor_word = d_ok and descriptor_word or nil,
+                    }
+                end
+            end
+            if #patches > 0 then
+                collision.patches = patches
+                if #patches == 1 then collision.patch = patches[1] end
             end
         end
         collision.map_property = map_property_snapshot(hit)
@@ -632,12 +793,16 @@ local function record_collision(sample, hit)
 end
 
 local function restore_collision_patch(collision)
-    if collision == nil or collision.patch == nil then return end
-    local patch = collision.patch
-    dosbox.mem_write_selector(
-        patch.selector, patch.offset,
-        string.char(patch.original & 0xff, (patch.original >> 8) & 0xff)
-    )
+    if collision == nil then return end
+    local patches = collision.patches
+    if patches == nil and collision.patch ~= nil then patches = {collision.patch} end
+    if patches == nil then return end
+    for _, patch in ipairs(patches) do
+        dosbox.mem_write_selector(
+            patch.selector, patch.offset,
+            string.char(patch.original & 0xff, (patch.original >> 8) & 0xff)
+        )
+    end
 end
 
 local function stop_for_capture()
@@ -814,8 +979,11 @@ for sequence = 1, sample_count do
             }
             local returned = nil
             local property_return = nil
+            local property_return_event = nil
             local collision_return = nil
             local collision_return_event = nil
+            local map_return = nil
+            local map_return_event = nil
             while returned == nil do
                 dosbox.breakpoint_set(return_segment, return_offset, {once = true})
                 if property_return ~= nil then
@@ -824,19 +992,42 @@ for sequence = 1, sample_count do
                 elseif collision_return ~= nil then
                     dosbox.breakpoint_set(collision_return.segment,
                                           collision_return.offset, {once = true})
-                elseif property_focus then
-                    arm_property_targets()
-                elseif collision_focus then
-                    for _, offset in ipairs(collision_offsets) do
-                        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                elseif map_return ~= nil then
+                    dosbox.breakpoint_set(map_return.segment,
+                                          map_return.offset, {once = true})
+                else
+                    if property_focus then arm_property_targets() end
+                    if collision_focus then
+                        for _, offset in ipairs(collision_offsets) do
+                            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                        end
                     end
+                    arm_map_target()
+                end
+                -- MAP calls are nested inside 3DF2, so keep their entry
+                -- breakpoint armed while waiting for the collision leaf's
+                -- near return.
+                if collision_return ~= nil and map_return == nil then
+                    arm_map_target()
+                end
+                if collision_return ~= nil and property_return == nil then
+                    arm_property_targets()
                 end
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
                 if property_return ~= nil and
                    candidate.segment == property_return.segment and
                    candidate.offset == property_return.offset then
+                    if property_return_event ~= nil then
+                        property_return_event.return_breakpoint = {
+                            segment = candidate.segment,
+                            offset = candidate.offset,
+                            registers = candidate.registers,
+                        }
+                        restore_property_patch(property_return_event)
+                    end
                     property_return = nil
+                    property_return_event = nil
                 elseif collision_return ~= nil and
                        candidate.segment == collision_return.segment and
                        candidate.offset == collision_return.offset then
@@ -850,6 +1041,19 @@ for sequence = 1, sample_count do
                     end
                     collision_return = nil
                     collision_return_event = nil
+                elseif map_return ~= nil and
+                       candidate.segment == map_return.segment and
+                       candidate.offset == map_return.offset then
+                    if map_return_event ~= nil then
+                        map_return_event.return_breakpoint = {
+                            segment = candidate.segment,
+                            offset = candidate.offset,
+                            registers = candidate.registers,
+                        }
+                        restore_map_patch(map_return_event)
+                    end
+                    map_return = nil
+                    map_return_event = nil
                 elseif candidate.segment == return_segment and candidate.offset == return_offset then
                     returned = candidate
                 else
@@ -857,10 +1061,11 @@ for sequence = 1, sample_count do
                         segment = candidate.segment, offset = candidate.offset,
                     }
                     if is_property_target(candidate.offset) then
-                        record_property(sample, candidate)
+                        property_return_event = record_property(sample, candidate)
                         property_return = far_return_location(candidate)
                     elseif candidate.offset == 0x3376 and map_focus then
-                        record_map_lookup(sample, candidate)
+                        map_return_event = record_map_lookup(sample, candidate)
+                        map_return = far_return_location(candidate)
                     elseif is_collision_target(candidate.offset) then
                         collision_return_event = record_collision(sample, candidate)
                         collision_return = collision_return_location(candidate)

@@ -137,6 +137,26 @@ def collision_rows(paths: list[Path], labels: list[str] | None = None) -> list[d
                     raise CollisionReportError(
                         f"{path}: collision.map_property.map_lookup must be an object"
                     )
+                patches = event.get("patches")
+                if patches is None:
+                    patch = event.get("patch")
+                    patches = [patch] if isinstance(patch, dict) else []
+                elif isinstance(patches, dict):
+                    # Lua arrays arrive through the API as numeric-keyed
+                    # objects until normalize_player_trace sees a top-level
+                    # field. Preserve their numeric order here as well.
+                    numeric_items = []
+                    for key, item in patches.items():
+                        try:
+                            numeric_key = int(key)
+                        except (TypeError, ValueError) as exc:
+                            raise CollisionReportError(
+                                f"{path}: collision.patches has a non-numeric key"
+                            ) from exc
+                        numeric_items.append((numeric_key, item))
+                    patches = [item for _, item in sorted(numeric_items)]
+                if not isinstance(patches, list) or any(not isinstance(item, dict) for item in patches):
+                    raise CollisionReportError(f"{path}: collision.patches must be an array of objects")
                 row = {
                     "trace": str(path),
                     "scenario": scenario,
@@ -173,6 +193,22 @@ def collision_rows(paths: list[Path], labels: list[str] | None = None) -> list[d
                                          if isinstance(map_property, dict) and
                                          isinstance(map_property.get("descriptor_word"), int)
                                          else None),
+                    "patch_sides": ",".join(
+                        str(item.get("side")) for item in patches
+                        if isinstance(item.get("side"), str)
+                    ) or None,
+                    "patch_tiles": ",".join(
+                        f"0x{item['tile_id']:03x}" for item in patches
+                        if isinstance(item.get("tile_id"), int)
+                    ) or None,
+                    "patch_descriptors": ",".join(
+                        f"0x{item['descriptor_word']:04x}" for item in patches
+                        if isinstance(item.get("descriptor_word"), int)
+                    ) or None,
+                    "patch_readbacks": ",".join(
+                        f"0x{item['readback']:04x}" for item in patches
+                        if isinstance(item.get("readback"), int)
+                    ) or None,
                 }
                 row.update(_tail(object_state))
                 rows.append(row)
@@ -207,6 +243,7 @@ CSV_FIELDS = [
     "eax", "ebx", "ecx", "edx", "event_index",
     "return_offset", "return_ax", "return_dx", "return_flags",
     "map_x", "map_y", "map_cell_word", "map_tile_id", "descriptor_word",
+    "patch_sides", "patch_tiles", "patch_descriptors", "patch_readbacks",
     "object_0x36", "object_0x37", "object_0x38", "object_0x39",
     "object_0x3a", "object_0x3b",
 ]
