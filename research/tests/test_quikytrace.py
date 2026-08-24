@@ -287,6 +287,7 @@ class QuikyTraceTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("collision_patch_tile=args.player_collision_patch_tile", host_source)
+        self.assertIn("collision-patch-tile requires --player-focus-callback", host_source)
 
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

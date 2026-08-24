@@ -738,6 +738,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-branch-patch-tile must be between 0 and 511")
     if args.player_collision_patch_tile is not None and not args.player_collision_focus:
         raise TraceError("--player-collision-patch-tile requires --player-collision-focus")
+    if args.player_collision_patch_tile is not None and not args.player_focus_callback:
+        raise TraceError("--player-collision-patch-tile requires --player-focus-callback")
     if args.player_collision_patch_tile is not None and not 0 <= args.player_collision_patch_tile <= 0x1ff:
         raise TraceError("--player-collision-patch-tile must be between 0 and 511")
     if args.player_descriptor_count < 1 or args.player_descriptor_count > 512:
