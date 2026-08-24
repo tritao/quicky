@@ -293,15 +293,52 @@ and opposite paired directions, but not timer reversal, MAP blocking, or
 player-contact response; see [`entity-effect-motion-evidence.json`](../entity-effect-motion-evidence.json).
 
 The callback state paths are now decoded in the segment as well. Wind `882F`
-uses states 0-3: horizontal clamp/flip, timer-driven vertical phases, and a
-player-range gate (`x-10..x+10`, `y-35..y+5`) before returning to state 0. Its
-MAP probes are the `+/-20` and `+/-25` directional checks, with `+0x2F` as the
-block flag and table selectors `DS:3504`/`DS:3510`. UFO effect `546D` uses
-states 0-6, direction-dependent `+/-20`/`+/-16` MAP probes, a 40-50 pixel
-player x window with a 120-pixel y window, and the camera-gated clear at
-`58A0`; common setup seeds `+/-0x15000` velocity and the paired types negate
-it. The normalized motion ledger now carries these static state rules as well
-as the direct trajectories.
+uses states 0-3: horizontal travel with directional MAP checks and a 0x51-tick
+phase, bounded transition/vertical phases, and a return-to-state-0 clamp. Its
+player-range band is `x-10..x+10`, `y-35..y+5`; the callback scans `DS:8806`
+and clears a matching entry but emits no direct `DS:612E` sound action. UFO
+effect `546D` uses states 0-6, direction-dependent `+/-20`/`+/-16` MAP probes,
+the player-range transition, return/acceleration phases, and the camera-gated
+clear at `58A0`; common setup seeds `+/-0x15000` velocity and the paired types
+negate it. Its `DS:8806` scan either selects `4AB3` on a second match or writes
+sound action `0x0D`. The normalized motion ledger now carries these static state
+rules as well as the direct trajectories; the remaining questions are the
+semantic meaning of the table entries and authored reset behavior.
+
+## Targeted static pass
+
+The targeted raw-segment decompile covers the cloud render handoff and the
+remaining effect-family branches. In the cloud path, `01D7:4EA0 -> 4EAA`
+consumes `DS:89E6`, performs its outer gameplay/effect calls, and reaches
+`01F7:106A`; the normal object update/render queues at `0FDC` and `1024`
+explicitly skip objects whose logical slot is `0xFFFF`. The ordinary queue
+append/draw path is `34BC -> 3587 -> 0013`, where `0013` is a generic VGA/BOB
+blitter. A 256-sample main-tree hardware trace hit `0013` only from return
+site `35B8`, with identical ordinary queue parameters (logical slot 0,
+position 128,400), and never observed a WOLKE slot 413-416 call. Thus the
+generic primitive is identified, but the WOLKE-specific caller or direct record
+selection after the outer consumer remains open; archive and cross-world
+resource evidence still establish slots 413-416.
+
+The same pass closes the branch-level behavior for the remaining effects:
+
+- Wind `87D1 -> 882F` seeds `-0xB000` velocity and traverses states 0-3;
+  it clears matching `DS:8806` entries and removes off camera through the shared
+  `1DCA -> 1DEE` path.
+- UFO effect `53F7 -> 546D` seeds `-0x15000` (negated for type `0x36`) and
+  traverses states 0-6; its directional `DS:8806` scan leads to `4AB3` on a
+  second match or sound action `DS:612E=0x0D`, then it clears off camera at
+  `58A0`.
+- Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
+  500 to `DS:881C`, emits `DS:612E=0x0C`, increments `DS:880A`, and clears the
+  live callback. The unresolved part is the counter's human-facing meaning and
+  authored reload persistence.
+- Dedicated events `178D/1798/17A3 -> 1749` seed subtype bytes `0x00/0x08/0x10`;
+  child callback `10B5` decrements its lifetime and clears at zero, while
+  `1186 -> 11B4` renders world-specific ICO data without collision.
+
+The durable ledger for this pass is
+[`entity-targeted-decompile-evidence.json`](../entity-targeted-decompile-evidence.json).
 
 The platform carry branch is also live-observed. Eight direct updates of type
 `0x3D` in the synthetic W1L2 cell enter `A075` and `A0B2` every time; the
@@ -485,10 +522,13 @@ and platform-carry boundaries. Remaining experiments are deliberately narrower:
 1. Capture the fully authored all-seven-letter run if exact completion timing is
    needed. The static comparator and transition handoff are now identified, but
    the synthetic fixture did not execute the presentation branch.
-2. If pixel-level renderer provenance is required, identify the low-level
-   WOLKE.BOB draw primitive after the outer `01D7:4EA0` state consumer. The
-   player-state gate, cross-world usage, removal path, and both player-side
-   readers are confirmed.
+2. If pixel-level renderer provenance is required, identify the WOLKE-specific
+   caller or direct record selection after the outer `01D7:4EA0` state consumer.
+   The generic `0013` VGA/BOB primitive, ordinary queue path, player-state gate,
+   cross-world usage, removal path, and both player-side readers are confirmed.
+3. If effect semantics are required beyond control flow, correlate the
+   `DS:8806` table entries and authored reset paths for Wind/UFO, then name the
+   paper `DS:880A` counter from the surrounding gameplay consumers.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a

@@ -49,6 +49,9 @@ public class DumpQuikyDecomp extends GhidraScript {
                 Address address = toAddr(offset);
                 Function function = currentProgram.getFunctionManager().getFunctionAt(address);
                 if (function == null) {
+                    function = currentProgram.getFunctionManager().getFunctionContaining(address);
+                }
+                if (function == null) {
                     writer.println("/* MISSING 0x" + target[0] + " " + expectedName + " */");
                     writer.println();
                     continue;
@@ -81,6 +84,9 @@ public class DumpQuikyDecomp extends GhidraScript {
     private String[][] targetsFor(String segment) {
         if ("SEG01".equals(segment)) {
             return new String[][] {
+                {"1670", "puzzle_completion_mask_check"},
+                {"16c6", "puzzle_completion_presentation"},
+                {"1704", "puzzle_completion_presentation_return"},
                 {"01ac", "menu_input_action_pending"},
                 {"0203", "wait_for_input_release"},
                 {"34c8", "load_are_resource"},
@@ -91,16 +97,25 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"313d", "seg1_target_313d"},
                 {"47f0", "reset_game_input_flags"},
                 {"4ac2", "level_selector_input_loop"},
+                {"4ea0", "cloud_outer_state_consumer"},
+                {"4eaa", "cloud_outer_state_positive_path"},
+                {"4f10", "puzzle_completion_handoff"},
+                {"4faf", "puzzle_completion_reload_setup"},
+                {"5017", "puzzle_completion_reload_transition"},
+                {"5038", "puzzle_completion_transition_flags"},
+                {"5047", "puzzle_completion_transition_dispatch"},
             };
         }
         if ("SEG02".equals(segment)) {
             return new String[][] {
                 {"085e", "load_sam_tfx_resource"},
                 {"0caa", "seg2_target_0caa"},
+                {"0d18", "cloud_branch_audio_or_effect_candidate"},
             };
         }
         if ("SEG03".equals(segment)) {
             return new String[][] {
+                {"0013", "special_render_entry_candidate"},
                 {"08c9", "release_map_buffer"},
                 {"0a43", "initialize_game_state"},
                 {"0a15", "seg3_target_0a15"},
@@ -109,6 +124,8 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"0e96", "object_update_pass_by_phase"},
                 {"0f3c", "find_object_kind_0x64"},
                 {"0fa2", "object_update_pass_nonzero_state"},
+                {"0fdc", "cloud_render_queue_candidate"},
+                {"1024", "cloud_render_dispatch_candidate"},
                 {"05a0", "seg3_target_05a0"},
                 {"106a", "seg3_target_106a"},
                 {"1cda", "stream_are_regions"},
@@ -121,6 +138,32 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"332c", "seg3_target_332c"},
                 {"335e", "seg3_target_335e"},
                 {"33bf", "seg3_target_33bf"},
+                {"3529", "normal_object_renderer"},
+                {"34bc", "render_queue_append"},
+                {"34e3", "render_queue_finalize_entry"},
+                {"3587", "render_queue_draw_pass"},
+                {"53f7", "ufo_effect_common_setup"},
+                {"546d", "ufo_effect_update_state_machine"},
+                {"58a0", "ufo_effect_exit_clear"},
+                {"5637", "ufo_effect_player_gate"},
+                {"87d1", "wind_effect_initializer"},
+                {"882f", "wind_effect_update_state_machine"},
+                {"8c4e", "paper_effect_initializer"},
+                {"8d08", "paper_effect_apply_global_effect"},
+                {"8d20", "paper_effect_shared_callback"},
+                {"8d31", "paper_effect_overlap_gate"},
+                {"8e4b", "animated_tile_effect_state_machine"},
+                {"10b5", "dedicated_event_child_callback"},
+                {"1186", "dedicated_event_renderer"},
+                {"11b4", "dedicated_event_renderer_tail"},
+                {"16ce", "dedicated_event_loop"},
+                {"1693", "dedicated_event_visibility_gate"},
+                {"1749", "dedicated_event_creator"},
+                {"178d", "dedicated_event_type_65"},
+                {"1798", "dedicated_event_type_66"},
+                {"17a3", "dedicated_event_type_67"},
+                {"4087", "player_cloud_state_reader_4087"},
+                {"4406", "player_cloud_state_reader_4406"},
                 {"3376", "map_tile_id_lookup_16px"},
                 {"5c27", "map_tile_descriptor_query_5c27"},
                 {"5cc3", "map_tile_descriptor_query_5cc3"},
@@ -143,7 +186,9 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"648e", "player_collision_helper_648e"},
                 {"69ff", "player_bounds_or_collision_69ff"},
                 {"44dc", "player_control_transition_44dc"},
-                {"8e4b", "update_tile_effect_state_machine"},
+                {"f07b", "cloud_branch_segment3_helper_candidate"},
+                {"9256", "update_are_type_28"},
+                {"9269", "update_are_type_28_steady"},
                 {"f17f", "keyboard_irq1_handler"},
                 {"f1a8", "poll_keyboard_ring_to_input_flags"},
                 {"f21b", "read_normalized_input_flags"},
@@ -151,6 +196,7 @@ public class DumpQuikyDecomp extends GhidraScript {
         }
         if ("SEG04".equals(segment)) {
             return new String[][] {
+                {"0002", "cloud_branch_seg4_entry_candidate"},
                 {"022a", "seg4_target_022a"},
                 {"125b", "seg4_target_125b"},
                 {"170a", "seg4_target_170a"},
@@ -169,6 +215,7 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"2af3", "seg4_target_2af3"},
                 {"2b0d", "seg4_target_2b0d"},
                 {"2b38", "seg4_target_2b38"},
+                {"08d8", "cloud_branch_seg4_effect_candidate"},
             };
         }
         if ("SEG05".equals(segment)) {

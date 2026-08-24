@@ -70,6 +70,26 @@ public class AnnotateQuiky extends GhidraScript {
             "Clears DS:8196 and DS:88BC before the state-machine/gameplay dispatch loop.");
         function(0x4ac2, "level_selector_input_loop",
             "Runtime-confirmed selector loop: consumes normalized flags 1/2 for level movement and 0x20 for launch.");
+        function(0x4ea0, "cloud_outer_state_consumer",
+            "Consumes DS:89E6 in the outer gameplay loop before the normal object-render pass.");
+        function(0x4eaa, "cloud_outer_state_positive_path",
+            "Positive DS:89E6 branch reached by the cloud-state probe.");
+        function(0x4f10, "puzzle_completion_handoff",
+            "Checks DS:85DB after the authored puzzle-completion presentation and enters transition setup.");
+        function(0x4faf, "puzzle_completion_reload_setup",
+            "Puzzle-completion reload/transition setup branch.");
+        function(0x5017, "puzzle_completion_reload_transition",
+            "Puzzle-completion level transition setup target.");
+        function(0x5038, "puzzle_completion_transition_flags",
+            "Puzzle-completion transition flag writes.");
+        function(0x5047, "puzzle_completion_transition_dispatch",
+            "Puzzle-completion transition dispatch tail.");
+        function(0x1670, "puzzle_completion_mask_check",
+            "Authored completion comparator: DS:60D8 == 0x007F.");
+        function(0x16c6, "puzzle_completion_presentation",
+            "Authored NESQUIK bonus presentation and score/state updates.");
+        function(0x1704, "puzzle_completion_presentation_return",
+            "Return from the authored puzzle-completion presentation.");
     }
 
     private void annotateSegment2() throws Exception {
@@ -193,6 +213,66 @@ public class AnnotateQuiky extends GhidraScript {
             "Dispatch-table callback shared by ARE types 0x29, 0x2A, and confirmed falling-leaves type 0x2B.");
         function(0x9256, "update_are_type_28",
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
+        function(0x9269, "update_are_type_28_steady",
+            "Steady cloud callback: camera/player gate and DS:89E6 update.");
+        function(0x0fdc, "cloud_render_queue_candidate",
+            "Candidate render-queue path reached after the outer state consumer; exact cloud primitive remains under analysis.");
+        function(0x1024, "cloud_render_dispatch_candidate",
+            "Candidate render dispatch path for special/normal object rendering.");
+        function(0x3529, "normal_object_renderer",
+            "Standard object renderer; runtime cloud probe returns immediately for object+0x12 == FFFF.");
+        function(0x34bc, "render_queue_append",
+            "Appends one explicit sprite draw entry to the DS:6D86 render queue.");
+        function(0x34e3, "render_queue_finalize_entry",
+            "Finalizes the current explicit render-queue entry after camera-relative coordinate setup.");
+        function(0x3587, "render_queue_draw_pass",
+            "Consumes DS:6D86 entries and calls the generic VGA/BOB blitter at 01F7:0013.");
+        function(0x4087, "player_cloud_state_reader_4087",
+            "Player callback reader for the cloud DS:89E6 state.");
+        function(0x4406, "player_cloud_state_reader_4406",
+            "Player callback reader for the cloud DS:89E6 state.");
+        function(0x53f7, "ufo_effect_common_setup",
+            "Common initializer for UFO effect variants 0x35/0x36.");
+        function(0x546d, "ufo_effect_update_state_machine",
+            "Shared UFO effect update callback for types 0x35/0x36.");
+        function(0x58a0, "ufo_effect_exit_clear",
+            "UFO effect exit/removal tail.");
+        function(0x5637, "ufo_effect_player_gate",
+            "UFO effect directional player-range gate.");
+        function(0x87d1, "wind_effect_initializer",
+            "WIND type 0x33 initializer.");
+        function(0x882f, "wind_effect_update_state_machine",
+            "WIND type 0x33 update callback/state machine.");
+        function(0x8c4e, "paper_effect_initializer",
+            "PAPIER type 0x2C initializer.");
+        function(0x8d08, "paper_effect_apply_global_effect",
+            "PAPIER overlap global-effect branch.");
+        function(0x8d20, "paper_effect_shared_callback",
+            "Shared collectible/effect callback used by paper and pickups.");
+        function(0x8d31, "paper_effect_overlap_gate",
+            "PAPIER/effect overlap gate.");
+        function(0x8e4b, "animated_tile_effect_state_machine",
+            "Shared animated tile-effect state machine for types 0x1F-0x21.");
+        function(0x10b5, "dedicated_event_child_callback",
+            "Dedicated event pooled-child callback.");
+        function(0x1186, "dedicated_event_renderer",
+            "Dedicated event renderer entry.");
+        function(0x11b4, "dedicated_event_renderer_tail",
+            "Dedicated event renderer tail.");
+        function(0x16ce, "dedicated_event_loop",
+            "Dedicated event ring consumer.");
+        function(0x1693, "dedicated_event_visibility_gate",
+            "Dedicated event camera visibility gate.");
+        function(0x1749, "dedicated_event_creator",
+            "Shared creator for dedicated event types 0x65-0x67.");
+        function(0x178d, "dedicated_event_type_65",
+            "Dedicated event type 0x65 wrapper.");
+        function(0x1798, "dedicated_event_type_66",
+            "Dedicated event type 0x66 wrapper.");
+        function(0x17a3, "dedicated_event_type_67",
+            "Dedicated event type 0x67 wrapper.");
+        function(0x0013, "special_render_entry_candidate",
+            "Candidate segment-3 special render entry outside the normal logical-slot path.");
         function(0x3376, "map_tile_id_lookup_16px",
             "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E and returns only the low 9-bit tile ID.");
         function(0x5c27, "map_tile_descriptor_query_5c27",
@@ -268,6 +348,9 @@ public class AnnotateQuiky extends GhidraScript {
 
     private void function(int offset, String name, String comment) throws Exception {
         Address address = toAddr(offset);
+        if (currentProgram.getListing().getInstructionAt(address) == null) {
+            disassemble(address);
+        }
         FunctionManager manager = currentProgram.getFunctionManager();
         Function function = manager.getFunctionAt(address);
         if (function == null) {

@@ -25,6 +25,8 @@ local trace_cloud_consumers = trace_config.trace_cloud_consumers or false
 local cloud_probe_frames = trace_config.cloud_probe_frames or 8
 local cloud_consumer_offset = trace_config.cloud_consumer_offset or 0
 local trace_cloud_outer_renderer = trace_config.trace_cloud_outer_renderer or false
+local trace_cloud_hardware_renderer = trace_config.trace_cloud_hardware_renderer or false
+local cloud_hardware_frames = trace_config.cloud_hardware_frames or 8
 local force_contact_gate = trace_config.force_contact_gate or false
 local align_x_offset = trace_config.align_x_offset or 0
 local align_y_offset = trace_config.align_y_offset or 0
@@ -773,6 +775,7 @@ if reload_after_collect then
 end
 local cloud_consumer_probe = nil
 local cloud_outer_renderer_probe = nil
+local cloud_hardware_renderer_probe = nil
 if trace_cloud_outer_renderer and expected_type == 0x28 then
     -- WOLKE leaves object+0x12 at FFFF, so observe the main-loop state branch
     -- after the callback returns. This documents the outer DS:89E6 consumer
@@ -800,6 +803,73 @@ if trace_cloud_outer_renderer and expected_type == 0x28 then
             object_slot = word(dosbox.mem_read_selector(object_selector, object_offset + 0x12, 2), 1),
         }
         if #cloud_outer_renderer_probe.samples >= 8 then break end
+        dosbox.breakpoint_set(hit.segment, hit.offset, {once = true})
+        dosbox.debug_continue()
+    end
+end
+if trace_cloud_hardware_renderer and expected_type == 0x28 then
+    -- The cloud has no logical object slot, but its special-state path can
+    -- still enter the generic VGA/BOB blitter with an explicit slot argument.
+    -- Capture the entry stack and the resolved descriptor to identify that
+    -- special call without tracing every normal sprite draw.
+    cloud_hardware_renderer_probe = {
+        frames = cloud_hardware_frames,
+        breakpoint = "01F7:0013",
+        samples = {},
+    }
+    dosbox.breakpoint_set(0x01f7, 0x0013, {once = true})
+    dosbox.debug_continue()
+    for sequence = 1, cloud_hardware_frames do
+        local hit = wait_hit("cloud hardware renderer entry")
+        local stack_offset = hit.registers.esp & 0xffff
+        local stack = dosbox.mem_read("ss", stack_offset, 32) or ""
+        local param1 = (#stack >= 6 and word(stack, 5) or nil)
+        local param2 = (#stack >= 8 and word(stack, 7) or nil)
+        local param3 = (#stack >= 10 and word(stack, 9) or nil)
+        local param4 = (#stack >= 12 and word(stack, 11) or nil)
+        local descriptor = nil
+        local map_index = nil
+        if param2 ~= nil and param2 < 0x800 then
+            map_index = dosbox.mem_read_word("ds", 0x6d8e + param2 * 2)
+            local descriptor_offset = dosbox.mem_read_word("ds", 0x6d8a)
+            local descriptor_selector = dosbox.mem_read_word("ds", 0x6d8c)
+            local stride = dosbox.mem_read_word("ds", 0x30d2)
+            if descriptor_offset ~= 0 and descriptor_selector ~= 0 and
+               map_index ~= 0xffff and stride ~= 0 then
+                local descriptor_raw = dosbox.mem_read_selector(
+                    descriptor_selector, descriptor_offset + map_index * stride, 0x2c)
+                descriptor = {
+                    selector = descriptor_selector,
+                    offset = descriptor_offset + map_index * stride,
+                    map_index = map_index,
+                    stride = stride,
+                    raw_hex = hex(descriptor_raw),
+                    width = word(descriptor_raw, 1),
+                    height = word(descriptor_raw, 3),
+                    origin_x = word(descriptor_raw, 9),
+                    origin_y = word(descriptor_raw, 11),
+                    blitter_offset = word(descriptor_raw, 0x10 + 1),
+                    blitter_selector = word(descriptor_raw, 0x12 + 1),
+                }
+            end
+        end
+        cloud_hardware_renderer_probe.samples[#cloud_hardware_renderer_probe.samples + 1] = {
+            sequence = sequence,
+            hit = {segment = hit.segment, offset = hit.offset,
+                   registers = hit.registers},
+            stack_offset = stack_offset,
+            stack_hex = hex(stack),
+            return_offset = (#stack >= 2 and word(stack, 1) or nil),
+            return_segment = (#stack >= 4 and word(stack, 3) or nil),
+            params = {flags = param1, logical_slot = param2,
+                      y = param3, x = param4},
+            object_slot = word(dosbox.mem_read_selector(
+                object_selector, object_offset + 0x12, 2), 1),
+            map_index = map_index,
+            descriptor = descriptor,
+            cloud_global_89e6 = dosbox.mem_read_word("ds", 0x89e6),
+        }
+        if #cloud_hardware_renderer_probe.samples >= cloud_hardware_frames then break end
         dosbox.breakpoint_set(hit.segment, hit.offset, {once = true})
         dosbox.debug_continue()
     end
@@ -849,6 +919,7 @@ dosbox.output.behavior_trace = {
     puzzle_completion_probe = puzzle_completion_probe,
     cloud_consumer_probe = cloud_consumer_probe,
     cloud_outer_renderer_probe = cloud_outer_renderer_probe,
+    cloud_hardware_renderer_probe = cloud_hardware_renderer_probe,
     reload_probe = reload_probe,
     samples = samples,
 }
