@@ -4,6 +4,9 @@ local record_offset = TRACE_RECORD_OFFSET or 0x1792
 local expected_type = TRACE_ENTITY_TYPE or 0x2b
 local capture_delay_frames = TRACE_CAPTURE_DELAY_FRAMES or 0
 local lifetime_sample_count = TRACE_LIFETIME_SAMPLES or 0
+local sprite_init_offset = TRACE_SPRITE_INIT_OFFSET or 0
+local capture_frame_count = TRACE_CAPTURE_FRAMES or 1
+local capture_frame_step = TRACE_FRAME_STEP or 30
 local runtime_offset = record_offset - 0x160
 
 local function word(s, index)
@@ -31,6 +34,42 @@ local function stop_for_capture()
     local current = dosbox.cpu_state()
     dosbox.breakpoint_set(current.cs, current.eip, {once = true})
     return wait_hit("capture barrier")
+end
+
+local function capture_timeline(entity, object_selector, object_offset, first_capture)
+    if capture_frame_count <= 1 then return end
+    entity.frames = {}
+    for index = 0, capture_frame_count - 1 do
+        if index > 0 then dosbox.wait_frames(capture_frame_step) end
+        local capture = (index == 0 and first_capture) or stop_for_capture()
+        -- A stopped Lua breakpoint can precede the renderer's present call on
+        -- the inert branch. Advance one frame and stop again so the REST video
+        -- endpoint sees a fully rendered surface for both variants.
+        if capture_frame_count > 1 then
+            dosbox.wait_frames(1)
+            capture = stop_for_capture()
+        end
+        local frame = {
+            index = index,
+            capture_registers = capture.registers,
+        }
+        if object_selector and object_offset then
+            local state = dosbox.mem_read_selector(object_selector, object_offset, 64)
+            frame.object_state_hex = hex(state)
+            frame.object = {selector = object_selector, offset = object_offset}
+            frame.position = {x = dword(state, 3) >> 16,
+                              y = dword(state, 7) >> 16}
+            frame.sprite_slot = word(state, 0x12 + 1)
+        end
+        entity.frames[index + 1] = frame
+        entity.capture_index = index
+        dosbox.output.entity = entity
+        -- Hold the guest at this exact frame until Python captures the PNG
+        -- and acknowledges it through /api/v1/debug/continue.
+        local current = dosbox.cpu_state()
+        dosbox.breakpoint_set(current.cs, current.eip, {once = true})
+        wait_hit("capture acknowledgement")
+    end
 end
 
 dosbox.output.awaiting_startup_replay = true
@@ -98,7 +137,7 @@ for attempt = 1, 4096 do
             dosbox.wait_frames(1)
             dosbox.wait_frames(capture_delay_frames)
             local capture = stop_for_capture()
-            dosbox.output.entity = {
+            local removed_entity = {
                 type = entity_type,
                 record_offset = record_offset,
                 runtime_record = {selector = r.fs, offset = r.ebx & 0xffff},
@@ -110,6 +149,8 @@ for attempt = 1, 4096 do
                 capture_registers = capture.registers,
                 record_hex = hex(record),
             }
+            capture_timeline(removed_entity, nil, nil, capture)
+            dosbox.output.entity = removed_entity
             return
         end
 
@@ -119,6 +160,8 @@ for attempt = 1, 4096 do
             -- The leaf update initializes the visible sprite through a far
             -- helper call. At 474D ES:DI still identifies the ARE object.
             dosbox.breakpoint_set(0x01f7, 0x474d, {once = true})
+        elseif sprite_init_offset ~= 0 then
+            dosbox.breakpoint_set(0x01f7, sprite_init_offset, {once = true})
         end
         dosbox.breakpoint_set(0x01f7, 0x1e8e, {once = true})
         dosbox.debug_continue()
@@ -184,13 +227,32 @@ for attempt = 1, 4096 do
             assert(#lifetime_samples == lifetime_sample_count,
                    "lifetime sample limit exceeded")
             if not emulator_running then dosbox.debug_continue() end
+        elseif sprite_init_offset ~= 0 then
+            local initialized = wait_hit("sprite initializer")
+            assert(initialized.segment == 0x01f7 and
+                   initialized.offset == sprite_init_offset,
+                   "unexpected sprite initializer breakpoint")
+            local initialized_selector = initialized.registers.es
+            local initialized_offset = initialized.registers.edi & 0xffff
+            local initialized_state = dosbox.mem_read_selector(
+                initialized_selector, initialized_offset, 64)
+            sprite_initialization = {
+                selector = initialized_selector,
+                offset = initialized_offset,
+                same_as_entity_object = initialized_selector == object_selector and
+                                        initialized_offset == object_offset,
+                sprite_slot = word(initialized_state, 0x12 + 1),
+                state_hex = hex(initialized_state),
+                breakpoint = {segment = 0x01f7, offset = sprite_init_offset},
+            }
+            dosbox.debug_continue()
         end
         dosbox.wait_frames(1 + capture_delay_frames)
         local capture = stop_for_capture()
         local object_state = dosbox.mem_read_selector(
             object_selector, object_offset, 64)
         local sprite_slot = word(object_state, 0x12 + 1)
-        dosbox.output.entity = {
+        local normal_entity = {
             type = entity_type,
             record_offset = record_offset,
             runtime_record = {selector = r.fs, offset = r.ebx & 0xffff},
@@ -226,6 +288,8 @@ for attempt = 1, 4096 do
             capture_registers = capture.registers,
             record_hex = hex(record),
         }
+        capture_timeline(normal_entity, object_selector, object_offset, capture)
+        dosbox.output.entity = normal_entity
         return
     end
     dosbox.debug_continue()

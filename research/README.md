@@ -541,6 +541,23 @@ the first row is 700-707 and the second is the brighter 750-757 family.
 JSON `entity-catalog` output includes this structured evidence from
 `research/entity-types.json`.
 
+The same normal-object tracer handles pickup type `0x6F` with its
+post-initializer breakpoint:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --runtime-dir research/build/entity-6f/baseline/game \
+  --output research/build/traces/entity-6f-sprite.json \
+  --entity-record-offset 0x1838 --entity-type 0x6f \
+  --sprite-init-offset 0x8bce
+~~~
+
+That callback writes slot 607, which resolves uniquely to record 0 of
+`WERBE.BOB` (26x34, origin 0,0). Its decoded preview is
+[`notes/type-6f-slot-607.png`](notes/type-6f-slot-607.png), and the complete
+four-record family is shown in
+[`notes/type-6f-werbe-sheet.png`](notes/type-6f-werbe-sheet.png).
+
 The confirmed cheat comparison path and debugger addresses are documented in
 [`research/notes/cheat-trace.md`](notes/cheat-trace.md). The debugger is
 entered with `Alt+Pause`; it runs in the terminal while the game remains in

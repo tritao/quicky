@@ -140,13 +140,19 @@ def trace_entity_lua(
     api: ApiClient, script_path: Path, record_offset: int, entity_type: int,
     timeout: float, poll_interval: float, startup_recording: Path,
     capture_delay_frames: int = 0, lifetime_samples: int = 0,
-) -> dict[str, Any]:
+    sprite_init_offset: int = 0, capture_frames: int = 1,
+    frame_step: int = 30, screenshot: Path | None = None,
+    screenshot_mode: str = "rendered",
+) -> tuple[dict[str, Any], list[Path]]:
     prefix = (
         f"TRACE_TIMEOUT_MS={round(timeout * 1000)}\n"
         f"TRACE_RECORD_OFFSET={record_offset}\n"
         f"TRACE_ENTITY_TYPE={entity_type}\n"
         f"TRACE_CAPTURE_DELAY_FRAMES={capture_delay_frames}\n"
         f"TRACE_LIFETIME_SAMPLES={lifetime_samples}\n"
+        f"TRACE_SPRITE_INIT_OFFSET={sprite_init_offset}\n"
+        f"TRACE_CAPTURE_FRAMES={capture_frames}\n"
+        f"TRACE_FRAME_STEP={frame_step}\n"
     )
     source = script_path.read_text(encoding="utf-8")
     name = urllib.parse.quote("quiky-entity-trace")
@@ -156,6 +162,8 @@ def trace_entity_lua(
     deadline = time.monotonic() + timeout + 20
     recording = json.loads(startup_recording.read_text(encoding="utf-8"))
     replayed = False
+    captured: list[Path] = []
+    acknowledged: set[int] = set()
     while time.monotonic() < deadline:
         status = api.get("/api/v1/script/status")
         if status.get("state") == "error":
@@ -167,7 +175,28 @@ def trace_entity_lua(
             replayed = True
         entity = status.get("output", {}).get("entity")
         if isinstance(entity, dict):
-            return entity
+            capture_index = entity.get("capture_index")
+            if isinstance(capture_index, int) and capture_index not in acknowledged:
+                if screenshot is not None:
+                    frame_path = screenshot if capture_frames == 1 else screenshot.with_name(
+                        f"{screenshot.stem}-frame-{capture_index:03d}{screenshot.suffix}"
+                    )
+                    frame_path.parent.mkdir(parents=True, exist_ok=True)
+                    frame_path.write_bytes(api.get_binary(
+                        f"/api/v1/video/frame?format=png&mode={screenshot_mode}"
+                    ))
+                    captured.append(frame_path)
+                acknowledged.add(capture_index)
+                api.post("/api/v1/debug/continue")
+            elif capture_frames <= 1 and screenshot is not None and not captured \
+                    and status.get("state") == "completed":
+                screenshot.parent.mkdir(parents=True, exist_ok=True)
+                screenshot.write_bytes(api.get_binary(
+                    f"/api/v1/video/frame?format=png&mode={screenshot_mode}"
+                ))
+                captured.append(screenshot)
+            if status.get("state") == "completed":
+                return entity, captured
         if status.get("state") == "completed":
             raise TraceError("Lua entity trace completed without entity output")
         time.sleep(poll_interval)
@@ -211,6 +240,8 @@ def trace_dispatch_lua(
 
 def ordered_lua_array(value: Any) -> list[Any]:
     """Normalize arrays emitted as either JSON arrays or numeric-key objects."""
+    if value is None:
+        return []
     if isinstance(value, list):
         return value
     if isinstance(value, dict):
@@ -310,6 +341,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="wait this many guest frames after the entity match")
     parser.add_argument("--lifetime-samples", type=int, default=0,
                         help="record this many matching leaf update calls")
+    parser.add_argument("--sprite-init-offset", type=lambda value: int(value, 0),
+                        default=0, help="break at a type-specific sprite initializer")
+    parser.add_argument("--capture-frames", type=int, default=1,
+                        help="capture this many synchronized entity frames")
+    parser.add_argument("--frame-step", type=int, default=30,
+                        help="guest frames between synchronized entity frames")
+    parser.add_argument("--screenshot-mode", choices=("rendered", "raw"),
+                        default="rendered")
     return parser
 
 
@@ -319,6 +358,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--count must be positive")
     if args.lifetime_samples < 0:
         raise TraceError("--lifetime-samples cannot be negative")
+    if args.capture_frames < 1:
+        raise TraceError("--capture-frames must be positive")
+    if args.frame_step < 0:
+        raise TraceError("--frame-step cannot be negative")
     if args.prepare_w1l3 and args.navigate_w1l3:
         raise TraceError("--prepare-w1l3 and --navigate-w1l3 are mutually exclusive")
     if args.entity_record_offset is not None and (args.prepare_w1l3 or args.navigate_w1l3):
@@ -377,6 +420,7 @@ def main(argv: list[str] | None = None) -> int:
     dispatch_script_path = repo_root / "research/automation/quiky_dispatch_trace.lua"
     startup_recording = repo_root / "research/automation/startup-to-input.json"
     screenshot_bytes = None
+    entity_screenshots: list[Path] = []
     try:
         if not info.get("features", {}).get("debugger"):
             raise TraceError("the running dosbox-automation build has no debugger API")
@@ -394,11 +438,14 @@ def main(argv: list[str] | None = None) -> int:
                 event["raw_bytes"] = ordered_lua_array(event.get("raw_bytes", []))
             script_path = dispatch_script_path
         elif args.entity_record_offset is not None:
-            entity = trace_entity_lua(
+            entity, entity_screenshots = trace_entity_lua(
                 api, entity_script_path, args.entity_record_offset,
                 args.entity_type, args.timeout, args.poll_interval,
                 startup_recording, args.screenshot_delay_frames,
                 args.lifetime_samples,
+                args.sprite_init_offset,
+                args.capture_frames, args.frame_step, args.screenshot,
+                args.screenshot_mode,
             )
             entity["lifetime_samples"] = ordered_lua_array(
                 entity.get("lifetime_samples", [])
@@ -411,7 +458,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.prepare_w1l3, args.navigate_w1l3, args.selector_frames,
                 startup_recording,
             )
-        if args.screenshot is not None:
+        if args.screenshot is not None and not entity_screenshots:
             screenshot_bytes = api.get_binary(
                 "/api/v1/video/frame?format=png&mode=rendered"
             )
@@ -451,6 +498,8 @@ def main(argv: list[str] | None = None) -> int:
         "startup_recording_sha256": sha256(startup_recording) if args.navigate_w1l3 else None,
         "breakpoint": {"segment": LOOKUP[0], "offset": LOOKUP[1]}, "events": events,
     }
+    if entity_screenshots:
+        ledger["screenshots"] = [str(path) for path in entity_screenshots]
     if args.dispatch_table:
         ledger["data_selector"] = dispatch.get("data_selector")
     args.output.parent.mkdir(parents=True, exist_ok=True)

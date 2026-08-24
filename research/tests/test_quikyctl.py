@@ -16,6 +16,7 @@ from quikyctl import (  # noqa: E402
     create_entity_variant,
     decode_bob_record,
     extract_archive,
+    find_archive_bob_slots,
     index_archive,
     parse_are,
     parse_archive,
@@ -212,6 +213,14 @@ class QuikyCtlTests(unittest.TestCase):
         self.assertEqual(candidate.dispatch_slot, "DS:81D2+0x0AC")
         dedicated = next(item for item in catalog if item.entity_type == 0x65)
         self.assertEqual(dedicated.dispatch_entry, "01F7:178D")
+        names = load_entity_type_names()
+        self.assertEqual(names[0x6F].name, "ten_ammo_box")
+        self.assertEqual(
+            find_archive_bob_slots(archive, {607}),
+            ({"slot": 607, "asset": "WERBE.BOB", "record_index": 0,
+              "record_offset": 0, "origin_x": 0, "origin_y": 0,
+              "width": 26, "height": 34},),
+        )
 
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = create_entity_variant(

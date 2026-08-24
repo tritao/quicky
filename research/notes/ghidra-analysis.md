@@ -352,6 +352,16 @@ the same selector (observed offsets include `0168`, `01E0`, `02D0`, and
 `03C0`). `quikytrace --lifetime-samples N` records object identity, slot,
 delay, animation cursor, and the `+28` variant flag at each shared leaf update.
 
+### Pickup type `0x6F`
+
+The W1L1 declaration at disk offset `0x1838` (archive world sample
+`(544,304)`) dispatches through `DS:81D2+0x1BC` to `01F7:8BC2`, class 1. The
+callback writes the normal object update pointer `01F7:8D20`; at `01F7:8BCE`
+the live object has slot `607` in `object+0x12`. `bob-find` resolves that slot
+uniquely to record 0 of `WERBE.BOB`, a 26x34 opaque Nesquik-branded pickup/sign
+sprite. A baseline versus inert-type-0 archive mutation removes the object,
+confirming the catalog entry `ten_ammo_box`.
+
 The exceptional-looking normal type `0x28` is likewise decoded without a
 special case: update callback `01F7:9256`, object class `0`, reserved byte `0`.
 Types `0x65`, `0x66`, and `0x67` branch before the table and call

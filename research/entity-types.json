@@ -40,6 +40,36 @@
           "experiment": "baseline_vs_inert_type_0",
         "note": "Changing only this record from 0x2B to inert type 0 removes the animated falling leaves; the cloud and static scene remain unchanged."
       }
+    },
+    {
+      "type": 111,
+      "name": "ten_ammo_box",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "record_offset": 6200,
+        "archived_world": [544, 304],
+        "runtime_world": [800, 240],
+        "dispatch_slot": "DS:81D2+0x1BC",
+        "initializer_callback": "01F7:8BC2",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 607,
+        "sprite_initializer_return": "01F7:8BCE",
+        "bob_asset": "WERBE.BOB",
+        "bob_record_index": 0,
+        "bob_record_offset": 0,
+        "bob_dimensions": [26, 34],
+        "bob_origin": [0, 0],
+        "sprite_preview": "research/notes/type-6f-slot-607.png",
+        "sprite_sheet": "research/notes/type-6f-werbe-sheet.png",
+        "trace_ledger": "research/build/traces/entity-6f-sprite.json",
+        "experiment": "baseline_vs_inert_type_0",
+        "experiment_manifest": "research/build/entity-6f/experiment.json",
+        "note": "The post-initializer writes logical slot 607; changing only this W1L1 declaration to inert type 0 removes the visible pickup/sign object."
+      }
     }
   ]
 }
