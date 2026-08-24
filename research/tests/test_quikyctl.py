@@ -245,6 +245,30 @@ class QuikyCtlTests(unittest.TestCase):
         self.assertEqual(names[0x73].confidence, "unknown")
         self.assertEqual(names[0x74].confidence, "unknown")
         self.assertEqual(names[0x28].name, "cloud")
+        self.assertEqual(names[0x1F].confidence, "unknown")
+        self.assertEqual(names[0x20].confidence, "unknown")
+        self.assertEqual(names[0x21].confidence, "unknown")
+        for entity_type, name, slot, asset, dimensions in (
+            (0x2C, "paper_effect", 710, "PAPIER.BOB", (18, 15)),
+            (0x34, "bump_effect", 400, "BUMP_W1.BOB", (32, 23)),
+        ):
+            self.assertEqual(names[entity_type].name, name)
+            match = [
+                item for item in find_archive_bob_slots(archive, {slot})
+                if item["asset"] == asset
+            ]
+            self.assertEqual(len(match), 1)
+            self.assertEqual((match[0]["width"], match[0]["height"]), dimensions)
+        for entity_type, name in (
+            (0x33, "snow_effect_variant_51"),
+            (0x35, "snow_effect_variant_53"),
+            (0x36, "snow_effect_variant_54"),
+            (0x3D, "moving_platform_variant_61"),
+            (0x3E, "moving_platform_variant_62"),
+            (0x3F, "moving_platform_variant_63"),
+            (0x40, "moving_platform_variant_64"),
+        ):
+            self.assertEqual(names[entity_type].name, name)
         for entity_type, name, slot in (
             (0x29, "falling_leaves_variant_29", 700),
             (0x2A, "falling_leaves_variant_2a", 700),
@@ -289,6 +313,25 @@ class QuikyCtlTests(unittest.TestCase):
                          if item.name == "W1L1.ARE")
             payload = removed.read_bytes()[entry.offset:entry.offset + entry.size]
             self.assertEqual(struct.unpack_from(">H", payload, 0x1792)[0], 0)
+
+            target_manifest = create_entity_variant(
+                archive,
+                Path(temp_dir) / "target",
+                "W1L1.ARE",
+                0x1792,
+                target_type=0x29,
+            )
+            target_archive = Path(target_manifest["variants"][0]["archive"])
+            target_info = parse_archive(target_archive)
+            target_entry = next(
+                item for item in target_info.entries if item.name == "W1L1.ARE"
+            )
+            target_bytes = target_archive.read_bytes()
+            self.assertEqual(
+                struct.unpack_from(">H", target_bytes, target_entry.offset + 0x1792)[0],
+                0x29,
+            )
+            self.assertEqual(target_manifest["original_entity_type"], 0x2B)
 
     def test_entity_name_catalog_loads_confidence_ratings(self):
         names = load_entity_type_names()

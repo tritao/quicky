@@ -847,6 +847,7 @@ def create_entity_variant(
     inert_type: int = 0,
     overwrite: bool = False,
     stream_cell: Optional[tuple[int, int]] = None,
+    target_type: Optional[int] = None,
 ) -> dict[str, Any]:
     if archive_path.resolve() == (output_dir / "NESTLE.DAT").resolve():
         raise QuikyError("variant output must not replace the source archive")
@@ -869,6 +870,13 @@ def create_entity_variant(
         )
     reference, entity_index, entity = matches[0]
     baseline_are = are_data
+    if target_type is not None:
+        baseline_are = patch_are_entity_data(
+            baseline_are,
+            reference.reference,
+            entity_index,
+            entity_type=target_type,
+        )
     stream_redirect = None
     if stream_cell is not None:
         cell_x, cell_y = stream_cell
@@ -901,12 +909,17 @@ def create_entity_variant(
     for name, replacement, mutation in (
         (
             "baseline", baseline_are,
-            "stream redirect only" if stream_redirect else "no mutation",
+            (
+                f"record 0x{record_offset:x}: type 0x{entity.entity_type:04x} "
+                f"-> target 0x{target_type:04x}"
+                if target_type is not None
+                else "stream redirect only" if stream_redirect else "no mutation"
+            ),
         ),
         (
             "removed",
             removed_are,
-            f"record 0x{record_offset:x}: type 0x{entity.entity_type:04x} "
+            f"record 0x{record_offset:x}: type 0x{(target_type if target_type is not None else entity.entity_type):04x} "
             f"-> inert 0x{inert_type:04x}",
         ),
     ):
@@ -948,7 +961,9 @@ def create_entity_variant(
         "source_archive_sha256": _sha256(archive_path),
         "level": level_name,
         "record_offset": record_offset,
-        "entity_type": entity.entity_type,
+        "entity_type": target_type if target_type is not None else entity.entity_type,
+        "original_entity_type": entity.entity_type,
+        "target_type": target_type,
         "inert_type": inert_type,
         "placements": [_as_json(placement) for placement in placements],
         "stream_redirect": stream_redirect,
@@ -2053,6 +2068,10 @@ def build_parser() -> argparse.ArgumentParser:
     entity_variant.add_argument("--level", required=True)
     entity_variant.add_argument("--record-offset", required=True, type=_parse_int)
     entity_variant.add_argument("--inert-type", type=_parse_int, default=0)
+    entity_variant.add_argument(
+        "--target-type", type=_parse_int,
+        help="replace the selected record in the baseline before creating the inert variant",
+    )
     entity_variant.add_argument("--overwrite", action="store_true")
     entity_variant.add_argument("--json", action="store_true")
 
@@ -2174,6 +2193,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.record_offset,
                 args.inert_type,
                 args.overwrite,
+                target_type=args.target_type,
             )
             if args.json:
                 print(json.dumps(manifest, indent=2))

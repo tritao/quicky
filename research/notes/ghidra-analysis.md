@@ -401,6 +401,27 @@ inert manifests are `research/build/entity-29-evidence/experiment.json` and
 `research/build/traces/entity-2a-confirm.json`. They are cataloged as leaf
 variants because the dispatch code converges before any type-specific branch.
 
+Additional callback families now have runtime slot evidence. Type `0x2C`
+(`01F7:8C4E`) writes slot 710 at the post-callback boundary `01F7:8C70`,
+which resolves uniquely to the 18x15 record 0 of `PAPIER.BOB`. Types `0x33`
+(`01F7:87D1`), `0x35` (`01F7:544C`), and `0x36` (`01F7:545A`) write slots
+214/264/214 respectively; their W4/W5 level context points to the
+corresponding 48x26 `SCHNEE.BOB` records, although those logical slots also
+exist in unrelated archive BOBs. Type `0x34` (`01F7:9BEE`) writes slot 400,
+matching the world-specific `BUMP_W1.BOB`-`BUMP_W5.BOB` family.
+
+Types `0x3D`-`0x40` share update callback `01F7:9DC7` after their distinct
+initializers. Their post-callback slots are 301, 300, 301, and 300, matching
+the world-specific `PLATFW*.BOB` records 1, 0, 1, and 0. The current names are
+kept probable because the controlled synthetic anchor proves the object and
+slot chain, while exact per-level BOB loading still needs a direct resource
+lookup capture.
+
+The normal types `0x1F`-`0x21` initialize `object+0x2E` to 1, 2, and 3 and
+converge on update callback `01F7:8E4B`, but leave `object+0x12` at `0xFFFF`.
+They are recorded as unknown state-machine variants until that update path's
+side effects and resource use are traced.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive

@@ -602,6 +602,23 @@ cataloged as `falling_leaves_variant_29` and `falling_leaves_variant_2a`; the
 three types are behaviorally grouped because the executable dispatch callback
 does not distinguish them after lookup.
 
+The next resolved normal families are cataloged with explicit confidence:
+
+| ARE types | runtime slot(s) | asset family | status |
+| --- | --- | --- | --- |
+| `0x2C` | 710 | `PAPIER.BOB` | confirmed paper effect |
+| `0x33`, `0x35`, `0x36` | 214/264 | `SCHNEE.BOB` in W4/W5 context | probable weather variants |
+| `0x34` | 400 | `BUMP_W1.BOB` through `BUMP_W5.BOB` | probable bump effect |
+| `0x3D`-`0x40` | 300/301 | `PLATFW1.BOB` through `PLATFW5.BOB` | probable moving-platform variants |
+
+The slot evidence is from post-callback debugger stops, not the factory's
+initial `0xFFFF` field. `bob-find` reports archive-wide collisions for some
+shared logical slots, so the catalog records the level/world resource context
+and retains `probable` confidence where a direct resource lookup has not yet
+been captured. Types `0x1F`-`0x21` converge on update callback `01F7:8E4B`
+but leave `object+0x12` unset; they remain explicitly unknown state-machine
+variants.
+
 The puzzle-letter family `0x79`-`0x7F` is also resolved. The seven normal
 dispatch entries use consecutive callbacks at `01F7:8C71`-`01F7:8D07`, all
 converge on update callback `01F7:8D20`, and write slots 600-606 in
