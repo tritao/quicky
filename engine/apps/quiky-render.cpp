@@ -1,4 +1,5 @@
 #include "quiky/archive.h"
+#include "quiky/area.h"
 #include "quiky/map.h"
 #include "quiky/palette.h"
 #include "quiky/renderer.h"
@@ -12,7 +13,7 @@
 namespace {
 
 void usage() {
-    std::cerr << "usage: quiky-render ARCHIVE MAP-RESOURCE OUTPUT.BMP\n";
+    std::cerr << "usage: quiky-render ARCHIVE MAP-RESOURCE OUTPUT.BMP [--overlay-are]\n";
 }
 
 std::string worldFor(const std::string &mapName) {
@@ -28,7 +29,7 @@ std::string worldFor(const std::string &mapName) {
 } // namespace
 
 int main(int argc, char **argv) {
-    if (argc != 4) {
+    if (argc != 4 && argc != 5) {
         usage();
         return EXIT_FAILURE;
     }
@@ -42,8 +43,21 @@ int main(int argc, char **argv) {
             archive.read(world + ".PCC"), world + ".PCC");
         const quiky::Tileset tileset = quiky::Tileset::parseIco(
             archive.read(world + ".ICO"), world + ".ICO");
-        const quiky::IndexedSurface surface = quiky::renderMap(map, tileset);
-        quiky::writeBmp(argv[3], surface, palette);
+        quiky::IndexedSurface surface = quiky::renderMap(map, tileset);
+        quiky::Palette outputPalette = palette;
+        if (argc == 5) {
+            if (std::string(argv[4]) != "--overlay-are") {
+                usage();
+                return EXIT_FAILURE;
+            }
+            const std::size_t extension = mapName.find_last_of('.');
+            const std::string areaName = mapName.substr(0, extension) + ".ARE";
+            const quiky::Area area = quiky::Area::parse(archive.read(areaName), areaName);
+            quiky::overlayArea(surface, outputPalette, area);
+            std::cout << "ARE: " << areaName << ", placements "
+                      << area.placements().size() << "\n";
+        }
+        quiky::writeBmp(argv[3], surface, outputPalette);
         std::cout << mapName << ": " << map.width << "x" << map.height
                   << " tiles, output " << surface.width << "x" << surface.height
                   << " pixels\n";

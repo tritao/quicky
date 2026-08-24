@@ -1,3 +1,4 @@
+#include "quiky/area.h"
 #include "quiky/archive.h"
 #include "quiky/binary_reader.h"
 #include "quiky/map.h"
@@ -25,6 +26,11 @@ void appendU32LE(quiky::Bytes &data, std::uint32_t value) {
 void appendU16BE(quiky::Bytes &data, std::uint16_t value) {
     data.push_back(static_cast<quiky::byte>(value >> 8));
     data.push_back(static_cast<quiky::byte>(value & 0xff));
+}
+
+void writeU16BEAt(quiky::Bytes &data, std::size_t offset, std::uint16_t value) {
+    data[offset] = static_cast<quiky::byte>(value >> 8);
+    data[offset + 1] = static_cast<quiky::byte>(value & 0xff);
 }
 
 quiky::Bytes makeArchive() {
@@ -120,6 +126,36 @@ void testMapPaletteTilesetAndRenderer() {
     assert(surface.at(16, 0) == 7);
 }
 
+void testAreaAndOverlay() {
+    quiky::Bytes areaData(0x14e8, 0);
+    writeU16BEAt(areaData, 0x0e, 2);
+    writeU16BEAt(areaData, 0x10, 1);
+    writeU16BEAt(areaData, 0x160, 0x1388);
+    writeU16BEAt(areaData, 0x162, 0xffff);
+    appendU16BE(areaData, 0x002b);
+    appendU16BE(areaData, 0x0010);
+    appendU16BE(areaData, 0x0020);
+    appendU16BE(areaData, 0xffff);
+
+    const quiky::Area area = quiky::Area::parse(areaData, "W1L1.ARE");
+    assert(area.layoutWidth == 2 && area.layoutHeight == 1);
+    assert(area.references.size() == 1);
+    assert(area.references[0].value == 0x1388);
+    assert(area.references[0].entities.size() == 1);
+    assert(area.references[0].entities[0].recordOffset == 0x14e8);
+    const std::vector<quiky::AreaPlacement> placements = area.placements();
+    assert(placements.size() == 1);
+    assert(placements[0].worldX == 16 && placements[0].worldY == 32);
+
+    quiky::IndexedSurface surface(128, 128);
+    quiky::Palette palette;
+    quiky::overlayArea(surface, palette, area);
+    const quiky::byte marker = static_cast<quiky::byte>(240 + (0x002b & 0x0f));
+    assert(surface.at(16, 32) == marker);
+    assert(surface.at(12, 28) == 0);
+    assert(palette.colors[marker].red == static_cast<quiky::byte>(96 + ((0x002b * 73) % 160)));
+}
+
 } // namespace
 
 int main() {
@@ -127,6 +163,7 @@ int main() {
         testReader();
         testArchive();
         testMapPaletteTilesetAndRenderer();
+        testAreaAndOverlay();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;

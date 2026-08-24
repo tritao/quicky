@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_library(quiky_core
+    src/area.cpp
     src/archive.cpp
     src/binary_reader.cpp
     src/map.cpp

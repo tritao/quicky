@@ -1,6 +1,7 @@
 #ifndef QUIKY_RENDERER_H
 #define QUIKY_RENDERER_H
 
+#include "quiky/area.h"
 #include "quiky/map.h"
 #include "quiky/palette.h"
 #include "quiky/tileset.h"
@@ -22,6 +23,7 @@ struct IndexedSurface {
 };
 
 IndexedSurface renderMap(const Map &map, const Tileset &tileset);
+void overlayArea(IndexedSurface &surface, Palette &palette, const Area &area);
 void writeBmp(const std::string &path, const IndexedSurface &surface, const Palette &palette);
 
 } // namespace quiky

@@ -1,5 +1,6 @@
 #include "quiky/renderer.h"
 
+#include <cstdlib>
 #include <fstream>
 #include <sstream>
 
@@ -66,6 +67,34 @@ IndexedSurface renderMap(const Map &map, const Tileset &tileset) {
         }
     }
     return surface;
+}
+
+void overlayArea(IndexedSurface &surface, Palette &palette, const Area &area) {
+    const std::vector<AreaPlacement> placements = area.placements();
+    for (std::size_t placementIndex = 0; placementIndex < placements.size(); ++placementIndex) {
+        const AreaPlacement &placement = placements[placementIndex];
+        const byte colorIndex = static_cast<byte>(240 + (placement.type & 0x0f));
+        palette.colors[colorIndex].red = static_cast<byte>(96 + ((placement.type * 73) % 160));
+        palette.colors[colorIndex].green = static_cast<byte>(96 + ((placement.type * 131) % 160));
+        palette.colors[colorIndex].blue = static_cast<byte>(96 + ((placement.type * 197) % 160));
+
+        const std::int32_t centerX = static_cast<std::int32_t>(placement.worldX);
+        const std::int32_t centerY = static_cast<std::int32_t>(placement.worldY);
+        for (std::int32_t deltaY = -4; deltaY <= 4; ++deltaY) {
+            for (std::int32_t deltaX = -4; deltaX <= 4; ++deltaX) {
+                const std::int32_t x = centerX + deltaX;
+                const std::int32_t y = centerY + deltaY;
+                if (x < 0 || y < 0 || static_cast<std::uint32_t>(x) >= surface.width ||
+                    static_cast<std::uint32_t>(y) >= surface.height) {
+                    continue;
+                }
+                const byte marker = (std::abs(deltaX) == 4 || std::abs(deltaY) == 4)
+                                        ? 0
+                                        : colorIndex;
+                surface.at(static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y)) = marker;
+            }
+        }
+    }
 }
 
 void writeBmp(const std::string &path, const IndexedSurface &surface, const Palette &palette) {
