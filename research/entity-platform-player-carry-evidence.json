@@ -1,0 +1,39 @@
+{
+  "schema": "entity-platform-player-carry-evidence-v1",
+  "purpose": "Native moving-platform overlap trace plus static carry-offset consumer decode.",
+  "inputs": {
+    "segment": "QUIKY_SEG03.bin",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "trace_script_sha256": "3a7ebdb122e7139c50a6a4a7e47351fc02d2da9241c7001842ed75b16100581a",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85"
+  },
+  "static_callback": {
+    "overlap_helper": "01F7:A075 is called by 01F7:9DC7 before the platform motion branch.",
+    "accepted_shape": "After the player-state helper returns nonnegative, A075 requires object_x < player_x < object_x + object_width and object_y <= player_y < object_y + 12. Accepted overlap writes DS:5006=-1.",
+    "carry_helper": "01F7:A0B2 consumes nonzero DS:5006, computes DS:8816 as the platform horizontal fixed-point delta from object+0x2A, computes DS:8812 as platform_y - player_y + 1 fixed-point, then sets object+0x5A=FF and object+0x59=0.",
+    "player_consumers": [
+      "01F7:3FF8 adds DS:8812 to the player fixed-point Y and clears DS:8812.",
+      "01F7:3A8A/3B44 adds DS:8816 to the player fixed-point X and clears DS:8816."
+    ],
+    "terminal_reset_decode": "01F7:9DC7 has no platform-specific authored terminal table: +0x52/+0x54 are wait counters, and 9F35/9F4A plus A03D/A051 select signed velocity reversals after MAP tests. The only callback removal is the camera rejection path A06F -> 1DEE."
+  },
+  "runtime_probe": {
+    "fixture": "/home/joao/dev/quicky/research/build/entity-3d-real-w4l1/baseline/game",
+    "level": "W4L1",
+    "record_offset": "0x1898",
+    "entity_type": "0x3D",
+    "object_callback": "01F7:9DC7",
+    "controls": ["camera_x=640", "camera_y=100", "select_level=W4L1", "align object to live player with x=-8, y=-8 offsets", "no force_platform_ready", "no forced player bounds"],
+    "raw_trace": "/home/joao/dev/quicky/research/build/entity-platform-native-overlap-v1.json",
+    "samples": [
+      {"sequence":1,"object_position":[504,392],"live_player_position":[512,400],"helpers":["01F7:A075","01F7:A0B2"],"platform_overlap_latch":"DS:5006 0 -> 0xFFFF","carry_globals_before":{"x_fixed":0,"y_fixed":0},"carry_globals_after":{"x_fixed":1,"y_fixed":4294443009},"object_fields":{"+0x59":"1 -> 0","+0x5A":"0 -> 0xFF"},"interpretation":"Accepted overlap initializes the native carry offsets; the platform itself does not move in this stationary state."},
+      {"sequence":2,"object_position":[504,392],"helpers":["01F7:A075","01F7:A0B2"],"object_fields":{"+0x52":"20 -> 19","+0x58":"0 -> 20","+0x5A":"0xFF -> 0"},"interpretation":"The carry latch enters its 0x14-tick phase while the callback remains active."}
+    ]
+  },
+  "conclusions": [
+    "The original platform callback performs a strict horizontal overlap plus a 12-pixel vertical band test; it is not an inert sprite-only path.",
+    "An accepted overlap publishes platform-to-player fixed-point carry offsets consumed by the native player update, and starts the platform carry latch.",
+    "The decoded callback has MAP-driven stop/reversal and wait phases, not a separate per-platform terminal table. Exact player-state preconditions for approaches outside the accepted band remain a narrower follow-up."
+  ]
+}

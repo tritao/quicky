@@ -220,9 +220,9 @@ and [`entity-leaf-state-evidence.json`](../entity-leaf-state-evidence.json).
 The remaining effect-family uncertainty is no longer object identity: all of
 these callbacks and resource bindings are now bounded below. The open parts
 are exact gameplay names for global effects, collision response details, and
-level persistence/respawn semantics. Platforms retain a compatibility-only
-one-way-floor hypothesis until an original-runtime player-carry trace confirms
-it.
+level persistence/respawn semantics. The native platform pass now confirms the
+accepted carry band and its player-offset consumers; only the player-state
+precondition for approaches outside that band remains open.
 
 The shared effect/collectible callbacks are now statically bounded as well.
 Cloud `0x28` initializes callback `9269`, leaves the logical slot at `FFFF`,
@@ -284,17 +284,27 @@ second run with injected `0x100000` velocity reaches the native MAP stop at
 sample 85: x snaps at `2112`, `object+0x0A` is zeroed, and `object+0x54` starts
 its `0x46` wait phase. Static branches at `9F35/9F4A` and `A03D/A051` select
 the signed `0x28000` directions. These traces prove integration and blocked
-state mechanics, but deliberately do not claim the authored terminal/reset
-table or an original-runtime player contact result; see
+state mechanics; the separate native overlap ledger and static control-flow
+decode below resolve carry acceptance and the absence of a platform-specific
+terminal table. See
 [`entity-platform-motion-evidence.json`](../entity-platform-motion-evidence.json).
 The remaining W5 resource question is now closed by a native W5L1 selector
 trace that requests `GAMEDATA\\platfw5.BOB`; the normalized resource ledger is
 [`entity-platform-cross-world-evidence.json`](../entity-platform-cross-world-evidence.json).
 The platform animation dimension is intentionally not applicable: the four
 initializers choose static `PLATFW` records (slots 300/301), and callback
-`9DC7` never advances an object animation cursor. Remaining platform questions
-are semantic one-way-floor/player-carry outcomes, authored terminal/reset
-tables, and level-driven respawn.
+`9DC7` never advances an object animation cursor. A native W4L1 overlap probe
+with the object placed eight pixels above and left of the live player reaches
+`A075 -> A0B2` without forcing platform-ready state or player bounds. The
+accepted branch writes `DS:5006=-1`, computes `DS:8816`/`DS:8812` carry offsets,
+and changes object `+0x59/+0x5A` into its carry phase; player callbacks
+`3A8A/3B44` and `3FF8` consume those offsets. The normalized result is
+[`entity-platform-player-carry-evidence.json`](../entity-platform-player-carry-evidence.json).
+Static `9DC7` control flow contains no separate authored terminal table:
+`+0x52/+0x54` are wait counters and `9F35/9F4A`, `A03D/A051` reverse only
+after MAP tests. Off-camera `A06F -> 1DEE` resets the ARE record claim for
+re-stream respawn. The remaining platform question is the player-state
+precondition for approaches outside the accepted carry band.
 
 BUMP `0x34` is now bounded across all requested dimensions. Its callback uses
 the open player gate `object_x-25 < player_x < object_x+25` and
@@ -384,9 +394,9 @@ boundaries. Remaining experiments are deliberately narrower:
 
 1. Repeat the overlap probe for pickup subtypes `0x70`-`0x72` only if the
    inventory names or their persistence semantics are required.
-2. Capture an original-runtime player-carry contact and authored platform
-   terminal/reset transition to resolve one-way-floor and reset semantics; the
-   native integration and MAP stop are now confirmed under recorded controls.
+2. If platform approach polarity is required, capture player-state variants
+   just outside the accepted A075 band; native integration, carry offsets, MAP
+   stop, and the absence of a platform-specific terminal table are confirmed.
 3. If renderer provenance is required, trace the special WOLKE draw helper and
    satisfy its player-state precondition; cross-world usage and removal are now
    confirmed.

@@ -47,6 +47,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             trace_bump=True,
             trace_contact=True,
             force_contact_gate=True,
+            align_x_offset=-8,
         )
         payload = lua_config(config)
         self.assertTrue(payload["trace_overlap"])
@@ -58,6 +59,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertTrue(payload["trace_bump"])
         self.assertTrue(payload["trace_contact"])
         self.assertTrue(payload["force_contact_gate"])
+        self.assertEqual(payload["align_x_offset"], -8)
 
     def test_normalizes_lua_numeric_tables(self):
         trace = normalize_behavior_trace({

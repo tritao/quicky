@@ -29,6 +29,6 @@
   "conclusions": [
     "The platform callback reaches A075 and the player-carry helper A0B2 on every sampled update.",
     "This fixture is MAP-blocked/waiting: the platform position stays at (240,512), so it proves the carry branch and blocked state, not a free-running trajectory.",
-    "The callback advances phase/timer fields while retaining the active callback; one-way floor semantics and the terminal/reset table remain unresolved."
+    "The callback advances phase/timer fields while retaining the active callback; this blocked fixture does not establish approach-state polarity, while the separate native overlap ledger resolves the accepted carry branch and static control-flow review finds no separate terminal table."
   ]
 }

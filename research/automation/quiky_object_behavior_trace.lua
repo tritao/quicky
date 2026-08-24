@@ -20,6 +20,7 @@ local trace_bump = trace_config.trace_bump or false
 local trace_contact = trace_config.trace_contact or false
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
 local force_contact_gate = trace_config.force_contact_gate or false
+local align_x_offset = trace_config.align_x_offset or 0
 local align_y_offset = trace_config.align_y_offset or 0
 local force_velocity_x = trace_config.force_velocity_x
 local force_velocity_y = trace_config.force_velocity_y
@@ -105,6 +106,8 @@ local function stack_return(hit)
 end
 
 local function static_globals()
+    local carry_y_raw = dosbox.mem_read("ds", 0x8812, 4) or ""
+    local carry_x_raw = dosbox.mem_read("ds", 0x8816, 4) or ""
     return {
         camera_x = dosbox.mem_read_word("ds", 0x81c0),
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
@@ -114,6 +117,9 @@ local function static_globals()
         bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
         tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
         action_word = dosbox.mem_read_word("ds", 0x612e),
+        platform_overlap_latch = dosbox.mem_read_word("ds", 0x5006),
+        player_carry_y_fixed = dword(carry_y_raw, 1),
+        player_carry_x_fixed = dword(carry_x_raw, 1),
         object_global_880c = dosbox.mem_read_word("ds", 0x880c),
         object_global_8806 = dosbox.mem_read_word("ds", 0x8806),
         contact_player_x = dosbox.mem_read_word("ds", 0x87de),
@@ -294,8 +300,9 @@ if align_object_to_player then
         dosbox.mem_write_selector(object_selector, bounds_offset + 0x32,
                                   little_word(0x0000))
     end
+    local aligned_x_fixed = player.position.x_fixed + align_x_offset * 0x10000
     dosbox.mem_write_selector(object_selector, object_offset + 0x02,
-                              little_dword(player.position.x_fixed))
+                              little_dword(aligned_x_fixed))
     local aligned_y_fixed = player.position.y_fixed + align_y_offset * 0x10000
     dosbox.mem_write_selector(object_selector, object_offset + 0x06,
                               little_dword(aligned_y_fixed))
@@ -307,6 +314,7 @@ if align_object_to_player then
         player_bounds_after_hex = hex(dosbox.mem_read_selector(
             object_selector, bounds_offset + 0x2c, 8)),
         object_position = initialized_object.position,
+        x_offset = align_x_offset,
         y_offset = align_y_offset,
     }
 end

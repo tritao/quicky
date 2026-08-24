@@ -23,5 +23,5 @@
     {"type": "0x40", "world": "W2", "resource": "PLATFW2.BOB", "slot": 300, "geometry": [48, 16], "origin": [0, 0], "evidence": "W2L1 selector/resource and descriptor probes"},
     {"type": "W5 context", "world": "W5", "resource": "PLATFW5.BOB", "slot": "shared 300/301", "geometry": "world descriptor follows the selected initializer slot", "origin": [0, 0], "evidence": "W5L1 native resource trace above"}
   ],
-  "conclusion": "PLATFW5.BOB is requested by the native W5L1 resource loader. Together with the four existing selector/resource and descriptor probes, this closes the moving-platform cross-world resource dimension; terminal/reset and player-carry semantics remain separate behavior questions."
+  "conclusion": "PLATFW5.BOB is requested by the native W5L1 resource loader. Together with the four existing selector/resource and descriptor probes, this closes the moving-platform cross-world resource dimension; carry and terminal/reset semantics are documented separately in entity-platform-player-carry-evidence.json."
 }

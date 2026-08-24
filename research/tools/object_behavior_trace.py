@@ -47,6 +47,7 @@ class ObjectBehaviorConfig:
     trace_contact: bool = False
     force_active_player_bounds: bool = False
     force_contact_gate: bool = False
+    align_x_offset: int = 0
     align_y_offset: int = 0
     force_velocity_x: int | None = None
     force_velocity_y: int | None = None
@@ -73,6 +74,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_contact": config.trace_contact,
         "force_active_player_bounds": config.force_active_player_bounds,
         "force_contact_gate": config.force_contact_gate,
+        "align_x_offset": config.align_x_offset,
         "align_y_offset": config.align_y_offset,
         "force_velocity_x": config.force_velocity_x,
         "force_velocity_y": config.force_velocity_y,
@@ -213,6 +215,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="debugger-only: enable the normal-enemy player-range gate and align its shared integer player coordinates",
     )
     parser.add_argument(
+        "--align-x-offset", type=int, default=0,
+        help="integer-pixel X offset from the live player when aligning the traced object",
+    )
+    parser.add_argument(
         "--align-y-offset", type=int, default=0,
         help="integer-pixel Y offset from the live player when aligning the traced object",
     )
@@ -319,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
         trace_contact=args.trace_contact,
         force_active_player_bounds=args.force_active_player_bounds,
         force_contact_gate=args.force_contact_gate,
+        align_x_offset=args.align_x_offset,
         align_y_offset=args.align_y_offset,
         force_velocity_x=args.force_velocity_x,
         force_velocity_y=args.force_velocity_y,

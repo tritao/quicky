@@ -22,6 +22,7 @@
     "vertical_integration": "object+0x0E fixed-point velocity is added to y; MAP checks at 01F7:9FB2/9FDF stop, snap, and set object+0x54=0x46",
     "direction_reversal": "01F7:9F35/9F4A and 01F7:A03D/A051 select +/-0x28000 and update direction bytes",
     "carry_helpers": ["01F7:A075", "01F7:A0B2"],
+    "terminal_reset": "01F7:9DC7 has no separate authored terminal table; +0x52/+0x54 are wait counters and the reversal branches are selected by MAP tests. Offscreen A06F calls shared removal 1DEE.",
     "animation": "9DC7 never writes object+0x12 or an animation cursor; each initializer selects one static PLATFW slot (300 or 301), so the BOB record is a static platform frame rather than a callback animation table.",
     "player_overlap_shape": "A075 tests object_x < player_x < object_x+object_width and object_y <= player_y < object_y+12; object_width is the live +0x3E geometry field (32 or 48 pixels by PLATFW variant), and accepted overlap publishes DS:5006=-1 for A0B2."
   },
@@ -45,6 +46,6 @@
   },
   "conclusions": [
     "Static and controlled native traces now establish fixed-point integration, MAP stop/snap, direction-selection branches, and player-carry helper reachability for the shared 9DC7 callback.",
-    "The injected-velocity traces intentionally do not claim the level's authored terminal/reset table or an original-runtime player-contact outcome; those remain separate open questions."
+    "The injected-velocity traces intentionally do not claim an unmodified level trajectory or player contact; the separate native overlap ledger resolves the carry helper's accepted branch."
   ]
 }
