@@ -271,13 +271,27 @@ void testLevelSession() {
     session.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
     assert(session.entities().size() == 2);
     assert(session.entities()[0].active);
+    assert(session.entities()[0].phase == quiky::EntityPhase::Active);
+    assert(session.entities()[0].spriteSlot == 607);
     assert(!session.entities()[1].active);
+    assert(session.entities()[1].phase == quiky::EntityPhase::Dormant);
 
     session.tick(player, simulation, quiky::InputState());
     quiky::LevelEvent event = session.consumeEvent();
     assert(event.type == quiky::LevelEventType::Collected);
     assert(session.score() == 10);
     assert(session.entities()[0].collected);
+    assert(session.entities()[0].phase == quiky::EntityPhase::Collected);
+    assert(session.entities()[0].activeFrames == 1);
+    assert(session.entities()[0].animationFrame == 1);
+
+    session.reset(player, simulation);
+    assert(session.score() == 0 && session.deaths() == 0);
+    assert(!session.entities()[0].collected);
+    assert(session.entities()[0].phase == quiky::EntityPhase::Dormant);
+    session.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+    assert(session.entities()[0].phase == quiky::EntityPhase::Active);
+    assert(session.entities()[0].animationFrame == 0);
 
     quiky::LevelSessionConfig hazardConfig = config;
     hazardConfig.streamRadiusRegions = 2;

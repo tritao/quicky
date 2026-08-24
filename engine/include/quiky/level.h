@@ -17,6 +17,12 @@ enum class EntityKind {
     MovingPlatform,
 };
 
+enum class EntityPhase {
+    Dormant,
+    Active,
+    Collected,
+};
+
 enum class LevelEventType {
     None,
     Collected,
@@ -57,12 +63,18 @@ struct LevelEntity {
     std::int32_t x;
     std::int32_t y;
     EntityKind kind;
+    EntityPhase phase;
+    std::uint16_t spriteSlot;
+    std::uint16_t animationFrame;
+    std::uint32_t activeFrames;
     bool active;
     bool collected;
 
     LevelEntity()
         : id(0), recordOffset(0), type(0), regionX(0), regionY(0), x(0), y(0),
-          kind(EntityKind::Unknown), active(false), collected(false) {}
+          kind(EntityKind::Unknown), phase(EntityPhase::Dormant),
+          spriteSlot(0xffff), animationFrame(0), activeFrames(0),
+          active(false), collected(false) {}
 };
 
 class LevelSession {
@@ -71,7 +83,7 @@ public:
                  const LevelSessionConfig &config = LevelSessionConfig());
 
     SpawnPoint spawnPoint() const;
-    void reset(PlayerState &player, const PlayerSimulation &simulation) const;
+    void reset(PlayerState &player, const PlayerSimulation &simulation);
     void tick(PlayerState &player, const PlayerSimulation &simulation,
               const InputState &input);
 
@@ -84,8 +96,11 @@ public:
 
 private:
     static EntityKind classify(std::uint16_t type);
+    static std::uint16_t spriteSlotFor(std::uint16_t type);
     static std::uint32_t collectibleValue(std::uint16_t type);
     static std::string nextLevelName(const std::string &mapName);
+    void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;
+    void advanceActiveEntities();
     bool overlaps(const PlayerState &player, const PlayerConfig &playerConfig,
                   const LevelEntity &entity, std::int32_t radius) const;
     bool atRightExit(const PlayerState &player) const;

@@ -61,6 +61,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.x = static_cast<std::int32_t>(placement.worldX);
         entity.y = static_cast<std::int32_t>(placement.worldY);
         entity.kind = classify(entity.type);
+        entity.spriteSlot = spriteSlotFor(entity.type);
         _entities.push_back(entity);
     }
 }
@@ -80,7 +81,23 @@ SpawnPoint LevelSession::spawnPoint() const {
                       std::min<std::int32_t>(_config.spawnY, std::max(0, mapHeight - 32)));
 }
 
-void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation) const {
+void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation) {
+    _event = LevelEvent();
+    _score = 0;
+    _deaths = 0;
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        entity.phase = EntityPhase::Dormant;
+        entity.animationFrame = 0;
+        entity.activeFrames = 0;
+        entity.active = false;
+        entity.collected = false;
+    }
+    resetPlayer(player, simulation);
+}
+
+void LevelSession::resetPlayer(PlayerState &player,
+                                const PlayerSimulation &simulation) const {
     const SpawnPoint spawn = spawnPoint();
     simulation.reset(player, spawn.x, spawn.y);
 }
@@ -101,6 +118,18 @@ EntityKind LevelSession::classify(std::uint16_t type) {
         return EntityKind::MovingPlatform;
     }
     return EntityKind::Unknown;
+}
+
+std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
+    // These are the direct runtime-confirmed families. Other entity slots
+    // remain unknown until their world-specific BOB resource is selected.
+    if (type >= 0x6f && type <= 0x72) {
+        return static_cast<std::uint16_t>(607 + (type - 0x6f));
+    }
+    if (type >= 0x79 && type <= 0x7f) {
+        return static_cast<std::uint16_t>(600 + (type - 0x79));
+    }
+    return 0xffff;
 }
 
 std::uint32_t LevelSession::collectibleValue(std::uint16_t type) {
@@ -161,10 +190,29 @@ void LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
     const std::int32_t regionY = floorRegion(playerY);
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
+        if (entity.collected) {
+            entity.phase = EntityPhase::Collected;
+            entity.active = false;
+            continue;
+        }
         const std::int32_t distanceX = std::abs(static_cast<std::int32_t>(entity.regionX) - regionX);
         const std::int32_t distanceY = std::abs(static_cast<std::int32_t>(entity.regionY) - regionY);
-        entity.active = distanceX <= _config.streamRadiusRegions &&
-                        distanceY <= _config.streamRadiusRegions && !entity.collected;
+        const bool visible = distanceX <= _config.streamRadiusRegions &&
+                             distanceY <= _config.streamRadiusRegions;
+        entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
+        entity.active = visible;
+    }
+}
+
+void LevelSession::advanceActiveEntities() {
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        if (entity.phase != EntityPhase::Active) {
+            continue;
+        }
+        ++entity.activeFrames;
+        entity.animationFrame = static_cast<std::uint16_t>(
+            (entity.animationFrame + 1) & 0x00ff);
     }
 }
 
@@ -173,6 +221,7 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
     _event = LevelEvent();
     simulation.tick(player, _map, input);
     updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+    advanceActiveEntities();
 
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
@@ -183,14 +232,14 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
             overlaps(player, simulation.config(), entity, _config.collectibleRadius)) {
             entity.collected = true;
             entity.active = false;
+            entity.phase = EntityPhase::Collected;
             _score += collectibleValue(entity.type);
             _event.type = LevelEventType::Collected;
             _event.entityId = entity.id;
             _event.entityType = entity.type;
         } else if (entity.kind == EntityKind::Hazard &&
                    overlaps(player, simulation.config(), entity, _config.hazardRadius)) {
-            const SpawnPoint spawn = spawnPoint();
-            simulation.reset(player, spawn.x, spawn.y);
+            resetPlayer(player, simulation);
             ++_deaths;
             _event.type = LevelEventType::PlayerDied;
             _event.entityId = entity.id;
