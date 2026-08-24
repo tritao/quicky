@@ -25,9 +25,12 @@ struct Fixed16 {
 struct InputState {
     bool left;
     bool right;
+    bool up;
+    bool down;
     bool jump;
 
-    InputState() : left(false), right(false), jump(false) {}
+    InputState()
+        : left(false), right(false), up(false), down(false), jump(false) {}
 
     static InputState fromActionFlags(std::uint16_t flags);
 };
@@ -56,6 +59,41 @@ struct CollisionRules {
     CollisionRules();
 };
 
+// The original player callback asks directional collision helpers about the
+// current object rather than consuming a MAP object directly. Keeping that
+// boundary explicit lets recovered tile semantics replace the current masks
+// without changing player movement code.
+class CollisionQuery {
+public:
+    virtual ~CollisionQuery() {}
+
+    virtual bool blocksHorizontal(std::int32_t tileX,
+                                  std::int32_t tileY) const = 0;
+    virtual bool blocksFloor(std::int32_t tileX,
+                             std::int32_t tileY) const = 0;
+    virtual bool blocksCeiling(std::int32_t tileX,
+                               std::int32_t tileY) const = 0;
+};
+
+class MapCollisionQuery : public CollisionQuery {
+public:
+    MapCollisionQuery(const Map &map, const CollisionRules &rules);
+
+    bool blocksHorizontal(std::int32_t tileX,
+                          std::int32_t tileY) const override;
+    bool blocksFloor(std::int32_t tileX,
+                     std::int32_t tileY) const override;
+    bool blocksCeiling(std::int32_t tileX,
+                       std::int32_t tileY) const override;
+
+private:
+    bool propertyMatches(std::int32_t tileX, std::int32_t tileY,
+                         std::uint16_t mask) const;
+
+    const Map &_map;
+    CollisionRules _rules;
+};
+
 struct PlayerState {
     Fixed16 x;
     Fixed16 y;
@@ -81,19 +119,24 @@ public:
                      const CollisionRules &collision = CollisionRules());
 
     void reset(PlayerState &player, std::int32_t x, std::int32_t y) const;
+    void tick(PlayerState &player, const CollisionQuery &collision,
+              const InputState &input) const;
     void tick(PlayerState &player, const Map &map, const InputState &input) const;
 
     const PlayerConfig &config() const { return _config; }
     const CollisionRules &collisionRules() const { return _collision; }
 
 private:
-    bool propertyMatches(const Map &map, std::int32_t tileX, std::int32_t tileY,
-                         std::uint16_t mask) const;
-    bool collidesHorizontal(const Map &map, const PlayerState &player) const;
-    bool collidesFloor(const Map &map, const PlayerState &player) const;
-    bool collidesCeiling(const Map &map, const PlayerState &player) const;
-    void moveHorizontal(PlayerState &player, const Map &map) const;
-    void moveVertical(PlayerState &player, const Map &map) const;
+    bool collidesHorizontal(const CollisionQuery &collision,
+                            const PlayerState &player) const;
+    bool collidesFloor(const CollisionQuery &collision,
+                       const PlayerState &player) const;
+    bool collidesCeiling(const CollisionQuery &collision,
+                         const PlayerState &player) const;
+    void moveHorizontal(PlayerState &player,
+                        const CollisionQuery &collision) const;
+    void moveVertical(PlayerState &player,
+                      const CollisionQuery &collision) const;
 
     PlayerConfig _config;
     CollisionRules _collision;

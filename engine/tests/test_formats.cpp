@@ -208,6 +208,21 @@ quiky::Map makePhysicsMap() {
     return quiky::Map::parse(data, "physics.MAP");
 }
 
+class TraceCollisionQuery : public quiky::CollisionQuery {
+public:
+    bool blocksHorizontal(std::int32_t tileX, std::int32_t) const override {
+        return tileX == 6;
+    }
+
+    bool blocksFloor(std::int32_t, std::int32_t tileY) const override {
+        return tileY == 4;
+    }
+
+    bool blocksCeiling(std::int32_t, std::int32_t tileY) const override {
+        return tileY == 1;
+    }
+};
+
 quiky::Map makeLevelMap() {
     quiky::Bytes data = {'T', 'L', 'E', '1'};
     appendU16BE(data, 16);
@@ -325,6 +340,66 @@ void testPlayerSimulation() {
     assert(actionFlags.left && actionFlags.right && actionFlags.jump);
 }
 
+void testPlayerInputTraceAndCollisionQuery() {
+    TraceCollisionQuery collision;
+    quiky::PlayerConfig config;
+    config.width = 12;
+    config.height = 12;
+    config.acceleration = quiky::Fixed16::kOne;
+    config.maxHorizontalSpeed = 2 * quiky::Fixed16::kOne;
+    config.friction = quiky::Fixed16::kOne;
+    config.gravity = quiky::Fixed16::kOne;
+    config.jumpVelocity = -4 * quiky::Fixed16::kOne;
+    quiky::PlayerSimulation simulation(config);
+    quiky::PlayerState player;
+    simulation.reset(player, 16, 16);
+
+    struct TraceStep {
+        std::uint16_t actionFlags;
+        int frames;
+    };
+    const TraceStep trace[] = {
+        {0x0000, 60}, // settle
+        {0x0004, 30}, // right
+        {0x0000, 20}, // brake
+        {0x0008, 30}, // left
+    };
+
+    for (const TraceStep &step : trace) {
+        const quiky::InputState input =
+            quiky::InputState::fromActionFlags(step.actionFlags);
+        for (int frame = 0; frame < step.frames; ++frame) {
+            simulation.tick(player, collision, input);
+        }
+        if (step.actionFlags == 0x0000 && player.grounded) {
+            assert(player.y.floorPixels() == 52);
+        }
+    }
+    assert(player.x.floorPixels() < 16 + 30);
+    assert(!player.facingRight);
+
+    const quiky::InputState vertical =
+        quiky::InputState::fromActionFlags(0x0003);
+    assert(vertical.up && vertical.down);
+
+    simulation.reset(player, 16, 52);
+    player.grounded = true;
+    simulation.tick(player, collision, quiky::InputState::fromActionFlags(0x0020));
+    assert(!player.grounded);
+    assert(player.velocityY.raw < 0);
+    assert(player.y.floorPixels() < 52);
+
+    simulation.reset(player, 16, 52);
+    player.grounded = true;
+    const quiky::InputState right =
+        quiky::InputState::fromActionFlags(0x0004);
+    for (int frame = 0; frame < 80; ++frame) {
+        simulation.tick(player, collision, right);
+    }
+    assert(player.x.floorPixels() <= 84);
+    assert(player.velocityX.raw == 0);
+}
+
 } // namespace
 
 int main() {
@@ -335,6 +410,7 @@ int main() {
         testAreaAndOverlay();
         testBobParserDecoderAndSheet();
         testPlayerSimulation();
+        testPlayerInputTraceAndCollisionQuery();
         testLevelSession();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
