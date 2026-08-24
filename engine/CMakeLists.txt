@@ -43,6 +43,9 @@ target_link_libraries(quiky-simulate PRIVATE quiky_core)
 add_executable(quiky-calibrate apps/quiky-calibrate.cpp)
 target_link_libraries(quiky-calibrate PRIVATE quiky_core)
 
+add_executable(quiky-compare-trace apps/quiky-compare-trace.cpp)
+target_link_libraries(quiky-compare-trace PRIVATE quiky_core)
+
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 
@@ -62,3 +65,13 @@ enable_testing()
 add_executable(quiky-tests tests/test_formats.cpp)
 target_link_libraries(quiky-tests PRIVATE quiky_core)
 add_test(NAME quiky-tests COMMAND quiky-tests)
+
+add_test(NAME quiky-calibration-generate
+    COMMAND quiky-calibrate ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT
+            W1L1.MAP 100 100 ${CMAKE_CURRENT_BINARY_DIR}/quiky-calibration.csv)
+add_test(NAME quiky-calibration-compare
+    COMMAND quiky-compare-trace
+            ${CMAKE_CURRENT_BINARY_DIR}/quiky-calibration.csv
+            ${CMAKE_CURRENT_BINARY_DIR}/quiky-calibration.csv --strict)
+set_tests_properties(quiky-calibration-compare
+    PROPERTIES DEPENDS quiky-calibration-generate)
