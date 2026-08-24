@@ -42,6 +42,17 @@ target_link_libraries(quiky-simulate PRIVATE quiky_core)
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 
+option(QUIKY_ENABLE_FRONTEND "Build the SDL3 interactive frontend" ON)
+if(QUIKY_ENABLE_FRONTEND)
+    find_package(SDL3 CONFIG QUIET)
+    if(SDL3_FOUND AND TARGET SDL3::SDL3)
+        add_executable(quiky-play apps/quiky-play.cpp)
+        target_link_libraries(quiky-play PRIVATE quiky_core SDL3::SDL3)
+    else()
+        message(STATUS "SDL3 not found; interactive frontend disabled. Set QUIKY_ENABLE_FRONTEND=OFF to silence this message.")
+    endif()
+endif()
+
 enable_testing()
 
 add_executable(quiky-tests tests/test_formats.cpp)
