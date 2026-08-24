@@ -305,6 +305,27 @@ void testLevelSession() {
     assert(worldEffectSession.entities()[0].effectResource == "WORLD");
     assert(worldEffectSession.entities()[0].effectSlot == 0xffff);
 
+    const quiky::Area transientArea = makeLevelArea(0x65, 0x67);
+    quiky::LevelSessionConfig transientConfig = config;
+    transientConfig.streamRadiusRegions = 1;
+    quiky::LevelSession transientSession("W1L1.MAP", map,
+                                         transientArea, transientConfig);
+    transientSession.reset(player, simulation);
+    transientSession.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+    assert(transientSession.effects().size() == 2);
+    assert(transientSession.effects()[0].sourceType == 0x65);
+    assert(transientSession.effects()[0].effectResource == "LOOP_W1.ICO");
+    assert(transientSession.effects()[0].effectSlot == 1);
+    assert(transientSession.effects()[1].sourceType == 0x67);
+    assert(transientSession.effects()[1].effectSlot == 6);
+
+    transientSession.tick(player, simulation, quiky::InputState());
+    assert(transientSession.effects()[0].animationFrame == 1);
+    for (int frame = 0; frame < 7; ++frame) {
+        transientSession.tick(player, simulation, quiky::InputState());
+    }
+    assert(transientSession.effects().empty());
+
     session.tick(player, simulation, quiky::InputState());
     quiky::LevelEvent event = session.consumeEvent();
     assert(event.type == quiky::LevelEventType::Collected);

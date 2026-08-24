@@ -38,6 +38,7 @@ public:
     const Area &area() const { return _area; }
     const Palette &palette() const { return _palette; }
     const Tileset &tileset() const { return _tileset; }
+    const Tileset &loopTileset() const { return _loopTileset; }
     const Bob &playerBob() const { return _playerBob; }
     const std::map<std::string, Bob> &entityBobs() const { return _entityBobs; }
 
@@ -52,7 +53,8 @@ private:
     LevelRuntime(const std::string &mapName, const std::string &areaName,
                  const std::string &worldName, const std::string &playerBobName,
                  const Map &map, const Area &area, const Palette &palette,
-                 const Tileset &tileset, const Bob &playerBob,
+                 const Tileset &tileset, const Tileset &loopTileset,
+                 const Bob &playerBob,
                  const LevelSessionConfig &config);
 
     void loadEntityBobs(const Archive &archive);
@@ -65,6 +67,7 @@ private:
     Area _area;
     Palette _palette;
     Tileset _tileset;
+    Tileset _loopTileset;
     Bob _playerBob;
     LevelSession _session;
     std::map<std::string, Bob> _entityBobs;

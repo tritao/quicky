@@ -87,6 +87,31 @@ std::uint16_t worldEffectTile(const std::string &worldName,
     return 0xffff;
 }
 
+std::uint16_t dedicatedEffectSlot(const quiky::LevelEffect &effect,
+                                  const std::string &worldName) {
+    if (effect.sourceType == 0x65 && worldName == "W1") {
+        // W1 probes captured LOOP_W1 records 1 and 2 as the event animation
+        // byte advances. Other world-specific representatives are fixed by
+        // the confirmed cross-world resource probes.
+        return static_cast<std::uint16_t>(1 + (effect.animationFrame & 1));
+    }
+    return effect.effectSlot;
+}
+
+void drawTransientEffects(quiky::IndexedSurface &surface,
+                          const quiky::LevelRuntime &runtime) {
+    const std::vector<quiky::LevelEffect> &effects = runtime.session().effects();
+    for (std::size_t index = 0; index < effects.size(); ++index) {
+        const quiky::LevelEffect &effect = effects[index];
+        if (!effect.active) {
+            continue;
+        }
+        const std::uint16_t slot = dedicatedEffectSlot(effect, runtime.worldName());
+        quiky::drawIcoTile(surface, runtime.loopTileset(), slot,
+                           effect.x, effect.y);
+    }
+}
+
 void drawEntitySprites(quiky::IndexedSurface &surface,
                        const quiky::LevelRuntime &runtime) {
     const quiky::LevelSession &level = runtime.session();
@@ -542,6 +567,7 @@ int main(int argc, char **argv) {
                 drawEntityMarkers(surface, framePalette, runtime->session());
             }
             drawEntitySprites(surface, *runtime);
+            drawTransientEffects(surface, *runtime);
             const quiky::BobRecord &record =
                 choosePlayerFrame(runtime->playerBob(), player, frame);
             quiky::drawBobRecord(surface, record,

@@ -110,6 +110,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _area(area),
       _config(config),
       _entities(),
+      _effects(),
       _event(),
       _score(0),
       _deaths(0) {
@@ -163,6 +164,7 @@ void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation
         entity.active = false;
         entity.collected = false;
     }
+    _effects.clear();
     resetPlayer(player, simulation);
 }
 
@@ -232,10 +234,18 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
     return 0xffff;
 }
 
-std::uint16_t LevelSession::effectSlotFor(std::uint16_t type) {
+std::uint16_t LevelSession::effectSlotFor(std::uint16_t type) const {
     // World-ICO effects select their tile from the active world's state
     // machine, so they deliberately do not have a fixed slot here.
-    (void)type;
+    if (type == 0x65) {
+        return worldForMap(_mapName) == "W5" ? 4 : 1;
+    }
+    if (type == 0x66) {
+        return worldForMap(_mapName) == "W2" ? 8 : 6;
+    }
+    if (type == 0x67) {
+        return worldForMap(_mapName) == "W4" ? 22 : 6;
+    }
     return 0xffff;
 }
 
@@ -324,7 +334,14 @@ std::string LevelSession::effectResourceFor(std::uint16_t type) const {
     if (type >= 0x1f && type <= 0x21) {
         return "WORLD";
     }
+    if (type >= 0x65 && type <= 0x67) {
+        return "LOOP_" + worldForMap(_mapName) + ".ICO";
+    }
     return std::string();
+}
+
+bool LevelSession::isTransientEffectType(std::uint16_t type) {
+    return type >= 0x65 && type <= 0x67;
 }
 
 std::uint32_t LevelSession::collectibleValue(std::uint16_t type) {
@@ -388,14 +405,21 @@ void LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
         if (entity.collected) {
             entity.phase = EntityPhase::Collected;
             entity.active = false;
+            removeTransientEffectsFor(entity.id);
             continue;
         }
+        const bool wasActive = entity.phase == EntityPhase::Active;
         const std::int32_t distanceX = std::abs(static_cast<std::int32_t>(entity.regionX) - regionX);
         const std::int32_t distanceY = std::abs(static_cast<std::int32_t>(entity.regionY) - regionY);
         const bool visible = distanceX <= _config.streamRadiusRegions &&
                              distanceY <= _config.streamRadiusRegions;
         entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
         entity.active = visible;
+        if (visible && !wasActive) {
+            spawnTransientEffect(entity);
+        } else if (!visible) {
+            removeTransientEffectsFor(entity.id);
+        }
     }
 }
 
@@ -408,6 +432,49 @@ void LevelSession::advanceActiveEntities() {
         ++entity.activeFrames;
         entity.animationFrame = static_cast<std::uint16_t>(
             (entity.animationFrame + 1) & 0x00ff);
+    }
+}
+
+void LevelSession::spawnTransientEffect(const LevelEntity &entity) {
+    if (!isTransientEffectType(entity.type)) {
+        return;
+    }
+    LevelEffect effect;
+    effect.sourceEntityId = entity.id;
+    effect.sourceType = entity.type;
+    effect.x = entity.x;
+    effect.y = entity.y;
+    effect.effectSlot = entity.effectSlot;
+    effect.effectResource = entity.effectResource;
+    effect.animationFrame = 0;
+    // The original event object is short-lived and advances its animation
+    // byte modulo eight. Its exact removal timing is not yet fully mapped;
+    // eight ticks preserves the observed event animation without turning the
+    // ARE seed into a permanent sprite.
+    effect.lifetime = 8;
+    effect.active = true;
+    _effects.push_back(effect);
+}
+
+void LevelSession::removeTransientEffectsFor(std::uint32_t entityId) {
+    for (std::size_t index = 0; index < _effects.size();) {
+        if (_effects[index].sourceEntityId == entityId) {
+            _effects.erase(_effects.begin() + static_cast<std::ptrdiff_t>(index));
+        } else {
+            ++index;
+        }
+    }
+}
+
+void LevelSession::advanceActiveEffects() {
+    for (std::size_t index = 0; index < _effects.size();) {
+        LevelEffect &effect = _effects[index];
+        if (!effect.active || effect.animationFrame + 1 >= effect.lifetime) {
+            _effects.erase(_effects.begin() + static_cast<std::ptrdiff_t>(index));
+            continue;
+        }
+        ++effect.animationFrame;
+        ++index;
     }
 }
 
@@ -425,6 +492,7 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
     simulation.tick(player, entityCollision, input);
     updateStreaming(player.x.floorPixels(), player.y.floorPixels());
     advanceActiveEntities();
+    advanceActiveEffects();
 
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];

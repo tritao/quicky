@@ -54,6 +54,25 @@ struct LevelSessionConfig {
     LevelSessionConfig();
 };
 
+// A short-lived ICO-only object emitted by an ARE effect/event record. These
+// objects are deliberately separate from gameplay entities: they do not
+// participate in collision, collection, or hazard handling.
+struct LevelEffect {
+    std::uint32_t sourceEntityId;
+    std::uint16_t sourceType;
+    std::int32_t x;
+    std::int32_t y;
+    std::uint16_t effectSlot;
+    std::string effectResource;
+    std::uint16_t animationFrame;
+    std::uint16_t lifetime;
+    bool active;
+
+    LevelEffect()
+        : sourceEntityId(0), sourceType(0), x(0), y(0), effectSlot(0xffff),
+          effectResource(), animationFrame(0), lifetime(0), active(false) {}
+};
+
 struct LevelEntity {
     std::uint32_t id;
     std::uint32_t recordOffset;
@@ -98,6 +117,7 @@ public:
 
     void updateStreaming(std::int32_t playerX, std::int32_t playerY);
     const std::vector<LevelEntity> &entities() const { return _entities; }
+    const std::vector<LevelEffect> &effects() const { return _effects; }
     LevelEvent consumeEvent();
     std::uint32_t score() const { return _score; }
     std::uint32_t deaths() const { return _deaths; }
@@ -106,7 +126,7 @@ public:
 private:
     static EntityKind classify(std::uint16_t type);
     static std::uint16_t spriteSlotFor(std::uint16_t type);
-    static std::uint16_t effectSlotFor(std::uint16_t type);
+    std::uint16_t effectSlotFor(std::uint16_t type) const;
     static std::uint16_t collisionWidthFor(std::uint16_t type);
     static std::uint16_t collisionHeightFor(std::uint16_t type);
     std::string spriteResourceFor(std::uint16_t type) const;
@@ -115,6 +135,10 @@ private:
     static std::string nextLevelName(const std::string &mapName);
     void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;
     void advanceActiveEntities();
+    void advanceActiveEffects();
+    void spawnTransientEffect(const LevelEntity &entity);
+    void removeTransientEffectsFor(std::uint32_t entityId);
+    static bool isTransientEffectType(std::uint16_t type);
     bool overlaps(const PlayerState &player, const PlayerConfig &playerConfig,
                   const LevelEntity &entity, std::int32_t radius) const;
     bool atRightExit(const PlayerState &player) const;
@@ -124,6 +148,7 @@ private:
     const Area &_area;
     LevelSessionConfig _config;
     std::vector<LevelEntity> _entities;
+    std::vector<LevelEffect> _effects;
     LevelEvent _event;
     std::uint32_t _score;
     std::uint32_t _deaths;
