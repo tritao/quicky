@@ -4,6 +4,10 @@ This directory contains a reproducible inspection of Simon Laburda's 2011
 reverse-engineering work. The primary source is the [DKIA article][dkia]. It
 identifies the author as Simon Laburda and links the game and quiky-tools.zip.
 
+The object-lifecycle work uses the semantic names in
+[notes/object-behavior-glossary.md](notes/object-behavior-glossary.md). These
+are evidence-backed working labels, not asserted original source names.
+
 The game archive was retrieved from DKIA because the article explicitly says
 that its license permits private, non-commercial copying. A second copy was
 retrieved from [DOSGames.com][dosgames], which labels the game freeware and

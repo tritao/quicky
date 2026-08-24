@@ -1,5 +1,10 @@
 # Object behavior research
 
+The stable semantic names for this track are maintained in the
+[object-behavior glossary](object-behavior-glossary.md). They are deliberately
+behavioral labels with confidence levels; segment-relative addresses remain
+the source-of-truth identifiers until an original symbol is recovered.
+
 This track is isolated from the player tracer. It observes normal ARE object
 scheduler entries and the selected object's update callback, recording the
 object bytes before and after each callback plus the exact changed offsets.
