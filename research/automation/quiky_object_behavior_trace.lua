@@ -109,7 +109,19 @@ end
 local function action_descriptor(action_selector, action)
     if not action_selector or action_selector == 0 then return nil end
     local raw = dosbox.mem_read_selector(action_selector, 0x200 + action * 8, 8)
-    return {selector = action_selector, action = action, raw_hex = hex(raw)}
+    local pool_byte = string.byte(raw, 3) or 0
+    local pool_index = pool_byte & 0x0f
+    local target_offset = dosbox.mem_read_word("ds", 0x2f5c + pool_index * 2)
+    local target_raw = dosbox.mem_read("ds", target_offset, 0x80) or ""
+    return {
+        selector = action_selector,
+        action = action,
+        raw_hex = hex(raw),
+        pool_byte = pool_byte,
+        pool_index = pool_index,
+        target_offset = target_offset,
+        target_raw_hex = hex(target_raw),
+    }
 end
 
 local function static_globals(object_selector)

@@ -188,8 +188,8 @@ produce drops or respawn.
 
 The semantic contact pass now resolves the first of those questions. Static
 tails route WURM2, BIENE, PENGO, FLIEGE, SPINNE, BUGGY, and UFO enemies through
-`4AB3 -> 4C5D`, which publishes `DS:612E=13`, while FISCH and KRABBE use
-`4BA0 -> 4C5D` with `DS:612E=2`. SCHNEE has no equivalent `DS:8806` contact
+`4AB3 -> 4C5D`, which publishes sound action `DS:612E=13`, while FISCH and KRABBE use
+`4BA0 -> 4C5D` with sound action `DS:612E=2`. SCHNEE has no equivalent `DS:8806` contact
 tail in `66E1/6757`. A controlled native WURM2 probe reaches `70C9`, switches
 the object to `4AB3`, then records the action-13 write and timed `4C5D`
 response. None of these contact branches clears the enemy object or creates a
@@ -198,14 +198,15 @@ record high byte at `FS:[object+0x1A+1]`, so a later camera-region scan can
 recreate the object; this is the normal re-stream respawn trigger. See
 [`entity-normal-enemy-contact-response-evidence.json`](../entity-normal-enemy-contact-response-evidence.json).
 
-The shared action word is now decoded as an effect/event selector rather than
-an inventory or health field. Segment `01E7:0FCF` reads `DS:612E` and calls
-`01E7:3360`; the dispatcher indexes an eight-byte descriptor at
-`ES:[0x200 + action*8]` using the table selector in `DS:504E`, then writes the
-descriptor into a pooled record selected through `DS:2F5C`. Runtime W1L2 data
-captures descriptors for actions 2, 4, and 13 (`1502f30003620005`,
-`1504f30003680005`, and `150df300036a0005`). The exact resource-facing names
-remain open. See [`entity-action-dispatch-evidence.json`](../entity-action-dispatch-evidence.json).
+The shared action word is now identified as an ONGAME2.TFX sound selector,
+not an inventory, health, or visual-effect field. Segment `01E7:0FCF` reads
+`DS:612E` and calls `01E7:3360`; the dispatcher indexes the TFX descriptor
+table at `ES:[0x200 + action*8]` using `DS:504E`, then updates an audio voice
+record selected through `DS:2F5C`. The source rows are exact matches in
+`ONGAME2.TFX`: action 2 is `1502f30003620005` (macro byte `0x62`), action 4 is
+`1504f30003680005` (`0x68`), and action 13 is `150df300036a0005` (`0x6A`).
+The module has no human-readable sample names in these rows. See
+[`entity-action-dispatch-evidence.json`](../entity-action-dispatch-evidence.json).
 
 The falling-leaf family is now decoded through its child callback. `01F7:474D`
 selects one of two PRNG tables (`DS:3312` delay 8 and `DS:3326` delay 10),
@@ -244,9 +245,17 @@ into `DS:60D8` before clearing `object+0x18`. This establishes fixed placement
 and overlap geometry. The accepted interaction branches join at `8E42` and do
 not call `1DEE`, so they clear the live callback without clearing the ARE
 re-stream claim; a collected object is not recreated by the normal off-camera
-scan in the same loaded buffer. Level reload/reset persistence, inventory
-names, and puzzle completion bookkeeping remain separate questions. See
+scan in the same loaded buffer. Level selection is separately observed to
+reread the W1L2.ARE resource; only a persistent collected-bit across that
+reload remains untested. Puzzle completion bookkeeping remains separate. See
 [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json).
+
+The three adjacent pickup subtypes now have controlled native overlap ledgers.
+Type `0x70` adds `250` to `DS:881C` and raises `DS:8822/DS:8824` together;
+type `0x71` adds `100`; type `0x72` adds `150` and conditionally calls
+`01F7:1A97` when `DS:85D4 <= 15`. They emit sound actions `9`, `10`, and `12`
+respectively, then clear the live callback. See
+[`entity-pickup-subtype-overlap-evidence.json`](../entity-pickup-subtype-overlap-evidence.json).
 
 Wind `0x33` and UFO effects `0x35/0x36` are moving callback families rather
 than inert visuals. Their initializers load animation tables, seed signed
@@ -254,7 +263,7 @@ fixed-point horizontal velocity, and converge on callbacks `882F` and `546D`;
 both call `1DCA -> 1DEE`, `1B77`, `1C4D/5C27`, clamp velocity, and flip
 direction on timer or map blocks. Bump `0x34` is the contrasting stationary
 hazard: `9BEE` shifts the position and installs `9C0C`, whose player-range
-branch triggers the hazard state at `DS:612E=4`; its off-camera path also uses
+branch emits sound action `DS:612E=4`; its off-camera path also uses
 `1DCA -> 1DEE`. Moving platforms `0x3D`-`0x40` converge on `9DC7`, integrate
 horizontal or vertical fixed-point velocity, snap to 16-pixel grid cells on
 MAP blocks, and carry player-relative offsets through `A0B2`; their offscreen
@@ -321,15 +330,16 @@ precondition for approaches outside the accepted carry band.
 
 BUMP `0x34` is now bounded across all requested dimensions. Its callback uses
 the open player gate `object_x-25 < player_x < object_x+25` and
-`object_y-8 < player_y < object_y`; the accepted branch writes `DS:612E=4`.
+`object_y-8 < player_y < object_y`; the accepted branch emits sound action
+`DS:612E=4`.
 A 128-sample native run cycles slots `400,402,403,401` with a seven-tick
 `object+0x20` counter, and the five `BUMP_Wn.BOB` tables are cataloged with
 exact geometry. A camera-(0,0) run takes `1DCA -> 1DEE` and clears the callback.
 A controlled native overlap with `DS:89EA=0`, player `+0x37=1`, and the object
 four pixels below the player reaches every helper and the live `9C64` action
-write. The player-state precondition and hazard action are therefore resolved
-under explicit debugger controls; the remaining question is hazard reset
-semantics. See [`entity-action-dispatch-evidence.json`](../entity-action-dispatch-evidence.json)
+write. Eight qualifying samples repeat sound action 4 while callback `9C0C`
+remains active, so there is no BUMP contact reset/removal state. See
+[`entity-action-dispatch-evidence.json`](../entity-action-dispatch-evidence.json)
 and [`entity-bump-evidence.json`](../entity-bump-evidence.json).
 
 ## Cross-world rules
@@ -408,9 +418,10 @@ The broad family pass is complete. The targeted probes now close the shared
 collectible overlap, pooled-leaf reuse, normal-enemy helper, and platform-carry
 boundaries. Remaining experiments are deliberately narrower:
 
-1. Repeat the overlap probe for pickup subtypes `0x70`-`0x72` only if the
-   inventory names are required; same-buffer re-stream persistence is already
-   ruled out by the shared `8D20`/`8E42` path.
+1. Level reload persistence remains the only collectible lifecycle gap. The
+   loader trace confirms a fresh `W1L2.ARE` resource read after level selection,
+   while the collection path leaves the ARE claim untouched; a stateful
+   collect-then-reload run would close the final distinction.
 2. If platform approach polarity is required, capture player-state variants
    just outside the accepted A075 band; native integration, carry offsets, MAP
    stop, and the absence of a platform-specific terminal table are confirmed.

@@ -202,7 +202,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--trace-bump", action="store_true",
-        help="capture the BUMP player-range and hazard-effect branch",
+        help="capture the BUMP player-range and sound-trigger branch",
     )
     parser.add_argument(
         "--trace-contact", action="store_true",

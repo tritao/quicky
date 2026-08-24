@@ -1,0 +1,27 @@
+{
+  "schema": "entity-level-reload-persistence-evidence-v1",
+  "purpose": "Record the level-loader side of collectible persistence and the remaining collect-then-reload gap.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "bf2832151e0d86a18064b7fc7f6b30d7998c1ae137214d51190cf2e3ffbf51ef",
+    "resource_trace": "research/build/w1l2-reload-resource-trace.json",
+    "resource_trace_sha256": "de191058a80d73c087d723ebef2ee18da6aa587ec08255f6440c9a6a039ac4fb",
+    "resource_trace_script_sha256": "b08a2f4f59c0713f853b29eaca0ff78b1c29439b0bd24cabac3ec13e2e4e1a65"
+  },
+  "loader_probe": {
+    "mode": "main-tree debug build with QUIKYSUPERHERO selector",
+    "selected_level": "W1L2",
+    "resource_requests": [
+      {"sequence": 1, "path": "GAMEDATA\\W1L2.map", "size": 21610},
+      {"sequence": 2, "path": "GAMEDATA\\W1L2.are", "size": 6342}
+    ],
+    "interpretation": "Level selection re-reads the immutable W1L2.ARE archive resource."
+  },
+  "interaction_side": {
+    "callback": "01F7:8D20",
+    "clear": "01F7:8E42 writes object+0x18=0",
+    "are_claim_clear": false,
+    "stream_reset": "01F7:1DEE writes FS:[object+0x1A+1]=0 only on visibility removal"
+  },
+  "conclusion": "Same-buffer re-stream respawn is ruled out after collection; the loader side is confirmed to read a fresh ARE resource on level selection. A single stateful collect-then-reload run is still required to prove whether the game carries a separate persistent collected-bit across reload or simply reconstructs the object from the archive."
+}

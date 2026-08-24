@@ -1,11 +1,12 @@
 {
   "schema": "entity-action-dispatch-evidence-v1",
-  "purpose": "Decode DS:612E action producers and the native consumer used by pickup, puzzle, hazard, and enemy-contact paths.",
+  "purpose": "Decode DS:612E sound-trigger producers and the native ONGAME2.TFX voice consumer used by pickup, puzzle, hazard, and enemy-contact paths.",
   "inputs": {
     "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
     "segment2_sha256": "48a61204f92903e5aa9b52e68705c2ed00926de200d8127d19b00e57a7d3e328",
     "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
-    "trace_script_sha256": "8d3df09985f3580d9674032d309857f7205aa04bd8f96bf9bc284027443cbc3e"
+    "trace_script_sha256": "d8759d65275c7aa9403201e7bdad5ac498bc3a12a046564a94f65886879cf353",
+    "audio_resource": {"path": "ONGAME2.TFX", "sha256": "83770d8ba0d262fca82682d759c0548680302084372edf9c5661d834e58ca638"}
   },
   "consumer": {
     "main_loop": {"address": "01E7:0FCF", "reads": "DS:612E", "call": "01E7:3360"},
@@ -14,13 +15,24 @@
       "action_index": "CX",
       "descriptor_table_selector": "DS:504E",
       "descriptor_base": "ES:[0x200 + action*8]",
-      "pool_table": "DS:2F5C",
-      "effects": [
-        "loads descriptor byte +2 and indexes DS:2F5C",
-        "rejects a duplicate descriptor byte or duplicate pool record",
-        "writes descriptor fields into the selected pool record at +0x3A/+0x3B/+0x3D/+0x41"
+      "voice_pool_table": "DS:2F5C",
+      "voice_updates": [
+        "loads descriptor byte +2, masks its low nibble, and indexes DS:2F5C",
+        "rejects a lower-priority descriptor or a duplicate active voice",
+        "writes descriptor timing/data into the selected audio voice record at +0x3A/+0x3B/+0x3D/+0x41"
       ]
     }
+  },
+  "source_table": {
+    "resource": "ONGAME2.TFX",
+    "offset": "0x200",
+    "entry_stride": 8,
+    "entries": {
+      "2": "1502f30003620005",
+      "4": "1504f30003680005",
+      "13": "150df300036a0005"
+    },
+    "match": "The three runtime descriptor rows byte-match the extracted ONGAME2.TFX table."
   },
   "known_producers": {
     "segment3_offsets": {
@@ -37,7 +49,7 @@
   },
   "runtime_probe": {
     "fixture": "W1L2 native BUMP 0x34",
-    "trace": "research/build/entity-34-bump-valid-player-state-v3.json",
+    "trace": "research/build/entity-34-bump-repeat.json",
     "controlled_preconditions": {
       "object_aligned_to_player": true,
       "object_y_offset": 4,
@@ -51,15 +63,21 @@
       "callback_hits": ["01F7:9C13", "01F7:9C20", "01F7:9C29", "01F7:9C2E", "01F7:9C45", "01F7:9C57", "01F7:9C5F", "01F7:9C64", "01F7:9C6A"],
       "action_table_selector": 879,
       "descriptors": {
-        "2": "1502f30003620005",
-        "4": "1504f30003680005",
-        "13": "150df300036a0005"
+        "2": {"source_offset": "0x210", "raw": "1502f30003620005", "voice_nibble": 3, "macro_byte": "0x62"},
+        "4": {"source_offset": "0x220", "raw": "1504f30003680005", "voice_nibble": 3, "macro_byte": "0x68"},
+        "13": {"source_offset": "0x268", "raw": "150df300036a0005", "voice_nibble": 3, "macro_byte": "0x6A"}
       }
     }
   },
+  "repeat_probe": {
+    "trace": "research/build/entity-34-bump-repeat.json",
+    "samples": 8,
+    "action_sequence": [4, 4, 4, 4, 4, 4, 4, 4],
+    "callback_sequence": ["01F7:9C0C", "01F7:9C0C", "01F7:9C0C", "01F7:9C0C", "01F7:9C0C", "01F7:9C0C", "01F7:9C0C", "01F7:9C0C"]
+  },
   "conclusions": [
-    "DS:612E is an action/effect queue selector, not a direct health or inventory field.",
-    "The native dispatcher indexes an eight-byte descriptor table and writes a pooled effect record; exact human-facing names require decoding descriptor/resource consumers.",
-    "Action 4 is live-confirmed for BUMP with its original player-state gate satisfied; actions 2 and 13 are structurally confirmed as the same dispatcher family."
+    "DS:612E is an ONGAME2.TFX sound-trigger selector, not a direct health, inventory, or visual-effect field.",
+    "The native dispatcher indexes the TFX descriptor table at offset 0x200 and updates an audio voice record; the raw rows identify voice nibble 3 and macro bytes 0x62, 0x68, and 0x6A for actions 2, 4, and 13.",
+    "BUMP action 4 repeats on every qualifying callback while callback 9C0C remains active; there is no BUMP contact reset/removal state in this path."
   ]
 }
