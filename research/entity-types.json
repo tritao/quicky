@@ -4,7 +4,7 @@
     {
       "type": 1,
       "name": "wurm2_variant_01",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W1L1",
         "catalog_sample": [560, 240],
@@ -19,6 +19,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 281,
         "bob_asset": "WURM2.BOB",
+        "resource_trace": "research/build/resource-select-w1l2-v2.json",
         "bob_record_index": 1,
         "bob_dimensions": [52, 16],
         "bob_origin": [26, 16],
@@ -31,7 +32,7 @@
     {
       "type": 2,
       "name": "wurm2_variant_02",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W1L2",
         "catalog_sample": [2624, 368],
@@ -46,6 +47,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 231,
         "bob_asset": "WURM2.BOB",
+        "resource_trace": "research/build/resource-select-w1l2-v2.json",
         "bob_record_index": 0,
         "bob_dimensions": [52, 16],
         "bob_origin": [26, 16],
@@ -58,7 +60,7 @@
     {
       "type": 3,
       "name": "biene_variant_03",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W1L1",
         "catalog_sample": [1424, 112],
@@ -73,6 +75,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 276,
         "bob_asset": "BIENE.BOB",
+        "resource_trace": "research/build/resource-select-w1l2-v2.json",
         "bob_record_index": 1,
         "bob_dimensions": [46, 36],
         "bob_origin": [23, 36],
@@ -85,7 +88,7 @@
     {
       "type": 4,
       "name": "biene_variant_04",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W1L1",
         "catalog_sample": [3792, 112],
@@ -100,6 +103,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 226,
         "bob_asset": "BIENE.BOB",
+        "resource_trace": "research/build/resource-select-w1l2-v2.json",
         "bob_record_index": 0,
         "bob_dimensions": [46, 36],
         "bob_origin": [23, 36],
@@ -112,7 +116,7 @@
     {
       "type": 5,
       "name": "fisch_variant_05",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W2L1",
         "catalog_sample": [1296, 96],
@@ -127,6 +131,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 254,
         "bob_asset": "FISCH.BOB",
+        "resource_trace": "research/build/resource-select-w2l1-v2.json",
         "bob_record_index": 3,
         "bob_dimensions": [40, 19],
         "bob_origin": [20, 19],
@@ -139,7 +144,7 @@
     {
       "type": 6,
       "name": "fisch_variant_06",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W2L1",
         "catalog_sample": [1552, 80],
@@ -154,6 +159,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 204,
         "bob_asset": "FISCH.BOB",
+        "resource_trace": "research/build/resource-select-w2l1-v2.json",
         "bob_record_index": 2,
         "bob_dimensions": [40, 19],
         "bob_origin": [20, 19],
@@ -164,7 +170,7 @@
     {
       "type": 7,
       "name": "krabbe_variant_07",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W2L1",
         "catalog_sample": [2528, 224],
@@ -179,6 +185,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 200,
         "bob_asset": "KRABBE.BOB",
+        "resource_trace": "research/build/resource-select-w2l1-v2.json",
         "bob_record_index": 0,
         "bob_dimensions": [41, 21],
         "bob_origin": [20, 21],
@@ -191,7 +198,7 @@
     {
       "type": 8,
       "name": "krabbe_variant_08",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W2L1",
         "catalog_sample": [912, 160],
@@ -206,6 +213,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 250,
         "bob_asset": "KRABBE.BOB",
+        "resource_trace": "research/build/resource-select-w2l1-v2.json",
         "bob_record_index": 1,
         "bob_dimensions": [41, 21],
         "bob_origin": [20, 21],
@@ -216,7 +224,7 @@
     {
       "type": 9,
       "name": "pengo_variant_09",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W3L1",
         "catalog_sample": [880, 96],
@@ -231,6 +239,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 250,
         "bob_asset": "PENGO.BOB",
+        "resource_trace": "research/build/resource-select-w3l1-v1.json",
         "bob_record_index": 1,
         "bob_dimensions": [36, 35],
         "bob_origin": [18, 35],
@@ -243,7 +252,7 @@
     {
       "type": 10,
       "name": "pengo_variant_0a",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W3L1",
         "catalog_sample": [3472, 128],
@@ -258,6 +267,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 200,
         "bob_asset": "PENGO.BOB",
+        "resource_trace": "research/build/resource-select-w3l1-v1.json",
         "bob_record_index": 0,
         "bob_dimensions": [36, 35],
         "bob_origin": [18, 35],
@@ -289,7 +299,7 @@
         "trace_ledger": "research/build/traces/entity-0b-post.json",
         "experiment": "target_type_0b_vs_inert_type_0",
         "experiment_manifest": "research/build/entity-0b-evidence/experiment.json",
-        "note": "W3 resource ordering selects PROP.BOB from the archive-wide slot-209 collision set."
+        "note": "The type-0B slot 209 matches PROP.BOB, but the direct W3L1 resource batch did not request PROP.BOB; retain this as a lazy-resource hypothesis until that path is observed."
       }
     },
     {
@@ -314,13 +324,13 @@
         "bob_dimensions": [127, 23],
         "bob_origin": [63, 11],
         "trace_ledger": "research/build/traces/entity-0c-post.json",
-        "note": "The companion W3 PROP slot 209 shares the type-0B family; the paired type-0B run validates the family’s removable-object path."
+        "note": "The companion W3 slot 209 matches PROP.BOB; the paired type-0B run validates the family’s removable-object path, while the direct W3L2 resource batch still lacks a PROP.BOB request."
       }
     },
     {
       "type": 21,
       "name": "fliege_variant_15",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W4L1",
         "catalog_sample": [3408, 96],
@@ -335,6 +345,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 208,
         "bob_asset": "FLIEGE.BOB",
+        "resource_trace": "research/build/resource-select-w4l1-v13.json",
         "bob_record_index": 0,
         "bob_dimensions": [37, 30],
         "bob_origin": [18, 30],
@@ -347,7 +358,7 @@
     {
       "type": 22,
       "name": "fliege_variant_16",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W4L1",
         "catalog_sample": [2528, 48],
@@ -362,6 +373,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 208,
         "bob_asset": "FLIEGE.BOB",
+        "resource_trace": "research/build/resource-select-w4l1-v13.json",
         "bob_record_index": 0,
         "bob_dimensions": [37, 30],
         "bob_origin": [18, 30],
@@ -372,7 +384,7 @@
     {
       "type": 23,
       "name": "spinne_variant_17",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W4L1",
         "catalog_sample": [2976, 160],
@@ -387,6 +399,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 250,
         "bob_asset": "SPINNE.BOB",
+        "resource_trace": "research/build/resource-select-w4l1-v13.json",
         "bob_record_index": 1,
         "bob_dimensions": [36, 29],
         "bob_origin": [18, 29],
@@ -399,7 +412,7 @@
     {
       "type": 24,
       "name": "spinne_variant_18",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W4L1",
         "catalog_sample": [736, 128],
@@ -414,6 +427,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 200,
         "bob_asset": "SPINNE.BOB",
+        "resource_trace": "research/build/resource-select-w4l1-v13.json",
         "bob_record_index": 0,
         "bob_dimensions": [36, 29],
         "bob_origin": [18, 29],
@@ -424,7 +438,7 @@
     {
       "type": 25,
       "name": "buggy_variant_19",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W5L1",
         "catalog_sample": [1168, 192],
@@ -439,6 +453,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 250,
         "bob_asset": "BUGGY.BOB",
+        "resource_trace": "research/build/resource-select-w5l1-v1.json",
         "bob_record_index": 1,
         "bob_dimensions": [33, 27],
         "bob_origin": [16, 27],
@@ -451,7 +466,7 @@
     {
       "type": 26,
       "name": "buggy_variant_1a",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W5L1",
         "catalog_sample": [368, 176],
@@ -466,6 +481,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 200,
         "bob_asset": "BUGGY.BOB",
+        "resource_trace": "research/build/resource-select-w5l1-v1.json",
         "bob_record_index": 0,
         "bob_dimensions": [33, 27],
         "bob_origin": [16, 27],
@@ -476,7 +492,7 @@
     {
       "type": 27,
       "name": "ufo_variant_1b",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W5L1",
         "catalog_sample": [1232, 48],
@@ -491,6 +507,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 264,
         "bob_asset": "UFO.BOB",
+        "resource_trace": "research/build/resource-select-w5l1-v1.json",
         "bob_record_index": 1,
         "bob_dimensions": [31, 31],
         "bob_origin": [15, 31],
@@ -503,7 +520,7 @@
     {
       "type": 28,
       "name": "ufo_variant_1c",
-      "confidence": "probable",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W5L1",
         "catalog_sample": [144, 80],
@@ -518,6 +535,7 @@
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 214,
         "bob_asset": "UFO.BOB",
+        "resource_trace": "research/build/resource-select-w5l1-v1.json",
         "bob_record_index": 0,
         "bob_dimensions": [31, 31],
         "bob_origin": [15, 31],

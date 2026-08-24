@@ -310,16 +310,16 @@ that a slot is globally unique:
 
 | ARE types | world | sprite family | slots | status |
 | --- | --- | --- | --- | --- |
-| `0x01`/`0x02` | W1 | `WURM2.BOB` | 281/231 | probable |
-| `0x03`/`0x04` | W1 | `BIENE.BOB` | 276/226 | probable |
-| `0x05`/`0x06` | W2 | `FISCH.BOB` | 254/204 | probable |
-| `0x07`/`0x08` | W2 | `KRABBE.BOB` | 200/250 | probable |
-| `0x09`/`0x0A` | W3 | `PENGO.BOB` | 250/200 | probable |
+| `0x01`/`0x02` | W1 | `WURM2.BOB` | 281/231 | confirmed |
+| `0x03`/`0x04` | W1 | `BIENE.BOB` | 276/226 | confirmed |
+| `0x05`/`0x06` | W2 | `FISCH.BOB` | 254/204 | confirmed |
+| `0x07`/`0x08` | W2 | `KRABBE.BOB` | 200/250 | confirmed |
+| `0x09`/`0x0A` | W3 | `PENGO.BOB` | 250/200 | confirmed |
 | `0x0B`/`0x0C` | W3 | `PROP.BOB` | 209/209 | probable |
-| `0x15`/`0x16` | W4 | `FLIEGE.BOB` | 208/208 | probable |
-| `0x17`/`0x18` | W4 | `SPINNE.BOB` | 250/200 | probable |
-| `0x19`/`0x1A` | W5 | `BUGGY.BOB` | 250/200 | probable |
-| `0x1B`/`0x1C` | W5 | `UFO.BOB` | 264/214 | probable |
+| `0x15`/`0x16` | W4 | `FLIEGE.BOB` | 208/208 | confirmed |
+| `0x17`/`0x18` | W4 | `SPINNE.BOB` | 250/200 | confirmed |
+| `0x19`/`0x1A` | W5 | `BUGGY.BOB` | 250/200 | confirmed |
+| `0x1B`/`0x1C` | W5 | `UFO.BOB` | 264/214 | confirmed |
 
 The exact callback, post-initializer offset, catalog placement, BOB record,
 dimensions, and trace/experiment paths are recorded per decimal JSON type in

@@ -274,7 +274,8 @@ class QuikyCtlTests(unittest.TestCase):
             (0x1C, "ufo_variant_1c"),
         ):
             self.assertEqual(names[entity_type].name, name)
-            self.assertEqual(names[entity_type].confidence, "probable")
+            expected_confidence = "probable" if entity_type in (0x0B, 0x0C) else "confirmed"
+            self.assertEqual(names[entity_type].confidence, expected_confidence)
         self.assertEqual(names[0x28].name, "cloud")
         for entity_type in (0x1F, 0x20, 0x21):
             self.assertEqual(

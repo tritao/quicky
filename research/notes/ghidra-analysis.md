@@ -374,11 +374,13 @@ the same W1L1 streamed anchor. The direct slot evidence is:
 The type-specific callbacks set movement/orientation state before their
 post-initializer return; the paired types in each row therefore share a BOB
 family but are retained as separate catalog entries. `bob-find` shows the
-same logical slots in several other BOB files. The mapping above is an
-evidence-backed world-resource inference, recorded as `probable` until a
-direct resource-loader stop is captured for each world. The authoritative
-per-type records are in `research/entity-types.json`; representative paired
-manifests are under `research/build/entity-*-evidence/`.
+same logical slots in several other BOB files. Selector-mode resource traces
+directly capture the W1 WURM2/BIENE, W2 FISCH/KRABBE, W3 PENGO, W4
+FLIEGE/SPINNE, and W5 BUGGY/UFO batches. The W3 PROP request is not in the
+initial W3L1/W3L2 batches, so types `0x0B`/`0x0C` remain probable until that
+lazy path is observed. The authoritative per-type records are in
+`research/entity-types.json`; representative paired manifests are under
+`research/build/entity-*-evidence/`.
 
 ### Pickup type `0x6F`
 
