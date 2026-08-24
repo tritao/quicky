@@ -310,6 +310,22 @@ puts the object back into the scheduler banks. This is confirmed for W1L1
 types `0x01` and `0x2B`, including the exact source-marker and pool-slot
 transitions.
 
+For real-input lifetime checks, use the isolated movement driver. It waits for
+the selected entity to initialize, injects a guest-key sequence, and captures
+the same pooled record at synchronized frame barriers:
+
+~~~sh
+PYTHONPATH=research/tools python3 research/tools/object_movement_trace.py \
+  --launch --headless --runtime-dir research/build/entity-2b-multiframe-final/baseline/game \
+  --entity-type 0x2b --record-offset 0x1792 \
+  --capture-frames 40 --frame-step 5 --movement-key KBD_right \
+  --movement-frames 240 --output research/build/object-behavior/entity-2b-real-right40.json
+~~~
+
+The first real-input pass shows type-specific self-termination and pool-slot
+reuse. It does not replace the source-aware pool scan needed to prove
+reactivation after another object has claimed the original slot.
+
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry
 and spikes. The tested object/reference values were:

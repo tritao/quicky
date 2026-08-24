@@ -129,3 +129,31 @@ static-plus-runtime established. The only variable not generalized by these
 two samples is which other free slot the allocator chooses when the original
 slot has already been reused by another object; the static first-free scan
 defines that rule.
+
+## Real-input lifetime pass
+
+The separate `object_movement_trace.py` driver reuses the proven entity
+factory trace, injects a real `KBD_right` sequence only after initialization,
+and captures synchronized object bytes every five guest frames. This avoids
+confusing a type callback's own lifetime with the camera visibility gate.
+
+The W1L1 type `0x2B` run (`entity-2b-real-right40.json`) kept object
+`027F:0078` at `(768,224)` with callback `0x47E7`, source `0x1632`, and slot
+700 through capture index 7. At index 8 (about 40 guest frames), the callback
+became zero while the position and source pointer were still unchanged. The
+record was then reused: by index 11 its source pointer was `0xFFFF`, slot was
+`0xFFFF`, and the transient callback `0x10B5` appeared intermittently in the
+same pool slot.
+
+The type `0x01` run (`entity-01-real-right40.json`) first settled from its
+factory callback `0x6DA3` to its live callback `0x6DC4`, slot 281, and source
+`0x161A`. Around capture index 19 the live callback cleared; the source pointer
+and old slot bytes remained for several captures before the same slot was
+reused by callback `0x10B5`.
+
+These are type-specific self-termination/recycling paths, not proof of an
+off-screen camera rejection: both objects die while their position and source
+pointer are still intact. The current movement driver follows the original
+pool slot, so it does not yet prove whether the source declaration later
+reactivates into a different slot. The next probe must scan all 64 pool records
+by `object+0x1A == source_offset` after each movement boundary.
