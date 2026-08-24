@@ -1,4 +1,5 @@
 import struct
+import json
 import sys
 import tempfile
 import unittest
@@ -10,19 +11,60 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 from quikyctl import (  # noqa: E402
     QuikyError,
+    build_are_type_catalog,
     create_are_experiments,
+    create_entity_variant,
+    decode_bob_record,
     extract_archive,
     index_archive,
     parse_are,
     parse_archive,
+    parse_bob,
     parse_map,
     parse_ne,
     patch_are_entity_data,
+    render_bob_sheet,
     render_level,
+    iter_are_entity_placements,
+    load_entity_type_names,
+    load_dispatch_ledger,
+    select_entity_representative,
 )
 
 
 class QuikyCtlTests(unittest.TestCase):
+    def test_bob_parser_and_safe_blitter_decoder(self):
+        code = (
+            b"\xee\xd0\xc0\xc6\x84\x00\x00\x01"
+            b"\xee\xd0\xc0\xc6\x84\x00\x00\x02\x58\x5e\xcb"
+        )
+        raw = (
+            struct.pack("<6H", 7, 1, 2, 2, 1, 4)
+            + struct.pack("<2H", 0, 8)
+            + struct.pack("<H", len(code))
+            + code
+        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "TEST.BOB"
+            path.write_bytes(raw)
+            info = parse_bob(path)
+            palette_path = Path(temp_dir) / "TEST.PCC"
+            header = bytearray(128)
+            header[0], header[3] = 0x0A, 0x08
+            palette_path.write_bytes(header + b"\x0c" + bytes(768))
+            sheet_path = Path(temp_dir) / "sheet.png"
+            sheet = render_bob_sheet(path, palette_path, sheet_path)
+            self.assertEqual(sheet.slot_rows, ((7,),))
+            self.assertTrue(sheet_path.read_bytes().startswith(b"\x89PNG"))
+
+        self.assertEqual(len(info.records), 1)
+        record = info.records[0]
+        self.assertEqual(
+            (record.slot, record.origin_x, record.origin_y, record.width, record.height),
+            (7, 1, 2, 2, 1),
+        )
+        self.assertEqual(decode_bob_record(record), (1, 2))
+
     def test_archive_parser_and_sizes(self):
         payloads = [("FIRST.BOB", b"abc"), ("SECOND.MAP", b"12345")]
         data = b"".join(payload for _, payload in payloads)
@@ -78,6 +120,7 @@ class QuikyCtlTests(unittest.TestCase):
 
     def test_are_parser_decodes_references_and_entities(self):
         raw = bytearray(0x14E8)
+        struct.pack_into(">HH", raw, 0x0E, 2, 1)
         struct.pack_into(">H", raw, 0x160, 0x1388)
         struct.pack_into(">H", raw, 0x162, 0xFFFF)
         raw.extend(
@@ -98,13 +141,18 @@ class QuikyCtlTests(unittest.TestCase):
             path.write_bytes(raw)
             info = parse_are(path)
 
-        self.assertEqual(info.layout_word_count, 2496)
-        self.assertEqual(info.zero_word_count, 2494)
+        self.assertEqual((info.layout_width, info.layout_height), (2, 1))
+        self.assertEqual(info.layout_word_count, 2)
+        self.assertEqual(info.zero_word_count, 0)
         self.assertEqual(info.blank_word_count, 1)
         self.assertEqual(info.unique_reference_count, 1)
         self.assertEqual(info.entity_count, 2)
         self.assertEqual(dict(info.entity_types), {0x2B: 1, 0x65: 1})
         self.assertEqual(info.references[0].target_offset, 0x14E8)
+        self.assertEqual(
+            [entity.record_offset for entity in info.references[0].entities],
+            [0x14E8, 0x14EE],
+        )
         self.assertEqual(
             [
                 (entity.entity_type, entity.x, entity.y)
@@ -139,6 +187,93 @@ class QuikyCtlTests(unittest.TestCase):
         self.assertEqual(info.max_tile, 0x123)
         self.assertEqual(dict(info.property_values), {0x00: 1, 0x1C: 1})
 
+    def test_are_placements_include_each_reference_grid_cell(self):
+        raw = bytearray(0x14E8)
+        struct.pack_into(">HH", raw, 0x0E, 2, 1)
+        struct.pack_into(">HH", raw, 0x160, 0x1388, 0x1388)
+        raw.extend(struct.pack(">HHHH", 0x002B, 0x0010, 0x0020, 0xFFFF))
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "W1L1.ARE"
+            path.write_bytes(raw)
+            info = parse_are(path)
+        placements = iter_are_entity_placements(info)
+        self.assertEqual(
+            [(item.region_x, item.region_y, item.world_x, item.world_y)
+             for item in placements],
+            [(0, 0, 16, 32), (64, 0, 80, 32)],
+        )
+
+    def test_entity_catalog_and_record_variant_cover_confirmed_2b(self):
+        repo_root = Path(__file__).resolve().parents[2]
+        archive = repo_root / "game" / "NESTLE.DAT"
+        catalog = build_are_type_catalog(archive)
+        candidate = next(item for item in catalog if item.entity_type == 0x2B)
+        self.assertIn("W1L1.ARE", candidate.levels)
+        self.assertEqual(candidate.dispatch_slot, "DS:81D2+0x0AC")
+        dedicated = next(item for item in catalog if item.entity_type == 0x65)
+        self.assertEqual(dedicated.dispatch_entry, "01F7:178D")
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = create_entity_variant(
+                archive,
+                Path(temp_dir),
+                "W1L1.ARE",
+                0x1792,
+            )
+            self.assertEqual(manifest["entity_type"], 0x2B)
+            self.assertEqual(
+                (manifest["placements"][0]["world_x"],
+                 manifest["placements"][0]["world_y"]),
+                (768, 224),
+            )
+            removed = Path(manifest["variants"][1]["archive"])
+            removed_info = parse_archive(removed)
+            entry = next(item for item in removed_info.entries
+                         if item.name == "W1L1.ARE")
+            payload = removed.read_bytes()[entry.offset:entry.offset + entry.size]
+            self.assertEqual(struct.unpack_from(">H", payload, 0x1792)[0], 0)
+
+    def test_entity_name_catalog_loads_confidence_ratings(self):
+        names = load_entity_type_names()
+        self.assertEqual(names[0x2B].name, "falling_leaves")
+        self.assertEqual(names[0x2B].confidence, "confirmed")
+
+    def test_representative_selection_uses_known_w1l1_anchor(self):
+        archive = Path(__file__).resolve().parents[2] / "game" / "NESTLE.DAT"
+        selected = select_entity_representative(archive, 0x2B)
+        self.assertEqual(selected.record_offset, 0x1792)
+        self.assertEqual((selected.world_x, selected.world_y), (768, 224))
+
+        with self.assertRaises(QuikyError):
+            select_entity_representative(archive, 0x02)
+
+    def test_entity_variant_can_redirect_selected_declaration_to_stream_cell(self):
+        archive = Path(__file__).resolve().parents[2] / "game" / "NESTLE.DAT"
+        selected = select_entity_representative(archive, 0x28)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            manifest = create_entity_variant(
+                archive, Path(temp_dir), "W1L1.ARE", selected.record_offset,
+                stream_cell=(12, 3),
+            )
+            redirect = manifest["stream_redirect"]
+            self.assertEqual(redirect["selected_reference"], selected.reference)
+            self.assertEqual(redirect["runtime_region_origin"], [768, 192])
+
+    def test_dispatch_ledger_validates_and_decodes_entries(self):
+        ledger = {
+            "trace_kind": "dispatch",
+            "events": [{
+                "type": 0x2B, "slot": 0x81D2 + 0x2B * 4,
+                "offset": 0x4727, "object_class": 1, "reserved": 0,
+                "raw_bytes": [0x27, 0x47, 1, 0],
+            }],
+        }
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "dispatch.json"
+            path.write_text(json.dumps(ledger), encoding="utf-8")
+            entries = load_dispatch_ledger(path)
+        self.assertEqual(entries[0x2B].group_key, (0x4727, 1, 0))
+
     def test_level_renderer_pairs_map_tiles_palette_and_are(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -160,6 +295,7 @@ class QuikyCtlTests(unittest.TestCase):
             (root / "W1.ICO").write_bytes(bytes((1,)) * 256 + bytes((2,)) * 256)
 
             are = bytearray(0x14E8)
+            struct.pack_into(">HH", are, 0x0E, 1, 1)
             struct.pack_into(">H", are, 0x160, 0x1388)
             are.extend(struct.pack(">HHHH", 0x0065, 0x0010, 0x0020, 0xFFFF))
             (root / "W1L1.ARE").write_bytes(are)

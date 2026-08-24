@@ -1,0 +1,45 @@
+{
+  "schema": "quiky-entity-types-v1",
+  "entries": [
+    {
+      "type": 43,
+      "name": "falling_leaves",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "record_offset": 6034,
+        "world": [768, 224],
+        "dispatch_slot": "DS:81D2+0x0AC",
+        "update_callback": "01F7:4727",
+        "object_class": 1,
+          "factory": "01F7:0E06",
+          "sprite_slot_field": "object+0x12",
+          "sprite_slot_families": [[700, 707], [750, 757]],
+          "animation_tables": {
+            "DS:3312": {"delay": 8, "slots": [700, 701, 702, 703, 704, 705, 706, 707], "loop_back": 8},
+            "DS:3326": {"delay": 10, "slots": [703, 704, 705, 706, 707, 700, 701, 702], "loop_back": 8}
+          },
+          "alternate_family_rule": "01F7:5D38/5D60 add 50 when object+0x28 == 0xFF",
+          "observed_sprite_slots": [700, 703],
+          "representative_sprite_slot": 700,
+          "sprite_initializer_return": "01F7:474D",
+          "bob_asset": "BLATT.BOB",
+          "bob_record_count": 16,
+          "representative_bob_record_index": 0,
+          "representative_bob_record_offset": 0,
+          "bob_dimensions": [14, 12],
+          "bob_origin": [7, 12],
+          "sprite_preview": "research/notes/type-2b-falling-leaf-slot-700.png",
+          "sprite_sheet": "research/notes/type-2b-falling-leaves-sheet.png",
+          "trace_ledgers": [
+            "research/build/traces/entity-2b-spawned-sprite.json",
+            "research/build/traces/entity-2b-sprite-initialization.json",
+            "research/build/traces/entity-2b-animation-table.json",
+            "research/build/traces/entity-2b-lifetime.json"
+          ],
+          "experiment": "baseline_vs_inert_type_0",
+        "note": "Changing only this record from 0x2B to inert type 0 removes the animated falling leaves; the cloud and static scene remain unchanged."
+      }
+    }
+  ]
+}

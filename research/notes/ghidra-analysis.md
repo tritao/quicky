@@ -51,8 +51,8 @@ This directly confirms that the observed selector value participates in a
 five-byte-per-level table lookup. The surrounding table contains the visible
 `Nature 1`, `Nature 2`, `Nature 3` labels and `W1L1`, `W1L2`, `W1L3` names.
 
-The primary routine then reads two values from the resource stream through the
-unresolved file helper, stores a doubled first value as a row byte count, and
+The primary routine seeks four bytes past the `TLE1` header and reads two
+big-endian values from the resource stream, stores a doubled first value as a row byte count, and
 uses the second as the other MAP dimension. It allocates a buffer based on
 those dimensions and copies two-byte cell values into it. It also ORs `0x10`
 into the high byte of one dimension's worth of cells. The latter is confirmed
@@ -68,7 +68,8 @@ or another MAP role remains unknown.
 Segment 1 function `0x34C8` (`load_are_resource`) constructs a path from the
 Pascal fragments `GAMEDATA\\` and `.ARE`, reads a resource through the same
 unresolved helper family, allocates a buffer, and copies paired values from
-the stream. The exact ARE field meanings remain unknown.
+the stream. Segment 3 consumes that buffer as a region-reference grid followed
+by six-byte entity declarations, as confirmed by the runtime trace below.
 
 ### BOB and ICO loading
 
@@ -79,10 +80,15 @@ The following routines use the same path-construction pattern:
 0x3BBD  load_ico_resource  GAMEDATA\\ + .ICO
 ```
 
-The BOB routine reads a repeated record structure with a visible `0x2C` stride
-and several 16-bit/32-bit fields. The ICO routine iterates records/data ranges
-and copies resource bytes into an existing buffer. These observations are
-confirmed from generated code; the record semantics are still provisional.
+The BOB routine reads a repeated record structure with a `0x2C` runtime stride.
+Static loader analysis plus a parser over every bundled BOB confirms each disk
+record as slot, X/Y origin, width/height, a monotonic code-offset table, and an
+x86 VGA blitter. The runtime descriptor stores geometry at `+00/+02/+08/+0A`,
+the blitter pointer/size at `+10/+0C`, and the offset-table pointer/size at
+`+20/+28`. Segment 3's draw path subtracts the origins from world position and
+uses width/height for clipping. The safe decoder reconstructs pixels from
+immediate planar writes without executing archive code. The ICO routine
+iterates records/data ranges and copies resource bytes into an existing buffer.
 
 ### SAM and TFX loading
 
@@ -97,9 +103,11 @@ the audio structures remain to be documented.
 The NE relocation tables have now been parsed and the important cross-segment
 targets have been annotated. Ghidra still displays the raw programs as
 separate address spaces, so the relocation targets are labels and evidence
-rather than fully connected decompiler thunks. The next useful target is to
-correlate the common helper with a controlled runtime breakpoint or with more
-callers, then recover the archive-directory record layout.
+rather than fully connected decompiler thunks. Runtime tracing has now
+confirmed the common archive lookup, its shared result fields, and the core
+relative seek/tell, big-endian word, and buffered byte helpers. The next useful
+target is to recover the archive-directory record layout and identify the
+underlying DOS/Pascal file-runtime calls.
 
 The decompiler reports are useful for narrowing the target, but unresolved
 helper calls are not being treated as identified APIs.
@@ -126,28 +134,232 @@ The same sequence appears in the ARE, MAP, BOB, and ICO loaders. Segment 5
 Pascal string, and `0x0F06` appends one. These three meanings are confirmed by
 their generated code.
 
-Segment 4 `0x18C7` is an inferred common resource-entry lookup: it accepts a
-Pascal path, scans a table, and writes shared resource-range state at
-`DS:0x97E4..0x97EE` (`start`, `end`, and derived size fields). Segment 4
-`0x19FF` compares the current position with that shared end state, supporting
-the same interpretation. The exact archive-directory record layout still
-needs runtime or caller-level confirmation.
+Segment 4 `0x18C7` is the confirmed common resource-entry lookup. It accepts a
+far pointer to a Pascal path, scans the archive directory, and writes the
+matched resource range to shared state. The runtime-confirmed fields are:
 
-The remaining segment 4 targets (`0x125B`, `0x1BDE`, `0x1A37`, `0x170A`, and
-`0x1737`) are now concrete, but their stream-read/position semantics remain
-deliberately unnamed.
+```text
+DS:0x97E4  u32 resource end offset (exclusive)
+DS:0x97E8  u32 resource start offset
+DS:0x97EC  u32 resource size
+```
+
+Segment 4 `0x19FF` compares the current position with the shared end offset.
+The archive-directory record layout and its runtime representation are now
+confirmed below.
 
 ## Runtime validation status
 
-A debugger-only experiment set `DS:0x89F2 = 1` (the known cheat flag),
-`DS:0x88BA = 5`, and `DS:0x85D4 = 2`, then resumed with a breakpoint at
-`0207:0x18C7`. The emulator remained on the startup splash and did not expose
-a reliable breakpoint stop or register/memory dump. Therefore this run is not
-counted as confirmation of the lookup routine or its state variables. No game
-files were modified; the writes were made only in the debugger session.
+On 24 August 2026, the debugger-enabled automation build entered the proven
+level selector by setting `DS:0x89F2 = 1`, `DS:0x88BA = 5`, and then selected
+Nature 3 with `DS:0x85D4 = 2`. Pressing Space produced a reliable API
+breakpoint stop at `0207:0x18C7`.
 
-The static result remains the strongest current evidence: all four resource
-loaders construct a Pascal path, call the same `0207:0x18C7` target, and then
-use the shared `DS:0x97E4..0x97EE` state. A future runtime pass should break
-after the menu has reached an actual level-load path rather than injecting the
-level state during startup.
+At the first stop, `SS:ESP` held the far return address `01D7:36D0`, followed
+by a pointer to a length-prefixed `GAMEDATA\\W1L3.map` string. Sampling the
+shared fields after the return gave:
+
+| Field | Value | Archive match |
+| --- | ---: | --- |
+| `DS:97E8` | `0x002F3BD3` (3,095,507) | `W1L3.MAP` start |
+| `DS:97E4` | `0x002F55A5` (3,102,117) | `W1L3.MAP` end |
+| `DS:97EC` | `0x000019D2` (6,610) | `W1L3.MAP` size |
+
+The next stop held return address `01D7:3531` and a pointer to
+`GAMEDATA\\W1L3.are`. Its post-return values were:
+
+| Field | Value | Archive match |
+| --- | ---: | --- |
+| `DS:97E8` | `0x002F55A5` (3,102,117) | `W1L3.ARE` start |
+| `DS:97E4` | `0x002F6B19` (3,107,609) | `W1L3.ARE` end |
+| `DS:97EC` | `0x00001574` (5,492) | `W1L3.ARE` size |
+
+These values exactly match the independently parsed `NESTLE.DAT` index. This
+confirms both the helper's role and the shared field meanings without changing
+the executable or archive; only live debugger memory was modified to reach the
+selector.
+
+### W1L3 MAP stream-helper trace
+
+The same run traced the first MAP parser calls and correlated them directly
+with bytes at archive offset `0x002F3BD3`:
+
+```text
+54 4C 45 31  00 37  00 3C  00 09 ...
+T  L  E  1      55      60       9
+```
+
+| Address | Confirmed role | Runtime evidence |
+| ---: | --- | --- |
+| `0207:125B` | `resource_seek_relative` | Called from `01D7:36D9` with offset 4; computes `DS:97E8 + offset`. |
+| `0207:1BDE` | `resource_read_be_u16` | Called from `01D7:36E2`; consumed `00 37` and returned AX = `0x0037`. |
+| `0207:1A37` | `resource_tell_relative` | Called from `01D7:3726`; returned AX = 10 after the three words at offsets 4, 6, and 8. |
+
+The decompilation agrees with the trace: `0x125B` adds the shared resource
+start before invoking the underlying seek, while `0x1A37` subtracts that start
+from the underlying position. This establishes that loader offsets are local
+to an archive member rather than absolute `NESTLE.DAT` positions.
+
+### MAP buffered-reader trace
+
+A fresh run stopped while the primary loader was reading `W1L1.MAP`. At this
+point the archive member had size `0x3F52`; after its 10-byte header, the loader
+called `0207:170A` with byte count `0x3F48` and file handle 5. The helper filled
+the previously allocated far buffer at `DS:8A8C` and reset the word cursor at
+`DS:8A90` to zero. The first 32 buffer bytes exactly matched `NESTLE.DAT` at
+`resource_start + 10`.
+
+The loader then called `0207:1737` without arguments. Two consecutive traced
+calls returned `0x00` and `0x01`, matching the first two buffered bytes, while
+the cursor advanced from 0 to 1 and then 2. The confirmed labels are therefore:
+
+| Address | Label | Behavior |
+| ---: | --- | --- |
+| `0207:170A` | `resource_buffer_fill` | Reads a supplied count from a supplied handle into `DS:8A8C`; resets `DS:8A90`. |
+| `0207:1737` | `resource_buffer_read_u8` | Returns `buffer[cursor]` and increments the cursor. |
+
+This also explains the MAP cell-copy loop: it consumes each big-endian cell as
+two buffered byte reads and stores the bytes in swapped host order.
+
+### NESTLE.DAT directory layout
+
+The archive initialization code at segment 4 reads the final eight bytes as
+two little-endian dwords:
+
+```c
+struct ArchiveTrailer {
+    uint32_t directory_offset;
+    uint32_t last_entry_index;  /* entry count minus one */
+};
+```
+
+For the bundled archive these are `0x003880C7` and 141, giving 142 entries.
+Starting at `directory_offset` and ending immediately before the trailer, each
+on-disk record is variable length:
+
+```c
+struct DirectoryRecord {
+    uint16_t name_length;
+    char name[name_length];
+    uint32_t payload_offset;
+};
+```
+
+All integer fields are little-endian and payload offsets are absolute from the
+start of `NESTLE.DAT`. Records do not contain payload sizes. For every entry
+except the last, lookup computes the exclusive end from the next entry's
+offset. The final-entry branch at `0207:19BB` obtains the physical file size
+with DOS seek-from-end and subtracts the 8-byte trailer. Consequently, the
+game's nominal final resource range includes the serialized directory between
+`directory_offset` and the trailer; the structural extractor intentionally
+uses `directory_offset` as the final payload boundary instead.
+
+At startup the executable converts the disk records into parallel fixed-size
+tables:
+
+| Address | Type | Meaning |
+| ---: | --- | --- |
+| `DS:8A92` | `u32` | Last entry index from the trailer. |
+| `DS:8A96` | `byte[count][13]` | Pascal names: one length byte, up to 12 name bytes, then unused padding. |
+| `DS:94BE` | `u32[count]` | Absolute payload offsets. |
+| `DS:97DE` | `u32` | Directory offset from the trailer. |
+| `DS:97E2` | `u16` | Open archive file handle. |
+
+Live inspection matched the serialized index: slot 0 contained
+`QUIKYW1.BOB` with offset 0, while slot 141 at `DS:91BF` contained
+`TITELD.SAM` and the parallel offset at `DS:96F2` was `0x0037A3A5`.
+`resource_entry_lookup` compares its normalized Pascal name against these
+slots, seeks to the matched absolute offset, and publishes start, end, and
+size through `DS:97E8`, `DS:97E4`, and `DS:97EC` respectively.
+
+### ARE entity placement trace
+
+Segment 3 routine `01F7:1CDA` tracks the camera in 64-pixel increments and
+looks up declarations for newly visible regions. A nonblank reference is added
+to the base of the loaded ARE buffer and passed to the near routine at
+`01F7:1E04`. Because the loader stores the ARE bytes beginning at disk offset
+`0x160`, a runtime buffer offset maps to `file_offset = 0x160 + buffer_offset`.
+
+`01F7:1E04` walks records in this confirmed host-order representation:
+
+```c
+struct LiveAREEntity {
+    uint16_t type_and_state;
+    uint16_t local_x;
+    uint16_t local_y;
+};
+```
+
+The low byte of `type_and_state` is the entity type. On first processing, the
+routine changes its high byte from zero to one; subsequent region visits skip
+that record. `0xFFFF` terminates the declaration. For normal entity types the
+routine indexes a four-byte dispatch table at `DS:81D2 + type * 4`, invokes the
+object factory, and writes 16.16 fixed-point positions as:
+
+```text
+object_x = (are_region_origin_x + local_x) << 16
+object_y = (are_region_origin_y + local_y) << 16
+```
+
+The origins at `DS:3714` and `DS:3716` are aligned to 64 pixels. Types `0x65`,
+`0x66`, and `0x67` take dedicated creation paths rather than the normal dispatch
+table.
+
+The live W1L1 sample stopped with `FS:BX = 037F:1632`, region origin `(768,192)`,
+and record words `(type=0x2B, x=0, y=32)`. Since the loaded buffer starts at ARE
+offset `0x160`, this is the record at disk offset `0x1792`; its archived bytes
+are `00 2B 00 00 00 20`. The resulting world position is therefore `(768,224)`.
+This proves that ARE X/Y values are pixel offsets within a streamed 64-pixel
+region, not tile indices or normalized renderer coordinates.
+
+The automated type `0x2B` vertical slice additionally stopped at the normal
+dispatch path with table bytes `27 47 01 00`. Static factory analysis confirms
+this layout is update callback `01F7:4727`, object class `1`, and reserved byte
+`0`; it is not a far pointer through segment ordinal 1. The shared factory at
+`01F7:0E06` returned object `027F:0078`;
+after caller initialization its 16.16 position fields were exactly
+`(768,224)`. An isolated archive variant changed only W1L1 ARE record `0x1792`
+from type `0x2B` to inert type `0`. In aligned paired captures the animated
+falling leaves were absent from the inert run while the cloud and static scene
+remained unchanged. This supports the catalog name `falling_leaves` at
+confirmed confidence.
+
+The callback's first far helper returns at `01F7:474D` with the same live
+object in `ES:DI` and a logical sprite slot in `object+0x12`; independent live
+runs observed slots `700` and `703`. The renderer at `01F7:3529` resolves that
+field through the `DS:6D8E` slot map. `BLATT.BOB` contains the two interleaved
+leaf families `700` through `707` and `750` through `757`, all with origin
+`(7,12)` and size `14x12`. Safe decoding of representative slot 700 with
+`W1.PCC` produces the leaf shown in
+[`type-2b-falling-leaf-slot-700.png`](type-2b-falling-leaf-slot-700.png).
+This closes the live chain from ARE type `0x2B` through its callback and
+runtime object to the compiled sprite family.
+
+The relocated call at `01F7:4748` targets `01F7:5D38`. That helper reads an
+animation table from `DS:SI`, stores its delay at object offsets `+1E/+20`,
+its cursor at `+22/+24`, and its first slot at `+12`. The callback chooses
+between two tables using a signed byte from the engine PRNG ring at `DS:646C`:
+`DS:3312` is delay 8 with slots 700-707 in order, while `DS:3326` is delay 10
+with slots 703-707 then 700-702. Both end in `-8`, which the relocated
+`01F7:4879 -> 01F7:5D60` advance helper interprets as an eight-word loop-back.
+Both helpers add 50 to a selected slot when object byte `+28` is `FF`, choosing
+the visibly brighter 750-757 row in
+[`type-2b-falling-leaves-sheet.png`](type-2b-falling-leaves-sheet.png).
+
+Runtime callback sampling also corrects the ownership model: the original
+ARE object seeds the effect, while subsequent leaves occupy pooled objects in
+the same selector (observed offsets include `0168`, `01E0`, `02D0`, and
+`03C0`). `quikytrace --lifetime-samples N` records object identity, slot,
+delay, animation cursor, and the `+28` variant flag at each shared leaf update.
+
+The exceptional-looking normal type `0x28` is likewise decoded without a
+special case: update callback `01F7:9256`, object class `0`, reserved byte `0`.
+Types `0x65`, `0x66`, and `0x67` branch before the table and call
+`01F7:178D`, `01F7:1798`, and `01F7:17A3`, respectively. Those wrappers set a
+subtype byte to `0x00`, `0x08`, or `0x10` and converge on the common creator at
+`01F7:1749`.
+Controlled one-variable archives replacing the reachable W1L1 record `0x1792`
+with each dedicated type independently confirmed all three runtime branches at
+the unchanged calculated world position `(768,224)`. The trace ledgers are
+`entity-65-handler-trace.json`, `entity-66-handler-trace.json`, and
+`entity-67-handler-trace.json` under `research/build/`.

@@ -62,6 +62,8 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x3bbd, "load_ico_resource", "Builds/loads an ICO resource after the .ICO path fragments.");
 
         label(0x491d, "level_selector_cheat_branch", "Runtime trace: checks the cheat-enabled level selector state.");
+        function(0x4727, "init_falling_leaves_entity_type_2b",
+            "Runtime-confirmed dispatch entry for ARE type 0x2B; controlled replacement with inert type 0 removes the falling leaves at W1L1 record 0x1792.");
 
     }
 
@@ -84,6 +86,11 @@ public class AnnotateQuiky extends GhidraScript {
         label(0x0d48, "path_ants_pcc", "Pascal path: GAMEDATA\\ANTS.PCC");
         label(0x0d5a, "path_gamebar_pcc_world_loader", "Pascal path: GAMEDATA\\GAMEBAR.PCC");
         label(0x0d6f, "path_introbar_pcc_world_loader", "Pascal path: GAMEDATA\\INTROBAR.PCC");
+        label(0x8a92, "archive_last_entry_index", "Runtime-confirmed u32 trailer value; 141 for the 142-entry NESTLE.DAT index.");
+        label(0x8a96, "archive_pascal_names", "Runtime-confirmed table of 13-byte Pascal-name slots populated from the variable-length archive directory.");
+        label(0x94be, "archive_payload_offsets", "Runtime-confirmed parallel table of little-endian u32 absolute payload offsets.");
+        label(0x97de, "archive_directory_offset", "Runtime-confirmed u32 read from the first half of the final 8-byte NESTLE.DAT trailer.");
+        label(0x97e2, "archive_file_handle", "Open NESTLE.DAT file handle used by resource lookup and stream helpers.");
         int[] targets = {
             0x022a, 0x125b, 0x170a, 0x1737, 0x17a0, 0x1859,
             0x18c7, 0x19ff, 0x1a37, 0x1a73, 0x1b45, 0x1bde,
@@ -93,10 +100,24 @@ public class AnnotateQuiky extends GhidraScript {
             relocationTarget(target, String.format("seg4_target_%04x", target),
                 "NE relocation target in segment 4; semantics not assigned yet.");
         }
-        relocationTarget(0x18c7, "resource_entry_lookup_candidate",
-            "Inferred from decompilation: accepts a Pascal path and updates the shared resource range state.");
+        relocationTarget(0x18c7, "resource_entry_lookup",
+            "Runtime-confirmed with W1L3.MAP and W1L3.ARE: accepts a far Pascal path and writes end/start/size at DS:97E4/97E8/97EC.");
         relocationTarget(0x19ff, "resource_end_check_candidate",
             "Inferred from decompilation: compares the current resource position with the shared end state.");
+        relocationTarget(0x125b, "resource_seek_relative",
+            "Runtime-confirmed with W1L3.MAP: seeks to resource start plus the supplied unsigned 32-bit offset; offset 4 reached the first MAP field.");
+        relocationTarget(0x1a37, "resource_tell_relative",
+            "Runtime-confirmed with W1L3.MAP: returns the current stream position relative to DS:97E8; returned 10 after three big-endian words.");
+        relocationTarget(0x1bde, "resource_read_be_u16",
+            "Runtime-confirmed with W1L3.MAP: consumed bytes 00 37 at resource offset 4 and returned 0037.");
+        relocationTarget(0x170a, "resource_buffer_fill",
+            "Runtime-confirmed with W1L1.MAP: reads the supplied byte count from the supplied handle into the far buffer at DS:8A8C and resets DS:8A90.");
+        relocationTarget(0x1737, "resource_buffer_read_u8",
+            "Runtime-confirmed with W1L1.MAP: returns the byte at DS:8A8C plus DS:8A90, then increments DS:8A90.");
+        function(0x1c1d, "file_seek_absolute",
+            "DOS int 21h/AH=42h, origin 0: seeks the supplied handle to the supplied unsigned 32-bit offset.");
+        function(0x1c43, "file_seek_end_and_tell",
+            "DOS int 21h/AH=42h, origin 2, offset 0: seeks to EOF and returns the absolute file size.");
     }
 
     private void annotateSegment3() throws Exception {
@@ -105,6 +126,24 @@ public class AnnotateQuiky extends GhidraScript {
             relocationTarget(target, String.format("seg3_target_%04x", target),
                 "NE relocation target in segment 3; semantics not assigned yet.");
         }
+        function(0x1cda, "stream_are_regions",
+            "Streams ARE declarations for newly visible 64-pixel regions using camera coordinates and the reference grid.");
+        function(0x1e04, "instantiate_are_declaration",
+            "Runtime-confirmed six-byte ARE record walker: type, local X, local Y; marks records processed and creates objects at region origin plus local coordinates.");
+        function(0x0e06, "are_object_factory",
+            "Runtime-confirmed factory called by the normal ARE dispatch path; type 0x2B returns ES:DI and is initialized by the caller.");
+        function(0x1749, "create_dedicated_are_effect",
+            "Shared creator used by types 0x65/0x66/0x67 after selecting subtype 0x00/0x08/0x10.");
+        function(0x178d, "create_are_type_65", "Dedicated ARE type 0x65 wrapper.");
+        function(0x1798, "create_are_type_66", "Dedicated ARE type 0x66 wrapper.");
+        function(0x17a3, "create_are_type_67", "Dedicated ARE type 0x67 wrapper.");
+        function(0x4727, "update_falling_leaves_types_29_2b",
+            "Dispatch-table callback shared by ARE types 0x29, 0x2A, and confirmed falling-leaves type 0x2B.");
+        function(0x9256, "update_are_type_28",
+            "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
+        label(0x3714, "are_region_origin_x", "Runtime-confirmed 64-pixel-aligned X origin used while instantiating an ARE declaration.");
+        label(0x3716, "are_region_origin_y", "Runtime-confirmed 64-pixel-aligned Y origin used while instantiating an ARE declaration.");
+        label(0x81d2, "are_entity_dispatch_table", "Four-byte entries indexed by ARE entity type; normal types feed these values to the object factory.");
     }
 
     private void annotateSegment5() throws Exception {

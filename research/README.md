@@ -108,10 +108,9 @@ executable has been decompiled.
 `level-render` is a dependency-free PNG renderer. It derives `W1.ICO` and
 `W1.PCC` from `W1L1.MAP`, applies the Java viewer's four-way column
 permutation, and renders the MAP at 16 pixels per tile. If `W1L1.ARE` is next
-to the MAP, it adds colored entity markers. The marker transform is currently
-a diagnostic normalized mapping from the 52x48 ARE reference grid and its
-16-pixel local slots; it is intentionally reported as provisional until the
-executable's ARE placement routine is traced.
+to the MAP, it adds colored entity markers using the engine-confirmed transform:
+each layout cell is a 64-pixel region and each record contains pixel offsets
+relative to that region.
 
 For a fresh extraction:
 
@@ -255,13 +254,16 @@ the following layout across all 21 ARE payloads in the bundled archive:
 
 ~~~text
 @0x0000  0x0160  unknown/header region
-@0x0160  0x1380  2496 big-endian u16 layout words
+@0x000e  u16     layout width
+@0x0010  u16     layout height
+@0x0160  width * height big-endian u16 layout words
 @0x14e0  variable declaration records
 ~~~
 
-In the layout region, `0xffff` is a blank marker and `0x0000` is also common;
-the latter's exact game meaning remains unknown. Other nonzero words are
-offset-like references. For each reference `r`, the referenced declaration
+In the layout region, `0xffff` is the blank marker. Earlier analysis mistakenly
+treated the padding through `0x14e0` as part of a fixed 52x48 grid, producing
+spurious zero cells and references. Other words are offset-like references.
+For each reference `r`, the referenced declaration
 starts at `0x0160 + r`; the first observed record starts at `0x14e8`, so the
 usual first reference is `0x1388`. This offset relationship and the following
 record terminator are confirmed experimentally from every bundled ARE file,
@@ -275,11 +277,11 @@ u16 y
 u16 0xffff                 # end of one declaration record
 ~~~
 
-The parser reports the raw type and coordinate values, preserving the
-uncertainty about whether coordinates are tiles, pixels, or another game
-unit. Simon changed the byte at 0x14e9 while testing object types. The fixed
-prefix and declaration records should therefore be treated as a structural
-model, not yet as a stable gameplay object specification.
+Engine tracing confirms that the record coordinates are pixel offsets relative
+to a 64-pixel-aligned streamed-region origin. The engine creates objects at
+`region_origin + record_coordinate`, represented internally as 16.16
+fixed-point positions. Simon changed the byte at 0x14e9 while testing object
+types. Individual type meanings still require visual correlation.
 
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry
@@ -321,13 +323,48 @@ executable-analysis step is to map segment-relative addresses used by the
 timer calibration and archive-loading code back to these segments, then
 trace only those routines needed to validate format behavior.
 
-### BOB — partial
+### BOB — compiled sprites decoded safely
 
-BOB files contain much of the animated and still graphics. Simon's current
-inference is a little-endian height at offset 0x04 and width at offset 0x06;
-the surrounding header, frame tables, compression/encoding, and pixel data
-are not decoded. Arbitrary byte edits can crash the game when the graphic is
-first displayed, so treat BOB as read-only until a decoder is validated.
+BOB files are concatenations of little-endian sprite records with no global
+header. Each record contains a logical slot, horizontal and vertical origins,
+width and height, a length-prefixed table of 16-bit code offsets, and a
+length-prefixed 16-bit x86 VGA blitter. Across the bundled archive, all 66 BOB
+files parse exactly to EOF: 951 records populate 359 distinct slots between 0
+and 994.
+
+~~~text
+u16 slot
+u16 origin_x
+u16 origin_y
+u16 width
+u16 height
+u16 offset_table_bytes
+u16 code_offsets[offset_table_bytes / 2]
+u16 blitter_bytes
+u8  blitter_code[blitter_bytes]
+~~~
+
+The offset table is monotonic and indexes the blitter. The second stream is
+real executable code, not compressed pixel data. `quikyctl` never executes it:
+the safe decoder recognizes only immediate byte/word writes to `[SI+disp]` and
+maps their VGA planar addresses back to indexed pixels. Every recognized write
+in all 951 records lies within its declared canvas.
+
+Inspect and render an extracted sprite with:
+
+~~~sh
+python3 research/tools/quikyctl.py bob-info assets/QUIKYW1.BOB
+python3 research/tools/quikyctl.py bob-render assets/QUIKYW1.BOB \
+  --palette assets/W1.PCC --slot 0 --output quicky-slot-0.png
+python3 research/tools/quikyctl.py bob-sheet assets/BLATT.BOB \
+  --palette assets/W1.PCC --output falling-leaves.png --columns 8
+python3 research/tools/quikyctl.py bob-find game/NESTLE.DAT \
+  --slot 700 --slot 703 --json
+~~~
+
+For slot 0, this produces a 29x44 Quiky frame with origin `(14,44)`. Transparent
+pixels are shown with a checkerboard. Arbitrary BOB editing remains unsafe
+because changes to the blitter stream change machine instructions.
 
 ### SAM / TFX — partial
 
@@ -404,6 +441,106 @@ For executable-level keyboard tracing, install the debug build and run:
 ./scripts/run-dosbox-debug.sh
 ~~~
 
+For the debugger-enabled dosbox-automation build, run:
+
+~~~sh
+./scripts/run-dosbox-automation.sh
+~~~
+
+This uses the project-local configuration, starts at 16,000 cycles, enables
+the localhost REST API, and starts `game/QUIKY.EXE`; extra dosbox-automation
+options are forwarded to it. Set `QUIKY_AUTOMATION_TARGET` to use another
+executable, directory, or an empty value to start without a target. A
+persistent API shell can be started with `QUIKY_AUTOMATION_TARGET=game`.
+
+### Automated resource trace
+
+With that debugger-enabled build running, the Quiky-specific Lua tracer
+records calls to the confirmed resource lookup at `0207:18C7`. Lua handles
+breakpoint waits, registers, protected-mode register-relative memory, and
+continue operations synchronously inside the emulator. The Python wrapper
+loads the script, collects its output, adds file hashes and emulator metadata,
+and writes the JSON experiment ledger:
+
+~~~sh
+python3 research/tools/quikytrace.py \
+  --output research/build/traces/w1l3.json \
+  --count 2 --navigate-w1l3
+~~~
+
+`--navigate-w1l3` advances the opening sequence, launches the default level,
+and rewrites matching `W1L1` Pascal paths to `W1L3` at the confirmed resource
+lookup entry before the loader reads them. Each event records both
+`original_path` and the effective `path`, making this deterministic live-memory
+redirection explicit in the ledger.
+Alternatively, `--prepare-w1l3` continues from the documented `01D7:491D` cheat breakpoint,
+performs the previously validated live-memory selector setup, and presses
+Space. Omit it to trace normal manual play without changing guest memory. The
+runner discovers the token generated by the project-local build,
+or accepts `--token-file`/`DOSBOX_API_TOKEN`. It intentionally leaves the game
+stopped at the final return breakpoint for inspection.
+
+The debugger-enabled Lua API added for this workflow consists of
+`breakpoint_set`, `breakpoint_remove`, `breakpoint_clear`,
+`wait_for_breakpoint`, `debug_continue`, `cpu_state`, and
+`mem_read_selector`. Lua-created
+breakpoints are removed when the script completes, fails, or is stopped.
+
+### ARE entity catalog and controlled experiment
+
+Catalog every unique ARE type, including exact world positions for every
+reference-grid occurrence:
+
+~~~sh
+python3 research/tools/quikyctl.py entity-catalog game/NESTLE.DAT --json
+python3 research/tools/quikyctl.py are-info path/to/W1L1.ARE --entities
+~~~
+
+`are-info` loads confidence-rated names from `research/entity-types.json`.
+Unknown types remain numeric. To reproduce the complete confirmed W1L1 type
+`0x2B` experiment—isolated baseline/inert runtimes, runtime object state, and
+paired screenshots—run:
+
+~~~sh
+python3 research/tools/quikyentity.py game/NESTLE.DAT \
+  research/build/entity-2b-experiment \
+  --type 0x2b
+~~~
+
+When `--record-offset` is omitted, the tool deterministically selects the
+matching W1L1 placement nearest the proven initial streaming anchor
+`(768,224)`. Both disposable variants redirect the proven initial layout cell
+to that declaration, so distant W1L1 records stream deterministically; the
+baseline and inert archives still differ only in the selected entity's type.
+Use `--dry-run` to inspect the choice without creating variants or launching
+DOSBox. An explicit offset still overrides selection and preserves the
+original layout.
+
+Generate the batch-ready W1L1 queue, including callback groups and exact
+commands, with:
+
+```sh
+python3 research/tools/quikyctl.py entity-experiment-plan game/NESTLE.DAT \
+  --dispatch-ledger research/build/entity-dispatch-table.json --json
+```
+
+The experiment never edits the source archive. Each runtime lives under its
+own mount-policy-compatible `variant/game` directory and includes hashes and
+an exact mutation manifest. Screenshot differences are supporting evidence;
+initializer pointers, record identity, world position, and one-variable
+archive mutation remain the primary evidence.
+
+For confirmed type `0x2B`, the live callback trace also follows the object to
+its renderer-facing field `object+0x12`: live runs observed logical slots 700
+and 703. They belong to the `BLATT.BOB` leaf families 700-707 and 750-757
+(14x12, origin 7,12). The decoded representative catalog preview is
+[`notes/type-2b-falling-leaf-slot-700.png`](notes/type-2b-falling-leaf-slot-700.png).
+The complete slot-ordered sheet is
+[`notes/type-2b-falling-leaves-sheet.png`](notes/type-2b-falling-leaves-sheet.png):
+the first row is 700-707 and the second is the brighter 750-757 family.
+JSON `entity-catalog` output includes this structured evidence from
+`research/entity-types.json`.
+
 The confirmed cheat comparison path and debugger addresses are documented in
 [`research/notes/cheat-trace.md`](notes/cheat-trace.md). The debugger is
 entered with `Alt+Pause`; it runs in the terminal while the game remains in
@@ -434,3 +571,20 @@ interactions in DOSBox.
 [dkia]: https://www.dkia.at/en/node/76
 [dosgames]: https://www.dosgames.com/game/tricky-quiky-games/
 [dosbox]: https://www.dosbox.com/DOSBoxManual.html
+Capture every normal ARE dispatch entry in one initialized game run, then merge
+the evidence into the static catalog or show update-callback/class groups:
+
+```sh
+python3 research/tools/quikytrace.py --launch --headless --dispatch-table \
+  --output research/build/entity-dispatch-table.json
+python3 research/tools/quikyctl.py entity-catalog game/NESTLE.DAT \
+  --dispatch-ledger research/build/entity-dispatch-table.json
+python3 research/tools/quikyctl.py entity-catalog game/NESTLE.DAT \
+  --dispatch-ledger research/build/entity-dispatch-table.json --groups
+```
+
+The capture waits for the first ARE declaration after launching W1L1 because
+the table is still zeroed at the menu. Normal entries contain a near update
+callback in segment `01F7`, an object-class byte, and a reserved byte. Types
+`0x65`, `0x66`, and `0x67` bypass this table and are reported as the distinct
+runtime-confirmed handlers `01F7:178D`, `01F7:1798`, and `01F7:17A3`.

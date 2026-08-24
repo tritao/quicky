@@ -1,0 +1,23 @@
+{
+  "schema": "dosbox-automation-input-v1",
+  "cpu_cycles": 16000,
+  "cpu_cycles_protected": "auto",
+  "keyboard_layout": "us",
+  "purpose": "Skip Quiky's opening screens and reach the menu input checkpoint",
+  "events": [
+    {"frame": 0, "type": "key", "key": "KBD_esc", "pressed": true},
+    {"frame": 1, "type": "key", "key": "KBD_esc", "pressed": false},
+    {"frame": 15, "type": "key", "key": "KBD_esc", "pressed": true},
+    {"frame": 16, "type": "key", "key": "KBD_esc", "pressed": false},
+    {"frame": 60, "type": "key", "key": "KBD_esc", "pressed": true},
+    {"frame": 61, "type": "key", "key": "KBD_esc", "pressed": false},
+    {"frame": 120, "type": "key", "key": "KBD_esc", "pressed": true},
+    {"frame": 121, "type": "key", "key": "KBD_esc", "pressed": false},
+    {"frame": 180, "type": "key", "key": "KBD_esc", "pressed": true},
+    {"frame": 181, "type": "key", "key": "KBD_esc", "pressed": false},
+    {"frame": 240, "type": "key", "key": "KBD_esc", "pressed": true},
+    {"frame": 241, "type": "key", "key": "KBD_esc", "pressed": false},
+    {"frame": 300, "type": "key", "key": "KBD_esc", "pressed": true},
+    {"frame": 301, "type": "key", "key": "KBD_esc", "pressed": false}
+  ]
+}
