@@ -32,6 +32,11 @@
         "01F7:F07B",
         "01F7:106A"
       ],
+      "auxiliary_call_interpretations": {
+        "0207:08D8": "VGA mode-13h/framebuffer setup and clear; no WOLKE descriptor selection",
+        "01F7:F07B": "DOS INT 21h/AH=25h installation of interrupt vector 08h; no sprite draw",
+        "01F7:106A": "object update/list pass that can clear callbacks; no direct WOLKE blitter call"
+      },
       "interpretation": "The positive cloud flag path performs the outer gameplay/effect work and then enters the normal object update/render pass; it does not directly call a WOLKE.BOB blitter."
     },
     "normal_queue": {
@@ -54,9 +59,20 @@
         "logical_slot": 0,
         "position": [128, 400],
         "interpretation": "The controlled probe repeatedly observed the ordinary queue draw, not a WOLKE slot 413-416 call."
+      },
+      "queue_boundary_probe": {
+        "trace": "research/build/entity-28-cloud-outer-queue-targeted.json",
+        "trace_sha256": "127e4f0ce0c85b56bce5d5dd7756a43c469dd89b400cfaaa17b6a0cfcf1c6c0f",
+        "script_sha256": "1d5cc518e3872c6aaadd7e1c4bf5b703e430f7e1dd9599bc036aa65a1d68fa55",
+        "samples": 64,
+        "hit": "01F7:34BC",
+        "return": "01F7:1029",
+        "incoming": {"x": 128, "y": 400, "logical_slot": 0, "flags": 0},
+        "cloud_global_89e6": 65535,
+        "interpretation": "Every captured queue append came from the ordinary object renderer, not from a WOLKE-specific explicit queue entry; the cloud remained logical slot FFFF while DS:89E6 was set."
       }
     },
-    "conclusion": "The generic VGA/BOB blitter and ordinary queue are now statically identified. Raw-segment relocation scanning finds only the ordinary queue caller for 01F7:0013 (01F7:35B3 -> return 35B8); the WOLKE-specific caller or direct record selection remains unresolved. Slots 413-416 are still confirmed only by archive and cross-world resource evidence."
+    "conclusion": "The generic VGA/BOB blitter and ordinary queue are now statically identified. Raw-segment relocation scanning finds only the ordinary queue caller for 01F7:0013 (01F7:35B3 -> return 35B8), and the targeted queue-boundary trace captures only ordinary 01F7:1024 -> 34BC appends. The WOLKE-specific caller or direct record selection remains unresolved; slots 413-416 are still confirmed by archive and cross-world resource evidence."
   },
   "effect_table": {
     "reset": "01F7:44FF",

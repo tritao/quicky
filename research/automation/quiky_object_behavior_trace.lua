@@ -782,31 +782,92 @@ local cloud_hardware_renderer_probe = nil
 if trace_cloud_outer_renderer and expected_type == 0x28 then
     -- WOLKE leaves object+0x12 at FFFF, so observe the main-loop state branch
     -- after the callback returns. This documents the outer DS:89E6 consumer
-    -- even when the standard object queue deliberately skips FFFF.
+    -- even when the standard object queue deliberately skips FFFF.  Keep the
+    -- queue append/draw boundary armed at the same time: the special path may
+    -- enqueue an explicit descriptor rather than passing the cloud object to
+    -- the normal 1024 renderer.
     cloud_outer_renderer_probe = {
-        frames = 8,
-        breakpoints = {"01D7:4EA0"},
+        frames = 64,
+        breakpoints = {"01D7:4EA0", "01D7:4EAA", "01D7:4F03", "01D7:4F08",
+                       "01F7:34BC", "01F7:3587", "01F7:0013"},
         samples = {},
     }
     local offsets = {
         {segment = 0x01d7, offset = 0x4ea0},
+        {segment = 0x01d7, offset = 0x4eaa},
+        {segment = 0x01d7, offset = 0x4f03},
+        {segment = 0x01d7, offset = 0x4f08},
+        {segment = 0x01f7, offset = 0x34bc},
+        {segment = 0x01f7, offset = 0x3587},
+        {segment = 0x01f7, offset = 0x0013},
     }
-    for _, point in ipairs(offsets) do
-        dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+    local function arm_all()
+        for _, point in ipairs(offsets) do
+            dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+        end
     end
+    local function queue_snapshot()
+        local queue_ptr = dosbox.mem_read("ds", 0x6d86, 4) or ""
+        local descriptor_ptr = dosbox.mem_read("ds", 0x6d8a, 4) or ""
+        local queue_offset = (#queue_ptr >= 4 and word(queue_ptr, 1) or 0)
+        local queue_selector = (#queue_ptr >= 4 and word(queue_ptr, 3) or 0)
+        local descriptor_offset = (#descriptor_ptr >= 4 and word(descriptor_ptr, 1) or 0)
+        local descriptor_selector = (#descriptor_ptr >= 4 and word(descriptor_ptr, 3) or 0)
+        local count = dosbox.mem_read_word("ds", 0x8174)
+        local entries = {}
+        if queue_selector ~= 0 and count > 0 and count < 0x100 then
+            local raw = dosbox.mem_read_selector(queue_selector, queue_offset, count * 8) or ""
+            for index = 0, count - 1 do
+                local start = index * 8 + 1
+                local entry = raw:sub(start, start + 7)
+                entries[#entries + 1] = {
+                    index = index,
+                    raw_hex = hex(entry),
+                    x = word(entry, 1),
+                    y = word(entry, 3),
+                    logical_slot = word(entry, 5),
+                    flags = string.byte(entry, 7) or 0,
+                    mode = string.byte(entry, 8) or 0,
+                }
+            end
+        end
+        return {
+            count = count,
+            queue_offset = queue_offset,
+            queue_selector = queue_selector,
+            descriptor_offset = descriptor_offset,
+            descriptor_selector = descriptor_selector,
+            entries = entries,
+        }
+    end
+    arm_all()
     dosbox.debug_continue()
-    for sequence = 1, 8 do
+    for sequence = 1, cloud_outer_renderer_probe.frames do
         local hit = dosbox.wait_for_breakpoint(timeout_ms)
         if not hit then break end
-        cloud_outer_renderer_probe.samples[#cloud_outer_renderer_probe.samples + 1] = {
+        local stack_offset = hit.registers.esp & 0xffff
+        local stack = dosbox.mem_read("ss", stack_offset, 16) or ""
+        local sample = {
             sequence = sequence,
             hit = {segment = hit.segment, offset = hit.offset,
                    registers = hit.registers},
+            stack_hex = hex(stack),
+            return_offset = (#stack >= 2 and word(stack, 1) or nil),
+            return_segment = (#stack >= 4 and word(stack, 3) or nil),
             cloud_global_89e6 = dosbox.mem_read_word("ds", 0x89e6),
-            object_slot = word(dosbox.mem_read_selector(object_selector, object_offset + 0x12, 2), 1),
+            queue = queue_snapshot(),
         }
-        if #cloud_outer_renderer_probe.samples >= 8 then break end
-        dosbox.breakpoint_set(hit.segment, hit.offset, {once = true})
+        if hit.segment == 0x01f7 and hit.offset == 0x34bc then
+            sample.incoming = {
+                x = hit.registers.eax & 0xffff,
+                y = hit.registers.ebx & 0xffff,
+                logical_slot = hit.registers.edx & 0xffff,
+                flags = hit.registers.ecx & 0xff,
+            }
+        end
+        cloud_outer_renderer_probe.samples[#cloud_outer_renderer_probe.samples + 1] = sample
+        if #cloud_outer_renderer_probe.samples >= cloud_outer_renderer_probe.frames then break end
+        arm_all()
         dosbox.debug_continue()
     end
 end

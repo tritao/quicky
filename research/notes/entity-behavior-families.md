@@ -438,6 +438,18 @@ reference to `01F7:0013` is the ordinary queue call at `01F7:35B3`, returning to
 the remaining branch must either select a WOLKE descriptor through another
 entry or render through the outer cloud consumer without calling `0013`.
 
+A targeted queue-boundary trace now tests that distinction directly. Across 64
+breakpoint samples, every hit was `01F7:34BC` with return site `01F7:1029`
+(the ordinary `01F7:1024` object renderer), and every incoming record was
+`x=128, y=400, logical_slot=0, flags=0`; `DS:89E6` remained `FFFF`. No
+explicit WOLKE queue entry was observed. The auxiliary outer-branch targets
+`0207:08D8` (mode-13h/framebuffer setup), `01F7:F07B` (DOS INT 21h vector-08h
+installation), and `01F7:106A` (object update/list pass) likewise do not select
+a WOLKE descriptor. The trace is recorded in
+[`entity-targeted-decompile-evidence.json`](../entity-targeted-decompile-evidence.json)
+with its output and script hashes; the remaining work is to find the alternate
+descriptor/resource path or a fixture that reaches it.
+
 ## Reproducible next experiments
 
 The isolated object tracer now lives in
@@ -537,10 +549,12 @@ and platform-carry boundaries. Remaining experiments are deliberately narrower:
 1. Capture the fully authored all-seven-letter run if exact completion timing is
    needed. The static comparator and transition handoff are now identified, but
    the synthetic fixture did not execute the presentation branch.
-2. If pixel-level renderer provenance is required, identify the WOLKE-specific
-   caller or direct record selection after the outer `01D7:4EA0` state consumer.
-   The generic `0013` VGA/BOB primitive, ordinary queue path, player-state gate,
-   cross-world usage, removal path, and both player-side readers are confirmed.
+2. If pixel-level renderer provenance is required, continue from the narrowed
+   WOLKE boundary: identify the alternate descriptor/resource path (or a
+   fixture that reaches it) after the outer `01D7:4EA0` state consumer. The
+   generic `0013` VGA/BOB primitive, ordinary queue path, player-state gate,
+   cross-world usage, removal path, and both player-side readers are confirmed;
+   the 64-sample queue probe ruled out an explicit ordinary-queue injection.
 3. If effect semantics are required beyond control flow, correlate authored
    producers/reset paths for the now-decoded `DS:8806` table, and assign the
    paper `DS:880A` bounded HUD counter its human-facing label.
