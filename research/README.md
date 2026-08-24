@@ -315,6 +315,8 @@ For callback-internal evidence on the custom families, add `--helper-trace` to
 entries and returns for types `0x2C`, `0x33`, and `0x34`; the register-level
 findings and remaining MAP-helper questions are recorded in
 [`notes/object-behavior.md`](notes/object-behavior.md).
+Controlled branch probes additionally use `--probe-position-x/y`,
+`--probe-proximity-state`, and `--probe-bounds-byte-37`.
 
 For real-input lifetime checks, use the isolated movement driver. It waits for
 the selected entity to initialize, injects a guest-key sequence, and captures

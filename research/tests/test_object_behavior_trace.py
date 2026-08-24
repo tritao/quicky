@@ -25,6 +25,10 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             reactivate_camera_y=272,
             capture_pool=False,
             helper_trace=True,
+            probe_position_x=760,
+            probe_position_y=256,
+            probe_proximity_state=0x32,
+            probe_bounds_byte_37=1,
             movement_key="KBD_right",
         )
         payload = lua_config(config)
@@ -36,6 +40,10 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["reactivate_camera_y"], 272)
         self.assertFalse(payload["capture_pool"])
         self.assertTrue(payload["helper_trace"])
+        self.assertEqual(payload["probe_position_x"], 760)
+        self.assertEqual(payload["probe_position_y"], 256)
+        self.assertEqual(payload["probe_proximity_state"], 0x32)
+        self.assertEqual(payload["probe_bounds_byte_37"], 1)
         self.assertEqual(payload["movement_key"], "KBD_right")
         self.assertNotIn("player_callback_offset", payload)
 

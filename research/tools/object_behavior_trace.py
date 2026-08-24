@@ -41,6 +41,10 @@ class ObjectBehaviorConfig:
     followup_passes: int = 0
     capture_pool: bool = True
     helper_trace: bool = False
+    probe_position_x: int | None = None
+    probe_position_y: int | None = None
+    probe_proximity_state: int | None = None
+    probe_bounds_byte_37: int | None = None
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
     movement_key: str = ""
@@ -60,6 +64,10 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "followup_passes": config.followup_passes,
         "capture_pool": config.capture_pool,
         "helper_trace": config.helper_trace,
+        "probe_position_x": config.probe_position_x,
+        "probe_position_y": config.probe_position_y,
+        "probe_proximity_state": config.probe_proximity_state,
+        "probe_bounds_byte_37": config.probe_bounds_byte_37,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
         "movement_key": config.movement_key,
@@ -211,6 +219,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="omit the expensive 64-entry pool snapshots")
     parser.add_argument("--helper-trace", action="store_true",
                         help="capture selected far-helper entries and returns inside callbacks")
+    parser.add_argument("--probe-position-x", type=lambda value: int(value, 0),
+                        help="override the target object's pixel X before each callback")
+    parser.add_argument("--probe-position-y", type=lambda value: int(value, 0),
+                        help="override the target object's pixel Y before each callback")
+    parser.add_argument("--probe-proximity-state", type=lambda value: int(value, 0),
+                        help="override DS:85DA before each callback (type 0x34 gate probe)")
+    parser.add_argument("--probe-bounds-byte-37", type=lambda value: int(value, 0),
+                        help="override bounds/player object byte +0x37 before each callback")
     parser.add_argument("--reactivate-camera-x", type=int,
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
@@ -240,12 +256,22 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--select-level must look like W4L1")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
+    if (args.probe_position_x is None) != (args.probe_position_y is None):
+        raise TraceError("--probe-position-x and --probe-position-y must be used together")
     if (args.reactivate_camera_x is None) != (args.reactivate_camera_y is None):
         raise TraceError("--reactivate-camera-x and --reactivate-camera-y must be used together")
     for name in ("camera_x", "camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    for name in ("probe_position_x", "probe_position_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if args.probe_proximity_state is not None and not 0 <= args.probe_proximity_state <= 0xffff:
+        raise TraceError("--probe-proximity-state must be between 0 and 65535")
+    if args.probe_bounds_byte_37 is not None and not 0 <= args.probe_bounds_byte_37 <= 0xff:
+        raise TraceError("--probe-bounds-byte-37 must be between 0 and 255")
     for name in ("reactivate_camera_x", "reactivate_camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
@@ -314,6 +340,10 @@ def main(argv: list[str] | None = None) -> int:
             followup_passes=args.followup_passes,
             capture_pool=args.capture_pool,
             helper_trace=args.helper_trace,
+            probe_position_x=args.probe_position_x,
+            probe_position_y=args.probe_position_y,
+            probe_proximity_state=args.probe_proximity_state,
+            probe_bounds_byte_37=args.probe_bounds_byte_37,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
             movement_key=args.movement_key or "",

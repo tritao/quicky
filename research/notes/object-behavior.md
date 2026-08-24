@@ -289,13 +289,14 @@ rather than repeat right-input runs against these same autonomous objects.
 ## Helper-level callback pass
 
 The object tracer now accepts `--helper-trace`. For the selected callback it
-arms breakpoints on the far helpers `0x1B77`, `0x1C4D`, `0x393C`, `0x39FE`,
-`0x5C27`, `0x5D38`, and `0x5D60`, reads the far return address from `SS:SP`, and records
-the registers at helper entry and return. The return breakpoint is matched by
-far segment and offset, so nested helper calls do not get attributed to the
-wrong callback. This also required avoiding a re-arm at the currently stopped
-helper IP; otherwise the debugger repeatedly stopped on the same instruction
-and never reached the callback return.
+arms breakpoints on the far helpers `0x0FCF` (segment `0x01E7`), `0x1B5D`,
+`0x1B77`, `0x1C4D`, `0x1C6E`, `0x393C`, `0x39FE`, `0x5C27`, `0x5D38`, and
+`0x5D60`, reads the far return address from `SS:SP`, and records the registers
+at helper entry and return. The return breakpoint is matched by far segment
+and offset, so nested helper calls do not get attributed to the wrong callback.
+This also required avoiding a re-arm at the currently stopped helper IP;
+otherwise the debugger repeatedly stopped on the same instruction and never
+reached the callback return.
 
 The corrected 48-sample accepted-camera traces are
 `helper-2c-s48-mapprobe.json`, `helper-33-s48-mapprobe.json`, and
@@ -305,8 +306,8 @@ The first callback is the initializer; later samples are the steady callback:
 | Type | Initializer helper | Steady helper order | Representative low-16-bit results |
 | ---: | --- | --- | --- |
 | `0x2C` | none observed (`0x8C4E`) | `0x393C` | entry `AX=0x0103, BX=0x0200, CX=0x0BC8, DX=0x0E3F`; return `AX=0x0076, BX=0x01B8, CX=0x008A, DX=0x0190` |
-| `0x33` | `0x5D38` | `0x1B77 → 0x393C → 0x1C4D → 0x5C27 → 0x5D60` | `0x5D38` returns `AX=0x00D6`; `0x1C4D` returns `AX=0x0033, BX=CX=0x1DEA`; `0x5C27` reads tile `0x0033/flags 4`, then `0x0032/flags 0`; `0x5D60` preserves `AX=0x0400` while its `BX` input changes with object state |
-| `0x34` | `0x5D38` | `0x5D60 → 0x39FE` | `0x5D38` returns `AX=0x0190`; one populated `0x39FE` call returns `AX=0x0080, BX=0x0190, CX=0x0B00, DX=0x0E3F`, while later empty-state calls return zeros |
+| `0x33` | `0x5D38` | `0x1B77 → 0x393C → 0x1C4D → 0x1C6E → 0x5C27 → 0x5D60` | `0x5D38` returns `AX=0x00D6`; `0x1C4D/0x1C6E` expose MAP tile words; `0x5C27` reads descriptor flags; `0x5D60` preserves `AX=0x0400` while its `BX` input changes with object state |
+| `0x34` | `0x5D38` | `0x5D60 → 0x39FE` (then conditional `0x5D38 → 0x1B5D → 0x5D38 → 0x0FCF`) | `0x39FE` returns player X/Y and `CL`; the conditional chain writes action `DS:0x612E=4` |
 
 These values are register evidence, not final helper signatures: the 16-bit
 code often leaves upper register halves and transient descriptor state intact.
@@ -327,6 +328,54 @@ as a low-9-bit MAP tile lookup followed by a `DS:0x6582` descriptor test using
 the coordinate bit-3 flags. The call-site switch is therefore explained by a
 MAP tile/descriptor transition, leaving the higher-level response of the two
 branches as the next target alongside the `0x5D38`/`0x5D60` descriptor words.
+
+## Controlled MAP and proximity probes
+
+The tracer now supports debugger-only `--probe-position-x/--probe-position-y`
+overrides, records the bounds/player object at `DS:0x881A`, and can override
+`DS:0x85DA` plus the bounds byte `+0x37`. These writes are applied immediately
+before each selected callback and are not game or executable changes.
+
+The type `0x33` X sweep at `Y=256` confirms that the callback consumes raw MAP
+words rather than an opaque boolean. The final steady samples were:
+
+| Target X | `0x5C27` tile / flags | `0x1C4D → 0x1C6E` tile word |
+| ---: | --- | ---: |
+| `700` | `0x32 / 0` | `0x1E` |
+| `730` | `0x33 / 4` | `0x1E` |
+| `760` | `0x33 / 4` | `0x33` |
+| `790` | `0x33 / 4` | `0x33` |
+| `820` | `0x33 / 4` | `0x1F` |
+| `850` | `0x33 / 4` | `0x92` |
+
+The `0x1C6E` disassembly is now resolved: it computes a 16-pixel MAP address
+using `DS:657A/657C/657E`, returns the raw MAP word in `AX`, and tests bit
+`0x4000`. The `0x1C4D` wrapper forms the probe coordinate from the object
+position and direction byte `+0x29`, then calls `0x1C6E`. The separate
+`0x5C27` call tests the descriptor table at `DS:6582`, explaining why the two
+observed tile/flag results are useful independent signals.
+
+The type `0x34` proximity matrix used player X/Y `(128,400)`, `CL=1` via
+bounds byte `+0x37`, and `DS:0x85DA=49`. It confirms strict inequalities:
+`104 <= object.x <= 152` and `401 <= object.y <= 407` enter the action branch;
+`x=103/153` and `y=400/408` do not. A hit changes `DS:0x612E` from `0` to
+`4` and reaches `0x5D38 → 0x1B5D → 0x5D38 → 01E7:0x0FCF`. `0x39FE` is now
+resolved statically: when `DS:0x89EA==0`, it loads bounds-object X from `+4`,
+Y from `+8`, and byte `+0x37` into `CL`; otherwise it returns zero X/Y.
+The `0x0FCF` helper sets `DS:0x504C=0x2A` and conditionally forwards the
+current action word to the shared effect routine.
+
+The type `0x2C` bounds sweep at X `600`, `700`, `800`, and `900` with Y `200`
+returned the same `0x393C` result each time:
+`AX=0x0076`, `BX=0x01B8`, `CX=0x008A`, `DX=0x0190`. Static decoding explains
+this: `0x393C` ignores the probed type-`0x2C` position and returns the four
+bounds derived from the object at `DS:0x881A` (`x/+0x2C`, `y/+0x2E`,
+`x/+0x30`, `y/+0x32`), or zeroes when `DS:0x89EA` is nonzero.
+
+These probes close the helper-input and branch conditions needed for the
+first C++ behavior models. The remaining work is to model the descriptor
+state mutation performed by `0x5D38/0x5D60`, then compare callback state and
+action outputs frame-by-frame against DOSBox.
 
 ## Real-input reactivation and allocator choice
 

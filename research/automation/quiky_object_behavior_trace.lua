@@ -14,6 +14,10 @@ local camera_y = trace_config.camera_y or -1
 local followup_passes = trace_config.followup_passes or 0
 local capture_pool = trace_config.capture_pool ~= false
 local helper_trace_enabled = trace_config.helper_trace or false
+local probe_position_x = trace_config.probe_position_x or -1
+local probe_position_y = trace_config.probe_position_y or -1
+local probe_proximity_state = trace_config.probe_proximity_state or -1
+local probe_bounds_byte_37 = trace_config.probe_bounds_byte_37 or -1
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local movement_key = trace_config.movement_key or ""
@@ -24,10 +28,22 @@ local class_return_offsets = {[0] = 0x0ed3, [1] = 0x0efd, [2] = 0x0f26}
 local class_post_offsets = {[0] = 0x0edb, [1] = 0x0f05, [2] = 0x0f2e}
 local callback_related_offsets = {
     0x1dca, 0x1dee, 0x106a, 0x1036, 0x0fa2,
-    0x8e4b, 0x8e78, 0x8e85, 0x9254, 0x9255,
+    0x8e4b, 0x8e78, 0x8e85, 0x9254, 0x9255, 0x9c29,
 }
 local callback_helper_offsets = {
-    0x393c, 0x1b77, 0x1c4d, 0x39fe, 0x5c27, 0x5d38, 0x5d60,
+    0x0fcf, 0x1b5d, 0x1c6e, 0x393c, 0x1b77, 0x1c4d, 0x39fe, 0x5c27, 0x5d38, 0x5d60,
+}
+local callback_helper_targets = {
+    {segment = 0x01e7, offset = 0x0fcf},
+    {segment = 0x01f7, offset = 0x1b5d},
+    {segment = 0x01f7, offset = 0x1c6e},
+    {segment = 0x01f7, offset = 0x1b77},
+    {segment = 0x01f7, offset = 0x1c4d},
+    {segment = 0x01f7, offset = 0x393c},
+    {segment = 0x01f7, offset = 0x39fe},
+    {segment = 0x01f7, offset = 0x5c27},
+    {segment = 0x01f7, offset = 0x5d38},
+    {segment = 0x01f7, offset = 0x5d60},
 }
 local callback_step_offsets = {
     [0x47e7] = 0x47ec,
@@ -48,6 +64,10 @@ end
 
 local function little_word(value)
     return string.char(value & 0xff, (value >> 8) & 0xff)
+end
+
+local function little_dword(value)
+    return little_word(value & 0xffff) .. little_word((value >> 16) & 0xffff)
 end
 
 local function hex(s)
@@ -76,9 +96,10 @@ local function arm_callback_related_breakpoints(skip_helper, arm_related)
         end
     end
     if helper_trace_enabled then
-        for _, offset in ipairs(callback_helper_offsets) do
-            if offset ~= skip_helper then
-                dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        for _, target in ipairs(callback_helper_targets) do
+            if target.offset ~= skip_helper then
+                dosbox.breakpoint_set(target.segment, target.offset,
+                                      {once = true})
             end
         end
     end
@@ -89,8 +110,8 @@ local function remove_callback_related_breakpoints()
         dosbox.breakpoint_remove(0x01f7, offset)
     end
     if helper_trace_enabled then
-        for _, offset in ipairs(callback_helper_offsets) do
-            dosbox.breakpoint_remove(0x01f7, offset)
+        for _, target in ipairs(callback_helper_targets) do
+            dosbox.breakpoint_remove(target.segment, target.offset)
         end
     end
 end
@@ -115,6 +136,46 @@ local function object_snapshot(selector, offset)
         update_state = word(raw, 0x32 + 1),
         object_class = string.byte(raw, 0x17 + 1),
     }
+end
+
+local function apply_position_probe(selector, offset)
+    if probe_position_x < 0 then return nil end
+    dosbox.mem_write_selector(selector, offset + 0x02,
+                               little_dword(probe_position_x << 16))
+    dosbox.mem_write_selector(selector, offset + 0x06,
+                               little_dword(probe_position_y << 16))
+    return {x = probe_position_x, y = probe_position_y}
+end
+
+local function apply_global_probe()
+    local applied = {}
+    if probe_proximity_state >= 0 then
+        dosbox.mem_write("ds", 0x85da, little_word(probe_proximity_state))
+        applied.proximity_state = probe_proximity_state
+    end
+    if probe_bounds_byte_37 >= 0 then
+        local selector = dosbox.mem_read_word("ds", 0x7560)
+        local offset = dosbox.mem_read_word("ds", 0x881a)
+        dosbox.mem_write_selector(selector, offset + 0x37,
+                                   string.char(probe_bounds_byte_37 & 0xff))
+        applied.bounds_byte_37 = probe_bounds_byte_37
+    end
+    if next(applied) == nil then return nil end
+    return applied
+end
+
+local function bounds_object_snapshot()
+    local selector = dosbox.mem_read_word("ds", 0x7560)
+    local offset = dosbox.mem_read_word("ds", 0x881a)
+    if offset == 0xffff then
+        return {selector = selector, offset = offset, absent = true}
+    end
+    local ok, snapshot_or_error = pcall(object_snapshot, selector, offset)
+    if not ok then
+        return {selector = selector, offset = offset,
+                error = tostring(snapshot_or_error)}
+    end
+    return snapshot_or_error
 end
 
 local function source_snapshot(selector, offset)
@@ -142,6 +203,8 @@ local function lifecycle_globals()
         object_array_offset = dosbox.mem_read_word("ds", 0x755e),
         scheduler_bank = dosbox.mem_read_word("ds", 0x7966),
         scheduler_active_count = dosbox.mem_read_word("ds", 0x88c8),
+        action_word = dosbox.mem_read_word("ds", 0x612e),
+        proximity_gate = dosbox.mem_read_word("ds", 0x85da),
         bounds_object_offset = dosbox.mem_read_word("ds", 0x881a),
         bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
         stream_camera_x = dosbox.mem_read_word("ds", 0x3710),
@@ -361,6 +424,29 @@ local function map_probe(registers)
         end
     end
     return result
+end
+
+local function map_probe_16px(registers)
+    local y = registers.eax & 0xffff
+    local x = registers.ebx & 0xffff
+    local map_base = dosbox.mem_read_word("ds", 0x657a)
+    local map_selector = dosbox.mem_read_word("ds", 0x657c)
+    local map_stride = dosbox.mem_read_word("ds", 0x657e)
+    local map_offset = (map_base + (x >> 4) * 2 +
+                       (y >> 4) * map_stride) & 0xffff
+    local raw_word, map_error = selector_word(map_selector, map_offset)
+    return {
+        x = x,
+        y = y,
+        map_selector = map_selector,
+        map_base = map_base,
+        map_stride = map_stride,
+        map_offset = map_offset,
+        map_word = raw_word,
+        tile_id = raw_word and (raw_word & 0x1ff) or nil,
+        bit_4000 = raw_word and (raw_word & 0x4000) ~= 0 or nil,
+        map_error = map_error,
+    }
 end
 
 local function take_pending_helper_return(pending, hit)
@@ -586,13 +672,19 @@ while #samples < sample_count and attempts < sample_count * 128 do
         scheduler_hit.registers.es == object_selector and
         (scheduler_hit.registers.edi & 0xffff) == object_offset)
     if scheduler_match then
-        local before = object_snapshot(object_selector, object_offset)
+        local natural_before = object_snapshot(object_selector, object_offset)
+        local position_override = apply_position_probe(object_selector,
+                                                        object_offset)
+        local global_probe_override = apply_global_probe()
+        local before = position_override and
+            object_snapshot(object_selector, object_offset) or natural_before
         if initial_object.observed_scheduler_class == nil then
             initial_object = before
             initial_object.observed_scheduler_class = object_class
         end
         local source_before = source_snapshot(source_selector, before.source_offset)
         local globals_before = lifecycle_globals()
+        local bounds_object_before = bounds_object_snapshot()
         local pool_before = capture_pool and pool_snapshot() or nil
         local expected_return = class_return_offsets[object_class]
         local post_offset = class_post_offsets[object_class]
@@ -681,6 +773,8 @@ while #samples < sample_count and attempts < sample_count * 128 do
                     end
                     if candidate.offset == 0x5c27 then
                         helper_call.map_probe = map_probe(candidate.registers)
+                    elseif candidate.offset == 0x1c6e then
+                        helper_call.map_probe = map_probe_16px(candidate.registers)
                     end
                     helper_calls[#helper_calls + 1] = helper_call
                     arm_callback_related_breakpoints(candidate.offset,
@@ -774,6 +868,11 @@ while #samples < sample_count and attempts < sample_count * 128 do
             pool_after = pool_after,
             object_before = before,
             object_after = after,
+            natural_position_before = natural_before.position,
+            position_override = position_override,
+            global_probe_override = global_probe_override,
+            bounds_object_before = bounds_object_before,
+            bounds_object_after = bounds_object_snapshot(),
             source_before = source_before,
             source_after = source_after,
             termination = {
