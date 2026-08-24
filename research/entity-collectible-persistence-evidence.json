@@ -27,6 +27,6 @@
   "conclusions": [
     "Collection consumes the live object immediately by clearing object+0x18.",
     "Because the accepted interaction path does not call 1DEE, it does not clear the ARE record claim used by re-streaming; the collected object is not re-created by the normal off-camera scan in the same loaded ARE buffer.",
-    "A fresh level load/reset may rebuild the ARE buffer, but level-reset persistence and completion bookkeeping are not established by this callback evidence."
+    "Level selection is observed to reread the W1L2.ARE resource, so a fresh level load rebuilds the source buffer; whether a separate persistent collected-bit suppresses reconstruction remains untested."
   ]
 }
