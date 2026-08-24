@@ -365,7 +365,7 @@ the same W1L1 streamed anchor. The direct slot evidence is:
 | `0x05`/`0x06` | `7B50`/`7B5D`, `7B5E`/`7B70` | 254/204 | W2 `FISCH.BOB` records 3/2 |
 | `0x07`/`0x08` | `776B`/`7778`, `7779`/`778B` | 200/250 | W2 `KRABBE.BOB` records 0/1 |
 | `0x09`/`0x0A` | `713D`/`714A`, `714B`/`715D` | 250/200 | W3 `PENGO.BOB` records 1/0 |
-| `0x0B`/`0x0C` | `6651`/`6698`, `6699`/`66E0` | 209/209 | W3 `PROP.BOB` record 2 |
+| `0x0B`/`0x0C` | `6651`/`6698`, `6699`/`66E0` | 209/209 | W3 `SCHNEE.BOB` record 0 |
 | `0x15`/`0x16` | `7ED7`/`7EE4`, `7EE5`/`7EF7` | 208/208 | W4 `FLIEGE.BOB` record 0 |
 | `0x17`/`0x18` | `8451`/`845E`, `845F`/`8471` | 250/200 | W4 `SPINNE.BOB` records 1/0 |
 | `0x19`/`0x1A` | `5050`/`505D`, `505E`/`5070` | 250/200 | W5 `BUGGY.BOB` records 1/0 |
@@ -376,10 +376,11 @@ post-initializer return; the paired types in each row therefore share a BOB
 family but are retained as separate catalog entries. `bob-find` shows the
 same logical slots in several other BOB files. Selector-mode resource traces
 directly capture the W1 WURM2/BIENE, W2 FISCH/KRABBE, W3 PENGO, W4
-FLIEGE/SPINNE, and W5 BUGGY/UFO batches. The W3 PROP request is not in the
-initial W3L1/W3L2 batches, so types `0x0B`/`0x0C` remain probable until that
-lazy path is observed. The authoritative per-type records are in
-`research/entity-types.json`; representative paired manifests are under
+FLIEGE/SPINNE, and W5 BUGGY/UFO batches. The live W3L1/W3L2 type-0B/type-0C
+traces write slot 209, while the corresponding selector-mode batches load
+`SCHNEE.BOB` and not the archive-colliding `PROP.BOB`; both types are therefore
+confirmed as W3 snow-family variants. The authoritative per-type records are
+in `research/entity-types.json`; representative paired manifests are under
 `research/build/entity-*-evidence/`.
 
 ### Pickup type `0x6F`

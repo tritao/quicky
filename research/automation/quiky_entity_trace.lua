@@ -13,6 +13,8 @@ local state_machine_force_emission = TRACE_STATE_MACHINE_FORCE_EMISSION or false
 local sprite_init_offset = TRACE_SPRITE_INIT_OFFSET or 0
 local capture_frame_count = TRACE_CAPTURE_FRAMES or 1
 local capture_frame_step = TRACE_FRAME_STEP or 30
+local select_level = TRACE_SELECT_LEVEL or ""
+local selector_frames = TRACE_SELECTOR_FRAMES or 60
 local runtime_offset = record_offset - 0x160
 
 local function word(s, index)
@@ -174,16 +176,72 @@ end
 
 dosbox.output.awaiting_startup_replay = true
 dosbox.wait_frames(350)
-dosbox.key("KBD_space", true)
-dosbox.wait_frames(4)
-dosbox.key("KBD_space", false)
+if select_level ~= "" then
+    local selector_indices = {
+        W1L1 = 0, W1L2 = 1, W1L3 = 2,
+        W2L1 = 3, W2L2 = 4, W2L3 = 5,
+        W3L1 = 6, W3L2 = 7, W3L3 = 8,
+        W4L1 = 9, W4L2 = 10, W4L3 = 11,
+        W5L1 = 12, W5L2 = 13, W5L3 = 14,
+        W1L4 = 15, W2L4 = 16, W3L4 = 17,
+        W4L4 = 18, W5L4 = 19,
+    }
+    local selector_index = selector_indices[select_level]
+    assert(selector_index ~= nil, "unsupported level selector target")
 
+    -- Enter the selector through the same cheat path as the resource
+    -- tracer, then use its input wait to write the desired level index.
+    dosbox.key("KBD_space", true)
+    dosbox.wait_frames(4)
+    dosbox.key("KBD_space", false)
+    dosbox.wait_frames(30)
+    dosbox.type("QUIKYSUPERHERO")
+    dosbox.wait_frames(3)
+    dosbox.breakpoint_set(0x01d7, 0x491d, {once = true})
+    dosbox.key("KBD_4", true)
+    local cheat = wait_hit("level selector branch")
+    dosbox.key("KBD_4", false)
+    dosbox.output.checkpoints = {cheat = cheat}
+    dosbox.mem_write("ds", 0x89f2, "\x01")
+    dosbox.mem_write("ds", 0x88ba, "\x05\x00")
+    dosbox.debug_continue()
+    dosbox.wait_frames(selector_frames)
+    dosbox.breakpoint_set(0x01d7, 0x4ace, {once = true})
+    local input_wait = wait_hit("selector input wait")
+    dosbox.output.checkpoints.input_wait = input_wait
+    dosbox.mem_write("ds", 0x85d4,
+                     string.char(selector_index & 0xff, selector_index >> 8))
+    dosbox.breakpoint_set(0x01d7, 0x4b18, {once = true})
+    dosbox.mem_write("ds", 0x88bc, "\x20\x00")
+    dosbox.debug_continue()
+    local launch = wait_hit("selector Space dispatch")
+    dosbox.output.checkpoints.launch = launch
+    -- The first ARE declaration can execute in the same resumed slice as the
+    -- selector dispatch, so arm it before leaving the stopped breakpoint.
+    dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+    dosbox.debug_continue()
+else
+    dosbox.key("KBD_space", true)
+    dosbox.wait_frames(4)
+    dosbox.key("KBD_space", false)
+end
+
+dosbox.output.declaration_samples = {}
 for attempt = 1, 4096 do
     dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
     local entry = wait_hit("ARE declaration")
     local r = entry.registers
     local record = dosbox.mem_read("fs", r.ebx & 0xffff, 6)
     local entity_type = word(record, 1) & 0xff
+    if #dosbox.output.declaration_samples < 128 then
+        dosbox.output.declaration_samples[#dosbox.output.declaration_samples + 1] = {
+            attempt = attempt,
+            runtime_offset = r.ebx & 0xffff,
+            entity_type = entity_type,
+            record_hex = hex(record),
+            registers = r,
+        }
+    end
     if (r.ebx & 0xffff) == runtime_offset then
         assert(entity_type == expected_type,
                string.format("record type %02x, expected %02x",

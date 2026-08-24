@@ -2074,6 +2074,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--target-type", type=_parse_int,
         help="replace the selected record in the baseline before creating the inert variant",
     )
+    entity_variant.add_argument(
+        "--stream-cell", nargs=2, type=_parse_int, metavar=("X", "Y"),
+        help="also place the selected reference in an ARE layout cell for startup streaming",
+    )
     entity_variant.add_argument("--overwrite", action="store_true")
     entity_variant.add_argument("--json", action="store_true")
 
@@ -2195,6 +2199,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.record_offset,
                 args.inert_type,
                 args.overwrite,
+                tuple(args.stream_cell) if args.stream_cell else None,
                 target_type=args.target_type,
             )
             if args.json:

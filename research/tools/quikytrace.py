@@ -154,7 +154,8 @@ def trace_entity_lua(
     state_machine_force_emission: bool = False,
     sprite_init_offset: int = 0, capture_frames: int = 1,
     frame_step: int = 30, screenshot: Path | None = None,
-    screenshot_mode: str = "rendered",
+    screenshot_mode: str = "rendered", select_level: str | None = None,
+    selector_frames: int = 60,
 ) -> tuple[dict[str, Any], list[Path]]:
     prefix = (
         f"TRACE_TIMEOUT_MS={round(timeout * 1000)}\n"
@@ -171,6 +172,8 @@ def trace_entity_lua(
         f"TRACE_SPRITE_INIT_OFFSET={sprite_init_offset}\n"
         f"TRACE_CAPTURE_FRAMES={capture_frames}\n"
         f"TRACE_FRAME_STEP={frame_step}\n"
+        f"TRACE_SELECT_LEVEL={json.dumps(select_level or '')}\n"
+        f"TRACE_SELECTOR_FRAMES={selector_frames}\n"
     )
     source = script_path.read_text(encoding="utf-8")
     name = urllib.parse.quote("quiky-entity-trace")
@@ -436,8 +439,6 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("entity tracing cannot be combined with level navigation modes")
     if args.entity_record_offset is not None and args.navigate_level:
         raise TraceError("entity tracing cannot be combined with level navigation modes")
-    if args.entity_record_offset is not None and args.select_level:
-        raise TraceError("entity tracing cannot be combined with level navigation modes")
     if args.dispatch_table and (args.entity_record_offset is not None or
                                 args.prepare_w1l3 or args.navigate_w1l3 or
                                 args.navigate_level or args.select_level):
@@ -523,6 +524,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.sprite_init_offset,
                 args.capture_frames, args.frame_step, args.screenshot,
                 args.screenshot_mode,
+                args.select_level, args.selector_frames,
             )
             entity["lifetime_samples"] = ordered_lua_array(
                 entity.get("lifetime_samples", [])

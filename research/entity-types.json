@@ -277,8 +277,8 @@
     },
     {
       "type": 11,
-      "name": "prop_variant_0b",
-      "confidence": "probable",
+      "name": "snow_variant_0b",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W3L1",
         "catalog_sample": [2752, 144],
@@ -292,24 +292,33 @@
         "factory": "01F7:0E06",
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 209,
-        "bob_asset": "PROP.BOB",
-        "bob_record_index": 2,
-        "bob_dimensions": [127, 23],
-        "bob_origin": [63, 11],
+        "bob_asset": "SCHNEE.BOB",
+        "bob_record_index": 0,
+        "bob_dimensions": [34, 26],
+        "bob_origin": [17, 26],
+        "runtime_trace": "research/build/traces/entity-0b-real-w3l1-confirm.json",
+        "runtime_trace_record_offset": 5582,
+        "resource_trace": "research/build/resource-select-w3l1-snow-streamed.json",
+        "resource_context_paths": [
+          "GAMEDATA\\W3L1.map",
+          "GAMEDATA\\W3L1.are",
+          "GAMEDATA\\W3.ico",
+          "GAMEDATA\\schnee.BOB"
+        ],
         "trace_ledger": "research/build/traces/entity-0b-post.json",
         "experiment": "target_type_0b_vs_inert_type_0",
         "experiment_manifest": "research/build/entity-0b-evidence/experiment.json",
-        "note": "The type-0B slot 209 matches PROP.BOB, but the direct W3L1 resource batch did not request PROP.BOB; retain this as a lazy-resource hypothesis until that path is observed."
+        "bob_slot_collision_note": "Archive-wide slot 209 also occurs in BUGGY.BOB, FLIEGE.BOB, and PROP.BOB; the live W3L1 initializer writes 209 and the direct W3L1 batch loads SCHNEE.BOB, not those alternatives."
       }
     },
     {
       "type": 12,
-      "name": "prop_variant_0c",
-      "confidence": "probable",
+      "name": "snow_variant_0c",
+      "confidence": "confirmed",
       "evidence": {
         "level": "W3L2",
-        "catalog_sample": [2560, 400],
-        "catalog_record_offset": 5980,
+        "catalog_sample": [560, 2400],
+        "catalog_record_offset": 5890,
         "record_offset": 6034,
         "synthetic_runtime_world": [768, 224],
         "dispatch_slot": "DS:81D2+0x030",
@@ -319,12 +328,21 @@
         "factory": "01F7:0E06",
         "sprite_slot_field": "object+0x12",
         "sprite_slot": 209,
-        "bob_asset": "PROP.BOB",
-        "bob_record_index": 2,
-        "bob_dimensions": [127, 23],
-        "bob_origin": [63, 11],
+        "bob_asset": "SCHNEE.BOB",
+        "bob_record_index": 0,
+        "bob_dimensions": [34, 26],
+        "bob_origin": [17, 26],
+        "runtime_trace": "research/build/traces/entity-0c-real-w3l2-confirm.json",
+        "runtime_trace_record_offset": 5890,
+        "resource_trace": "research/build/resource-select-w3l2-snow-streamed.json",
+        "resource_context_paths": [
+          "GAMEDATA\\W3L2.map",
+          "GAMEDATA\\W3L2.are",
+          "GAMEDATA\\W3.ico",
+          "GAMEDATA\\schnee.BOB"
+        ],
         "trace_ledger": "research/build/traces/entity-0c-post.json",
-        "note": "The companion W3 slot 209 matches PROP.BOB; the paired type-0B run validates the family’s removable-object path, while the direct W3L2 resource batch still lacks a PROP.BOB request."
+        "bob_slot_collision_note": "Archive-wide slot 209 also occurs in BUGGY.BOB, FLIEGE.BOB, and PROP.BOB; the live W3L2 initializer writes 209 and the direct W3L2 batch loads SCHNEE.BOB, not those alternatives."
       }
     },
     {

@@ -315,7 +315,7 @@ that a slot is globally unique:
 | `0x05`/`0x06` | W2 | `FISCH.BOB` | 254/204 | confirmed |
 | `0x07`/`0x08` | W2 | `KRABBE.BOB` | 200/250 | confirmed |
 | `0x09`/`0x0A` | W3 | `PENGO.BOB` | 250/200 | confirmed |
-| `0x0B`/`0x0C` | W3 | `PROP.BOB` | 209/209 | probable |
+| `0x0B`/`0x0C` | W3 | `SCHNEE.BOB` | 209/209 | confirmed |
 | `0x15`/`0x16` | W4 | `FLIEGE.BOB` | 208/208 | confirmed |
 | `0x17`/`0x18` | W4 | `SPINNE.BOB` | 250/200 | confirmed |
 | `0x19`/`0x1A` | W5 | `BUGGY.BOB` | 250/200 | confirmed |
