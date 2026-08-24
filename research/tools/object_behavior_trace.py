@@ -56,6 +56,9 @@ class ObjectBehaviorConfig:
     reload_after_collect: bool = False
     reload_level: str | None = None
     reload_wait_frames: int = 30
+    force_tile_mask: int | None = None
+    trace_puzzle_completion: bool = False
+    puzzle_probe_frames: int = 120
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -87,6 +90,9 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "reload_after_collect": config.reload_after_collect,
         "reload_level": config.reload_level or "",
         "reload_wait_frames": config.reload_wait_frames,
+        "force_tile_mask": config.force_tile_mask,
+        "trace_puzzle_completion": config.trace_puzzle_completion,
+        "puzzle_probe_frames": config.puzzle_probe_frames,
     }
 
 
@@ -254,6 +260,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--reload-wait-frames", type=int, default=30,
         help="frames to let gameplay run before the reload selector probe",
     )
+    parser.add_argument(
+        "--force-tile-mask", type=lambda value: int(value, 0),
+        help="debugger-only: write DS:60D8 before each traced callback (for final-letter completion probes)",
+    )
+    parser.add_argument(
+        "--trace-puzzle-completion", action="store_true",
+        help="capture the DS:60D8 display consumer and post-collection gameplay state",
+    )
+    parser.add_argument(
+        "--puzzle-probe-frames", type=int, default=120,
+        help="frames to run after the final-letter callback before sampling transition state",
+    )
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -279,6 +297,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--reload-after-collect requires --select-level or --reload-level")
     if args.reload_wait_frames < 0:
         raise TraceError("--reload-wait-frames must be non-negative")
+    if args.force_tile_mask is not None and not 0 <= args.force_tile_mask <= 0xffff:
+        raise TraceError("--force-tile-mask must be between 0 and 65535")
+    if args.puzzle_probe_frames < 0:
+        raise TraceError("--puzzle-probe-frames must be non-negative")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
     for name in ("camera_x", "camera_y"):
@@ -364,6 +386,9 @@ def main(argv: list[str] | None = None) -> int:
         reload_after_collect=args.reload_after_collect,
         reload_level=args.reload_level,
         reload_wait_frames=args.reload_wait_frames,
+        force_tile_mask=args.force_tile_mask,
+        trace_puzzle_completion=args.trace_puzzle_completion,
+        puzzle_probe_frames=args.puzzle_probe_frames,
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {

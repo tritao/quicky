@@ -47,6 +47,21 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["reload_level"], "W1L1")
         self.assertEqual(payload["reload_wait_frames"], 12)
 
+    def test_puzzle_completion_probe_options_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x17F2,
+            entity_type=0x7F,
+            samples=2,
+            startup_recording=Path("startup.json"),
+            force_tile_mask=0x3F,
+            trace_puzzle_completion=True,
+            puzzle_probe_frames=24,
+        )
+        payload = lua_config(config)
+        self.assertEqual(payload["force_tile_mask"], 0x3F)
+        self.assertTrue(payload["trace_puzzle_completion"])
+        self.assertEqual(payload["puzzle_probe_frames"], 24)
+
     def test_interaction_probe_flags_are_serialized(self):
         config = ObjectBehaviorConfig(
             record_offset=0x1606,
@@ -117,6 +132,13 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertIn("reload_after_collect", source)
         self.assertIn("reload object factory return", source)
         self.assertIn("reconstructed = false", source)
+
+    def test_puzzle_probe_captures_post_collection_state(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("force_tile_mask", source)
+        self.assertIn("puzzle_completion_probe", source)
+        self.assertIn("puzzle_probe_frames", source)
 
 
 if __name__ == "__main__":

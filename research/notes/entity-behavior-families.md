@@ -249,8 +249,14 @@ scan in the same loaded buffer. Level selection is separately observed to
 reread the ARE resource. A stateful W1L1 type-0x6F collect-then-reload probe
 now reconstructs the same declaration and reinstalls callback `01F7:8D20`, so
 pickup reload persistence is resolved as reset/reconstruction behavior in the
-tested fixture. Puzzle completion bookkeeping remains separate. See
-[`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json).
+tested fixture. A final-letter W1L1 probe then forced `DS:60D8=0x3F`, collected
+type `0x7F`, reached `DS:60D8=0x7F`, emitted action `11`, and cleared the letter;
+after 120 gameplay frames the mask and W1L1 resource span were unchanged and
+no level transition occurred. Direct segment scanning finds `01F7:5940` as the
+presentation/update consumer of changed `DS:60D8` bits, with no direct all-seven
+bits comparator or transition call. The authored completion trigger remains
+unidentified. See [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
+and [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 
 The three adjacent pickup subtypes now have controlled native overlap ledgers.
 Type `0x70` adds `250` to `DS:881C` and raises `DS:8822/DS:8824` together;
@@ -431,6 +437,27 @@ initializer again, and reinstalls `8D20` on the new live object. This closes
 pickup reload persistence for the tested fixture as reset/reconstruction
 behavior; it does not claim cross-session save semantics.
 
+The final-letter completion probe uses the synthetic W1L1 type-`0x7F` fixture,
+stops after initializer `01F7:8D13`, and seeds the other six bits:
+
+```sh
+DOSBOX_AUTOMATION_BIN=/home/joao/dev/quicky/research/build/dosbox-automation-debug/dosbox_with_debugger \
+DOSBOX_AUTOMATION_BUILD_DIR=/home/joao/dev/quicky/research/build \
+DOSBOX_AUTOMATION_DEPS_PREFIX=/home/joao/dev/quicky/research/build/sdl-prefix \
+python3 research/tools/object_behavior_trace.py --launch --headless \
+  --runtime-dir /home/joao/dev/quicky/research/build/entity-7f-native/baseline/game \
+  --entity-type 0x7f --record-offset 0x1792 --samples 1 \
+  --select-level W1L1 --sprite-init-offset 0x8d13 \
+  --align-object-to-player --align-y-offset -32 --force-active-player-bounds \
+  --trace-overlap --force-tile-mask 0x3f --trace-puzzle-completion \
+  --puzzle-probe-frames 120 --output research/build/entity-7f-puzzle-completion.json
+```
+
+This reaches `0x7F`, action `11`, and callback clear, but remains in gameplay
+with no resource reload or level transition. The direct `DS:60D8` consumer at
+`01F7:5940` updates presentation state; see
+[`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
+
 For a level-specific representative, add `--select-level W2L1` and use the
 record offset from `quikyctl.py entity-catalog`. Use paired traces for each
 family variant, then run a one-record target-vs-inert mutation with
@@ -442,9 +469,10 @@ The broad family pass is complete. The targeted probes now close the shared
 collectible overlap and pickup reload, pooled-leaf reuse, normal-enemy helper,
 and platform-carry boundaries. Remaining experiments are deliberately narrower:
 
-1. Puzzle-letter level completion remains open; the letter collection bitfield
-   (`DS:60D8`) and per-letter removal are confirmed, but the completion/transition
-   consumer has not yet been isolated.
+1. Authored puzzle-letter level completion/transition remains open. The final
+   bit reaches `DS:60D8=0x7F` without a transition in the controlled run, and
+   the direct mask consumer is presentation bookkeeping rather than a completion
+   comparator; the remaining target is the level-specific trigger, if any.
 2. If platform approach polarity is required, capture player-state variants
    just outside the accepted A075 band; native integration, carry offsets, MAP
    stop, and the absence of a platform-specific terminal table are confirmed.

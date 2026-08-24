@@ -30,6 +30,9 @@ local reload_after_collect = trace_config.reload_after_collect or false
 local reload_level = trace_config.reload_level
 if reload_level == nil or reload_level == "" then reload_level = select_level end
 local reload_wait_frames = trace_config.reload_wait_frames or 30
+local force_tile_mask = trace_config.force_tile_mask
+local trace_puzzle_completion = trace_config.trace_puzzle_completion or false
+local puzzle_probe_frames = trace_config.puzzle_probe_frames or 120
 local runtime_offset = record_offset - 0x160
 
 local function word(s, index)
@@ -434,6 +437,9 @@ while #samples < sample_count and attempts < sample_count * 128 do
             dosbox.mem_write_selector(object_selector, bounds_offset + 0x37,
                                       string.char(0x01))
         end
+        if force_tile_mask ~= nil then
+            dosbox.mem_write("ds", 0x60d8, little_word(force_tile_mask))
+        end
         local before = object_snapshot(object_selector, object_offset)
         if force_contact_gate then
             dosbox.mem_write("ds", 0x8806, little_word(1))
@@ -451,8 +457,9 @@ while #samples < sample_count and attempts < sample_count * 128 do
         local collision_probe = nil
         local bump_probe = nil
         local contact_probe = nil
+        local puzzle_probe = nil
         local callback_return = nil
-        if trace_overlap or trace_collision or trace_platform or trace_bump or trace_contact then
+        if trace_overlap or trace_collision or trace_platform or trace_bump or trace_contact or trace_puzzle_completion then
             overlap_probe = {hits = {}}
             if trace_overlap then
                 dosbox.breakpoint_set(0x01f7, 0x8d36, {once = true})
@@ -501,6 +508,13 @@ while #samples < sample_count and attempts < sample_count * 128 do
                 dosbox.breakpoint_set(0x01f7, 0x4c5d, {once = true})
                 dosbox.breakpoint_set(0x01f7, 0x4c74, {once = true})
             end
+            if trace_puzzle_completion then
+                puzzle_probe = {hits = {}}
+                dosbox.breakpoint_set(0x01f7, 0x5936, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x5940, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x5a03, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x5af5, {once = true})
+            end
             dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
             dosbox.debug_continue()
             for probe_attempt = 1, 16 do
@@ -534,6 +548,11 @@ while #samples < sample_count and attempts < sample_count * 128 do
                         probe_hit.offset == 0x4ba0 or probe_hit.offset == 0x4c5d or
                         probe_hit.offset == 0x4c74) then
                     contact_probe.hits[#contact_probe.hits + 1] = hit_record
+                end
+                if trace_puzzle_completion and (probe_hit.offset == 0x5936 or
+                        probe_hit.offset == 0x5940 or probe_hit.offset == 0x5a03 or
+                        probe_hit.offset == 0x5af5) then
+                    puzzle_probe.hits[#puzzle_probe.hits + 1] = hit_record
                 end
                 if probe_hit.segment == returned.segment and
                         probe_hit.offset == returned.offset then
@@ -577,6 +596,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             collision_probe = collision_probe,
             bump_probe = bump_probe,
             contact_probe = contact_probe,
+            puzzle_probe = puzzle_probe,
         }
         callback_offset = after.update_callback
         if callback_offset == 0 then break end
@@ -585,6 +605,29 @@ end
 
 assert(#samples > 0,
        "captured no callbacks for the initialized object")
+local puzzle_completion_probe = nil
+if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 then
+    -- The final-letter callback has returned and cleared the live object. Let
+    -- the native game loop run for a bounded interval, then sample the puzzle
+    -- mask, loader globals, and current execution state. A transition would
+    -- change these fields even when no direct DS:60D8 comparator is present.
+    dosbox.debug_continue()
+    dosbox.wait_frames(puzzle_probe_frames)
+    local resource_state = dosbox.mem_read("ds", 0x97e4, 12) or ""
+    puzzle_completion_probe = {
+        forced_mask = force_tile_mask,
+        frames = puzzle_probe_frames,
+        globals = static_globals(nil),
+        resource = {
+            end_offset = dword(resource_state, 1),
+            start_offset = dword(resource_state, 5),
+            size = dword(resource_state, 9),
+        },
+        selector_index = dosbox.mem_read_word("ds", 0x85d4),
+        level_loop_state = dosbox.mem_read_word("ds", 0x819e),
+        cpu = dosbox.cpu_state(),
+    }
+end
 local reload_probe = nil
 if reload_after_collect then
     assert(callback_offset == 0,
@@ -721,6 +764,7 @@ dosbox.output.behavior_trace = {
     interaction_alignment = interaction_alignment,
     initializer_breakpoint = initializer_breakpoint,
     camera_override = {x = camera_x, y = camera_y},
+    puzzle_completion_probe = puzzle_completion_probe,
     reload_probe = reload_probe,
     samples = samples,
 }
