@@ -95,6 +95,17 @@ clear. Both paired type-0 fixtures reached the inert capture barrier without
 allocating an object. These are removal/deactivation observations, not proof of
 the gameplay death path; movement and collision remain open.
 
+The paired FISCH run is likewise live-verified against the main-tree debugger
+fixtures. Type `0x05` at the W1L1 anchor dispatches through `01F7:7B50`, returns
+from its initializer at `01F7:7B5D`, installs slot 254, and reaches per-object
+callback `01F7:7B71`; type `0x06` uses dispatch `01F7:7B5E`, post-initializer
+`01F7:7B70`, slot 204, and the same `01F7:7B71` callback. The first callback
+sample for each variant clears `object+0x18`, while the paired inert fixtures
+reach the capture barrier without allocating an object. Existing native W2L1
+selector evidence independently resolves FISCH.BOB geometry as 40x19 with
+origin 20,19 (records 3 and 2 for the two variants). Movement, collision, and
+the true gameplay death path remain open.
+
 The falling-leaf family is further along: `01F7:5D38` reads one of two PRNG
 selected tables (`DS:3312` delay 8 and `DS:3326` delay 10), uses slots 700-707,
 and switches to the bright 750-757 row when `object+0x28 == 0xFF`. The seeded

@@ -59,6 +59,10 @@
       "animation_table": {"status": "partial", "known": "FISCH.BOB records 3 and 2 identify the variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W2 resource context selects FISCH.BOB."},
+      "verified_runs": [
+        {"type": "0x05", "fixture": "W1L1 anchor 0x1792 from main-tree fixture", "dispatch": "01F7:7B50", "post_initializer": "01F7:7B5D", "object_callback": "01F7:7B71", "sprite_slot": 254, "position": [768, 240], "callback_samples": 1, "first_update": "clears object+0x18", "native_world": "W2L1 FISCH descriptor 40x19 origin 20,19"},
+        {"type": "0x06", "fixture": "W1L1 anchor 0x1792 target-type mutation from main-tree fixture", "dispatch": "01F7:7B5E", "post_initializer": "01F7:7B70", "object_callback": "01F7:7B71", "sprite_slot": 204, "position": [768, 240], "callback_samples": 1, "first_update": "clears object+0x18", "native_world": "W2L1 FISCH family slot 204"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
