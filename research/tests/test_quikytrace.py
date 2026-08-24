@@ -247,6 +247,25 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertTrue(player_trace_lua_config(config)["branch_focus"])
 
+    def test_player_branch_patch_tile_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, branch_focus=True,
+            branch_patch_tile=0x160,
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["branch_patch_tile"], 0x160
+        )
+
+    def test_player_trace_uses_selector_safe_map_reads(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("local function selector_word", source)
+        self.assertIn("selector_word, map_selector", source)
+        self.assertIn("selector_word, descriptor_selector", source)
+        self.assertNotIn("mem_read_word, map_selector", source)
+        self.assertNotIn("mem_read_word, descriptor_selector", source)
+
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
         config = PlayerTraceConfig(

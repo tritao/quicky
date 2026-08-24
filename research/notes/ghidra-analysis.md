@@ -661,8 +661,10 @@ are observed.
 The descriptor table is also used by the renderer, which indexes tile imagery
 by the same nine-bit tile ID, but the collision helpers consume the descriptor
 word's low flags instead of the MAP upper field. Runtime property-focused
-traces confirm the full raw cell, masked tile ID, descriptor offset, and word
-at each helper entry.
+traces now use protected-mode selector reads for the far MAP and descriptor
+buffers. Earlier generated property artifacts used `mem_read_word` with a
+protected selector and must not be treated as MAP evidence; the guest `DX`
+branch registers and object-state captures from those runs remain valid.
 
 The callback-focused boundary traces now include each helper's far-return
 address, tying observations to static call sites: return offsets `0x3A3E` and
@@ -670,19 +672,11 @@ address, tying observations to static call sites: return offsets `0x3A3E` and
 `0x3D1E`/`0x3D36` the `3D02` descriptor reads, and `0x41FC`/`0x420E` the
 vertical-path probes in the player callback.
 
-Controlled boundary evidence is consistent with the static flag behavior:
-
-* A 240-frame left hold settles at `x=72`. The `3A1F` probes at `x=67,y=400`
-  read tile `139`, descriptor `0`, twice; the zero result is the branch
-  condition that leaves the player locked at the wall.
-* Near `x=1165,y=338`, the two `3A1F` probes read tile `337`, descriptor
-  `0x000f`, at `x=1160`, then tile `184`, descriptor `0`, at `x=1170`.
-  The selected low-nibble bit is set for the first quadrant and clear for the
-  second, demonstrating the directional mask in live code.
-* During jump descent, the `41F7`/`420E` probes read tile `42`, descriptor
-  `0xe803` (low nibble `3`), on one side and tile `190`, descriptor `0`, on
-  the other while the player returns from `y=350` toward `y=400`. This is a
-  floor-transition correlation, not yet a unique floor/ceiling label.
+The helper call-site and return-address evidence remains valid, but the tile
+and descriptor values in the pre-selector-safe `3A1F`/`3DF2` property rows are
+superseded and will be recaptured with selector reads. The first corrected
+W1L1 `5CC3` sample at `(128,400)` reads raw cell `0x002e`, tile `0x02e`, and
+descriptor `0x000c`.
 
 The dedicated `3D02` branch trace also reaches a nonzero vertical descriptor:
 at `(1163,338)` the first descriptor query is clear, the eight-pixel retry
@@ -691,10 +685,16 @@ with `AL=1` and `object+0x3A=1`. This is a runtime check of the two exact
 bit-consumer branches above; it does not by itself rename the response as
 floor or ceiling.
 
+Debugger-only descriptor controls now provide a clean positive/negative pair.
+Patching the live probe cell to tile `0x02a` (descriptor `0x0070`) reaches
+`3D02 -> 3D1E -> 3D45 -> 3DD0 -> 3DF1`, with `DX&0x20` and `DX&0x40` set,
+`AL=1`, and `object+0x3a=0xff`. Tile `0x02b` (descriptor `0x0030`) reaches
+the same tests but returns through `3DE4`, with `AL=0` and the byte restored
+to zero. The original MAP word is restored after each branch.
+
 The long right run reaches the known reset state at `(2131,368)` with
-`+0x37=0xff` and `+0x3e=1000`; a nearby `5C27` sample reads tile `6`,
-descriptor `0xb821`. That descriptor is useful evidence for the reset branch,
-but is not by itself enough to name the high descriptor bits.
+`+0x37=0xff` and `+0x3e=1000`; its old property-word association is not used
+until recaptured with selector-safe reads.
 
 The zero-state gate is also now decoded. `01F7:1DCA` evaluates the current
 object against the camera with unsigned comparisons:

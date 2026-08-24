@@ -22,6 +22,7 @@ BRANCH_NAMES = {
     0x3D40: "test_dx_30_restore",
     0x3D45: "test_dx_20",
     0x3DD0: "test_dx_40",
+    0x3DE4: "return_reject",
     0x3D44: "return_clear",
     0x3DF1: "return_al",
 }
@@ -94,7 +95,7 @@ def branch_rows(paths: list[Path], labels: list[str] | None = None) -> list[dict
             return_registers = (branch_return.get("registers", {})
                                 if isinstance(branch_return, dict) else {})
             return_al = ((return_registers.get("eax", 0) & 0xff)
-                         if return_offset == 0x3DF1 and
+                         if return_offset in (0x3DE4, 0x3DF1) and
                          isinstance(return_registers, dict) else None)
             for event in events:
                 if not isinstance(event, dict):

@@ -67,6 +67,24 @@ class PlayerBranchReportTests(unittest.TestCase):
                 "quiky-player-branch-v1",
             )
 
+    def test_reports_reject_return_al(self):
+        trace = branch_trace()
+        sample = trace["events"][0]["samples"][0]
+        sample["branch_events"][-1] = {
+            "offset": 0x3DE4,
+            "dx": 0x30,
+            "object": {"player_byte_0x3a": 0},
+        }
+        sample["branch_return"] = {
+            "offset": 0x3DE4, "registers": {"eax": 0x100},
+        }
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "reject.json"
+            path.write_text(json.dumps(trace), encoding="utf-8")
+            rows = branch_rows([path])
+        self.assertEqual(rows[-1]["name"], "return_reject")
+        self.assertEqual(rows[-1]["return_al"], 0)
+
     def test_rejects_mismatched_labels(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "trace.json"

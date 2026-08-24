@@ -166,15 +166,10 @@ when the selected low-nibble bit is set, the branch skips that correction.
 
 Boundary traces provide these correlations without over-naming them:
 
-* At the stable left wall (`x=72`), both `3A1F` probes at `x=67,y=400`
-  read tile `139` with descriptor `0`, producing zero results.
-* Near `x=1165,y=338`, the two `3A1F` probes read descriptor `0x000f`
-  (selected bit set) and descriptor `0` (selected bit clear), showing the
-  directional low-nibble behavior in one movement update.
-* On jump descent, the `41F7/420E` probes read tile `42`, descriptor
-  `0xe803`/low nibble `3`, on one side and tile `190`, descriptor `0`, on the
-  other as the player returns toward the ground. The exact floor-versus-
-  ceiling name remains open.
+* The helper call-site and return-address observations remain valid, but the
+  tile/descriptor values in the pre-selector-safe property rows are
+  superseded: numeric protected selectors were accidentally passed to the
+  real-mode `mem_read_word` API. They must be recaptured with selector reads.
 
 The new `3D02` branch trace reaches a nonzero case at `(1163,338)`: the
 eight-pixel retry returns descriptor `0x0050`, the path has `0x20` clear and
@@ -191,16 +186,16 @@ helpers alongside `3A8A`, `6484`, and `648E`; helper and branch events carry
 experiment-relative frame and event indices so a later C++ model can compare
 state transitions without reconstructing timing from wall-clock logs.
 
-The reproducible W1L1 property matrix now covers neutral, left, right, and
-upward input. The independent `5CC3` rows show `(128,400)` reading raw cell
-`0x08B8`/tile `0x0B8` with descriptor `0x0000`; the stable left wall at
-`(72,400)` reads `0xEC8B`/tile `0x08B` with descriptor `0x0000`; the jump
-samples read tiles `0x136` and `0x121` with descriptor `0x0000`; and the
-rightward path reaches tiles `0x151`, `0x000`, and `0x104`, including a
-nonzero descriptor (`0x000F`/`0xF700`) before the reset to `(1673,368)`.
-The corresponding `5C27` rows carry the coordinate-selected low-nibble mask
-and are kept separate from `5CC3`'s returned descriptor word. These are
-runtime observations, not names for the descriptor bits.
+The corrected W1L1 `5CC3` sample at `(128,400)` reads raw cell `0x002e`, tile
+`0x02e`, and descriptor `0x000c`. A debugger-only branch patch provides the
+first controlled positive case: tile `0x02a` (`0x0070`) takes
+`3D45 -> 3DD0 -> 3DF1` with `AL=1` and `object+0x3a=0xff`; tile `0x02b`
+(`0x0030`) takes the same tests but returns via `3DE4` with `AL=0`.
+
+The earlier W1L1 property matrix containing `0x08B8`, `0xEC8B`, `0x0B8`,
+`0x167`, and related descriptor words is archived but invalid for MAP
+semantics because it predates the selector-read correction. The matrix will
+be regenerated before it is used for engine rules.
 
 The loader still mutates one runtime row by ORing `0x10` into each cell's high
 byte, which corresponds to runtime property bit `0x08`. That mutation should

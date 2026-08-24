@@ -435,19 +435,26 @@ The current boundary evidence distinguishes a stable left wall at `x=72` from
 a right-side reset near `(2132,368)`; it does not yet turn either case into a
 hard-coded engine rule.
 
+MAP and descriptor pointers are protected-mode selectors. Traces produced
+before the selector-read correction used the real-mode `mem_read_word` helper
+for those pointers; their tile/descriptor fields are archived but invalid.
+Guest branch registers, object states, and movement positions from those runs
+remain usable. New property and census traces use `mem_read_selector`.
+
 For the descriptor layer, use `--player-property-focus` and optionally select
 one helper with `--player-property-helper 0x5c27` or `0x5cc3`. Each property
 row records the raw MAP cell, its upper property field, the masked nine-bit
 tile ID, descriptor-table offset/word, and (for `5C27`) the coordinate-selected
 low-nibble mask. Combine the traces with `player_property_report.py` to emit
 machine-readable CSV/JSON evidence. The current W1L1 runs show the left wall
-at `(72,400)` querying raw cell `0xEC8B`/tile `0x08B`, while the right and jump
-paths query different descriptor words. Descriptor-bit gameplay names remain
-provisional.
+at `(128,400)` querying raw cell `0x002e`/tile `0x02e` with descriptor
+`0x000c`; the old wall/right/jump property rows are being regenerated.
+Descriptor-bit gameplay names remain provisional.
 
 To capture the caller's branch path, use `--player-branch-focus`. It watches
 the `3D02` entry, the post-`5CC3` `DX&30` tests, and the `DX&20`/`DX&40`
-branches, then records the return site, `AL`, and `object+0x3A`:
+branches, including the `3DE4` reject return, then records the return site,
+`AL`, and `object+0x3A`:
 
 ~~~sh
 python3 research/tools/quikytrace.py --launch --headless \
@@ -469,6 +476,11 @@ the `DX&30`/`DX&40` path and returning with `AL=1`; neutral, left, and jump
 cases keep those masks clear and return through `3D44`. This is evidence for
 separating descriptor-driven reset behavior from the stable left wall.
 
+The selector-safe debugger patch confirms both vertical branches without
+altering the archive: tile `0x02a` (`0x0070`) reaches `3DF1` with `AL=1`, while
+tile `0x02b` (`0x0030`) reaches the newly instrumented `3DE4` reject return
+with `AL=0`.
+
 For a loaded-table census, add `--player-descriptor-census`. The probe reads
 the live descriptor table through `DS:6582/6584/30D4` and scans the loaded MAP
 using the supplied dimensions (W1L1 defaults to `270x30`):
@@ -486,9 +498,17 @@ python3 research/tools/descriptor_census_report.py \
 The report retains exact MAP cell/world coordinates and emits candidates whose
 descriptor contains `0x20`, `0x40`, or either side of `0x30`. Use
 `--player-map-width/height` for a selected level with different dimensions.
+These are the coordinates used by the live collision buffer; mapping its
+streamed window back to archive-cell indices remains a separate step.
 Collision focus now also records the `3A1F`, `3DF2`, `3A8A`, `6484`, and `648E`
 helpers, with experiment-relative frame and event indices for later model
 comparison.
+
+To isolate descriptor semantics without depending on the MAP stream's active
+window, `--player-branch-patch-tile 0x160` temporarily replaces only the
+low-nine-bit tile at the live `3D02` probe, records the original word, and
+restores it when the branch returns. This is debugger-only state and does not
+modify the archive or executable.
 
 ### Dedicated transient event types `0x65`-`0x67`
 

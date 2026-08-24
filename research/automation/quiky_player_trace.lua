@@ -12,6 +12,7 @@ local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
 local property_helper_offset = trace_config.property_helper_offset or 0
 local branch_focus = trace_config.branch_focus or false
+local branch_patch_tile = trace_config.branch_patch_tile
 local descriptor_census = trace_config.descriptor_census or false
 local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
@@ -22,6 +23,7 @@ local input_samples = trace_config.input_samples or 0
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local trace_event_counter = 0
+local descriptor_census_done = false
 
 local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
 
@@ -45,6 +47,15 @@ end
 
 local function dword(s, index)
     return word(s, index) | (word(s, index + 2) << 16)
+end
+
+local function selector_word(selector, offset)
+    local raw = dosbox.mem_read_selector(selector, offset, 2)
+    if not raw or #raw < 2 then
+        error(string.format("short selector word read 0x%04x:0x%x",
+                            selector, offset))
+    end
+    return word(raw, 1)
 end
 
 local function hex(s)
@@ -145,18 +156,11 @@ local function map_lookup_snapshot(hit)
     local registers = hit.registers or {}
     local y = (registers.eax or 0) & 0xffff
     local x = (registers.ebx or 0) & 0xffff
-    local pointer_raw = dosbox.mem_read("ds", 0x657a, 4) or ""
-    if #pointer_raw < 4 then
-        return {x = x, y = y, error = "MAP pointer is truncated"}
-    end
-    local pointer = dword(pointer_raw, 1)
-    local map_base = pointer & 0xffff
-    local map_selector = (pointer >> 16) & 0xffff
+    local map_base = dosbox.mem_read_word("ds", 0x657a)
+    local map_selector = dosbox.mem_read_word("ds", 0x657c)
     local row_stride = dosbox.mem_read_word("ds", 0x657e)
     local cell_offset = map_base + (y >> 4) * row_stride + (x >> 4) * 2
-    local ok, value_or_error = pcall(
-        dosbox.mem_read_word, map_selector, cell_offset
-    )
+    local ok, value_or_error = pcall(selector_word, map_selector, cell_offset)
     local cell_read_error = nil
     if not ok then cell_read_error = tostring(value_or_error) end
     return {
@@ -193,7 +197,7 @@ local function map_property_snapshot(hit)
     local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
     local descriptor_offset = descriptor_base + tile_id * descriptor_stride + 2
     local ok, descriptor_word_or_error = pcall(
-        dosbox.mem_read_word, descriptor_selector, descriptor_offset
+        selector_word, descriptor_selector, descriptor_offset
     )
     local descriptor_read_error = nil
     if not ok then descriptor_read_error = tostring(descriptor_word_or_error) end
@@ -265,23 +269,16 @@ local function descriptor_census_snapshot()
     local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
     local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
     local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
-    local pointer_raw = dosbox.mem_read("ds", 0x657a, 4) or ""
-    local map_pointer = nil
-    local map_selector = nil
-    local map_base = nil
-    if #pointer_raw >= 4 then
-        local pointer = dword(pointer_raw, 1)
-        map_base = pointer & 0xffff
-        map_selector = (pointer >> 16) & 0xffff
-        map_pointer = {selector = map_selector, offset = map_base}
-    end
+    local map_base = dosbox.mem_read_word("ds", 0x657a)
+    local map_selector = dosbox.mem_read_word("ds", 0x657c)
+    local map_pointer = {selector = map_selector, offset = map_base}
     local row_stride = dosbox.mem_read_word("ds", 0x657e)
     local descriptors = {}
     local descriptor_errors = 0
     for tile_id = 0, descriptor_count - 1 do
         local offset = descriptor_base + tile_id * descriptor_stride + 2
         local ok, value_or_error = pcall(
-            dosbox.mem_read_word, descriptor_selector, offset
+            selector_word, descriptor_selector, offset
         )
         local item = {
             tile_id = tile_id,
@@ -303,7 +300,7 @@ local function descriptor_census_snapshot()
             for x = 0, map_width - 1 do
                 local offset = map_base + y * row_stride + x * 2
                 local ok, cell_or_error = pcall(
-                    dosbox.mem_read_word, map_selector, offset
+                    selector_word, map_selector, offset
                 )
                 local cell = {
                     x = x,
@@ -318,8 +315,7 @@ local function descriptor_census_snapshot()
                     local descriptor_offset =
                         descriptor_base + tile_id * descriptor_stride + 2
                     local d_ok, descriptor_or_error = pcall(
-                        dosbox.mem_read_word, descriptor_selector,
-                        descriptor_offset
+                        selector_word, descriptor_selector, descriptor_offset
                     )
                     cell.tile_id = tile_id
                     cell.property = (cell_or_error >> 9) & 0x7f
@@ -378,7 +374,7 @@ end
 
 local branch_entry_offset = 0x3d02
 local branch_offsets = {0x3d1e, 0x3d36, 0x3d40, 0x3d45, 0x3dd0,
-                        0x3d44, 0x3df1}
+                        0x3de4, 0x3d44, 0x3df1}
 
 local function arm_branch_targets(exclude_offset)
     for _, offset in ipairs(branch_offsets) do
@@ -398,7 +394,7 @@ local function is_branch_target(offset)
 end
 
 local function is_branch_return(offset)
-    return offset == 0x3d44 or offset == 0x3df1
+    return offset == 0x3d44 or offset == 0x3de4 or offset == 0x3df1
 end
 
 local function clear_branch_targets()
@@ -406,6 +402,47 @@ local function clear_branch_targets()
     for _, offset in ipairs(branch_offsets) do
         dosbox.breakpoint_remove(0x01f7, offset)
     end
+end
+
+local callback_object_snapshot
+
+local function patch_branch_probe_cell(sample, hit)
+    if not branch_patch_tile then return nil end
+    local object = callback_object_snapshot(hit)
+    local position = object and object.position
+    if not position then return nil end
+    local x = position.x
+    local y = position.y
+    local map_base = dosbox.mem_read_word("ds", 0x657a)
+    local map_selector = dosbox.mem_read_word("ds", 0x657c)
+    local row_stride = dosbox.mem_read_word("ds", 0x657e)
+    local offset = map_base + (y >> 4) * row_stride + ((x >> 3) & 0xfffe)
+    local ok, original = pcall(selector_word, map_selector, offset)
+    if not ok then return nil end
+    local patched = (original & 0xfe00) | (branch_patch_tile & 0x1ff)
+    dosbox.mem_write_selector(map_selector, offset,
+                              string.char(patched & 0xff,
+                                          (patched >> 8) & 0xff))
+    local readback = selector_word(map_selector, offset)
+    local patch = {
+        selector = map_selector,
+        offset = offset,
+        x = x,
+        y = y,
+        original = original,
+        tile_id = branch_patch_tile & 0x1ff,
+        patched = patched,
+        readback = readback,
+    }
+    sample.branch_patch = patch
+    return patch
+end
+
+local function restore_branch_probe_cell(patch)
+    if patch == nil then return end
+    dosbox.mem_write_selector(patch.selector, patch.offset,
+                              string.char(patch.original & 0xff,
+                                          (patch.original >> 8) & 0xff))
 end
 
 local function is_property_target(offset)
@@ -428,11 +465,15 @@ local function arm_targets()
     if property_focus then
         arm_property_targets()
     end
+    if descriptor_census and not descriptor_census_done then
+        dosbox.breakpoint_set(0x01f7, 0x5cc3, {once = true})
+    end
     if branch_focus then
         dosbox.breakpoint_set(0x01f7, branch_entry_offset, {once = true})
         arm_branch_targets()
     end
-    if focus_callback or map_focus or collision_focus or property_focus or branch_focus then
+    if focus_callback or map_focus or collision_focus or property_focus or branch_focus or
+       (descriptor_census and not descriptor_census_done) then
         return
     end
     dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
@@ -441,7 +482,7 @@ local function arm_targets()
     dosbox.breakpoint_set(0x01f7, 0x3f27, {once = true})
 end
 
-local function callback_object_snapshot(hit)
+callback_object_snapshot = function(hit)
     local registers = hit.registers or {}
     local selector = registers.es
     local offset = (registers.edi or 0) & 0xffff
@@ -495,6 +536,7 @@ local function record_branch(sample, hit)
 end
 
 local function capture_branch_sequence(sample, initial_hit)
+    local patch = patch_branch_probe_cell(sample, initial_hit)
     local hit = initial_hit
     local guard = 0
     while true do
@@ -511,6 +553,7 @@ local function capture_branch_sequence(sample, initial_hit)
                 registers = hit.registers,
             }
             clear_branch_targets()
+            restore_branch_probe_cell(patch)
             return hit
         end
         guard = guard + 1
@@ -650,7 +693,19 @@ for sequence = 1, sample_count do
         related_breakpoints = {},
     }
     local initial_hit = hit
-    if property_focus and (initial_hit.offset == 0x5c27 or
+    local descriptor_census_result = nil
+    if descriptor_census and initial_hit.offset == 0x5cc3 then
+        descriptor_census_result = descriptor_census_snapshot()
+        descriptor_census_done = true
+        sample.descriptor_census = descriptor_census_result
+        local census_return = far_return_location(initial_hit)
+        if census_return ~= nil then
+            dosbox.breakpoint_set(census_return.segment, census_return.offset,
+                                  {once = true})
+            dosbox.debug_continue()
+            hit = wait_hit("descriptor census helper return")
+        end
+    elseif property_focus and (initial_hit.offset == 0x5c27 or
                            initial_hit.offset == 0x5cc3) then
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,
@@ -802,7 +857,10 @@ local result = {
     final_globals = static_globals(),
     final_pool = pool_snapshot(),
 }
-if descriptor_census then
-    result.descriptor_census = descriptor_census_snapshot()
+for _, sample in ipairs(samples) do
+    if sample.descriptor_census ~= nil then
+        result.descriptor_census = sample.descriptor_census
+        break
+    end
 end
 dosbox.output.player_trace = result
