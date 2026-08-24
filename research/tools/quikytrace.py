@@ -97,6 +97,10 @@ class PlayerTraceConfig:
     map_width: int = 270
     map_height: int = 30
     input_key: str | None = None
+    input_key_secondary: str | None = None
+    secondary_pulse_frames: int = 0
+    secondary_start_sample: int = 1
+    secondary_end_sample: int = 0
     input_frames: int = 0
     input_samples: int = 0
     capture_player_record: bool = False
@@ -182,6 +186,10 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "map_width": config.map_width,
         "map_height": config.map_height,
         "input_key": config.input_key or "",
+        "input_key_secondary": config.input_key_secondary or "",
+        "secondary_pulse_frames": config.secondary_pulse_frames,
+        "secondary_start_sample": config.secondary_start_sample,
+        "secondary_end_sample": config.secondary_end_sample,
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
         "capture_player_record": config.capture_player_record,
@@ -687,6 +695,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="loaded MAP height for descriptor census (default 30)")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
+    parser.add_argument("--player-input-key-2",
+                        help="hold a second key alongside --player-input-key, e.g. KBD_up")
+    parser.add_argument("--player-secondary-pulse-frames", type=int, default=0,
+                        help="toggle the secondary key every N frames during each input hold")
+    parser.add_argument("--player-secondary-start-sample", type=int, default=1,
+                        help="post-baseline sample at which the secondary key starts (default 1)")
+    parser.add_argument("--player-secondary-end-sample", type=int, default=0,
+                        help="last post-baseline sample receiving the secondary key (0 means no end)")
     parser.add_argument("--player-input-frames", type=int, default=0,
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
@@ -740,6 +756,17 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-frames cannot be negative")
     if args.player_input_samples < 0:
         raise TraceError("--player-input-samples cannot be negative")
+    if args.player_input_key_2 and not args.player_input_key:
+        raise TraceError("--player-input-key-2 requires --player-input-key")
+    if args.player_secondary_pulse_frames < 0:
+        raise TraceError("--player-secondary-pulse-frames cannot be negative")
+    if args.player_secondary_start_sample < 1:
+        raise TraceError("--player-secondary-start-sample must be positive")
+    if args.player_secondary_end_sample < 0:
+        raise TraceError("--player-secondary-end-sample cannot be negative")
+    if (args.player_secondary_end_sample and
+            args.player_secondary_end_sample < args.player_secondary_start_sample):
+        raise TraceError("--player-secondary-end-sample must not precede the start sample")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
     if args.player_capture_record and not args.player_focus_callback:
@@ -895,6 +922,10 @@ def main(argv: list[str] | None = None) -> int:
                 map_width=args.player_map_width,
                 map_height=args.player_map_height,
                 input_key=args.player_input_key,
+                input_key_secondary=args.player_input_key_2,
+                secondary_pulse_frames=args.player_secondary_pulse_frames,
+                secondary_start_sample=args.player_secondary_start_sample,
+                secondary_end_sample=args.player_secondary_end_sample,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
                 capture_player_record=args.player_capture_record,

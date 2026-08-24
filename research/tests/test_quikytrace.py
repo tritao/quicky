@@ -252,6 +252,20 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["capture_player_record"])
 
+    def test_player_secondary_input_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            input_key="KBD_right", input_key_secondary="KBD_up",
+            secondary_pulse_frames=3, secondary_start_sample=2,
+            secondary_end_sample=4,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["input_key_secondary"], "KBD_up")
+        self.assertEqual(payload["secondary_pulse_frames"], 3)
+        self.assertEqual(payload["secondary_start_sample"], 2)
+        self.assertEqual(payload["secondary_end_sample"], 4)
+
     def test_player_branch_focus_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
         config = PlayerTraceConfig(
@@ -319,6 +333,7 @@ class QuikyTraceTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("--player-capture-record", host_source)
+        self.assertIn("--player-input-key-2", host_source)
 
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

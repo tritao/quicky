@@ -431,6 +431,12 @@ separate MAP-focused run observed tile IDs `0x0b8` and `0x167`. Floor/side
 semantics remain intentionally unassigned until the other directions and
 boundary cases are sampled. Use `--player-input-samples N` to stop applying
 the held key after N post-baseline samples and observe the release/reset path.
+For combined-action probes, add `--player-input-key-2 KBD_up`; the secondary
+key is held alongside the primary key for the selected samples. Use
+`--player-secondary-pulse-frames N` to alternate that key every N guest frames
+when testing press/release-sensitive actions. The callback action word and
+the existing `input_action_flags`/`keyboard_action_flags` snapshots keep the
+simultaneous-input decision observable rather than inferred from position alone.
 The current boundary evidence distinguishes a stable left wall at `x=72` from
 a right-side reset near `(2132,368)`; it does not yet turn either case into a
 hard-coded engine rule.

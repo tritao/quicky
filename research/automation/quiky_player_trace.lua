@@ -20,6 +20,10 @@ local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
 local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
+local input_key_secondary = trace_config.input_key_secondary or ""
+local secondary_pulse_frames = trace_config.secondary_pulse_frames or 0
+local secondary_start_sample = trace_config.secondary_start_sample or 1
+local secondary_end_sample = trace_config.secondary_end_sample or 0
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
 local capture_player_record = trace_config.capture_player_record or false
@@ -947,10 +951,35 @@ local samples = {}
 local experiment_frame = 0
 for sequence = 1, sample_count do
     if sequence > 1 then
-        if input_key ~= "" and input_frames > 0 and
-           (input_samples == 0 or sequence <= input_samples + 1) then
+        local held_input = input_key ~= "" and input_frames > 0 and
+            (input_samples == 0 or sequence <= input_samples + 1)
+        local held_secondary = held_input and input_key_secondary ~= "" and
+            sequence >= secondary_start_sample and
+            (secondary_end_sample == 0 or sequence <= secondary_end_sample)
+        local secondary_pressed = false
+        if held_input then
             dosbox.key(input_key, true)
-            dosbox.wait_frames(input_frames)
+            if held_secondary then
+                dosbox.key(input_key_secondary, true)
+                secondary_pressed = true
+            end
+            if held_secondary and secondary_pulse_frames > 0 then
+                local remaining = input_frames
+                local pressed = true
+                while remaining > 0 do
+                    local chunk = math.min(secondary_pulse_frames, remaining)
+                    dosbox.wait_frames(chunk)
+                    remaining = remaining - chunk
+                    pressed = not pressed
+                    dosbox.key(input_key_secondary, pressed)
+                    secondary_pressed = pressed
+                end
+            else
+                dosbox.wait_frames(input_frames)
+            end
+            if held_secondary and secondary_pressed then
+                dosbox.key(input_key_secondary, false)
+            end
             dosbox.key(input_key, false)
             experiment_frame = experiment_frame + input_frames
         end
