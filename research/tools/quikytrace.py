@@ -148,6 +148,7 @@ def trace_entity_lua(
     capture_delay_frames: int = 0, lifetime_samples: int = 0,
     state_machine_samples: int = 0,
     state_machine_camera_x: int | None = None,
+    state_machine_camera_y: int | None = None,
     state_machine_keep_camera: bool = False,
     state_machine_position_x: int | None = None,
     state_machine_position_y: int | None = None,
@@ -165,6 +166,7 @@ def trace_entity_lua(
         f"TRACE_LIFETIME_SAMPLES={lifetime_samples}\n"
         f"TRACE_STATE_MACHINE_SAMPLES={state_machine_samples}\n"
         f"TRACE_STATE_MACHINE_CAMERA_X={state_machine_camera_x if state_machine_camera_x is not None else -1}\n"
+        f"TRACE_STATE_MACHINE_CAMERA_Y={state_machine_camera_y if state_machine_camera_y is not None else -1}\n"
         f"TRACE_STATE_MACHINE_KEEP_CAMERA={'true' if state_machine_keep_camera else 'false'}\n"
         f"TRACE_STATE_MACHINE_POSITION_X={state_machine_position_x if state_machine_position_x is not None else -1}\n"
         f"TRACE_STATE_MACHINE_POSITION_Y={state_machine_position_y if state_machine_position_y is not None else -1}\n"
@@ -379,8 +381,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="record this many update-entry samples for types 0x1f-0x21")
     parser.add_argument("--state-machine-camera-x", type=int,
                         help="temporarily override DS:81c0 while sampling 0x1f-0x21")
+    parser.add_argument("--state-machine-camera-y", type=int,
+                        help="temporarily override DS:81c4 while sampling 0x1f-0x21")
     parser.add_argument("--state-machine-keep-camera", action="store_true",
-                        help="keep the overridden camera X through the final capture")
+                        help="keep the overridden camera X/Y through the final capture")
     parser.add_argument("--state-machine-position-x", type=int,
                         help="temporarily override the traced object's integer X position")
     parser.add_argument("--state-machine-position-y", type=int,
@@ -408,6 +412,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--state-machine-samples cannot be negative")
     if args.state_machine_camera_x is not None and not 0 <= args.state_machine_camera_x <= 0xffff:
         raise TraceError("--state-machine-camera-x must be between 0 and 65535")
+    if args.state_machine_camera_y is not None and not 0 <= args.state_machine_camera_y <= 0xffff:
+        raise TraceError("--state-machine-camera-y must be between 0 and 65535")
     if (args.state_machine_position_x is None) != (args.state_machine_position_y is None):
         raise TraceError("--state-machine-position-x and --state-machine-position-y must be used together")
     for name in ("state_machine_position_x", "state_machine_position_y"):
@@ -518,6 +524,7 @@ def main(argv: list[str] | None = None) -> int:
                 startup_recording, args.screenshot_delay_frames,
                 args.lifetime_samples, args.state_machine_samples,
                 args.state_machine_camera_x,
+                args.state_machine_camera_y,
                 args.state_machine_keep_camera,
                 args.state_machine_position_x, args.state_machine_position_y,
                 args.state_machine_force_emission,
@@ -539,6 +546,9 @@ def main(argv: list[str] | None = None) -> int:
             entity["state_machine_samples"] = state_machine_samples
             entity["state_machine_object_updates"] = ordered_lua_array(
                 entity.get("state_machine_object_updates", [])
+            )
+            entity["state_machine_callback_candidates"] = ordered_lua_array(
+                entity.get("state_machine_callback_candidates", [])
             )
             for update in entity["state_machine_object_updates"]:
                 lookup = update.get("animation_lookup", {})

@@ -341,12 +341,16 @@ each mapped value.
 
 The created objects have lifetime `3`, update callback `01F7:10B5`, and still
 have no standard BOB slot. Static and runtime inspection of `10B5` shows that
-it consumes the effect index through the world ICO animation table: in the W1L1
-runtime, effect index 121 selects `FS:0x0357` at offset `0x7900`, and that
-256-byte block is byte-identical to raw tile 121 in `W1.ICO`. The same table
-structure is expected to use `Wn.ICO` in each world context. The position,
-camera, and bounds overrides are debugger-only and restored after the probe;
-they do not modify `QUIKY.EXE`, MAP files, or the archive.
+it first calls the `01F7:1693` camera-visibility test and, when that test
+passes, reaches `01F7:1186` for the ICO lookup. In the W1L1 runtime, effect
+index 121 selects `FS:0x0357` at offset `0x7900`, and that 256-byte block is
+byte-identical to raw tile 121 in `W1.ICO`. A camera-corrected W5L1 probe now
+captures the same path for effect states 61-64: `FS:0x0357` offsets `0x3D00`,
+`0x3E00`, `0x3F00`, and `0x4000` match `W5.ICO` records 61-64 exactly. The
+world-relative ICO table is therefore directly confirmed in W1 and W5; W2-W4
+still need their own direct block comparisons. The position, camera, bounds,
+and transient-lifetime overrides are debugger-only and do not modify
+`QUIKY.EXE`, MAP files, or the archive.
 
 ### Dedicated transient event types `0x65`-`0x67`
 

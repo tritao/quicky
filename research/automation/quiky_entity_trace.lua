@@ -697,6 +697,7 @@ for attempt = 1, 4096 do
         end
         local state_machine_samples = {}
         local state_machine_object_updates = {}
+        local state_machine_callback_candidates = {}
         local state_machine_emitted_objects = {}
         if entity_type >= 0x1f and entity_type <= 0x21 and
                 state_machine_sample_count > 0 then
@@ -965,6 +966,20 @@ for attempt = 1, 4096 do
                                         },
                                         internal_continuation = true,
                                     }
+                                    if state_machine_force_emission then
+                                        -- Native effect objects live for only
+                                        -- three update ticks. Keep synthetic
+                                        -- objects alive long enough to observe
+                                        -- their ordinary update/visibility/
+                                        -- renderer chain after the state probe;
+                                        -- this is debugger-only object memory.
+                                        creator_call.object.probe_lifetime = word(
+                                            creator_state, 0x2c + 1)
+                                        dosbox.mem_write_selector(
+                                            creator_selector, creator_offset + 0x2c,
+                                            little_word(0x40))
+                                        creator_call.object.probe_lifetime_override = 0x40
+                                    end
                                     sample.nested_calls[#sample.nested_calls + 1] = creator_call
                                     internal_creator_call = creator_call
                                     local already_recorded = false
@@ -1060,32 +1075,113 @@ for attempt = 1, 4096 do
             local captured_objects = {}
             local captured_count = 0
             local attempts = 0
-            while captured_count < #state_machine_emitted_objects and
-                    attempts < 128 do
-                attempts = attempts + 1
+            local callback_attempts = 0
+            if #state_machine_emitted_objects > 0 then
+                dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
                 dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
+                dosbox.breakpoint_set(0x01f7, 0x1693, {once = true})
                 dosbox.debug_continue()
+            end
+            while #state_machine_emitted_objects > 0 and
+                    captured_count < #state_machine_emitted_objects and
+                    attempts < 128 and callback_attempts < 128 do
+                attempts = attempts + 1
+                callback_attempts = callback_attempts + 1
                 local candidate = dosbox.wait_for_breakpoint(100)
                 if not candidate then break end
+                local candidate_offset = candidate.registers.edi & 0xffff
+                local candidate_base = candidate.registers.ebp & 0xffff
                 local match = nil
-                if candidate.segment == 0x01f7 and candidate.offset == 0x1186 then
-                    for _, emitted in ipairs(state_machine_emitted_objects) do
-                        if emitted.selector == candidate.registers.es and
-                                emitted.offset == (candidate.registers.edi & 0xffff) then
-                            match = emitted
-                            break
+                for _, emitted in ipairs(state_machine_emitted_objects) do
+                    if emitted.selector == candidate.registers.es and
+                            (candidate_offset == emitted.offset or
+                             candidate_base == emitted.offset) then
+                        match = emitted
+                        break
+                    end
+                end
+                if #state_machine_callback_candidates < 128 then
+                    local callback = {
+                        breakpoint = {segment = candidate.segment,
+                                      offset = candidate.offset},
+                        registers = candidate.registers,
+                        stack_hex = hex(dosbox.mem_read(
+                            "ss", candidate.registers.esp & 0xffff, 12) or ""),
+                        camera = {
+                            x = dosbox.mem_read_word("ds", 0x81c0),
+                            y = dosbox.mem_read_word("ds", 0x81c4),
+                            target_left = dosbox.mem_read_word("ds", 0x36fc),
+                            target_top = dosbox.mem_read_word("ds", 0x36fe),
+                            target_right = dosbox.mem_read_word("ds", 0x3700),
+                            target_bottom = dosbox.mem_read_word("ds", 0x3702),
+                        },
+                        matches_emitted_object = (match ~= nil),
+                    }
+                    if match ~= nil and candidate.segment == 0x01f7 and
+                            candidate.offset == 0x10b5 then
+                        if state_machine_camera_x >= 0 then
+                            dosbox.mem_write("ds", 0x81c0,
+                                             little_word(state_machine_camera_x))
+                        end
+                        if state_machine_camera_y >= 0 then
+                            dosbox.mem_write("ds", 0x81c4,
+                                             little_word(state_machine_camera_y))
+                        end
+                        callback.camera_override = {
+                            x = state_machine_camera_x,
+                            y = state_machine_camera_y,
+                        }
+                    end
+                    if match ~= nil then
+                        local callback_state = dosbox.mem_read_selector(
+                            match.selector, match.offset, 64)
+                        callback.object = {
+                            selector = match.selector,
+                            offset = match.offset,
+                            state_field = word(callback_state, 0x2e + 1),
+                            lifetime = word(callback_state, 0x2c + 1),
+                            position = {
+                                x = dword(callback_state, 3) >> 16,
+                                y = dword(callback_state, 7) >> 16,
+                            },
+                        }
+                    end
+                    if match ~= nil and candidate.segment == 0x01f7 and
+                            candidate.offset == 0x1693 then
+                        local stack = dosbox.mem_read(
+                            "ss", candidate.registers.esp & 0xffff, 8) or ""
+                        if #stack >= 4 then
+                            local return_offset = word(stack, 1)
+                            local return_segment = word(stack, 3)
+                            callback.visibility_return = {
+                                expected = {segment = return_segment,
+                                            offset = return_offset},
+                            }
+                            dosbox.breakpoint_set(return_segment, return_offset,
+                                                  {once = true})
+                            dosbox.debug_continue()
+                            local visibility_return = wait_hit(
+                                "state-machine visibility return")
+                            callback.visibility_return.actual = {
+                                segment = visibility_return.segment,
+                                offset = visibility_return.offset,
+                            }
+                            callback.visibility_return.registers =
+                                visibility_return.registers
                         end
                     end
+                    state_machine_callback_candidates[#state_machine_callback_candidates + 1] = callback
                 end
                 if match ~= nil then
                     local animation_state = dosbox.mem_read_selector(
                         match.selector, match.offset, 64)
-                    local animation_selector = candidate.registers.fs
-                    local animation_offset = candidate.registers.ebx & 0xffff
-                    local animation_bytes = dosbox.mem_read(
-                        "fs", animation_offset, 0x100) or ""
                     local object_key = match.selector .. ":" .. match.offset
-                    if not captured_objects[object_key] then
+                    if candidate.segment == 0x01f7 and candidate.offset == 0x1186 and
+                            not captured_objects[object_key] then
+                        local animation_selector = candidate.registers.fs
+                        local animation_offset = candidate.registers.ebx & 0xffff
+                        local animation_bytes = dosbox.mem_read(
+                            "fs", animation_offset, 0x100) or ""
                         state_machine_object_updates[#state_machine_object_updates + 1] = {
                             object = {selector = match.selector, offset = match.offset},
                             state_field = word(animation_state, 0x2e + 1),
@@ -1108,6 +1204,17 @@ for attempt = 1, 4096 do
                         captured_count = captured_count + 1
                     end
                 end
+                if candidate.segment == 0x01f7 and candidate.offset == 0x10b5 then
+                    dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
+                    dosbox.breakpoint_set(0x01f7, 0x1693, {once = true})
+                elseif candidate.segment == 0x01f7 and candidate.offset == 0x1186 then
+                    dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
+                    dosbox.breakpoint_set(0x01f7, 0x1693, {once = true})
+                else
+                    dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
+                    dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
+                end
+                dosbox.debug_continue()
             end
         end
         dosbox.wait_frames(1 + capture_delay_frames)
@@ -1139,6 +1246,7 @@ for attempt = 1, 4096 do
             lifetime_samples = lifetime_samples,
             state_machine_samples = state_machine_samples,
             state_machine_object_updates = state_machine_object_updates,
+            state_machine_callback_candidates = state_machine_callback_candidates,
             sprite_slot = sprite_slot,
             sprite_slot_field_offset = 0x12,
             initialized_position = {

@@ -543,6 +543,17 @@ the 256-byte block is byte-identical to raw tile 121 in `W1.ICO`. The three ARE
 types produce the same sequence, so their behavior is confirmed as a shared
 animated world-ICO tile-effect state machine.
 
+The callback trace was extended to record `10B5 -> 1693 -> 1186` for the
+short-lived objects. In a synthetic W5L1 state-4 probe, forcing the five MAP
+lookups to effect states 61-64 creates four objects with state fields 61-64;
+their live lookups select `FS=0x0357` offsets `0x3D00`, `0x3E00`, `0x3F00`, and
+`0x4000`, byte-identical to `W5.ICO` records 61-64. The first visibility run
+also showed the game camera had moved back to `(0,262)` before `1693`, which
+returned carry set; reapplying the debugger-only camera at `10B5` makes the
+same objects pass `1693` and reach `1186`. This confirms both the visibility
+gate and the world-relative ICO table in W5. W2-W4 direct ICO block comparisons
+remain open.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive

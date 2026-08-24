@@ -848,6 +848,7 @@ def create_entity_variant(
     overwrite: bool = False,
     stream_cell: Optional[tuple[int, int]] = None,
     target_type: Optional[int] = None,
+    runtime_position: Optional[tuple[int, int]] = None,
 ) -> dict[str, Any]:
     if archive_path.resolve() == (output_dir / "NESTLE.DAT").resolve():
         raise QuikyError("variant output must not replace the source archive")
@@ -869,12 +870,27 @@ def create_entity_variant(
             f"record offset 0x{record_offset:x} matched {len(matches)} entities"
         )
     reference, entity_index, entity = matches[0]
+    if runtime_position is not None and stream_cell is None:
+        raise QuikyError("--runtime-position requires --stream-cell")
     baseline_are = are_data
-    if target_type is not None:
+    position_delta = None
+    if runtime_position is not None:
+        origin_x, origin_y = stream_cell[0] * 64, stream_cell[1] * 64
+        local_x = runtime_position[0] - origin_x
+        local_y = runtime_position[1] - origin_y
+        if not (0 <= local_x <= 0xFFFF and 0 <= local_y <= 0xFFFF):
+            raise QuikyError(
+                "runtime position cannot be represented by the selected "
+                "stream cell's u16 local coordinates"
+            )
+        position_delta = (local_x - entity.x, local_y - entity.y)
+    if target_type is not None or position_delta is not None:
         baseline_are = patch_are_entity_data(
             baseline_are,
             reference.reference,
             entity_index,
+            delta_x=position_delta[0] if position_delta else 0,
+            delta_y=position_delta[1] if position_delta else 0,
             entity_type=target_type,
         )
     stream_redirect = None
@@ -906,17 +922,25 @@ def create_entity_variant(
         entity_type=inert_type,
     )
 
+    baseline_mutations = []
+    if target_type is not None:
+        baseline_mutations.append(
+            f"type 0x{entity.entity_type:04x} -> target 0x{target_type:04x}"
+        )
+    if runtime_position is not None:
+        baseline_mutations.append(
+            f"runtime position -> ({runtime_position[0]},{runtime_position[1]})"
+        )
+    if stream_redirect:
+        baseline_mutations.append("stream redirect")
+    baseline_mutation = "; ".join(baseline_mutations) or "no mutation"
+
     runtime_dir = archive_path.parent
     variants = []
     for name, replacement, mutation in (
         (
             "baseline", baseline_are,
-            (
-                f"record 0x{record_offset:x}: type 0x{entity.entity_type:04x} "
-                f"-> target 0x{target_type:04x}"
-                if target_type is not None
-                else "stream redirect only" if stream_redirect else "no mutation"
-            ),
+            f"record 0x{record_offset:x}: {baseline_mutation}",
         ),
         (
             "removed",
@@ -967,6 +991,7 @@ def create_entity_variant(
         "original_entity_type": entity.entity_type,
         "target_type": target_type,
         "inert_type": inert_type,
+        "runtime_position": list(runtime_position) if runtime_position else None,
         "placements": [_as_json(placement) for placement in placements],
         "stream_redirect": stream_redirect,
         "variants": variants,
@@ -2078,6 +2103,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--stream-cell", nargs=2, type=_parse_int, metavar=("X", "Y"),
         help="also place the selected reference in an ARE layout cell for startup streaming",
     )
+    entity_variant.add_argument(
+        "--runtime-position", nargs=2, type=_parse_int, metavar=("X", "Y"),
+        help="patch the selected entity's runtime world position after stream relocation",
+    )
     entity_variant.add_argument("--overwrite", action="store_true")
     entity_variant.add_argument("--json", action="store_true")
 
@@ -2201,6 +2230,8 @@ def main(argv: list[str] | None = None) -> int:
                 args.overwrite,
                 tuple(args.stream_cell) if args.stream_cell else None,
                 target_type=args.target_type,
+                runtime_position=(tuple(args.runtime_position)
+                                  if args.runtime_position else None),
             )
             if args.json:
                 print(json.dumps(manifest, indent=2))
