@@ -44,6 +44,41 @@ local function byte_prefix(s, limit)
     return bytes
 end
 
+local function sprite_map_probe(slot)
+    if slot == nil or slot == 0xffff then return nil end
+    local base = 0x6d8e + slot * 2
+    local raw = dosbox.mem_read("ds", base, 0x40) or ""
+    local words = {}
+    for index = 0, math.min(#raw // 2, 32) - 1 do
+        words[#words + 1] = word(raw, index * 2 + 1)
+    end
+    return {slot = slot, base = base, raw_hex = hex(raw), words = words}
+end
+
+local function sprite_descriptor_probe(slot)
+    if slot == nil or slot == 0xffff then return nil end
+    local map_address = 0x6d8e + slot * 2
+    local map_index = dosbox.mem_read_word("ds", map_address)
+    local stride = dosbox.mem_read_word("ds", 0x30d2)
+    local base_offset = dosbox.mem_read_word("ds", 0x6d8a)
+    local selector = dosbox.mem_read_word("ds", 0x6d8c)
+    local descriptor_offset = (base_offset + map_index * stride) & 0xffff
+    local raw = dosbox.mem_read_selector(selector, descriptor_offset, 0x30) or ""
+    return {
+        map_address = map_address,
+        map_index = map_index,
+        stride = stride,
+        base_offset = base_offset,
+        selector = selector,
+        offset = descriptor_offset,
+        raw_hex = hex(raw),
+        width = (#raw >= 2 and word(raw, 1) or nil),
+        height = (#raw >= 4 and word(raw, 3) or nil),
+        origin_x = (#raw >= 10 and word(raw, 9) or nil),
+        origin_y = (#raw >= 12 and word(raw, 11) or nil),
+    }
+end
+
 local function dedicated_event_queue()
     local count = dosbox.mem_read_word("ds", 0x895e)
     local ring = dosbox.mem_read("ds", 0x8960, 0x80) or ""
@@ -407,7 +442,7 @@ for attempt = 1, 4096 do
             local initialized_offset = initialized.registers.edi & 0xffff
             local initialized_state = dosbox.mem_read_selector(
                 initialized_selector, initialized_offset, 64)
-            sprite_initialization = {
+                sprite_initialization = {
                 selector = initialized_selector,
                 offset = initialized_offset,
                 same_as_entity_object = initialized_selector == object_selector and
@@ -470,8 +505,14 @@ for attempt = 1, 4096 do
                                         initialized_offset == object_offset,
                 sprite_slot = word(initialized_state, 0x12 + 1),
                 state_hex = hex(initialized_state),
-                breakpoint = {segment = 0x01f7, offset = sprite_init_offset},
-            }
+                    breakpoint = {segment = 0x01f7, offset = sprite_init_offset},
+                    sprite_map = sprite_map_probe(
+                        word(initialized_state, 0x12 + 1)
+                    ),
+                    sprite_descriptor = sprite_descriptor_probe(
+                        word(initialized_state, 0x12 + 1)
+                    ),
+                }
             dosbox.debug_continue()
         end
         local state_machine_samples = {}

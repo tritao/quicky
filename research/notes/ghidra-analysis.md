@@ -379,8 +379,11 @@ directly capture the W1 WURM2/BIENE, W2 FISCH/KRABBE, W3 PENGO, W4
 FLIEGE/SPINNE, and W5 BUGGY/UFO batches. The live W3L1/W3L2 type-0B/type-0C
 traces write slot 209, while the corresponding selector-mode batches load
 `SCHNEE.BOB` and not the archive-colliding `PROP.BOB`; both types are therefore
-confirmed as W3 snow-family variants. The authoritative per-type records are
-in `research/entity-types.json`; representative paired manifests are under
+confirmed as W3 snow-family variants. The renderer independently resolves
+slot 209 through `DS:6D8E` to map index 133 and a live descriptor with
+dimensions `34x26` and origin `(17,26)`, matching `SCHNEE.BOB` record 0. The
+authoritative per-type records are in `research/entity-types.json`;
+representative paired manifests are under
 `research/build/entity-*-evidence/`.
 
 ### Pickup type `0x6F`
