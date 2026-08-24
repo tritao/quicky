@@ -26,10 +26,12 @@ class TraceReportError(Exception):
 @dataclass(frozen=True)
 class PlayerSample:
     sequence: int
+    frame_index: int
     selector: int
     offset: int
     object: dict[str, Any]
     globals: dict[str, Any]
+    callback: dict[str, Any] | None = None
     collision: dict[str, Any] | None = None
     map_lookup: dict[str, Any] | None = None
     collisions: list[dict[str, Any]] | None = None
@@ -104,12 +106,17 @@ def correlate_samples(trace: dict[str, Any], offset: int | None = None) -> list[
             )
         selector = _as_int(pool.get("selector"), "pool.selector")
         sequence = _as_int(sample.get("sequence"), "sample.sequence")
+        frame_index = sample.get("frame_index", sequence - 1)
+        frame_index = _as_int(frame_index, "sample.frame_index")
         result.append(PlayerSample(
             sequence=sequence,
+            frame_index=frame_index,
             selector=selector,
             offset=target_offset,
             object=matches[0],
             globals=globals_state,
+            callback=sample.get("player_callback")
+            if isinstance(sample.get("player_callback"), dict) else None,
             collision=sample.get("collision") if isinstance(sample.get("collision"), dict) else None,
             map_lookup=sample.get("map_lookup") if isinstance(sample.get("map_lookup"), dict) else None,
             collisions=sample.get("collisions") if isinstance(sample.get("collisions"), list) else None,
@@ -160,6 +167,37 @@ def render_report(samples: list[PlayerSample], stream: TextIO) -> None:
     print(f"callbacks={_hex_values(samples, 'callback')}", file=stream)
     print(f"sprite_slots={_hex_values(samples, 'sprite_slot')}", file=stream)
     print(f"kinds={_hex_values(samples, 'kind')}", file=stream)
+    record_sizes = sorted({
+        callback.get("record_size")
+        for sample in samples
+        for callback in [sample.callback]
+        if isinstance(callback, dict) and isinstance(callback.get("record_size"), int)
+    })
+    print(
+        "callback_record_sizes=" + ",".join(str(value) for value in record_sizes)
+        if record_sizes else "callback_record_sizes=-",
+        file=stream,
+    )
+    callback_rows = []
+    for sample in samples:
+        callback = sample.callback
+        if not isinstance(callback, dict):
+            continue
+        writes = callback.get("writes")
+        if not isinstance(writes, list):
+            writes = []
+        offsets = [
+            item.get("offset") for item in writes
+            if isinstance(item, dict) and isinstance(item.get("offset"), int)
+        ]
+        callback_rows.append(
+            f"{sample.frame_index}:" + ",".join(str(offset) for offset in offsets)
+        )
+    print(
+        "callback_write_offsets=" + ";".join(callback_rows)
+        if callback_rows else "callback_write_offsets=-",
+        file=stream,
+    )
     tail_states = []
     for sample in samples:
         state = tuple(

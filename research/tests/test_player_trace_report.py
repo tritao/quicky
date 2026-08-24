@@ -15,9 +15,10 @@ from player_trace_report import (  # noqa: E402
 )
 
 
-def sample(sequence, x, y, callback, *, offset=0):
+def sample(sequence, x, y, callback, *, offset=0, frame_index=None):
     return {
         "sequence": sequence,
+        "frame_index": sequence - 1 if frame_index is None else frame_index,
         "globals": {
             "player_object_offset": offset,
             "camera_x": 0,
@@ -81,12 +82,28 @@ class PlayerTraceReportTests(unittest.TestCase):
         self.assertIn("collision_helpers=0x648e", report.getvalue())
         self.assertIn("0x6484", report.getvalue())
         self.assertIn("map_tile_ids=0x17f", report.getvalue())
+        self.assertIn("callback_record_sizes=-", report.getvalue())
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / "player.csv"
             write_calibration_csv(result, output, 2, 1, "right")
             lines = output.read_text(encoding="utf-8").splitlines()
             self.assertIn("# grounded/facing are explicit provisional values", lines[2])
             self.assertEqual(lines[5], "dosbox,2,129,400,32768,0,1,right")
+
+    def test_report_includes_ordered_callback_write_offsets(self):
+        trace = {"samples": [sample(1, 128, 400, 0x3FF8, frame_index=7)]}
+        trace["samples"][0]["player_callback"] = {
+            "record_size": 0x78,
+            "writes": [
+                {"offset": 0x0e, "before": 1, "after": 2},
+                {"offset": 0x00, "before": 1, "after": 0},
+            ],
+        }
+        result = correlate_samples(trace)
+        report = io.StringIO()
+        render_report(result, report)
+        self.assertIn("callback_record_sizes=120", report.getvalue())
+        self.assertIn("callback_write_offsets=7:14,0", report.getvalue())
 
 
 if __name__ == "__main__":
