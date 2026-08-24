@@ -371,6 +371,7 @@ int main(int argc, char **argv) {
         EntityBobResources entityBobs;
         loadEntityBobResources(archive, level, entityBobs);
         quiky::PlayerSimulation simulation;
+        const quiky::MapCollisionQuery collision(map, simulation.collisionRules());
         quiky::PlayerState player;
         level.reset(player, simulation);
         level.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
@@ -470,7 +471,7 @@ int main(int argc, char **argv) {
                     input.left = left;
                     input.right = right;
                     input.jump = jumpPressed;
-                    level.tick(player, simulation, input);
+                    level.tick(player, simulation, collision, input);
                     ++frame;
                     jumpPressed = false;
                     const quiky::LevelEvent event = level.consumeEvent();
@@ -494,7 +495,7 @@ int main(int argc, char **argv) {
                 input.left = left;
                 input.right = right;
                 input.jump = jumpPressed;
-                level.tick(player, simulation, input);
+                level.tick(player, simulation, collision, input);
                 ++frame;
                 jumpPressed = false;
                 stepRequested = false;

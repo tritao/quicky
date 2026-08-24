@@ -229,8 +229,14 @@ void LevelSession::advanceActiveEntities() {
 
 void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
                         const InputState &input) {
+    const MapCollisionQuery collision(_map, simulation.collisionRules());
+    tick(player, simulation, collision, input);
+}
+
+void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
+                        const CollisionQuery &collision, const InputState &input) {
     _event = LevelEvent();
-    simulation.tick(player, _map, input);
+    simulation.tick(player, collision, input);
     updateStreaming(player.x.floorPixels(), player.y.floorPixels());
     advanceActiveEntities();
 

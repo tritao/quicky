@@ -87,6 +87,8 @@ public:
     void reset(PlayerState &player, const PlayerSimulation &simulation);
     void tick(PlayerState &player, const PlayerSimulation &simulation,
               const InputState &input);
+    void tick(PlayerState &player, const PlayerSimulation &simulation,
+              const CollisionQuery &collision, const InputState &input);
 
     void updateStreaming(std::int32_t playerX, std::int32_t playerY);
     const std::vector<LevelEntity> &entities() const { return _entities; }

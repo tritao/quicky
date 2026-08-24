@@ -319,6 +319,36 @@ void testLevelSession() {
     assert(event.targetLevel == "W1L2.MAP");
 }
 
+void testLevelSessionCollisionQuery() {
+    const quiky::Map map = makeLevelMap();
+    const quiky::Area area = makeLevelArea(0x28, 0x28);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    quiky::PlayerConfig playerConfig;
+    playerConfig.width = 12;
+    playerConfig.height = 12;
+    playerConfig.acceleration = 0;
+    playerConfig.friction = 0;
+    playerConfig.gravity = quiky::Fixed16::kOne;
+    quiky::PlayerSimulation simulation(playerConfig);
+    TraceCollisionQuery collision;
+    quiky::PlayerState player;
+    quiky::LevelSession session("W1L1.MAP", map, area, config);
+    session.reset(player, simulation);
+
+    for (int frame = 0; frame < 60; ++frame) {
+        session.tick(player, simulation, collision, quiky::InputState());
+        session.consumeEvent();
+    }
+    assert(player.grounded);
+    assert(player.y.floorPixels() == 52);
+}
+
 void testPlayerSimulation() {
     const quiky::Map map = makePhysicsMap();
     quiky::PlayerConfig config;
@@ -429,6 +459,7 @@ int main() {
         testPlayerSimulation();
         testPlayerInputTraceAndCollisionQuery();
         testLevelSession();
+        testLevelSessionCollisionQuery();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;
