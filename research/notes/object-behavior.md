@@ -163,6 +163,37 @@ changes from nonzero to zero at the same transition, the callback clear is the
 camera visibility rejection. A type-specific self-termination claim requires
 an accepted-camera trace with the marker remaining processed.
 
+## Accepted-camera callback pass
+
+The object-behavior tracer now arms only the scheduler phase selected by the
+dispatch class and explicitly steps non-target entries to their class loop
+heads (`0x0EBA`, `0x0EE4`, or `0x0F0D`). This avoids the debugger's current-IP
+breakpoint suppression and makes the class-1 target at `01F7:0x0EEE`
+repeatable. The callback sample also records whether `01F7:1DEE` or the
+`01F7:8E4B` state-machine exits were encountered before the callback return.
+
+Accepted-camera W1L1 fixture runs are recorded as
+`accepted-28.json`, `accepted-29.json`, `accepted-2a.json`, `accepted-2b.json`,
+`accepted-2c.json`, `accepted-33.json`, and `accepted-34.json` in the ignored
+object-behavior build directory. All seven leave the source marker processed,
+keep a nonzero callback, and therefore classify as `callback_survived` in the
+one-sample window. The observed first callback transitions are:
+
+| Type | Class / scheduler | Callback before → after | Source marker |
+| ---: | --- | --- | --- |
+| `0x28` | class 0 / `0x0EC7` | `0x9256 → 0x9269` | `0x0128 → 0x0128` |
+| `0x29` | class 1 / `0x0EEE` | `0x4727 → 0x47E7` | `0x0129 → 0x0129` |
+| `0x2A` | class 1 / `0x0EEE` | `0x4727 → 0x47E7` | `0x012A → 0x012A` |
+| `0x2B` | class 1 / `0x0EEE` | `0x4727 → 0x47E7` | `0x012B → 0x012B` |
+| `0x2C` | class 1 / `0x0EEE` | `0x8C4E → 0x8D20` | `0x012C → 0x012C` |
+| `0x33` | class 1 / `0x0EEE` | `0x87D1 → 0x882F` | `0x0133 → 0x0133` |
+| `0x34` | class 1 / `0x0EEE` | `0x9BEE → 0x9C0C` | `0x0134 → 0x0134` |
+
+This pass establishes accepted-camera persistence and the callback installation
+boundaries for the seven families. It does not yet prove a later self-ending
+path: the first pass for `0x29`-`0x2B` is their initialization transition, and
+the next steady callback belongs in a separate frame-synchronized probe.
+
 ## Real-input reactivation and allocator choice
 
 The guest-timed movement probe holds the key through `dosbox.key` while the

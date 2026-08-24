@@ -271,6 +271,9 @@ def _behavior_summary(entity: dict[str, Any]) -> dict[str, Any]:
     marker_before = []
     marker_after = []
     related_sites = []
+    termination_reasons = []
+    visibility_gate_hits = []
+    state_machine_hits = []
     for sample in samples:
         before = sample.get("object_before", {})
         after = sample.get("object_after", {})
@@ -280,6 +283,11 @@ def _behavior_summary(entity: dict[str, Any]) -> dict[str, Any]:
         source_after = sample.get("source_after") or {}
         marker_before.append(source_before.get("marker_word"))
         marker_after.append(source_after.get("marker_word"))
+        termination = sample.get("termination") or {}
+        if isinstance(termination, dict):
+            termination_reasons.append(termination.get("reason"))
+            visibility_gate_hits.append(bool(termination.get("visibility_gate_hit")))
+            state_machine_hits.append(bool(termination.get("state_machine_hit")))
         related = (sample.get("callback") or {}).get("related_hits", [])
         if isinstance(related, dict):
             related = list(related.values())
@@ -301,7 +309,15 @@ def _behavior_summary(entity: dict[str, Any]) -> dict[str, Any]:
         (before >> 8) != 0 and (after >> 8) == 0
         for before, after in zip(marker_before, marker_after)
     )
-    if callback_cleared and marker_processed:
+    visibility_gate_hit = any(visibility_gate_hits) or 0x1DEE in related_sites
+    state_machine_hit = any(state_machine_hits) or any(
+        offset in related_sites for offset in (0x8E4B, 0x8E78, 0x8E85, 0x9254, 0x9255)
+    )
+    if callback_cleared and visibility_gate_hit:
+        category = "visibility_culled"
+    elif callback_cleared and state_machine_hit:
+        category = "state_machine_ended"
+    elif callback_cleared and marker_processed:
         category = "self_terminated_or_state_ended"
     elif callback_survived and marker_processed:
         category = "persistent_in_window"
@@ -323,6 +339,9 @@ def _behavior_summary(entity: dict[str, Any]) -> dict[str, Any]:
         "callback_cleared": callback_cleared,
         "callback_survived": callback_survived,
         "source_marker_cleared": marker_cleared,
+        "termination_reasons": termination_reasons,
+        "visibility_gate_hit": visibility_gate_hit,
+        "state_machine_hit": state_machine_hit,
         "category": category,
     }
 

@@ -119,6 +119,40 @@ class ObjectLifecycleMatrixTests(unittest.TestCase):
         self.assertEqual(persistent["category"], "persistent_in_window")
         self.assertEqual(ended["category"], "self_terminated_or_state_ended")
 
+    def test_behavior_summary_uses_runtime_termination_sites(self):
+        def sample(related, termination):
+            return {
+                "object_before": {"update_callback": 0x47E7},
+                "object_after": {"update_callback": 0},
+                "source_before": {"marker_word": 0x012B},
+                "source_after": {"marker_word": 0x012B},
+                "callback": {"related_hits": related},
+                "termination": termination,
+            }
+
+        visibility = _behavior_summary({
+            "type": 0x2B,
+            "samples": [sample([], {
+                "reason": "visibility_gate",
+                "callback_cleared": True,
+                "visibility_gate_hit": True,
+                "state_machine_hit": False,
+            })],
+        })
+        state_exit = _behavior_summary({
+            "type": 0x2B,
+            "samples": [sample([], {
+                "reason": "state_machine_exit",
+                "callback_cleared": True,
+                "visibility_gate_hit": False,
+                "state_machine_hit": True,
+            })],
+        })
+        self.assertEqual(visibility["category"], "visibility_culled")
+        self.assertTrue(visibility["visibility_gate_hit"])
+        self.assertEqual(state_exit["category"], "state_machine_ended")
+        self.assertTrue(state_exit["state_machine_hit"])
+
     def test_entity_summary_keeps_factory_evidence_separate(self):
         raw = bytearray(0x40)
         raw[0x18:0x1A] = (0x8C4E).to_bytes(2, "little")

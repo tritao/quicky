@@ -16,10 +16,13 @@ local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local runtime_offset = record_offset - 0x160
 local class_entry_offsets = {0x0ec7, 0x0eee, 0x0f14}
-local class_for_entry = {[0x0ec7] = 0, [0x0eee] = 1, [0x0f14] = 2}
+local class_loop_offsets = {[0] = 0x0eba, [1] = 0x0ee4, [2] = 0x0f0d}
 local class_return_offsets = {[0] = 0x0ed3, [1] = 0x0efd, [2] = 0x0f26}
 local class_post_offsets = {[0] = 0x0edb, [1] = 0x0f05, [2] = 0x0f2e}
-local callback_related_offsets = {0x1dca, 0x1dee, 0x106a, 0x1036, 0x0fa2}
+local callback_related_offsets = {
+    0x1dca, 0x1dee, 0x106a, 0x1036, 0x0fa2,
+    0x8e4b, 0x8e78, 0x8e85, 0x9254, 0x9255,
+}
 
 local function word(s, index)
     local lo, hi = string.byte(s, index, index + 1)
@@ -175,6 +178,18 @@ local function changed_bytes(before_hex, after_hex)
         end
     end
     return changed
+end
+
+local function related_hit(related_hits, offset)
+    for _, hit in ipairs(related_hits) do
+        if hit.offset == offset then return true end
+    end
+    return false
+end
+
+local function source_marker_processed(snapshot)
+    return snapshot ~= nil and snapshot.marker_word ~= nil and
+        ((snapshot.marker_word >> 8) & 0xff) ~= 0
 end
 
 local function scheduler_hit_snapshot(hit)
@@ -358,6 +373,8 @@ assert(dispatch_callback_offset ~= 0, "target object has no update callback")
 dosbox.breakpoint_set(0x01f7, 0x1e8e, {once = true})
 dosbox.debug_continue()
 local factory_return = wait_hit("object factory return")
+assert(factory_return.segment == 0x01f7 and factory_return.offset == 0x1e8e,
+       "unexpected object factory breakpoint")
 local object_selector = factory_return.registers.es
 local object_offset = factory_return.registers.edi & 0xffff
 local initial_object = object_snapshot(object_selector, object_offset)
@@ -372,15 +389,13 @@ assert(class_return_offsets[object_class] ~= nil,
 
 local samples = {}
 local attempts = 0
+local scheduler_entry_offset = class_entry_offsets[object_class + 1]
 while #samples < sample_count and attempts < sample_count * 128 do
     attempts = attempts + 1
-    for _, offset in ipairs(class_entry_offsets) do
-        dosbox.breakpoint_set(0x01f7, offset, {once = true})
-    end
+    dosbox.breakpoint_set(0x01f7, scheduler_entry_offset, {once = true})
     dosbox.debug_continue()
     local scheduler_hit = wait_hit("object scheduler entry")
-    local candidate_class = class_for_entry[scheduler_hit.offset]
-    local scheduler_match = candidate_class == object_class and
+    local scheduler_match = scheduler_hit.offset == scheduler_entry_offset and
         scheduler_hit.registers.es == object_selector and
         (scheduler_hit.registers.edi & 0xffff) == object_offset
     if scheduler_match then
@@ -471,6 +486,22 @@ while #samples < sample_count and attempts < sample_count * 128 do
         local source_after = source_snapshot(source_selector, after.source_offset)
         local globals_after = lifecycle_globals()
         local pool_after = pool_snapshot()
+        local callback_cleared = before.update_callback ~= 0 and
+            after.update_callback == 0
+        local visibility_gate_hit = related_hit(related_hits, 0x1dee)
+        local state_machine_hit = related_hit(related_hits, 0x8e4b) or
+            related_hit(related_hits, 0x8e78) or
+            related_hit(related_hits, 0x8e85) or
+            related_hit(related_hits, 0x9254) or
+            related_hit(related_hits, 0x9255)
+        local termination_reason = "callback_survived"
+        if callback_cleared and visibility_gate_hit then
+            termination_reason = "visibility_gate"
+        elseif callback_cleared and state_machine_hit then
+            termination_reason = "state_machine_exit"
+        elseif callback_cleared then
+            termination_reason = "callback_specific"
+        end
         samples[#samples + 1] = {
             sequence = #samples + 1,
             scheduler = {
@@ -507,8 +538,31 @@ while #samples < sample_count and attempts < sample_count * 128 do
             object_after = after,
             source_before = source_before,
             source_after = source_after,
+            termination = {
+                callback_before = before.update_callback,
+                callback_after = after.update_callback,
+                callback_cleared = callback_cleared,
+                source_processed_before = source_marker_processed(source_before),
+                source_processed_after = source_marker_processed(source_after),
+                visibility_gate_hit = visibility_gate_hit,
+                state_machine_hit = state_machine_hit,
+                reason = termination_reason,
+            },
             changed_bytes = changed_bytes(before.raw_hex, after.raw_hex),
         }
+    else
+        -- The debugger leaves a breakpoint at the current IP inactive when
+        -- continuing. A non-target scheduler entry branches back to the
+        -- class loop head rather than the callback-return path; stop there
+        -- so the next scheduler-entry breakpoint is armed from a different
+        -- instruction and can catch the next object in the same pass.
+        local loop_offset = class_loop_offsets[object_class]
+        dosbox.breakpoint_set(0x01f7, loop_offset, {once = true})
+        dosbox.debug_continue()
+        local skipped_return = wait_hit("non-target scheduler loop")
+        assert(skipped_return.segment == 0x01f7 and
+               skipped_return.offset == loop_offset,
+               "unexpected non-target scheduler loop")
     end
 end
 

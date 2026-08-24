@@ -347,6 +347,14 @@ The report is conservative: source-marker transitions classify visibility
 culling/reactivation; callback persistence or callback end is only classified
 when the source marker remains processed.
 
+The accepted-camera callback pass covers W1L1 fixtures for types `0x28`,
+`0x29`-`0x2C`, `0x33`, and `0x34`. Each keeps its processed source marker and
+nonzero callback through the captured window; the `0x29`-`0x2B` leaf family
+shows the expected `01F7:4727 -> 01F7:47E7` initialization transition. These
+results establish persistence and callback installation, while a later
+frame-synchronized sample is still required to attribute any eventual clear
+to a self-ending callback versus a state-machine exit.
+
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry
 and spikes. The tested object/reference values were:
