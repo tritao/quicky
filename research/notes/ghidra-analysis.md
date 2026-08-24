@@ -676,7 +676,9 @@ The helper call-site and return-address evidence remains valid, but the tile
 and descriptor values in the pre-selector-safe `3A1F`/`3DF2` property rows are
 superseded and will be recaptured with selector reads. The first corrected
 W1L1 `5CC3` sample at `(128,400)` reads raw cell `0x002e`, tile `0x02e`, and
-descriptor `0x000c`.
+descriptor `0x000c`. The selector-safe matrix also reads `0x002d`/tile
+`0x02d` with descriptor `0x000c` at the corrected left-wall and right-input
+samples; jump rows reach tiles `0x001` and `0x01a` with descriptor `0`.
 
 The dedicated `3D02` branch trace also reaches a nonzero vertical descriptor:
 at `(1163,338)` the first descriptor query is clear, the eight-pixel retry

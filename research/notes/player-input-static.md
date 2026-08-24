@@ -192,10 +192,20 @@ first controlled positive case: tile `0x02a` (`0x0070`) takes
 `3D45 -> 3DD0 -> 3DF1` with `AL=1` and `object+0x3a=0xff`; tile `0x02b`
 (`0x0030`) takes the same tests but returns via `3DE4` with `AL=0`.
 
-The earlier W1L1 property matrix containing `0x08B8`, `0xEC8B`, `0x0B8`,
-`0x167`, and related descriptor words is archived but invalid for MAP
-semantics because it predates the selector-read correction. The matrix will
-be regenerated before it is used for engine rules.
+The corrected W1L1 `5CC3` matrix is now available in
+`research/build/player-property-calibration-selector-safe.json`: neutral and
+baseline rows read raw `0x002e`/tile `0x02e`/descriptor `0x000c`; the left wall
+at `(72,400)` and right-input sample at `(448,400)` read `0x002d`/tile `0x02d`
+with the same descriptor; jump samples read tile `0x001` at `y=378..381`
+(`descriptor=0`) and tile `0x01a` at `y=388`. The earlier matrix containing
+`0x08B8`, `0xEC8B`, `0x0B8`, `0x167`, and related descriptor words remains
+archived but invalid because it predates the selector-read correction.
+
+The matching selector-safe `5C27` matrix shows the coordinate-selected mask:
+baseline/right queries at `x=123` select `0x04` from descriptor `0x000c`, the
+left-wall query at `x=67` selects `0x08`, and jump queries select `0x02` or
+`0x04` against descriptor-zero tiles. This confirms the low-nibble selector
+logic in live memory without relying on the superseded rows.
 
 The loader still mutates one runtime row by ORing `0x10` into each cell's high
 byte, which corresponds to runtime property bit `0x08`. That mutation should

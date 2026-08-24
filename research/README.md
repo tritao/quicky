@@ -448,8 +448,12 @@ tile ID, descriptor-table offset/word, and (for `5C27`) the coordinate-selected
 low-nibble mask. Combine the traces with `player_property_report.py` to emit
 machine-readable CSV/JSON evidence. The current W1L1 runs show the left wall
 at `(128,400)` querying raw cell `0x002e`/tile `0x02e` with descriptor
-`0x000c`; the old wall/right/jump property rows are being regenerated.
-Descriptor-bit gameplay names remain provisional.
+`0x000c`; the corrected left/right rows query `0x002d`/tile `0x02d` with the
+same descriptor, while jump samples query tiles `0x001` and `0x01a` with
+descriptor `0`. The old wall/right/jump property rows remain archived but
+invalid. The selector-safe `5C27` pass selects mask `0x04` at the baseline and
+right positions (`x=123`), `0x08` at the left wall (`x=67`), and `0x02`/`0x04`
+for the jump rows. Descriptor-bit gameplay names remain provisional.
 
 To capture the caller's branch path, use `--player-branch-focus`. It watches
 the `3D02` entry, the post-`5CC3` `DX&30` tests, and the `DX&20`/`DX&40`
