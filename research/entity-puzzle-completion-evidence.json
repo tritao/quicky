@@ -10,14 +10,25 @@
     "trace_script_sha256": "644df8702a72cefa9bfad694268fcb33e208d7d4c8d9171530c76c7b4fa18af8"
   },
   "static_scan": {
-    "method": "16-bit disassembly of file-backed QUIKY.EXE segments 1-6; direct absolute DS:60D8 operands",
+    "method": "16-bit disassembly of file-backed QUIKY.EXE segments 1-6; direct absolute DS:60D8 operands plus the selector/main-loop caller",
     "writer": "01F7:8E33 OR word ptr [DS:60D8], AX",
     "reader_entry": "01F7:5936",
     "reader_mask_change": "01F7:5940 reads DS:60D8, compares prior DS:60DA, XORs the changed bits, and dispatches presentation updates through 01F7:386F",
-    "direct_reference_count": 2,
-    "direct_completion_comparator": false,
-    "direct_level_transition_call": false,
-    "interpretation": "The executable's direct DS:60D8 consumer is a changed-bit presentation/update routine; no direct all-seven-bits comparator or level-transition call was identified."
+    "completion_routine": "01D7:14E1",
+    "all_seven_comparator": "01D7:1670 cmp word ptr [DS:60D8], 0x007F; JE 01D7:16C6",
+    "completion_presentation": [
+      "01D7:16C6 renders the NESQUIK: 2000 text",
+      "01D7:16D3 sets DS:612E=0x000C (completion sound)",
+      "01D7:16DE adds 0x07D0 to DS:881C/DS:881E",
+      "01D7:16F0 renders BONUS-LEVEL!",
+      "01D7:1704 sets DS:85DB=1"
+    ],
+    "level_transition_gate": "The caller at 01D7:4F10 tests DS:85DB and jumps to 01D7:4FAF; that branch copies DS:85D4 to DS:85D6, maps the selector state, and enters the reload/transition setup at 01D7:5017 (relocated target 01F7:0908) and 01D7:5038-5047.",
+    "direct_reference_count": 3,
+    "direct_reference_count_scope": "semantic sites (writer, changed-bit reader, main-loop comparator), not every repeated operand inside the reader",
+    "direct_completion_comparator": true,
+    "direct_level_transition_call": true,
+    "interpretation": "The final-letter callback writes DS:60D8, the 01D7 main-loop completion routine owns the all-seven comparator and presentation, and DS:85DB is the explicit handoff into the level-transition state machine."
   },
   "runtime_probe": {
     "fixture": "W1L1 entity-7f-native baseline; source ARE record 0x1792 mutated from type 0x2B to type 0x7F; runtime declaration offset 0x1632",
@@ -46,5 +57,5 @@
       "display_consumer_hits": []
     }
   },
-  "conclusion": "The final-letter probe successfully reaches mask 0x7F and performs the normal letter effect/removal, but no level completion or transition occurs within 1,800 gameplay frames. DS:60D8's directly referenced native routine is presentation/update bookkeeping; an authored completion trigger remains unidentified and may be separate from the letter callback."
+  "conclusion": "The final-letter probe successfully reaches mask 0x7F and performs the normal letter effect/removal. Static disassembly now closes the authored trigger: 01D7:1670 detects 0x7F, 01D7:16C6-1704 presents the completion/bonus text and sets DS:85DB, and 01D7:4F10-5047 consumes that state in the level-transition setup. The 1,800-frame synthetic post-collection run did not enter that presentation path, so the dynamic fixture does not by itself prove the handoff timing."
 }

@@ -866,8 +866,10 @@ path; the rendered cloud matches the four 32x16 records in `WOLKE.BOB`, slots
 `DS:89E6=FFFF` (`DS:89EA=0`, persistent player byte `+0x37=0`) while the
 cloud remains active. The standard `01F7:3529` renderer returns on `FFFF`.
 One-shot native reader probes hit both player-side consumers `01F7:4087` and
-`01F7:4406` with `DS:89E6=FFFF`; the remaining question is the outer draw
-binding for this special WOLKE state.
+`01F7:4406` with `DS:89E6=FFFF`. A controlled outer-state trace also hits
+`01D7:4EA0` with the flag set; the normal object renderer remains a deliberate
+`FFFF` bypass, so only the low-level WOLKE.BOB pixel primitive is still
+unresolved.
 The sheet is [`notes/type-28-wolke-sheet.png`](notes/type-28-wolke-sheet.png).
 
 Types `0x29` and `0x2A` use the same `01F7:4727` leaf callback as confirmed

@@ -61,7 +61,16 @@
   "renderer_static_scan": {
     "standard_renderer": "01F7:3529 returns immediately when object+0x12 == 0xFFFF, so the cloud does not use the normal DS:6D8E logical-slot path.",
     "cloud_callback_calls": ["01F7:1DCA", "01F7:1DEE", "01F7:393C", "01F7:5D38", "01F7:1C4D", "01F7:5C27"],
-    "conclusion": "The cloud callback contains no direct sprite/resource call; WOLKE.BOB remains a special/outer renderer binding rather than a normal object-slot draw."
+    "outer_state_consumer": "The main gameplay loop at 01D7:4EA0 tests DS:89E6; the positive path begins at 01D7:4EAA and runs through the outer/main-loop work before the normal object-render pass at 01F7:106A. A controlled trace hits 01D7:4EA0 repeatedly with DS:89E6=FFFF while the cloud object remains active.",
+    "outer_state_trace": {
+      "path": "research/build/entity-28-cloud-outer-renderer-mainloop.json",
+      "sha256": "3a9439d71bfa88cc0f43d422b7716095a7ec6be6ec185a5c03685cea4bcf3fed"
+    },
+    "standard_renderer_trace": {
+      "path": "research/build/entity-28-cloud-standard-renderer-v2.json",
+      "sha256": "ea0f8afa161721798c433ed14886e35692515adf2fac4a43ec03fcc4f965f691"
+    },
+    "conclusion": "The cloud callback contains no direct sprite/resource call. The normal object renderer is still explicitly bypassed (01F7:3529 sees the cloud object at ES:DI and object+0x12=FFFF), while the outer gameplay loop consumes DS:89E6 at 01D7:4EA0. This closes the special-state consumer; the exact WOLKE.BOB pixel-draw primitive remains outside the normal logical-slot queue."
   },
-  "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. The player-state gate is now directly evidenced; the remaining uncertainty is the outer renderer consumer of the special cloud state, not cross-world coverage."
+  "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. The player-state gate and the outer DS:89E6 consumer are directly evidenced; the normal logical-slot renderer is bypassed, leaving only the low-level WOLKE.BOB pixel-draw primitive to identify."
 }

@@ -24,6 +24,7 @@ local force_cloud_player_state = trace_config.force_cloud_player_state or false
 local trace_cloud_consumers = trace_config.trace_cloud_consumers or false
 local cloud_probe_frames = trace_config.cloud_probe_frames or 8
 local cloud_consumer_offset = trace_config.cloud_consumer_offset or 0
+local trace_cloud_outer_renderer = trace_config.trace_cloud_outer_renderer or false
 local force_contact_gate = trace_config.force_contact_gate or false
 local align_x_offset = trace_config.align_x_offset or 0
 local align_y_offset = trace_config.align_y_offset or 0
@@ -771,6 +772,38 @@ if reload_after_collect then
     end
 end
 local cloud_consumer_probe = nil
+local cloud_outer_renderer_probe = nil
+if trace_cloud_outer_renderer and expected_type == 0x28 then
+    -- WOLKE leaves object+0x12 at FFFF, so observe the main-loop state branch
+    -- after the callback returns. This documents the outer DS:89E6 consumer
+    -- even when the standard object queue deliberately skips FFFF.
+    cloud_outer_renderer_probe = {
+        frames = 8,
+        breakpoints = {"01D7:4EA0"},
+        samples = {},
+    }
+    local offsets = {
+        {segment = 0x01d7, offset = 0x4ea0},
+    }
+    for _, point in ipairs(offsets) do
+        dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+    end
+    dosbox.debug_continue()
+    for sequence = 1, 8 do
+        local hit = dosbox.wait_for_breakpoint(timeout_ms)
+        if not hit then break end
+        cloud_outer_renderer_probe.samples[#cloud_outer_renderer_probe.samples + 1] = {
+            sequence = sequence,
+            hit = {segment = hit.segment, offset = hit.offset,
+                   registers = hit.registers},
+            cloud_global_89e6 = dosbox.mem_read_word("ds", 0x89e6),
+            object_slot = word(dosbox.mem_read_selector(object_selector, object_offset + 0x12, 2), 1),
+        }
+        if #cloud_outer_renderer_probe.samples >= 8 then break end
+        dosbox.breakpoint_set(hit.segment, hit.offset, {once = true})
+        dosbox.debug_continue()
+    end
+end
 if trace_cloud_consumers and expected_type == 0x28 then
     -- 4087 and 4406 are the player-side readers of DS:89E6.  Capture one
     -- reader from the paused post-callback state.  A one-shot capture avoids
@@ -815,6 +848,7 @@ dosbox.output.behavior_trace = {
     camera_override = {x = camera_x, y = camera_y},
     puzzle_completion_probe = puzzle_completion_probe,
     cloud_consumer_probe = cloud_consumer_probe,
+    cloud_outer_renderer_probe = cloud_outer_renderer_probe,
     reload_probe = reload_probe,
     samples = samples,
 }

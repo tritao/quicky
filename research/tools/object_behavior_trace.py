@@ -50,6 +50,7 @@ class ObjectBehaviorConfig:
     force_cloud_player_state: bool = False
     trace_cloud_consumers: bool = False
     cloud_consumer_offset: int = 0
+    trace_cloud_outer_renderer: bool = False
     force_contact_gate: bool = False
     align_x_offset: int = 0
     align_y_offset: int = 0
@@ -87,6 +88,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "force_cloud_player_state": config.force_cloud_player_state,
         "trace_cloud_consumers": config.trace_cloud_consumers,
         "cloud_consumer_offset": config.cloud_consumer_offset,
+        "trace_cloud_outer_renderer": config.trace_cloud_outer_renderer,
         "force_contact_gate": config.force_contact_gate,
         "align_x_offset": config.align_x_offset,
         "align_y_offset": config.align_y_offset,
@@ -257,6 +259,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="one player-side DS:89E6 reader to capture (0x4087 or 0x4406)",
     )
     parser.add_argument(
+        "--trace-cloud-outer-renderer", action="store_true",
+        help="capture the main-loop cloud state and render-queue consumers",
+    )
+    parser.add_argument(
         "--force-contact-gate", action="store_true",
         help="debugger-only: enable the normal-enemy player-range gate and align its shared integer player coordinates",
     )
@@ -331,6 +337,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--puzzle-probe-frames must be non-negative")
     if args.trace_cloud_consumers and args.cloud_consumer_offset not in (0x4087, 0x4406):
         raise TraceError("--cloud-consumer-offset must be 0x4087 or 0x4406")
+    if args.trace_cloud_outer_renderer and args.entity_type != 0x28:
+        raise TraceError("--trace-cloud-outer-renderer requires --entity-type 0x28")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
     for name in ("camera_x", "camera_y"):
@@ -410,6 +418,7 @@ def main(argv: list[str] | None = None) -> int:
         force_cloud_player_state=args.force_cloud_player_state,
         trace_cloud_consumers=args.trace_cloud_consumers,
         cloud_consumer_offset=args.cloud_consumer_offset,
+        trace_cloud_outer_renderer=args.trace_cloud_outer_renderer,
         force_contact_gate=args.force_contact_gate,
         align_x_offset=args.align_x_offset,
         align_y_offset=args.align_y_offset,

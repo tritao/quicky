@@ -228,7 +228,7 @@
       "role": "ambient_visual",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
       "initializer_fields": {"status": "confirmed", "known": "01F7:9256 installs callback 01F7:9269, leaves object+0x12 at 0xFFFF, and clears object+0x2A; object class is 0."},
-      "update_callback_state_machine": {"status": "confirmed", "known": "01F7:9269 applies the visibility gate, checks overlap against the persistent player bounds object, and updates the cloud-related global flag; no normal sprite state machine is present."},
+      "update_callback_state_machine": {"status": "confirmed", "known": "01F7:9269 applies the visibility gate, checks overlap against the persistent player bounds object, and updates the cloud-related global flag; the outer gameplay loop consumes that flag at 01D7:4EA0, while no normal sprite state machine is present."},
       "movement_ai": {"status": "confirmed", "known": "The callback contains no x/y integration. Three separated W1L1 captures keep the cloud at (368,304), so it is a stationary/camera-gated ambient object rather than a pursuing actor."},
       "collision_shape_interaction": {"status": "confirmed", "known": "01F7:9269 checks the persistent player bounds with a 16x16 aligned gate: object_x < player_x+16 and object_x+16 > player_x, object_y aligned down to 16 with the same 16-pixel overlap. The accepted branch writes DS:89E6=FFFF only when DS:89EA is zero and the persistent player object byte +0x37 is zero; a controlled positive probe confirms the write, and player readers 01F7:4087/4406 both execute with DS:89E6=FFFF."},
       "animation_table": {"status": "confirmed", "known": "Special renderer maps WOLKE.BOB frames to slots 413-416, each 32x16."},
@@ -241,7 +241,7 @@
         ,{"type": "0x28", "fixture": "W1L1 synthetic player-state gate", "dispatch": "01F7:9256", "post_initializer": "01F7:9269", "object_callback": "01F7:9269", "sprite_slot": 65535, "position": [784, 192], "callback_samples": 2, "camera": [700, 100], "cloud_global_before": 0, "cloud_global_after": 65535, "evidence": "research/entity-cloud-crossworld-evidence.json"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-28-wolke-sheet.png", "research/entity-cloud-crossworld-evidence.json"],
-      "open_questions": ["outer renderer draw binding for the special WOLKE state"]
+      "open_questions": ["low-level WOLKE.BOB pixel primitive after the 01D7:4EA0 outer-state consumer"]
     },
     {
       "id": "falling_leaves",
@@ -418,7 +418,7 @@
       "movement_ai": {"status": "confirmed", "known": "The shared callback contains no x/y integration; letters are fixed ARE placements and remain idle until collected."},
       "collision_shape_interaction": {"status": "confirmed", "known": "01F7:8D20 performs the original player-overlap gate (x range +16, 16-aligned y range +16); letter collection ORs the initializer bitmask into DS:60D8 and emits sound action DS:612E=11."},
       "animation_table": {"status": "confirmed", "known": "PUZZLE.BOB records 0-6 are 16x16 and render N,E,S,Q,U,I,K in slot order."},
-      "death_removal": {"status": "confirmed", "known": "The original letter overlap path clears object+0x18 (callback becomes 0000) after OR-ing the bit into DS:60D8 but does not call 01F7:1DEE, so the letter is not re-streamed in the same loaded ARE buffer. A final-letter probe reaches DS:60D8=0x7F and remains in gameplay without a transition for 1,800 frames; the authored completion trigger remains separate."},
+      "death_removal": {"status": "confirmed", "known": "The original letter overlap path clears object+0x18 (callback becomes 0000) after OR-ing the bit into DS:60D8 but does not call 01F7:1DEE, so the letter is not re-streamed in the same loaded ARE buffer. The authored completion path is separate: 01D7:1670 compares DS:60D8 with 0x7F, 01D7:16C6-1704 presents the completion/bonus text and sets DS:85DB=1, and 01D7:4F10-5047 consumes that state in the level-transition setup. The synthetic 1,800-frame run did not enter the presentation branch."},
       "cross_world_variants": {"status": "confirmed", "known": "All five worlds use the same slot sequence/resource family in the catalog; world-specific asset substitutions are not indicated."},
       "verified_runs": [
         {"type": "0x79", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C71", "post_initializer": "01F7:8C7D", "object_callback": "01F7:8D20", "sprite_slot": 600, "position": [768, 224], "callback_samples": 1, "collection_bit": 1, "native_world": "PUZZLE.BOB record 0, N 16x16 origin 0,0"},
@@ -432,7 +432,7 @@
         {"type": "0x7F", "fixture": "W1L1 entity-7f-native final-letter probe with DS:60D8=0x3F", "dispatch": "01F7:8D07", "post_initializer": "01F7:8D13", "object_callback": "01F7:8D20", "sprite_slot": 606, "callback_samples": 1, "collection_mask": "0x3F -> 0x7F", "sound_action": 11, "score_delta": 100, "callback_after": 0, "post_frames": 1800, "transition_observed": false, "evidence": "research/entity-puzzle-completion-evidence.json"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-interaction-overlap-evidence.json", "research/entity-action-dispatch-evidence.json", "research/entity-collectible-persistence-evidence.json", "research/entity-level-reload-persistence-evidence.json", "research/entity-puzzle-completion-evidence.json", "research/notes/type-7a-puzzle-sheet.png", "engine/src/level.cpp"],
-      "open_questions": ["authored level completion/transition trigger"]
+      "open_questions": ["dynamic timing of the 01D7 completion presentation in a fully authored all-seven-letter level"]
     }
   ]
 }

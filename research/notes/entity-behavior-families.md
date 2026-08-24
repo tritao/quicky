@@ -255,10 +255,12 @@ pickup reload persistence is resolved as reset/reconstruction behavior in the
 tested fixture. A final-letter W1L1 probe then forced `DS:60D8=0x3F`, collected
 type `0x7F`, reached `DS:60D8=0x7F`, emitted action `11`, and cleared the letter;
 after 1,800 gameplay frames the mask and W1L1 resource span were unchanged and
-no level transition occurred. Direct segment scanning finds `01F7:5940` as the
-presentation/update consumer of changed `DS:60D8` bits, with no direct all-seven
-bits comparator or transition call. The authored completion trigger remains
-unidentified. See [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
+no level transition occurred. Static disassembly of selector `01D7` now closes
+the authored path: `01D7:1670` compares `DS:60D8` with `0x7F`,
+`01D7:16C6-1704` renders `NESQUIK: 2000` and `BONUS-LEVEL!`, adds 2000 points,
+and sets `DS:85DB=1`; the caller consumes that state at `01D7:4F10-4FAF` and
+enters reload/transition setup at `01D7:5017`. The synthetic run simply did
+not enter that presentation branch. See [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
 and [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 
 The three adjacent pickup subtypes now have controlled native overlap ledgers.
@@ -378,8 +380,10 @@ rectangle, and confirms `DS:89E6: 0 -> FFFF` while callback `9269` remains
 active and stationary; the static `+0x37 == 0` test is therefore resolved. The
 standard renderer `01F7:3529` returns immediately for logical slot `FFFF`, and
 `9269` has no direct draw/resource call. One-shot native probes hit both
-player-side readers `01F7:4087` and `01F7:4406` with `DS:89E6=FFFF`; only the
-outer draw binding of the special WOLKE state remains open. See
+player-side readers `01F7:4087` and `01F7:4406` with `DS:89E6=FFFF`; a separate
+controlled run hits the outer main-loop consumer `01D7:4EA0` repeatedly with
+that flag set. The exact low-level WOLKE.BOB pixel primitive is still outside
+the normal logical-slot queue. See
 [`entity-cloud-crossworld-evidence.json`](../entity-cloud-crossworld-evidence.json).
 
 ## Reproducible next experiments
@@ -478,14 +482,13 @@ The broad family pass is complete. The targeted probes now close the shared
 collectible overlap and pickup reload, pooled-leaf reuse, normal-enemy helper,
 and platform-carry boundaries. Remaining experiments are deliberately narrower:
 
-1. Authored puzzle-letter level completion/transition remains open. The final
-   bit reaches `DS:60D8=0x7F` without a transition in the 1,800-frame controlled
-   run, and the direct mask consumer is presentation bookkeeping rather than a
-   completion comparator; the remaining target is the level-specific trigger,
-   if any.
-2. If renderer provenance is required, identify the outer draw consumer of the
-   special WOLKE state. The player-state gate, cross-world usage, and removal
-   path plus both player-side readers are now confirmed.
+1. Capture the fully authored all-seven-letter run if exact completion timing is
+   needed. The static comparator and transition handoff are now identified, but
+   the synthetic fixture did not execute the presentation branch.
+2. If pixel-level renderer provenance is required, identify the low-level
+   WOLKE.BOB draw primitive after the outer `01D7:4EA0` state consumer. The
+   player-state gate, cross-world usage, removal path, and both player-side
+   readers are confirmed.
 
 Each new trace should update the corresponding seven dimension statuses in the
 JSON matrix and add a durable reference to this note. Do not promote a

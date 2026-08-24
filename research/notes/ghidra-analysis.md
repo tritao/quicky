@@ -433,8 +433,10 @@ synthetic 16x16 bounds rectangle, and player byte `+0x37=0` reaches the
 accepted `01F7:9269` branch and records `DS:89E6: 0 -> FFFF` while the cloud
 callback remains active. One-shot reader probes then hit both player-side
 consumers `01F7:4087` and `01F7:4406` with `DS:89E6=FFFF`; the player-state
-consumer path is therefore resolved, while the outer draw binding remains to
-be located.
+consumer path is therefore resolved. A controlled outer-state run also hits
+the main-loop consumer `01D7:4EA0` repeatedly with `DS:89E6=FFFF`; the normal
+object renderer is deliberately bypassed, so only the low-level WOLKE.BOB
+pixel primitive remains outside the logical-slot queue.
 
 Types `0x29` and `0x2A` use the same normal dispatch callback as `0x2B`:
 `01F7:4727`, object class `1`, reserved byte `0`.
@@ -836,3 +838,16 @@ Native-context renderer probes independently resolve map indices 80 through 86
 and descriptor offsets 3520, 3564, 3608, 3652, 3696, 3740, and 3784. Every
 live descriptor is `16x16` with origin `(0,0)`, matching PUZZLE.BOB records 0
 through 6 and confirming the slot-to-descriptor stride.
+
+The completion trigger is in the main selector `01D7`, not in the `01F7`
+letter callback. The routine at `01D7:14E1` compares `DS:60D8` against
+`0x007F` at `01D7:1670`; the taken branch `01D7:16C6-1704` renders the
+`NESQUIK: 2000` and `BONUS-LEVEL!` strings, sets the sound action at `DS:612E`,
+adds `0x07D0` to the score pair `DS:881C/DS:881E`, waits between messages, and
+sets `DS:85DB=1`. Its caller immediately tests that flag at `01D7:4F10`, jumps
+to `01D7:4FAF`, maps the selector state, and enters the reload/transition setup
+at `01D7:5017` (relocated target `01F7:0908`) followed by the resource/object
+handoff calls through `01D7:5047`. The final-letter synthetic run reaches the
+mask and clears the object but does not execute this authored presentation
+branch within its 1,800-frame window; the static handoff is nevertheless now
+resolved.

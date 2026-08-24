@@ -160,6 +160,21 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertIn("0x4406", source)
         self.assertIn("cloud_consumer_offset", source)
 
+    def test_cloud_outer_renderer_probe_is_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x180A,
+            entity_type=0x28,
+            samples=2,
+            startup_recording=Path("startup.json"),
+            trace_cloud_outer_renderer=True,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["trace_cloud_outer_renderer"])
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("cloud_outer_renderer_probe", source)
+        self.assertIn("01D7:4EA0", source)
+
 
 if __name__ == "__main__":
     unittest.main()
