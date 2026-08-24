@@ -37,6 +37,13 @@
         "01F7:F07B": "DOS INT 21h/AH=25h installation of interrupt vector 08h; no sprite draw",
         "01F7:106A": "object update/list pass that can clear callbacks; no direct WOLKE blitter call"
       },
+      "completion_effect_consumer": {
+        "entry": "01D7:14E1",
+        "call_site": "01D7:4F0D",
+        "gate": "01D7:4EA0 -> 4EAA requires DS:89E6 != 0",
+        "all_seven_branch": "01D7:1670 -> 16C6-1704",
+        "transition_flag": "DS:85DB=1"
+      },
       "bob_resource_loader": {
         "loader": "01D7:399E",
         "slot_map_helper": "01F7:05A0",
@@ -45,7 +52,7 @@
         "static_behavior": "05A0 scans for the first empty descriptor record and publishes its index for the supplied logical BOB slot; 399E then reads BOB descriptor fields into that record.",
         "interpretation": "WOLKE.BOB slot materialization is generic resource-loader state, not a hardcoded 0013 caller. The specific WOLKE slot argument and the later pixel-draw caller remain unresolved."
       },
-      "interpretation": "The positive cloud flag path performs the outer gameplay/effect work and then enters the normal object update/render pass; it does not directly call a WOLKE.BOB blitter."
+      "interpretation": "The positive cloud flag path performs the outer gameplay/effect work, calls the completion/effect consumer at 01D7:14E1 through 01D7:4F0D, and then enters the normal object update/render pass; it does not directly call a WOLKE.BOB blitter."
     },
     "normal_queue": {
       "object_update_queue": "01F7:0FDC",

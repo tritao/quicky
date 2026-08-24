@@ -849,7 +849,11 @@ to `01D7:4FAF`, maps the selector state, and enters the reload/transition setup
 at `01D7:5017` (relocated target `01F7:0908`) followed by the resource/object
 handoff calls through `01D7:5047`. The final-letter synthetic run reaches the
 mask and clears the object but does not execute this authored presentation
-branch within its 1,800-frame window. A refined 300-frame probe armed only the
-authored comparator, presentation, and transition addresses and also recorded
-zero hits, so the static handoff is resolved while the fixture prerequisite or
-exact timing remains open.
+branch within its 1,800-frame window because the comparator is called from the
+outer cloud-state path only when `DS:89E6 != 0`. The nearby-cloud callback at
+`01F7:9269` writes `DS:89E6=0xFFFF`; the positive outer branch
+`01D7:4EA0-4EAA` calls `01D7:14E1`, whose `01D7:1670` comparator then reaches
+`16C6-1704`. A diagnostic probe that seeded this real gate captured
+`4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 -> 1704`,
+set `DS:85DB=1`, and added 2000 points. The unforced fully authored
+post-message continuation through `01D7:4FAF-5047` remains to be timed.

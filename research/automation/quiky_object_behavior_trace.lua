@@ -42,6 +42,7 @@ if reload_level == nil or reload_level == "" then reload_level = select_level en
 local reload_wait_frames = trace_config.reload_wait_frames or 30
 local force_tile_mask = trace_config.force_tile_mask
 local trace_puzzle_completion = trace_config.trace_puzzle_completion or false
+local force_completion_outer_state = trace_config.force_completion_outer_state or false
 local puzzle_probe_frames = trace_config.puzzle_probe_frames or 120
 local runtime_offset = record_offset - 0x160
 
@@ -862,6 +863,9 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
     -- mask, loader globals, and current execution state. A transition would
     -- change these fields even when no direct DS:60D8 comparator is present.
     local presentation_points = {
+        {segment = 0x01d7, offset = 0x14e1},
+        {segment = 0x01d7, offset = 0x4eaa},
+        {segment = 0x01d7, offset = 0x4f0d},
         {segment = 0x01d7, offset = 0x1670},
         {segment = 0x01d7, offset = 0x16c6},
         {segment = 0x01d7, offset = 0x16de},
@@ -873,12 +877,23 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         {segment = 0x01d7, offset = 0x5038},
         {segment = 0x01d7, offset = 0x5047},
     }
+    local outer_state_point = {segment = 0x01d7, offset = 0x4ea0}
     local presentation_hits = {}
-    local presentation_timeout_ms = math.min(timeout_ms, 5000)
+    local presentation_timeout_ms = force_completion_outer_state and
+        math.min(timeout_ms, 30000) or math.min(timeout_ms, 5000)
     local function arm_presentation_points()
         for _, point in ipairs(presentation_points) do
             dosbox.breakpoint_set(point.segment, point.offset, {once = true})
         end
+    end
+    if force_completion_outer_state then
+        -- The authored comparator is reached from the outer cloud-state
+        -- consumer (01D7:4EA0), not from the ordinary object callback.  A
+        -- real nearby cloud writes DS:89E6=-1; seed that gate here only for
+        -- the diagnostic handoff probe.
+        dosbox.mem_write("ds", 0x89e6, little_word(0xffff))
+        dosbox.breakpoint_set(outer_state_point.segment, outer_state_point.offset,
+                              {once = true})
     end
     arm_presentation_points()
     dosbox.debug_continue()
@@ -891,6 +906,10 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
                 is_presentation = true
                 break
             end
+        end
+        if hit.segment == outer_state_point.segment and
+                hit.offset == outer_state_point.offset then
+            is_presentation = true
         end
         if is_presentation then
             local stack = dosbox.mem_read("ss", hit.registers.esp & 0xffff, 12) or ""
@@ -907,7 +926,6 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
             }
         end
         if #presentation_hits >= 32 then break end
-        if is_presentation then arm_presentation_points() end
         dosbox.debug_continue()
     end
     dosbox.debug_continue()
@@ -923,8 +941,13 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
             size = dword(resource_state, 9),
         },
         selector_index = dosbox.mem_read_word("ds", 0x85d4),
+        completion_flag = dosbox.mem_read_word("ds", 0x85db),
+        selector_state = dosbox.mem_read_word("ds", 0x85d6),
+        score_lo = dosbox.mem_read_word("ds", 0x881c),
+        score_hi = dosbox.mem_read_word("ds", 0x881e),
         level_loop_state = dosbox.mem_read_word("ds", 0x819e),
         presentation_hits = presentation_hits,
+        outer_state_forced = force_completion_outer_state,
         cpu = dosbox.cpu_state(),
     }
 end

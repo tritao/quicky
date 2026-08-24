@@ -55,11 +55,13 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             startup_recording=Path("startup.json"),
             force_tile_mask=0x3F,
             trace_puzzle_completion=True,
+            force_completion_outer_state=True,
             puzzle_probe_frames=24,
         )
         payload = lua_config(config)
         self.assertEqual(payload["force_tile_mask"], 0x3F)
         self.assertTrue(payload["trace_puzzle_completion"])
+        self.assertTrue(payload["force_completion_outer_state"])
         self.assertEqual(payload["puzzle_probe_frames"], 24)
 
     def test_interaction_probe_flags_are_serialized(self):

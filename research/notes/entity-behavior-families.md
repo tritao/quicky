@@ -269,11 +269,16 @@ no level transition occurred. Static disassembly of selector `01D7` now closes
 the authored path: `01D7:1670` compares `DS:60D8` with `0x7F`,
 `01D7:16C6-1704` renders `NESQUIK: 2000` and `BONUS-LEVEL!`, adds 2000 points,
 and sets `DS:85DB=1`; the caller consumes that state at `01D7:4F10-4FAF` and
-enters reload/transition setup at `01D7:5017`. The synthetic run simply did
-not enter that presentation branch; a refined 300-frame probe armed only the
-authored comparator, presentation, and transition addresses and recorded zero
-hits, confirming that the negative result is not an artifact of the older
-display-consumer breakpoints. See [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
+enters reload/transition setup at `01D7:5017`. The synthetic run initially did
+not enter that presentation branch because the comparator is reached through
+the outer cloud-state gate: `01D7:4EA0-4EAA` requires `DS:89E6 != 0`, and the
+nearby-cloud callback `01F7:9269` normally writes `0xFFFF` there. A refined
+negative probe armed only the authored addresses and recorded zero hits. A
+separate diagnostic seed of that real gate then captured
+`4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 -> 1704`,
+observed `DS:85DB=1`, and measured the 2000-point bonus. The exact post-message
+transition delay or additional prerequisite remains open. See
+[`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
 and [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 
 The three adjacent pickup subtypes now have controlled native overlap ledgers.
@@ -564,6 +569,14 @@ with no resource reload or level transition. The direct `DS:60D8` consumer at
 `01F7:5940` updates presentation state; see
 [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 
+The missing authored call chain is gated by the nearby-cloud state. For the
+diagnostic handoff run, add `--force-completion-outer-state` and use a bounded
+timeout; this seeds `DS:89E6=0xFFFF` after collection. The resulting trace
+captures `01D7:4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 ->
+1704`, sets `DS:85DB=1`, and adds 2000 points. This is a controlled prerequisite
+probe, not a substitute for the fully authored all-seven-letter run; the
+post-message `4FAF-5047` continuation remains the timing gap.
+
 For a level-specific representative, add `--select-level W2L1` and use the
 record offset from `quikyctl.py entity-catalog`. Use paired traces for each
 family variant, then run a one-record target-vs-inert mutation with
@@ -576,11 +589,10 @@ collectible overlap and pickup reload, pooled-leaf reuse, normal-enemy helper
 and lifecycle boundary, and platform-carry boundaries. Remaining experiments
 are deliberately narrower:
 
-1. Capture the fully authored all-seven-letter run if exact completion timing is
-   needed. The static comparator and transition handoff are now identified, and
-   a comparator/presentation/transition-only probe recorded no hits after the
-   synthetic fixture reached `0x7F`; the authored prerequisite or timing remains
-   open.
+1. Capture the fully authored all-seven-letter run if exact transition timing is
+   needed. The outer-state prerequisite and authored presentation sequence are
+   now dynamically bounded; the remaining gap is the post-message continuation
+   through `01D7:4FAF-5047` in an unforced, fully authored run.
 2. If pixel-level renderer provenance is required, continue from the narrowed
    WOLKE boundary: identify the alternate descriptor/resource path (or a
    fixture that reaches it) after the outer `01D7:4EA0` state consumer. The
