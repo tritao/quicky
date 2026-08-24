@@ -107,9 +107,109 @@ static void test_type34_proximity() {
     assert(!test_type34_proximity(object, player, 0x31).proximity_hit);
 }
 
+static DescriptorMemory type33_motion_memory() {
+    return DescriptorMemory{
+        0x3504,
+        {10, 0x00d6, 0x00d7, 0x00d8, 0x00d9, -4, 6, 0x00d7},
+    };
+}
+
+static void test_type33_motion_states() {
+    const auto memory = type33_motion_memory();
+    Type33MotionContext context;
+    ObjectRecord object;
+    object.map_probe_direction = 1;
+    object.type33_state = 0;
+    object.type33_transition = 0;
+    object.type33_velocity_fixed = 0;
+    object.type33_animation_counter = 0;
+    object.type33_travel_counter = 0;
+    const auto cruise = step_type33_motion(object, memory, context, false);
+    assert(!cruise.map_set_transition);
+    assert(object.type33_velocity_fixed == 0);
+    assert(object.type33_animation_counter == 1);
+    assert(object.type33_travel_counter == 1);
+
+    object.type33_transition = 1;
+    object.type33_phase = -1;
+    object.type33_phase_timer = 2;
+    const auto left = step_type33_motion(object, memory, context, false);
+    assert(!left.map_set_transition);
+    assert(object.type33_velocity_fixed == -0x400);
+    assert(object.world_x_fixed == -0x400);
+    assert(object.type33_phase_timer == 1);
+
+    object.type33_velocity_fixed = 0;
+    object.type33_phase_timer = 0;
+    const auto reversed = step_type33_motion(object, memory, context, false);
+    assert(object.map_probe_direction == -1);
+    assert(object.type33_phase == 1);
+    assert(object.type33_velocity_fixed == -0x20);
+    assert(object.type33_phase_timer == 0x14);
+    assert(!reversed.descriptor_loaded);
+
+    object.type33_state = 1;
+    object.type33_transition = 0;
+    object.map_probe_direction = 1;
+    object.type33_velocity_fixed = 0;
+    object.world_x_fixed = 0;
+    const auto stopped = step_type33_motion(object, memory, context, false);
+    assert(stopped.descriptor_loaded);
+    assert(object.type33_state == 2);
+    assert(object.type33_velocity_fixed == 0);
+    assert(object.world_x_fixed == -0x100);
+    assert(object.descriptor_sequence_base == 0x3512);
+
+    object.type33_state = 2;
+    object.type33_state_counter = 0x2d;
+    object.type33_velocity_fixed = 0;
+    object.world_x_fixed = 0;
+    const auto raised = step_type33_motion(object, memory, context, false);
+    assert(raised.descriptor_loaded);
+    assert(object.type33_state == 3);
+    assert(object.type33_state_counter == 0);
+    assert(object.type33_velocity_fixed == 0x200);
+    assert(object.world_x_fixed == 0x200);
+
+    object.type33_state = 3;
+    object.type33_velocity_fixed = 0x4e00;
+    object.world_x_fixed = 0;
+    const auto limited = step_type33_motion(object, memory, context, false);
+    assert(object.type33_state == 0);
+    assert(object.type33_velocity_fixed == 0x5000);
+    assert(object.world_x_fixed == 0x5000);
+    assert(limited.state_changed);
+
+    object.type33_state = 1;
+    object.type33_transition = 1;
+    object.type33_travel_counter = 0;
+    object.world_x_fixed = 0;
+    step_type33_motion(object, memory, context, false);
+    assert(object.type33_state == 0);
+    assert(object.type33_travel_counter == 0x23);
+}
+
+static void test_type33_travel_ring() {
+    const auto memory = type33_motion_memory();
+    Type33MotionContext context;
+    context.travel_ring[0] = 0x18;
+    ObjectRecord object;
+    object.map_probe_direction = 1;
+    object.type33_state = 0;
+    object.type33_transition = 0;
+    object.type33_travel_counter = 0x32;
+    object.type33_animation_counter = 0x4f;
+    step_type33_motion(object, memory, context, false);
+    assert(object.type33_state == 1);
+    assert(object.type33_travel_counter == 3);
+    assert(context.travel_ring_index == 1);
+}
+
 int main() {
     test_type33_descriptor_sequence();
     test_descriptor_mode_adjustment();
     test_pool_and_scheduler();
     test_type34_proximity();
+    test_type33_motion_states();
+    test_type33_travel_ring();
 }

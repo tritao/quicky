@@ -108,6 +108,144 @@ bool advance_descriptor(ObjectRecord& object, const DescriptorMemory& memory) {
     return true;
 }
 
+static std::int32_t clamp_type33_velocity(std::int32_t value,
+                                          std::int32_t limit) {
+    return std::clamp(value, -limit, limit);
+}
+
+static std::int8_t negate_type33_byte(std::int8_t value) {
+    return static_cast<std::int8_t>(-static_cast<std::int16_t>(value));
+}
+
+static bool type33_timer_expired(std::uint16_t& timer) {
+    // 882F uses DEC word followed by JGE, so zero decrements to -1 and
+    // expires; all positive values simply count down.
+    timer = static_cast<std::uint16_t>(timer - 1);
+    return static_cast<std::int16_t>(timer) < 0;
+}
+
+Type33StepResult step_type33_motion(ObjectRecord& object,
+                                    const DescriptorMemory& memory,
+                                    Type33MotionContext& context,
+                                    bool map_probe_zero) {
+    Type33StepResult result;
+    const auto old_state = object.type33_state;
+    if (map_probe_zero) {
+        object.type33_transition = 1;
+        result.map_set_transition = true;
+    }
+
+    auto mark_state_change = [&] {
+        result.state_changed = result.state_changed ||
+            object.type33_state != old_state;
+    };
+
+    if (object.type33_state < 1) {
+        if (object.type33_transition <= 0) {
+            object.world_x_fixed += object.type33_velocity_fixed;
+            ++object.type33_animation_counter;
+            if (object.type33_animation_counter <= 0x50) {
+                ++object.type33_travel_counter;
+                if (object.type33_travel_counter > 0x32) {
+                    const std::uint8_t ring_index = context.travel_ring_index++;
+                    // The original sign-extends the byte, then performs a
+                    // logical AX shift by three.
+                    const auto signed_value = static_cast<std::int16_t>(
+                        context.travel_ring[ring_index]);
+                    object.type33_travel_counter =
+                        static_cast<std::uint16_t>(signed_value) >> 3;
+                    object.type33_state = 1;
+                }
+            } else {
+                object.type33_animation_counter = 0;
+                object.type33_transition = 1;
+            }
+        } else if (object.type33_phase < 0) {
+            auto velocity = object.type33_velocity_fixed -
+                static_cast<std::int32_t>(object.map_probe_direction) * 0x400;
+            velocity = clamp_type33_velocity(velocity, 0x6000);
+            object.type33_velocity_fixed = velocity;
+            object.world_x_fixed += velocity;
+            if (type33_timer_expired(object.type33_phase_timer)) {
+                object.map_probe_direction = negate_type33_byte(
+                    object.map_probe_direction);
+                object.descriptor_mode = static_cast<std::uint8_t>(
+                    negate_type33_byte(static_cast<std::int8_t>(
+                        object.descriptor_mode)));
+                object.type33_phase = negate_type33_byte(object.type33_phase);
+                object.type33_velocity_fixed =
+                    static_cast<std::int8_t>(object.map_probe_direction) << 5;
+                object.type33_phase_timer = 0x14;
+            }
+        } else {
+            auto velocity = object.type33_velocity_fixed +
+                static_cast<std::int32_t>(object.map_probe_direction) * 0x400;
+            velocity = clamp_type33_velocity(velocity, 0x6000);
+            object.type33_velocity_fixed = velocity;
+            object.world_x_fixed += velocity;
+            if (type33_timer_expired(object.type33_phase_timer)) {
+                object.type33_phase = negate_type33_byte(object.type33_phase);
+                object.type33_transition = -1;
+                object.type33_phase_timer = 0x14;
+            }
+        }
+        mark_state_change();
+        return result;
+    }
+
+    if (object.type33_transition > 0) {
+        object.type33_state = 0;
+        object.type33_travel_counter = 0x23;
+        mark_state_change();
+        return result;
+    }
+
+    if (object.type33_state == 2) {
+        ++object.type33_state_counter;
+        if (object.type33_state_counter <= 0x2d) {
+            mark_state_change();
+            return result;
+        }
+        object.type33_state_counter = 0;
+        object.type33_state = 3;
+        load_descriptor(object, memory, 0x3504);
+        result.descriptor_loaded = true;
+    } else if (object.type33_state != 3) {
+        auto velocity = object.type33_velocity_fixed -
+            static_cast<std::int32_t>(object.map_probe_direction) * 0x100;
+        velocity = clamp_type33_velocity(velocity, 0x5000);
+        object.type33_velocity_fixed = velocity;
+        object.world_x_fixed += velocity;
+        const bool reached_zero = object.map_probe_direction <= 0
+            ? velocity < 0
+            : velocity > 0;
+        if (!reached_zero) {
+            object.type33_velocity_fixed = 0;
+            object.type33_state = 2;
+            load_descriptor(object, memory, 0x3510);
+            result.descriptor_loaded = true;
+            mark_state_change();
+            return result;
+        }
+        mark_state_change();
+        return result;
+    }
+
+    auto velocity = object.type33_velocity_fixed +
+        static_cast<std::int32_t>(object.map_probe_direction) * 0x200;
+    velocity = clamp_type33_velocity(velocity, 0x5000);
+    object.type33_velocity_fixed = velocity;
+    object.world_x_fixed += velocity;
+    const bool at_limit = object.map_probe_direction <= 0
+        ? velocity <= -0x5000
+        : velocity >= 0x5000;
+    if (at_limit) {
+        object.type33_state = 0;
+    }
+    mark_state_change();
+    return result;
+}
+
 Type34Action test_type34_proximity(const ObjectRecord& object,
                                     PlayerState& player,
                                     std::uint16_t activation_state) {

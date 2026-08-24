@@ -3,8 +3,8 @@
 
 This is intentionally a contract comparator, not a second game emulator.  It
 checks the parts already recovered exactly (descriptor sequencing, type-0x34
-gate/action output, and lifecycle signatures) and reports type-0x33 motion as
-observations until its MAP-dependent pre-state is modeled.
+gate/action output, lifecycle signatures, and the isolated type-0x33 motion
+state machine). MAP-dependent pre-state remains an explicit trace input.
 """
 
 from __future__ import annotations
@@ -114,6 +114,19 @@ def compare_descriptors(samples: list[dict[str, Any]],
             continue
         if callback.get("offset") == 0x9c0c and 0x5d60 not in helper_offsets:
             continue
+        type33_before = (sample.get("object_before") or {}).get("type33")
+        type33_after = (sample.get("object_after") or {}).get("type33")
+        if (callback.get("offset") == 0x882f and
+                isinstance(type33_before, dict) and
+                isinstance(type33_after, dict) and
+                ((type33_before.get("state") == 1 and
+                  type33_after.get("state") == 2) or
+                 (type33_before.get("state") == 2 and
+                  type33_after.get("state") == 3))):
+            # 882F calls 5D38 directly on these state transitions. The
+            # descriptor mutation is checked by the type-33 state contract,
+            # not by the one-step 5D60 timer contract below.
+            continue
         sequence = int(sample.get("sequence", 0))
         if after.get("reload_delay", 0) == 0:
             continue
@@ -198,6 +211,155 @@ def _strict_proximity(object_position: dict[str, Any],
     px, py = player_position["x"], player_position["y"]
     return (ox - 0x19 < px < ox + 0x19 and
             oy - 8 < py < oy)
+
+
+def _signed32(value: int) -> int:
+    value &= 0xffffffff
+    return value - 0x100000000 if value & 0x80000000 else value
+
+
+def _clamp_type33_velocity(value: int, limit: int) -> int:
+    return max(-limit, min(limit, value))
+
+
+def _type33_map_sets_transition(sample: dict[str, Any]) -> bool | None:
+    """Return the observed 882F pre-state transition decision.
+
+    1C4D returns through 8858 and contributes CF; 5C27 returns through the
+    directional 8876/888A sites and contributes ZF. Both are captured only
+    when helper tracing is enabled, so None means the decision was not
+    observed rather than false.
+    """
+    observed = False
+    sets_transition = False
+    for helper in (sample.get("callback") or {}).get("helper_calls", []) or []:
+        if not isinstance(helper, dict) or "return_flags" not in helper:
+            continue
+        return_address = helper.get("return_address") or {}
+        return_offset = return_address.get("offset")
+        flags = int(helper.get("return_flags", 0))
+        offset = int(helper.get("offset", 0))
+        if offset == 0x1c4d and return_offset == 0x8858:
+            observed = True
+            sets_transition = sets_transition or bool(flags & 0x0001)
+        elif (offset == 0x5c27 and
+              return_offset in (0x8876, 0x888a)):
+            observed = True
+            sets_transition = sets_transition or bool(flags & 0x0040)
+    return sets_transition if observed else None
+
+
+def _compare_type33_motion(sample: dict[str, Any],
+                            issues: list[ComparisonIssue],
+                            map_sets_transition: bool) -> None:
+    before_object = sample.get("object_before") or {}
+    after_object = sample.get("object_after") or {}
+    before = before_object.get("type33") or {}
+    after = after_object.get("type33") or {}
+    before_position = before_object.get("position") or {}
+    after_position = after_object.get("position") or {}
+    required = {
+        "velocity_fixed", "direction", "phase", "phase_timer",
+        "transition", "state", "state_counter", "travel_counter",
+        "animation_counter",
+    }
+    if not required.issubset(before) or not required.issubset(after):
+        return
+    if "x_fixed" not in before_position or "x_fixed" not in after_position:
+        return
+
+    sequence = int(sample.get("sequence", 0))
+    state = int(before["state"])
+    transition = int(before["transition"])
+    if map_sets_transition:
+        transition = 1
+
+    expected_x = _signed32(int(before_position["x_fixed"]))
+    expected_velocity = int(before["velocity_fixed"])
+    expected_state = state
+    expected_transition = int(before["transition"])
+    if map_sets_transition:
+        expected_transition = 1
+    expected_state_counter = int(before["state_counter"])
+    expected_travel = int(before["travel_counter"])
+    expected_animation = int(before["animation_counter"])
+    expected_direction = int(before["direction"])
+    expected_phase = int(before["phase"])
+    expected_phase_timer = int(before["phase_timer"])
+
+    if state < 1:
+        if transition <= 0:
+            expected_x += expected_velocity
+            expected_animation = (expected_animation + 1) & 0xffff
+            if expected_animation <= 0x50:
+                expected_travel = (expected_travel + 1) & 0xffff
+            else:
+                expected_animation = 0
+                expected_transition = 1
+        elif expected_phase < 0:
+            expected_velocity = _clamp_type33_velocity(
+                expected_velocity - expected_direction * 0x400, 0x6000)
+            expected_x += expected_velocity
+            expected_phase_timer = (expected_phase_timer - 1) & 0xffff
+            if _signed16(expected_phase_timer) < 0:
+                expected_direction = -expected_direction
+                expected_phase = -expected_phase
+                expected_phase_timer = 0x14
+                expected_velocity = expected_direction << 5
+        else:
+            expected_velocity = _clamp_type33_velocity(
+                expected_velocity + expected_direction * 0x400, 0x6000)
+            expected_x += expected_velocity
+            expected_phase_timer = (expected_phase_timer - 1) & 0xffff
+            if _signed16(expected_phase_timer) < 0:
+                expected_phase = -expected_phase
+                expected_transition = -1
+                expected_phase_timer = 0x14
+    elif transition > 0:
+        expected_state = 0
+        expected_travel = 0x23
+    elif state == 2:
+        expected_state_counter = (expected_state_counter + 1) & 0xffff
+        if expected_state_counter > 0x2d:
+            expected_state_counter = 0
+            expected_state = 3
+            expected_velocity = _clamp_type33_velocity(
+                expected_velocity + expected_direction * 0x200, 0x5000)
+            expected_x += expected_velocity
+    elif state != 3:
+        expected_velocity = _clamp_type33_velocity(
+            expected_velocity - expected_direction * 0x100, 0x5000)
+        expected_x += expected_velocity
+        keep_moving = ((expected_direction <= 0 and expected_velocity < 0) or
+                       (expected_direction > 0 and expected_velocity > 0))
+        if not keep_moving:
+            expected_velocity = 0
+            expected_state = 2
+    else:
+        expected_velocity = _clamp_type33_velocity(
+            expected_velocity + expected_direction * 0x200, 0x5000)
+        expected_x += expected_velocity
+        if ((expected_direction <= 0 and expected_velocity <= -0x5000) or
+                (expected_direction > 0 and expected_velocity >= 0x5000)):
+            expected_state = 0
+
+    actual_x = _signed32(int(after_position["x_fixed"]))
+    checks = {
+        "x_fixed": (expected_x, actual_x),
+        "velocity_fixed": (expected_velocity, int(after["velocity_fixed"])),
+        "transition": (expected_transition, int(after["transition"])),
+        "state": (expected_state, int(after["state"])),
+        "state_counter": (expected_state_counter, int(after["state_counter"])),
+        "travel_counter": (expected_travel, int(after["travel_counter"])),
+        "animation_counter": (expected_animation, int(after["animation_counter"])),
+        "direction": (expected_direction, int(after["direction"])),
+        "phase": (expected_phase, int(after["phase"])),
+        "phase_timer": (expected_phase_timer, int(after["phase_timer"])),
+    }
+    for field, (expected, actual) in checks.items():
+        if expected != actual:
+            _issue(issues, sequence, "type33", field, expected, actual,
+                   "type-0x33 motion state diverged from the recovered 882F branch")
 
 
 def compare_type34(payload: dict[str, Any], samples: list[dict[str, Any]],
@@ -285,6 +447,9 @@ def compare_type33(samples: list[dict[str, Any]],
         after_position = after.get("position") or {}
         if "x_fixed" in before_position and "x_fixed" in after_position:
             movement_observations += 1
+        map_sets_transition = _type33_map_sets_transition(sample)
+        if map_sets_transition is not None:
+            _compare_type33_motion(sample, issues, map_sets_transition)
         if after.get("update_callback") == 0 and not sample.get("termination", {}).get("visibility_gate_hit"):
             _issue(issues, int(sample.get("sequence", 0)), "type33",
                    "update_callback", "nonzero or visibility cull",

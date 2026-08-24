@@ -323,16 +323,13 @@ type `0x34` consumes a MAP-state result through its local proximity test.
 The corrected type `0x33` run reaches `0x5C27` once on every steady callback
 (47 calls). The helper receives `AX=0x0100` and an X-like `BX` that moves from
 `0x0319` down to `0x02DA` as the object moves left; it preserves those
-registers on return. The tracer's MAP probe resolves the first branch to
-selector `0x0377`, row stride `0x021C`, MAP offset `0x2222`, raw word/tile
-`0x0033`, and descriptor word `0x6544` with low-nibble flags `0x4`. At sample
-23 the coordinate changes to MAP offset `0x221A`, raw word/tile `0x0032`, and
-descriptor word `0` with flags `0`; the far return address switches at exactly
-the same point from `0x888A` to `0x8876`. Static decoding identifies `0x5C27`
-as a low-9-bit MAP tile lookup followed by a `DS:0x6582` descriptor test using
-the coordinate bit-3 flags. The call-site switch is therefore explained by a
-MAP tile/descriptor transition, leaving the higher-level response of the two
-branches as the next target alongside the `0x5D38`/`0x5D60` descriptor words.
+registers on return. The MAP selector is `0x0377` with row stride `0x021C`.
+The descriptor selector is a separate `0x0277`; reading the descriptor word
+through `DS` produced the misleading old value `0x6544`. The executable uses
+the selector stored at `DS:0x6584`, and the corrected probe reads the live
+descriptor through that selector. The directional `5C27` call returns through
+`0x888A` or `0x8876` and its zero flag, not carry, controls the transition
+branch.
 
 ## Controlled MAP and proximity probes
 
@@ -347,18 +344,27 @@ words rather than an opaque boolean. The final steady samples were:
 | Target X | `0x5C27` tile / flags | `0x1C4D → 0x1C6E` tile word |
 | ---: | --- | ---: |
 | `700` | `0x32 / 0` | `0x1E` |
-| `730` | `0x33 / 4` | `0x1E` |
-| `760` | `0x33 / 4` | `0x33` |
-| `790` | `0x33 / 4` | `0x33` |
-| `820` | `0x33 / 4` | `0x1F` |
-| `850` | `0x33 / 4` | `0x92` |
+| `730` | `0x33 / 0` | `0x1E` |
+| `760` | `0x33 / 0` | `0x33` |
+| `790` | `0x33 / 0` | `0x33` |
+| `820` | `0x33 / 0` | `0x1F` |
+| `850` | `0x33 / 0` | `0x92` |
 
 The `0x1C6E` disassembly is now resolved: it computes a 16-pixel MAP address
 using `DS:657A/657C/657E`, returns the raw MAP word in `AX`, and tests bit
 `0x4000`. The `0x1C4D` wrapper forms the probe coordinate from the object
-position and direction byte `+0x29`, then calls `0x1C6E`. The separate
-`0x5C27` call tests the descriptor table at `DS:6582`, explaining why the two
-observed tile/flag results are useful independent signals.
+position and signed direction byte `+0x29`, then calls `0x1C6E`; its carry
+return is the tested `0x4000` result. The separate directional `0x5C27` calls
+use the low-9-bit tile ID and the descriptor selector at `DS:6584`, then test
+the low-nibble flag selected by the coordinate bit-3 pattern. The two helper
+results are therefore independent MAP inputs, not one combined boolean.
+
+At forced position `(738,400)` with direction `+1`, the boundary probe is
+`(763,400)`, MAP tile `0x2E`, descriptor word `0x000C`, and descriptor flags
+`0xC`; `5C27` returns flags `0x3202` (ZF clear), so `+0x2F` remains zero. At
+the original `(738,256)` probe, the boundary tile is `0x33` with descriptor
+word zero and `5C27` returns `0x3246` (ZF set), so `+0x2F` becomes one. This
+pair isolates the state machine from the MAP pre-state.
 
 The type `0x34` proximity matrix used player X/Y `(128,400)`, `CL=1` via
 bounds byte `+0x37`, and `DS:0x85DA=49`. It confirms strict inequalities:
@@ -393,7 +399,7 @@ The type-`0x33` callback at `01F7:882F` has four explicit motion substates in
 
 | State / field | Static behavior |
 | --- | --- |
-| entry | Runs the camera gate; an out-of-window object goes through `0x1DEE`. The accepted path saves probe context, queries player bounds, and performs the directional `0x1C4D`/`0x1C6E`/`0x5C27` chain. |
+| entry | Runs the camera gate; an out-of-window object goes through `0x1DEE`. The accepted path performs the `0x1B77 → 0x393C → 0x1C4D → 0x1C6E` pre-check, then performs a separate directional `0x5C27` descriptor probe. |
 | `+0x32 == 0` | Applies signed acceleration to `+0x0A` (`+/-0x400`), integrates it into `+0x02`, clamps velocity to `+/-0x6000`, and decrements `+0x2D`. The sign flip at expiry reverses direction/phase and reloads `+0x2D=0x14`. |
 | `+0x32 == 1` | Applies a smaller signed velocity step (`+/-0x100`) toward a zero-crossing. When the direction-specific crossing occurs, velocity is zeroed, state becomes `2`, descriptor `DS:3510` is loaded, and the callback continues through the common tail. |
 | `+0x32 == 2` | Holds for `0x2E` ticks using `+0x33`, then changes to state `3`, resets `+0x33`, and reloads descriptor `DS:3504`. |
@@ -401,13 +407,25 @@ The type-`0x33` callback at `01F7:882F` has four explicit motion substates in
 | `+0x2A/+0x35` | The state-0 travel counter advances animation timing: `+0x35` resets at `0x51`, while `+0x2A` advances until `0x32`, then consumes the byte ring at `DS:646C` and enters state `1`. |
 
 The two previously observed return sites are now placed exactly in this
-control flow. The left/right boundary probes call `0x1C4D` at `0x8871` and
-`0x8885`; their conditional return sites are `0x8876` and `0x888A`, both
-feeding the common `+0x2F=1` transition path at `0x888E`. Thus the sites are
-directional MAP-contact decisions, not separate callbacks or scheduler exits.
-`01F7:1C4D` itself preserves the incoming Y probe in `CX`, selects the X
-offset sign from `+0x29`, adds it to object X, adds the Y offset, and forwards
-the result to `0x1C6E`; the latter returns the raw MAP contact bit in carry.
+control flow. The left/right boundary probes call `0x5C27` at `0x8871` and
+`0x8885`; their conditional return sites are `0x8876` and `0x888A`, and both
+use `JZ` to feed the common `+0x2F=1` transition path at `0x888E`. Thus the
+sites are directional MAP/descriptor decisions, not separate callbacks or
+scheduler exits. `01F7:1C4D` itself preserves the incoming Y probe in `CX`,
+selects the X offset sign from signed `+0x29`, adds it to object X, adds the Y
+offset, and forwards the result to `0x1C6E`; `1C6E` tests raw MAP bit `0x4000`
+and `1C4D` converts that result to carry.
+
+The debugger-only state overrides and the forced `(738,400)` run validate the
+motion branches independently of that MAP result: state `0` with transition
+zero integrates the current velocity and advances `+0x35/+0x2A`; transition
+one applies signed `+/-0x400` acceleration and expires `+0x2D` at the signed
+zero crossing; state `1` decelerates by `+/-0x100` and loads `DS:3510` on the
+zero crossing; state `2` counts through `0x2D`, then falls through state `3`
+with `+/-0x200` acceleration and reloads `DS:3504`; state `3` returns to
+state `0` at `+/-0x5000`. These observations are now implemented in
+`step_type33_motion` and checked by the C++ model tests and helper-enabled
+Python comparator.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`

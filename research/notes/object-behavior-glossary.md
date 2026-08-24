@@ -61,6 +61,12 @@ stable use seen so far, while the address remains the authoritative identity.
 | `+0x24` | `descriptor_sequence_cursor` | confirmed | Byte cursor advanced by two and redirected by signed jump words. |
 | `+0x28` | `descriptor_mode` | provisional | Selects an alternate descriptor adjustment when equal to `0xFFFF`. |
 | `+0x29` | `map_probe_direction` | confirmed | Direction byte used when forming the type-`0x33` MAP probe. |
+| `+0x2C` | `type33_phase` | confirmed | Signed acceleration phase used by the type-`0x33` transition branch. |
+| `+0x2D` | `type33_phase_timer` | confirmed | Signed-countdown reversal timer, reloaded to `0x14` on expiry. |
+| `+0x2F` | `type33_transition` | confirmed | MAP/state transition flag; positive selects the acceleration/state-transition path. |
+| `+0x32` | `type33_state` | confirmed | Type-`0x33` motion substate: `0`, `1`, `2`, or `3`. |
+| `+0x33` | `type33_state_counter` | confirmed | State-`2` hold counter; transition occurs after it passes `0x2D`. |
+| `+0x35` | `type33_animation_counter` | confirmed | State-`0` animation counter; resets and sets the transition flag after `0x50`. |
 | `+0x2B` | `player_contact_state` | provisional | Set to `0xFF` by `apply_player_displacement`; broader state meaning is open. |
 | `+0x37` | `player_collision_class` | confirmed | Returned in `CL` by `query_player_collision_state`; gates type-`0x34` proximity. |
 | `+0x44/+0x48` | `player_position_snapshots` | confirmed | Persistent-player position snapshots used by the player callback. |

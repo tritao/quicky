@@ -23,6 +23,15 @@ local probe_descriptor_timer = trace_config.probe_descriptor_timer or -1
 local probe_descriptor_table = trace_config.probe_descriptor_table or -1
 local probe_descriptor_cursor = trace_config.probe_descriptor_cursor or -1
 local probe_descriptor_mode = trace_config.probe_descriptor_mode or -1
+local probe_type33_direction = trace_config.probe_type33_direction
+local probe_type33_phase = trace_config.probe_type33_phase
+local probe_type33_phase_timer = trace_config.probe_type33_phase_timer or -1
+local probe_type33_transition = trace_config.probe_type33_transition
+local probe_type33_state = trace_config.probe_type33_state
+local probe_type33_state_counter = trace_config.probe_type33_state_counter or -1
+local probe_type33_velocity = trace_config.probe_type33_velocity
+local probe_type33_travel_counter = trace_config.probe_type33_travel_counter or -1
+local probe_type33_animation_counter = trace_config.probe_type33_animation_counter or -1
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local movement_key = trace_config.movement_key or ""
@@ -65,6 +74,16 @@ end
 
 local function dword(s, index)
     return word(s, index) | (word(s, index + 2) << 16)
+end
+
+local function signed_byte(s, index)
+    local value = string.byte(s, index) or 0
+    return value < 0x80 and value or value - 0x100
+end
+
+local function signed_dword(s, index)
+    local value = dword(s, index)
+    return value < 0x80000000 and value or value - 0x100000000
 end
 
 local function little_word(value)
@@ -160,6 +179,17 @@ local function object_snapshot(selector, offset)
             mode = string.byte(raw, 0x28 + 1),
             sequence_words = sequence_words,
         },
+        type33 = {
+            velocity_fixed = signed_dword(raw, 0x0a + 1),
+            direction = signed_byte(raw, 0x29 + 1),
+            phase = signed_byte(raw, 0x2c + 1),
+            phase_timer = word(raw, 0x2d + 1),
+            transition = signed_byte(raw, 0x2f + 1),
+            state = signed_byte(raw, 0x32 + 1),
+            state_counter = word(raw, 0x33 + 1),
+            travel_counter = word(raw, 0x2a + 1),
+            animation_counter = word(raw, 0x35 + 1),
+        },
     }
 end
 
@@ -215,6 +245,58 @@ local function apply_descriptor_probe(selector, offset)
         dosbox.mem_write_selector(selector, offset + 0x28,
                                    string.char(probe_descriptor_mode & 0xff))
         applied.mode = probe_descriptor_mode
+    end
+    if next(applied) == nil then return nil end
+    return applied
+end
+
+local function apply_type33_probe(selector, offset)
+    if expected_type ~= 0x33 then return nil end
+    local applied = {}
+    if probe_type33_direction ~= nil then
+        dosbox.mem_write_selector(selector, offset + 0x29,
+                                   string.char(probe_type33_direction & 0xff))
+        applied.direction = probe_type33_direction
+    end
+    if probe_type33_phase ~= nil then
+        dosbox.mem_write_selector(selector, offset + 0x2c,
+                                   string.char(probe_type33_phase & 0xff))
+        applied.phase = probe_type33_phase
+    end
+    if probe_type33_phase_timer >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x2d,
+                                   little_word(probe_type33_phase_timer))
+        applied.phase_timer = probe_type33_phase_timer
+    end
+    if probe_type33_transition ~= nil then
+        dosbox.mem_write_selector(selector, offset + 0x2f,
+                                   string.char(probe_type33_transition & 0xff))
+        applied.transition = probe_type33_transition
+    end
+    if probe_type33_state ~= nil then
+        dosbox.mem_write_selector(selector, offset + 0x32,
+                                   string.char(probe_type33_state & 0xff))
+        applied.state = probe_type33_state
+    end
+    if probe_type33_state_counter >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x33,
+                                   little_word(probe_type33_state_counter))
+        applied.state_counter = probe_type33_state_counter
+    end
+    if probe_type33_velocity ~= nil then
+        dosbox.mem_write_selector(selector, offset + 0x0a,
+                                   little_dword(probe_type33_velocity))
+        applied.velocity_fixed = probe_type33_velocity
+    end
+    if probe_type33_travel_counter >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x2a,
+                                   little_word(probe_type33_travel_counter))
+        applied.travel_counter = probe_type33_travel_counter
+    end
+    if probe_type33_animation_counter >= 0 then
+        dosbox.mem_write_selector(selector, offset + 0x35,
+                                   little_word(probe_type33_animation_counter))
+        applied.animation_counter = probe_type33_animation_counter
     end
     if next(applied) == nil then return nil end
     return applied
@@ -469,12 +551,13 @@ local function map_probe(registers)
         map_error = map_error,
         descriptor_base = dosbox.mem_read_word("ds", 0x6582),
         descriptor_stride = dosbox.mem_read_word("ds", 0x30d4),
+        descriptor_selector = dosbox.mem_read_word("ds", 0x6584),
     }
     if result.tile_id then
         result.descriptor_offset = result.descriptor_base +
             result.tile_id * result.descriptor_stride + 2
-        result.descriptor_word = dosbox.mem_read_word(
-            "ds", result.descriptor_offset & 0xffff)
+        result.descriptor_word, result.descriptor_error = selector_word(
+            result.descriptor_selector, result.descriptor_offset)
         if result.descriptor_word then
             result.descriptor_flags = result.descriptor_word & 0x0f
         end
@@ -733,8 +816,10 @@ while #samples < sample_count and attempts < sample_count * 128 do
                                                         object_offset)
         local descriptor_override = apply_descriptor_probe(object_selector,
                                                             object_offset)
+        local type33_override = apply_type33_probe(object_selector,
+                                                   object_offset)
         local global_probe_override = apply_global_probe()
-        local before = (position_override or descriptor_override) and
+        local before = (position_override or descriptor_override or type33_override) and
             object_snapshot(object_selector, object_offset) or natural_before
         if initial_object.observed_scheduler_class == nil then
             initial_object = before
@@ -929,6 +1014,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             natural_position_before = natural_before.position,
             position_override = position_override,
             descriptor_override = descriptor_override,
+            type33_override = type33_override,
             global_probe_override = global_probe_override,
             bounds_object_before = bounds_object_before,
             bounds_object_after = bounds_object_snapshot(),

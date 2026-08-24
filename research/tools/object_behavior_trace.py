@@ -50,6 +50,15 @@ class ObjectBehaviorConfig:
     probe_descriptor_table: int | None = None
     probe_descriptor_cursor: int | None = None
     probe_descriptor_mode: int | None = None
+    probe_type33_direction: int | None = None
+    probe_type33_phase: int | None = None
+    probe_type33_phase_timer: int | None = None
+    probe_type33_transition: int | None = None
+    probe_type33_state: int | None = None
+    probe_type33_state_counter: int | None = None
+    probe_type33_velocity: int | None = None
+    probe_type33_travel_counter: int | None = None
+    probe_type33_animation_counter: int | None = None
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
     movement_key: str = ""
@@ -78,6 +87,15 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "probe_descriptor_table": config.probe_descriptor_table,
         "probe_descriptor_cursor": config.probe_descriptor_cursor,
         "probe_descriptor_mode": config.probe_descriptor_mode,
+        "probe_type33_direction": config.probe_type33_direction,
+        "probe_type33_phase": config.probe_type33_phase,
+        "probe_type33_phase_timer": config.probe_type33_phase_timer,
+        "probe_type33_transition": config.probe_type33_transition,
+        "probe_type33_state": config.probe_type33_state,
+        "probe_type33_state_counter": config.probe_type33_state_counter,
+        "probe_type33_velocity": config.probe_type33_velocity,
+        "probe_type33_travel_counter": config.probe_type33_travel_counter,
+        "probe_type33_animation_counter": config.probe_type33_animation_counter,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
         "movement_key": config.movement_key,
@@ -255,6 +273,24 @@ def build_parser() -> argparse.ArgumentParser:
                         help="override object +0x24 before each callback")
     parser.add_argument("--probe-descriptor-mode", type=lambda value: int(value, 0),
                         help="override object byte +0x28 before each callback")
+    parser.add_argument("--probe-type33-direction", type=lambda value: int(value, 0),
+                        help="override type-0x33 direction byte +0x29")
+    parser.add_argument("--probe-type33-phase", type=lambda value: int(value, 0),
+                        help="override type-0x33 acceleration sign byte +0x2C")
+    parser.add_argument("--probe-type33-phase-timer", type=lambda value: int(value, 0),
+                        help="override type-0x33 phase timer word +0x2D")
+    parser.add_argument("--probe-type33-transition", type=lambda value: int(value, 0),
+                        help="override type-0x33 MAP transition byte +0x2F")
+    parser.add_argument("--probe-type33-state", type=lambda value: int(value, 0),
+                        help="override type-0x33 motion state byte +0x32")
+    parser.add_argument("--probe-type33-state-counter", type=lambda value: int(value, 0),
+                        help="override type-0x33 state counter word +0x33")
+    parser.add_argument("--probe-type33-velocity", type=lambda value: int(value, 0),
+                        help="override type-0x33 fixed-point velocity dword +0x0A")
+    parser.add_argument("--probe-type33-travel-counter", type=lambda value: int(value, 0),
+                        help="override type-0x33 travel counter word +0x2A")
+    parser.add_argument("--probe-type33-animation-counter", type=lambda value: int(value, 0),
+                        help="override type-0x33 animation counter word +0x35")
     parser.add_argument("--reactivate-camera-x", type=int,
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
@@ -307,6 +343,21 @@ def main(argv: list[str] | None = None) -> int:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
     if args.probe_descriptor_mode is not None and not 0 <= args.probe_descriptor_mode <= 0xff:
         raise TraceError("--probe-descriptor-mode must be between 0 and 255")
+    for name in ("probe_type33_direction", "probe_type33_phase",
+                 "probe_type33_transition", "probe_type33_state"):
+        value = getattr(args, name)
+        if value is not None and not -0x80 <= value <= 0xff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between -128 and 255")
+    if args.probe_type33_phase_timer is not None and not 0 <= args.probe_type33_phase_timer <= 0xffff:
+        raise TraceError("--probe-type33-phase-timer must be between 0 and 65535")
+    if args.probe_type33_state_counter is not None and not 0 <= args.probe_type33_state_counter <= 0xffff:
+        raise TraceError("--probe-type33-state-counter must be between 0 and 65535")
+    if args.probe_type33_velocity is not None and not -0x80000000 <= args.probe_type33_velocity <= 0x7fffffff:
+        raise TraceError("--probe-type33-velocity must be a signed 32-bit value")
+    for name in ("probe_type33_travel_counter", "probe_type33_animation_counter"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
     for name in ("reactivate_camera_x", "reactivate_camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
@@ -384,6 +435,15 @@ def main(argv: list[str] | None = None) -> int:
             probe_descriptor_table=args.probe_descriptor_table,
             probe_descriptor_cursor=args.probe_descriptor_cursor,
             probe_descriptor_mode=args.probe_descriptor_mode,
+            probe_type33_direction=args.probe_type33_direction,
+            probe_type33_phase=args.probe_type33_phase,
+            probe_type33_phase_timer=args.probe_type33_phase_timer,
+            probe_type33_transition=args.probe_type33_transition,
+            probe_type33_state=args.probe_type33_state,
+            probe_type33_state_counter=args.probe_type33_state_counter,
+            probe_type33_velocity=args.probe_type33_velocity,
+            probe_type33_travel_counter=args.probe_type33_travel_counter,
+            probe_type33_animation_counter=args.probe_type33_animation_counter,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
             movement_key=args.movement_key or "",

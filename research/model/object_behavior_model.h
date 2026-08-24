@@ -37,8 +37,18 @@ struct ObjectRecord {
     std::uint16_t descriptor_sequence_cursor = 0; // object +0x24
     std::uint8_t descriptor_mode = 0;           // object +0x28
 
-    std::uint8_t map_probe_direction = 0; // object +0x29
+    std::int8_t map_probe_direction = 0; // object +0x29
     std::uint8_t player_contact_state = 0; // object +0x2B, player use
+    // Type-0x33 motion fields. These bytes are polymorphic in other object
+    // families, so keep the callback-specific names here.
+    std::int8_t type33_phase = 0; // object +0x2C
+    std::uint16_t type33_phase_timer = 0; // object +0x2D
+    std::int8_t type33_transition = 0; // object +0x2F
+    std::int32_t type33_velocity_fixed = 0; // object +0x0A
+    std::uint8_t type33_state = 0; // object +0x32
+    std::uint16_t type33_state_counter = 0; // object +0x33
+    std::uint16_t type33_travel_counter = 0; // object +0x2A
+    std::uint16_t type33_animation_counter = 0; // object +0x35
     std::uint16_t update_state = 0; // object +0x32
     std::uint8_t player_collision_class = 0; // object +0x37, player use
 
@@ -102,6 +112,28 @@ void load_descriptor(ObjectRecord& object,
 // Models 01F7:5D60. Returns true when a sequence entry was resolved; returns
 // false when only the nonzero timer was decremented.
 bool advance_descriptor(ObjectRecord& object, const DescriptorMemory& memory);
+
+struct Type33MotionContext {
+    // DS:646C is a byte ring consumed when the state-0 travel counter passes
+    // 0x32. The index is DS:6468, shared by type-0x33 objects.
+    std::array<std::int8_t, 256> travel_ring{};
+    std::uint8_t travel_ring_index = 0;
+};
+
+struct Type33StepResult {
+    bool map_set_transition = false;
+    bool descriptor_loaded = false;
+    bool state_changed = false;
+};
+
+// Models the recovered motion portion of 01F7:882F. The caller supplies the
+// result of the directional 5C27 MAP/descriptor probe: a zero result sets
+// object+0x2F before the motion state machine runs. The common DS:8806 target
+// tail is intentionally outside this function and remains a separate model.
+Type33StepResult step_type33_motion(ObjectRecord& object,
+                                    const DescriptorMemory& memory,
+                                    Type33MotionContext& context,
+                                    bool map_probe_zero);
 
 struct PlayerState {
     std::int32_t world_x_fixed = 0;

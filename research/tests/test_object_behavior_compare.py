@@ -94,6 +94,44 @@ class ObjectBehaviorCompareTests(unittest.TestCase):
         })
         self.assertTrue(result["passed"], result)
 
+    def test_type33_helper_state_contract(self):
+        before_type33 = {
+            "velocity_fixed": 0, "direction": 1, "phase": -1,
+            "phase_timer": 2, "transition": 0, "state": 0,
+            "state_counter": 0, "travel_counter": 0,
+            "animation_counter": 0,
+        }
+        after_type33 = dict(before_type33, velocity_fixed=-0x400,
+                            transition=1, phase_timer=1)
+        sample = {
+            "sequence": 2,
+            "callback": {
+                "offset": 0x882F,
+                "related_hits": [],
+                "helper_calls": [
+                    {"offset": 0x1C4D, "return_flags": 0x3246,
+                     "return_address": {"offset": 0x8858}},
+                    {"offset": 0x5C27, "return_flags": 0x3246,
+                     "return_address": {"offset": 0x888A}},
+                ],
+            },
+            "object_before": {
+                "position": {"x_fixed": 0},
+                "type33": before_type33,
+                "update_callback": 0x882F,
+            },
+            "object_after": {
+                "position": {"x_fixed": -0x400 & 0xffffffff},
+                "type33": after_type33,
+                "update_callback": 0x882F,
+            },
+            "termination": {"visibility_gate_hit": False},
+        }
+        result = compare_payload({
+            "config": {"entity_type": 0x33}, "samples": [sample],
+        })
+        self.assertTrue(result["passed"], result)
+
 
 if __name__ == "__main__":
     unittest.main()

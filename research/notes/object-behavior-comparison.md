@@ -3,8 +3,9 @@
 `tools/object_behavior_compare.py` compares normalized DOSBox object traces
 against the contracts recovered in this research track. It deliberately does
 not emulate the whole callback. It checks exact, independently testable
-contracts and leaves MAP-dependent type-`0x33` motion as an observation until
-the pre-state produced by `1B77/1C4D` is modeled.
+contracts; when helper tracing is enabled it also consumes the `1C4D` carry
+and directional `5C27` zero flag to validate the recovered type-`0x33` motion
+state machine.
 
 The comparator currently checks:
 
@@ -12,8 +13,8 @@ The comparator currently checks:
   action selection, and mode-adjusted actions;
 - the type-`0x34` `DS:85DA < 0x32` gate, strict proximity bounds, action word,
   and one-shot `1B5D/0FCF` action-chain entry;
-- type-`0x33` callback persistence and the presence of frame-level movement /
-  descriptor observations without inventing a MAP response model.
+- type-`0x33` callback persistence and frame-level motion fields; helper traces
+  additionally validate the MAP-derived transition and state `0–3` branches.
 
 Example:
 
@@ -33,9 +34,8 @@ The current DOSBox evidence passes the recovered contracts:
 | `targeted-type34-state31-accepted` | 7 active-gate frames, 7 predicted proximity frames, action chain on first transition | pass |
 | `targeted-type34-state32-accepted` | 7 inactive-gate frames | pass |
 | `helper-33-s48-mapprobe` | 47 type-0x33 movement observations | pass |
+| `type33-y400-state1-helper` | helper-derived state `1→2`, velocity, and descriptor transition | pass |
 
-The next comparator extension should consume the type-`0x33` MAP probe result
-and return flags, then model the pre-state update that changes `+0x0A`,
-`+0x2F`, and the directional motion branch. Until then, the comparator's
-conservative behavior is intentional: an unresolved MAP branch is not
-reported as a false mismatch.
+Traces without helper tracing remain conservative: they still check lifecycle,
+descriptor, and type-specific observations, but do not infer an unrecorded MAP
+decision as a mismatch.
