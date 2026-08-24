@@ -352,6 +352,34 @@ the same selector (observed offsets include `0168`, `01E0`, `02D0`, and
 `03C0`). `quikytrace --lifetime-samples N` records object identity, slot,
 delay, animation cursor, and the `+28` variant flag at each shared leaf update.
 
+### Early normal enemy families
+
+The remaining early normal dispatch entries were traced at their
+post-initializer boundaries and paired against an inert type-0 declaration at
+the same W1L1 streamed anchor. The direct slot evidence is:
+
+| types | callbacks / post boundaries | slots | world asset selected from the executable resource list |
+| --- | --- | --- | --- |
+| `0x01`/`0x02` | `6DA3`/`6DB0`, `6DB1`/`6DC3` | 281/231 | W1 `WURM2.BOB` records 1/0 |
+| `0x03`/`0x04` | `689F`/`68AC`, `68AD`/`68BF` | 276/226 | W1 `BIENE.BOB` records 1/0 |
+| `0x05`/`0x06` | `7B50`/`7B5D`, `7B5E`/`7B70` | 254/204 | W2 `FISCH.BOB` records 3/2 |
+| `0x07`/`0x08` | `776B`/`7778`, `7779`/`778B` | 200/250 | W2 `KRABBE.BOB` records 0/1 |
+| `0x09`/`0x0A` | `713D`/`714A`, `714B`/`715D` | 250/200 | W3 `PENGO.BOB` records 1/0 |
+| `0x0B`/`0x0C` | `6651`/`6698`, `6699`/`66E0` | 209/209 | W3 `PROP.BOB` record 2 |
+| `0x15`/`0x16` | `7ED7`/`7EE4`, `7EE5`/`7EF7` | 208/208 | W4 `FLIEGE.BOB` record 0 |
+| `0x17`/`0x18` | `8451`/`845E`, `845F`/`8471` | 250/200 | W4 `SPINNE.BOB` records 1/0 |
+| `0x19`/`0x1A` | `5050`/`505D`, `505E`/`5070` | 250/200 | W5 `BUGGY.BOB` records 1/0 |
+| `0x1B`/`0x1C` | `5F07`/`5F14`, `5F15`/`5F27` | 264/214 | W5 `UFO.BOB` records 1/0 |
+
+The type-specific callbacks set movement/orientation state before their
+post-initializer return; the paired types in each row therefore share a BOB
+family but are retained as separate catalog entries. `bob-find` shows the
+same logical slots in several other BOB files. The mapping above is an
+evidence-backed world-resource inference, recorded as `probable` until a
+direct resource-loader stop is captured for each world. The authoritative
+per-type records are in `research/entity-types.json`; representative paired
+manifests are under `research/build/entity-*-evidence/`.
+
 ### Pickup type `0x6F`
 
 The W1L1 declaration at disk offset `0x1838` (archive world sample

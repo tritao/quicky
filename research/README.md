@@ -299,6 +299,35 @@ and spikes. The tested object/reference values were:
 Use W1L3 for experiments; the article suggests entering QUIKYSUPERHERO in the
 menu and pressing 4 to jump to a test level.
 
+### Normal enemy families `0x01`-`0x1C`
+
+The early normal dispatch range is now mapped through post-initializer debugger
+stops. Each target reaches the shared factory at `01F7:0E06`, writes a logical
+sprite slot into `object+0x12`, and is removed by the paired inert-type-0
+archive mutation. The executable's resource-name table groups the matching BOB
+files by world; this resolves the archive-wide slot collisions without claiming
+that a slot is globally unique:
+
+| ARE types | world | sprite family | slots | status |
+| --- | --- | --- | --- | --- |
+| `0x01`/`0x02` | W1 | `WURM2.BOB` | 281/231 | probable |
+| `0x03`/`0x04` | W1 | `BIENE.BOB` | 276/226 | probable |
+| `0x05`/`0x06` | W2 | `FISCH.BOB` | 254/204 | probable |
+| `0x07`/`0x08` | W2 | `KRABBE.BOB` | 200/250 | probable |
+| `0x09`/`0x0A` | W3 | `PENGO.BOB` | 250/200 | probable |
+| `0x0B`/`0x0C` | W3 | `PROP.BOB` | 209/209 | probable |
+| `0x15`/`0x16` | W4 | `FLIEGE.BOB` | 208/208 | probable |
+| `0x17`/`0x18` | W4 | `SPINNE.BOB` | 250/200 | probable |
+| `0x19`/`0x1A` | W5 | `BUGGY.BOB` | 250/200 | probable |
+| `0x1B`/`0x1C` | W5 | `UFO.BOB` | 264/214 | probable |
+
+The exact callback, post-initializer offset, catalog placement, BOB record,
+dimensions, and trace/experiment paths are recorded per decimal JSON type in
+[`entity-types.json`](entity-types.json). Representative paired experiments
+cover both W1 pairs and one pair in every later world family. Decoded sheets
+used to establish the resource names are kept in the ignored research build
+directory; the runtime traces and catalog are the durable evidence.
+
 ### QUIKY.EXE — initial static survey
 
 These values are confirmed by parsing the bundled executable's MZ and NE

@@ -244,6 +244,30 @@ class QuikyCtlTests(unittest.TestCase):
 
         self.assertEqual(names[0x73].confidence, "unknown")
         self.assertEqual(names[0x74].confidence, "unknown")
+        for entity_type, name in (
+            (0x01, "wurm2_variant_01"),
+            (0x02, "wurm2_variant_02"),
+            (0x03, "biene_variant_03"),
+            (0x04, "biene_variant_04"),
+            (0x05, "fisch_variant_05"),
+            (0x06, "fisch_variant_06"),
+            (0x07, "krabbe_variant_07"),
+            (0x08, "krabbe_variant_08"),
+            (0x09, "pengo_variant_09"),
+            (0x0A, "pengo_variant_0a"),
+            (0x0B, "prop_variant_0b"),
+            (0x0C, "prop_variant_0c"),
+            (0x15, "fliege_variant_15"),
+            (0x16, "fliege_variant_16"),
+            (0x17, "spinne_variant_17"),
+            (0x18, "spinne_variant_18"),
+            (0x19, "buggy_variant_19"),
+            (0x1A, "buggy_variant_1a"),
+            (0x1B, "ufo_variant_1b"),
+            (0x1C, "ufo_variant_1c"),
+        ):
+            self.assertEqual(names[entity_type].name, name)
+            self.assertEqual(names[entity_type].confidence, "probable")
         self.assertEqual(names[0x28].name, "cloud")
         self.assertEqual(names[0x1F].confidence, "unknown")
         self.assertEqual(names[0x20].confidence, "unknown")
