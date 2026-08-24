@@ -397,6 +397,19 @@ executable-analysis step is to map segment-relative addresses used by the
 timer calibration and archive-loading code back to these segments, then
 trace only those routines needed to validate format behavior.
 
+### Selective static-analysis slice
+
+The first targeted slice now ties the input, object-scheduling, camera, and MAP
+paths to concrete segment-relative executable addresses. The annotated raw
+segment project labels the keyboard IRQ/ring consumer (`01F7:F17F`/`F1A8`),
+normalized action flags, menu selector loop, 64-entry pooled-object passes,
+camera scroll update, and 16-pixel MAP-cell lookup. The corresponding runtime
+probe records those input and camera globals at each state-machine update entry
+and exit, so the labels remain hypotheses that can be checked against DOSBox
+state rather than names inferred from a screenshot. The evidence and the
+remaining deliberately unresolved semantics are summarized in
+[`notes/player-input-static.md`](notes/player-input-static.md).
+
 ### BOB — compiled sprites decoded safely
 
 BOB files are concatenations of little-endian sprite records with no global

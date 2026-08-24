@@ -6,6 +6,7 @@ local capture_delay_frames = TRACE_CAPTURE_DELAY_FRAMES or 0
 local lifetime_sample_count = TRACE_LIFETIME_SAMPLES or 0
 local state_machine_sample_count = TRACE_STATE_MACHINE_SAMPLES or 0
 local state_machine_camera_x = TRACE_STATE_MACHINE_CAMERA_X or -1
+local state_machine_camera_y = TRACE_STATE_MACHINE_CAMERA_Y or -1
 local state_machine_keep_camera = TRACE_STATE_MACHINE_KEEP_CAMERA or false
 local state_machine_position_x = TRACE_STATE_MACHINE_POSITION_X or -1
 local state_machine_position_y = TRACE_STATE_MACHINE_POSITION_Y or -1
@@ -16,6 +17,8 @@ local capture_frame_step = TRACE_FRAME_STEP or 30
 local select_level = TRACE_SELECT_LEVEL or ""
 local selector_frames = TRACE_SELECTOR_FRAMES or 60
 local runtime_offset = record_offset - 0x160
+local startup_camera_x = nil
+local startup_camera_y = nil
 
 local function word(s, index)
     local lo, hi = string.byte(s, index, index + 1)
@@ -182,6 +185,30 @@ local function state_machine_tile_effects()
     return {raw_hex = hex(raw), nonzero = nonzero}
 end
 
+-- Globals selected by the static input/camera slice.  Keep this probe
+-- read-only: the state-machine experiment may override camera/position
+-- fields, but these observations must describe what the original code saw at
+-- each breakpoint.
+local function static_slice_globals()
+    return {
+        input_action_flags = dosbox.mem_read_word("ds", 0x8196),
+        keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
+        last_keyboard_scan_code = dosbox.mem_read_word("ds", 0x88ba),
+        camera_x = dosbox.mem_read_word("ds", 0x81c0),
+        camera_y = dosbox.mem_read_word("ds", 0x81c4),
+        camera_subtile_x = dosbox.mem_read_word("ds", 0x81ce),
+        camera_subtile_phase = dosbox.mem_read_word("ds", 0x81d0),
+        camera_scroll_x_fixed = dword(dosbox.mem_read("ds", 0x81a6, 4), 1),
+        camera_scroll_y_fixed = dword(dosbox.mem_read("ds", 0x81aa, 4), 1),
+        camera_target_x_fixed = dword(dosbox.mem_read("ds", 0x81be, 4), 1),
+        camera_target_y_fixed = dword(dosbox.mem_read("ds", 0x81c2, 4), 1),
+        camera_target_left = dosbox.mem_read_word("ds", 0x36fc),
+        camera_target_top = dosbox.mem_read_word("ds", 0x36fe),
+        camera_target_right = dosbox.mem_read_word("ds", 0x3700),
+        camera_target_bottom = dosbox.mem_read_word("ds", 0x3702),
+    }
+end
+
 local function matches_object(hit, selector, offset)
     return hit.registers and hit.registers.es == selector and
            (hit.registers.edi & 0xffff) == offset
@@ -262,6 +289,14 @@ if select_level ~= "" then
                      string.char(selector_index & 0xff, selector_index >> 8))
     dosbox.breakpoint_set(0x01d7, 0x4b18, {once = true})
     dosbox.mem_write("ds", 0x88bc, "\x20\x00")
+    if state_machine_sample_count > 0 and state_machine_camera_x >= 0 then
+        startup_camera_x = dosbox.mem_read_word("ds", 0x81c0)
+        dosbox.mem_write("ds", 0x81c0, little_word(state_machine_camera_x))
+    end
+    if state_machine_sample_count > 0 and state_machine_camera_y >= 0 then
+        startup_camera_y = dosbox.mem_read_word("ds", 0x81c4)
+        dosbox.mem_write("ds", 0x81c4, little_word(state_machine_camera_y))
+    end
     dosbox.debug_continue()
     local launch = wait_hit("selector Space dispatch")
     dosbox.output.checkpoints.launch = launch
@@ -666,6 +701,7 @@ for attempt = 1, 4096 do
         if entity_type >= 0x1f and entity_type <= 0x21 and
                 state_machine_sample_count > 0 then
             local saved_camera_x = nil
+            local saved_camera_y = nil
             local saved_bounds_bytes = nil
             local saved_position_bytes = nil
             local bounds_object_offset = dosbox.mem_read_word("ds", 0x881a)
@@ -684,6 +720,21 @@ for attempt = 1, 4096 do
                     little_word(0) .. little_word(state_machine_position_y))
                 probe_position_x = state_machine_position_x
                 probe_position_y = state_machine_position_y
+            end
+            -- Apply the camera override before waiting for the first
+            -- state-machine entry.  The ordinary object callback performs
+            -- its visibility gate before 0x8E4B, so a far-away controlled
+            -- position would otherwise never reach the breakpoint that is
+            -- supposed to install this override.
+            if state_machine_camera_x >= 0 then
+                saved_camera_x = startup_camera_x or dosbox.mem_read_word("ds", 0x81c0)
+                dosbox.mem_write("ds", 0x81c0,
+                                 little_word(state_machine_camera_x))
+            end
+            if state_machine_camera_y >= 0 then
+                saved_camera_y = startup_camera_y or dosbox.mem_read_word("ds", 0x81c4)
+                dosbox.mem_write("ds", 0x81c4,
+                                 little_word(state_machine_camera_y))
             end
             for sequence = 1, state_machine_sample_count do
                 dosbox.breakpoint_set(0x01f7, 0x8e4b, {once = true})
@@ -733,6 +784,7 @@ for attempt = 1, 4096 do
                             y = state_machine_position_y,
                         } or nil),
                     },
+                    static_slice_globals = static_slice_globals(),
                     tile_effect_table = tile_effect_table,
                     nested_calls = {},
                 }
@@ -743,6 +795,14 @@ for attempt = 1, 4096 do
                     sample.globals.camera_x_override = state_machine_camera_x
                     dosbox.mem_write("ds", 0x81c0,
                                      little_word(state_machine_camera_x))
+                end
+                if state_machine_camera_y >= 0 then
+                    if saved_camera_y == nil then
+                        saved_camera_y = dosbox.mem_read_word("ds", 0x81c4)
+                    end
+                    sample.globals.camera_y_override = state_machine_camera_y
+                    dosbox.mem_write("ds", 0x81c4,
+                                     little_word(state_machine_camera_y))
                 end
                 if state_machine_force_emission then
                     if saved_bounds_bytes == nil then
@@ -830,6 +890,15 @@ for attempt = 1, 4096 do
                                     dx = nested.registers.edx & 0xffff,
                                 },
                             }
+                            if nested.offset == 0x3376 then
+                                local map_offset = nested.registers.esi & 0xffff
+                                call.map_pointer = {
+                                    selector = nested.registers.fs,
+                                    offset = map_offset,
+                                    word = dosbox.mem_read_word(
+                                        nested.registers.fs, map_offset),
+                                }
+                            end
                             if nested.offset == 0x171c then
                                 local nested_selector = nested.registers.es
                                 local nested_offset = nested.registers.edi & 0xffff
@@ -964,13 +1033,19 @@ for attempt = 1, 4096 do
                     scratch_x = dosbox.mem_read_word("ds", 0x8828),
                     scratch_y = dosbox.mem_read_word("ds", 0x882a),
                 }
+                sample.post_static_slice_globals = static_slice_globals()
                 if update_exit.offset == 0x9254 or update_exit.offset == 0x9255 then
                     dosbox.debug_continue()
                 end
                 state_machine_samples[#state_machine_samples + 1] = sample
             end
-            if saved_camera_x ~= nil and not state_machine_keep_camera then
-                dosbox.mem_write("ds", 0x81c0, little_word(saved_camera_x))
+            if not state_machine_keep_camera then
+                if saved_camera_x ~= nil then
+                    dosbox.mem_write("ds", 0x81c0, little_word(saved_camera_x))
+                end
+                if saved_camera_y ~= nil then
+                    dosbox.mem_write("ds", 0x81c4, little_word(saved_camera_y))
+                end
             end
             if saved_bounds_bytes ~= nil then
                 dosbox.mem_write_selector(

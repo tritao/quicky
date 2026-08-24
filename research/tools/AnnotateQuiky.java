@@ -62,6 +62,14 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x3bbd, "load_ico_resource", "Builds/loads an ICO resource after the .ICO path fragments.");
 
         label(0x491d, "level_selector_cheat_branch", "Runtime trace: checks the cheat-enabled level selector state.");
+        function(0x01ac, "menu_input_action_pending",
+            "Reads DS:8196 and DS:88BC; returns nonzero when an input action flag is pending.");
+        function(0x0203, "wait_for_input_release",
+            "Polls the normalized input flags until DS:8196 and DS:88BC are both clear.");
+        function(0x47f0, "reset_game_input_flags",
+            "Clears DS:8196 and DS:88BC before the state-machine/gameplay dispatch loop.");
+        function(0x4ac2, "level_selector_input_loop",
+            "Runtime-confirmed selector loop: consumes normalized flags 1/2 for level movement and 0x20 for launch.");
         function(0x4727, "init_falling_leaves_entity_type_2b",
             "Runtime-confirmed dispatch entry for ARE type 0x2B; controlled replacement with inert type 0 removes the falling leaves at W1L1 record 0x1792.");
 
@@ -128,10 +136,20 @@ public class AnnotateQuiky extends GhidraScript {
         }
         function(0x1cda, "stream_are_regions",
             "Streams ARE declarations for newly visible 64-pixel regions using camera coordinates and the reference grid.");
+        function(0x0e66, "object_pool_count_active",
+            "Counts non-free entries in the 64-entry pooled-object array and publishes DS:88C8.");
+        function(0x0e96, "object_update_pass_by_phase",
+            "Runs pooled-object callbacks in phase order using object byte +0x17 values 0, 1, and 2.");
+        function(0x0f3c, "find_object_kind_0x64",
+            "Scans the object list for an object whose +0x14 kind field equals 0x64; ownership semantics remain unresolved.");
+        function(0x0fa2, "object_update_pass_nonzero_state",
+            "Runs callbacks for active list entries whose object +0x02 state word is nonzero.");
+        function(0x1ed7, "update_camera_scroll",
+            "Updates 16.16 camera scroll from DS:36FC/36FE/3700/3702 target bounds, clamps it, and derives DS:81CE/81D0.");
         function(0x1e04, "instantiate_are_declaration",
             "Runtime-confirmed six-byte ARE record walker: type, local X, local Y; marks records processed and creates objects at region origin plus local coordinates.");
         function(0x0e06, "are_object_factory",
-            "Runtime-confirmed factory called by the normal ARE dispatch path; type 0x2B returns ES:DI and is initialized by the caller.");
+            "Scans the 64-entry pooled-object array and initializes a free object; the normal ARE path returns ES:DI and type 0x2B is initialized by the caller.");
         function(0x1749, "create_dedicated_are_effect",
             "Shared creator used by types 0x65/0x66/0x67 after selecting subtype 0x00/0x08/0x10.");
         function(0x178d, "create_are_type_65", "Dedicated ARE type 0x65 wrapper.");
@@ -141,9 +159,24 @@ public class AnnotateQuiky extends GhidraScript {
             "Dispatch-table callback shared by ARE types 0x29, 0x2A, and confirmed falling-leaves type 0x2B.");
         function(0x9256, "update_are_type_28",
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
+        function(0x3376, "map_cell_lookup_16px",
+            "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E; tile property semantics are not assigned here.");
+        function(0xf17f, "keyboard_irq1_handler",
+            "IRQ1 handler: stores port-60 scan bytes in the 32-byte ring at selector FFFF:501E and advances DS:503E.");
+        function(0xf1a8, "poll_keyboard_ring_to_input_flags",
+            "Consumes the keyboard ring, handles make/break bytes, maps arrows/Space to DS:88BC, and stores the last scan code in DS:88BA.");
+        function(0xf21b, "read_normalized_input_flags",
+            "Returns DS:88BC OR DS:8196, the normalized action flags consumed by the game/menu loops.");
         label(0x3714, "are_region_origin_x", "Runtime-confirmed 64-pixel-aligned X origin used while instantiating an ARE declaration.");
         label(0x3716, "are_region_origin_y", "Runtime-confirmed 64-pixel-aligned Y origin used while instantiating an ARE declaration.");
         label(0x81d2, "are_entity_dispatch_table", "Four-byte entries indexed by ARE entity type; normal types feed these values to the object factory.");
+        label(0x8196, "input_action_flags", "Normalized action flags ORed with DS:88BC by the input helper.");
+        label(0x81c0, "camera_x", "Current integer camera X used by visibility, streaming, and renderer clipping.");
+        label(0x81c4, "camera_y", "Current integer camera Y used by visibility, streaming, and renderer clipping.");
+        label(0x81ce, "camera_subtile_x", "Derived camera sub-tile X value written by update_camera_scroll.");
+        label(0x81d0, "camera_subtile_phase", "Derived camera phase byte written by update_camera_scroll.");
+        label(0x88bc, "keyboard_action_flags", "Normalized make/break action flags populated by poll_keyboard_ring_to_input_flags.");
+        label(0x88ba, "last_keyboard_scan_code", "Most recently consumed keyboard scan code.");
     }
 
     private void annotateSegment5() throws Exception {
