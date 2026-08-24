@@ -318,13 +318,17 @@ the same pooled record at synchronized frame barriers:
 PYTHONPATH=research/tools python3 research/tools/object_movement_trace.py \
   --launch --headless --runtime-dir research/build/entity-2b-multiframe-final/baseline/game \
   --entity-type 0x2b --record-offset 0x1792 \
-  --capture-frames 40 --frame-step 5 --movement-key KBD_right \
-  --movement-frames 240 --output research/build/object-behavior/entity-2b-real-right40.json
+  --capture-frames 40 --frame-step 20 --movement-key KBD_right \
+  --movement-frames 350 --return-key KBD_left --return-frames 350 \
+  --output research/build/object-behavior/entity-2b-source-out-back.json
 ~~~
 
-The first real-input pass shows type-specific self-termination and pool-slot
-reuse. It does not replace the source-aware pool scan needed to prove
-reactivation after another object has claimed the original slot.
+The driver uses guest-timed input and, when the return leg is enabled, records
+the source declaration marker, all 64 pool records, and target memberships in
+both scheduler banks. The compact 40-barrier layout keeps long traversals
+below dosbox-automation's Lua instruction budget. The resulting traces show
+both original-slot reuse and next-free-slot reactivation; details are in
+[`notes/object-behavior.md`](notes/object-behavior.md).
 
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry

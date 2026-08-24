@@ -71,6 +71,11 @@ class EntityTraceConfig:
     screenshot_mode: str = "rendered"
     select_level: str | None = None
     selector_frames: int = 60
+    source_scan: bool = False
+    movement_key: str = ""
+    movement_frames: int = 0
+    return_key: str = ""
+    return_frames: int = 0
 
 
 @dataclass(frozen=True)
@@ -149,6 +154,11 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
         "frame_step": config.frame_step,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "source_scan": config.source_scan,
+        "movement_key": config.movement_key,
+        "movement_frames": config.movement_frames,
+        "return_key": config.return_key,
+        "return_frames": config.return_frames,
     }
 
 
@@ -479,6 +489,24 @@ def normalize_entity_trace(entity: dict[str, Any]) -> dict[str, Any]:
         entity.get("update_candidates", [])
     )
     entity["frames"] = ordered_lua_array(entity.get("frames", []))
+    for frame in entity["frames"]:
+        lifecycle = frame.get("lifecycle")
+        if not isinstance(lifecycle, dict):
+            continue
+        pool = lifecycle.get("pool")
+        if isinstance(pool, dict):
+            pool["records"] = ordered_lua_array(pool.get("records", []))
+            pool["source_matches"] = ordered_lua_array(
+                pool.get("source_matches", [])
+            )
+        scheduler = lifecycle.get("scheduler")
+        if isinstance(scheduler, dict):
+            scheduler["banks"] = ordered_lua_array(scheduler.get("banks", []))
+            for bank in scheduler["banks"]:
+                if isinstance(bank, dict):
+                    bank["entries"] = ordered_lua_array(
+                        bank.get("entries", [])
+                    )
     return entity
 
 

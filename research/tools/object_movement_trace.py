@@ -39,6 +39,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--frame-step", type=int, default=5)
     parser.add_argument("--movement-key", default="KBD_right")
     parser.add_argument("--movement-frames", type=int, default=240)
+    parser.add_argument("--return-key", default="KBD_left")
+    parser.add_argument("--return-frames", type=int, default=0,
+                        help="hold a return key after movement; zero disables the return traversal")
     parser.add_argument("--timeout", type=float, default=90.0)
     parser.add_argument("--poll-interval", type=float, default=0.05)
     parser.add_argument("--select-level")
@@ -54,8 +57,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def run_trace(api: ApiClient, script_path: Path, config: EntityTraceConfig,
-              movement_key: str, movement_frames: int) -> dict:
+def run_trace(api: ApiClient, script_path: Path, config: EntityTraceConfig) -> dict:
     source = script_path.read_text(encoding="utf-8")
     name = urllib.parse.quote("quiky-object-movement-trace")
     prefix = "TRACE_CONFIG = " + lua_literal(entity_trace_lua_config(config)) + "\n"
@@ -66,7 +68,6 @@ def run_trace(api: ApiClient, script_path: Path, config: EntityTraceConfig,
     deadline = time.monotonic() + config.timeout + 30
     replayed = False
     acknowledged: set[int] = set()
-    movement_sent = False
     final_entity: dict | None = None
 
     while time.monotonic() < deadline:
@@ -84,14 +85,6 @@ def run_trace(api: ApiClient, script_path: Path, config: EntityTraceConfig,
             final_entity = entity
             capture_index = entity.get("capture_index")
             if isinstance(capture_index, int) and capture_index not in acknowledged:
-                if capture_index == 0 and not movement_sent:
-                    api.post("/api/v1/input/sequence", {"events": [
-                        {"frame": 0, "type": "key", "key": movement_key,
-                         "pressed": True},
-                        {"frame": movement_frames, "type": "key",
-                         "key": movement_key, "pressed": False},
-                    ]})
-                    movement_sent = True
                 acknowledged.add(capture_index)
                 api.post("/api/v1/debug/continue")
             if capture_index == config.capture_frames - 1:
@@ -108,6 +101,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--capture-frames must be positive")
     if args.frame_step < 0 or args.movement_frames < 1:
         raise TraceError("--frame-step must be nonnegative and --movement-frames positive")
+    if args.return_frames < 0:
+        raise TraceError("--return-frames must be nonnegative")
     if args.select_level is not None and len(args.select_level) != 4:
         raise TraceError("--select-level must look like W4L1")
 
@@ -163,9 +158,13 @@ def main(argv: list[str] | None = None) -> int:
             frame_step=args.frame_step,
             select_level=args.select_level,
             selector_frames=args.selector_frames,
+            source_scan=True,
+            movement_key=args.movement_key,
+            movement_frames=args.movement_frames,
+            return_key=args.return_key,
+            return_frames=args.return_frames,
         )
-        entity = run_trace(api, script_path, config,
-                           args.movement_key, args.movement_frames)
+        entity = run_trace(api, script_path, config)
         envelope = {
             "schema": "quiky-object-movement-v1",
             "created_utc": datetime.now(timezone.utc).isoformat(),
@@ -182,6 +181,8 @@ def main(argv: list[str] | None = None) -> int:
                 "frame_step": config.frame_step,
                 "movement_key": args.movement_key,
                 "movement_frames": args.movement_frames,
+                "return_key": args.return_key,
+                "return_frames": args.return_frames,
                 "select_level": config.select_level or "",
             },
             "events": [entity],

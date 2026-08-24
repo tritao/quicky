@@ -172,6 +172,15 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(entity["trace_schema_version"], 7)
         self.assertEqual(entity["frames"], [])
 
+    def test_entity_source_scan_is_opt_in(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = EntityTraceConfig(
+            record_offset=0x1792, entity_type=0x2B,
+            startup_recording=recording, source_scan=True,
+        )
+        payload = entity_trace_lua_config(config)
+        self.assertTrue(payload["source_scan"])
+
     def test_player_trace_loader_uses_structured_config(self):
         class FakeApi:
             loaded_source = ""

@@ -153,7 +153,33 @@ reused by callback `0x10B5`.
 
 These are type-specific self-termination/recycling paths, not proof of an
 off-screen camera rejection: both objects die while their position and source
-pointer are still intact. The current movement driver follows the original
-pool slot, so it does not yet prove whether the source declaration later
-reactivates into a different slot. The next probe must scan all 64 pool records
-by `object+0x1A == source_offset` after each movement boundary.
+pointer are still intact. The source-aware movement driver now scans all 64
+pool records and both scheduler banks at every barrier, keyed by
+`object+0x1A == source_offset`.
+
+## Real-input reactivation and allocator choice
+
+The guest-timed movement probe holds the key through `dosbox.key` while the
+capture coroutine advances, then returns across the same regions. This avoids
+the host input-replay timing boundary and records the camera/stream state along
+with the pool ledger.
+
+The long W1L1 type `0x2B` traversal (`entity-2b-source-long-out-back-direct.json`)
+shows the source marker `0x012B -> 0x002B` at the initial camera, followed by
+`0x002B -> 0x012B` when the camera reaches the declaration region at about
+`x=491`. The recreated object is in the original pool slot index 1 at offset
+`0x0078`; both scheduler banks contain the new entry.
+
+The type `0x01` traversal (`entity-01-source-out-back-direct.json`) reaches a
+different allocator state. After the target marker changes from `0x0101` to
+`0x0001`, pool slot index 1 is occupied by another source when the declaration
+is revisited. The allocator chooses the first free slot after it, index 4 at
+offset `0x01E0`; the source marker returns to `0x0101` and both scheduler banks
+register that new slot.
+
+Together with the static allocator scan, these runs establish the normal
+rule: reactivation is source-marker driven, and allocation is a first-free
+pool scan. Reuse of the original slot is common but not required; if another
+object occupies it first, the source moves to the next available slot. The
+scheduler entries follow the selected pool offset, so they are rebuilt for the
+new slot rather than retaining object identity by declaration alone.
