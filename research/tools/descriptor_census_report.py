@@ -139,7 +139,10 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         rows = census_data(args.traces, args.labels)
-        render_report(rows, sys.stdout)
+        try:
+            render_report(rows, sys.stdout)
+        except BrokenPipeError:
+            return 0
         if args.csv_output is not None:
             write_csv(rows, args.csv_output)
             print(f"wrote descriptor census CSV to {args.csv_output}")
