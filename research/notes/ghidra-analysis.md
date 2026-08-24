@@ -613,6 +613,44 @@ trace's state-4 calls `(AX,BX) = (336,448), (336,432), (336,464),
 (336,480), (336,496)` match the first table row exactly; the post-state
 effects `127,126,128,129,130` match the `DS:6986` and ICO evidence above.
 
+The zero-state gate is also now decoded. `01F7:1DCA` evaluates the current
+object against the camera with unsigned comparisons:
+
+```c
+x_test = 0x80 + object->x - DS[0x81C0];
+if (x_test > 0x240) return_carry_set();
+y_test = 0x80 + object->y - DS[0x81C4];
+if (y_test > 0x1B0) return_carry_set();
+return_carry_clear();
+```
+
+Thus the accepted camera window is approximately
+`camera_x - 0x80 <= object.x <= camera_x + 0x1C0` and
+`camera_y - 0x80 <= object.y <= camera_y + 0x130`; unsigned underflow also
+rejects objects too far to the left or above. When the gate rejects an object,
+`01F7:1DEE` clears `object+0x18` and the byte at
+`FS:[object+0x1A+1]`, deactivating the state-machine object.
+
+For an object inside the camera window, `01F7:393C` supplies the second gate's
+dynamic bounds. If `DS:89EA` is zero, it reads the object pointed to by
+`DS:881A` and returns:
+
+```text
+AX = bounds_object+0x04 + bounds_object+0x2C
+CX = bounds_object+0x04 + bounds_object+0x30
+BX = bounds_object+0x08 + bounds_object+0x2E
+DX = bounds_object+0x08 + bounds_object+0x32
+```
+
+If `DS:89EA` is nonzero it returns zero in all four registers. `8E4B` then
+accepts the state-machine object only when its X range overlaps `(AX,CX)`
+with a 0x50 extension and its 16-pixel-aligned Y range overlaps `(BX,DX)`
+with a 0x40 extension; acceptance sets `object+0x32` to 1. The W2L1 sample
+returned `(AX,BX,CX,DX) = (232,236,832,436)` for an object at `(432,336)`;
+W3L1 returned `(648,12,1248,212)` for `(848,112)`, W4L1 returned
+`(536,236,1136,436)` for `(736,336)`, and W5L1 returned
+`(632,60,1232,260)`. These samples all advance to state 1.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive

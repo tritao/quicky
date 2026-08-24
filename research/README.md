@@ -382,6 +382,16 @@ and `DS:657E` is the MAP row's byte stride. The static details and the
 relocation-backed call sites are recorded in
 [`notes/ghidra-analysis.md`](notes/ghidra-analysis.md).
 
+The zero-state startup gate is now decoded as well. `01F7:1DCA` rejects an
+object outside the camera-relative window
+`camera_x - 0x80 .. camera_x + 0x1C0` by setting carry; its Y window is
+`camera_y - 0x80 .. camera_y + 0x130`. Rejected objects go through
+`01F7:1DEE`, which clears their update callback and list byte. Objects inside
+the camera window call `01F7:393C`, which derives four dynamic bounds from the
+object at `DS:881A` and its fields `+0x2C/+0x30/+0x2E/+0x32`. The state machine
+advances to state 1 only when the current object overlaps those bounds. W2,
+W3, W4, and W5 runtime samples match the decoded comparisons.
+
 ### Dedicated transient event types `0x65`-`0x67`
 
 These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to

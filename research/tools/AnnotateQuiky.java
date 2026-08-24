@@ -149,6 +149,12 @@ public class AnnotateQuiky extends GhidraScript {
             "Updates 16.16 camera scroll from DS:36FC/36FE/3700/3702 target bounds, clamps it, and derives DS:81CE/81D0.");
         function(0x1e04, "instantiate_are_declaration",
             "Runtime-confirmed six-byte ARE record walker: type, local X, local Y; marks records processed and creates objects at region origin plus local coordinates.");
+        function(0x1dca, "object_camera_visibility_gate",
+            "Returns carry set when ES:DI+04/+08 falls outside the camera window derived from DS:81C0/81C4; uses a 0x80 margin and 0x240/0x1B0 extents.");
+        function(0x1dee, "deactivate_object_outside_camera",
+            "Clears ES:DI+18 and the byte at FS:[ES:DI+1A+1] after the camera gate rejects an object.");
+        function(0x393c, "compute_state_machine_bounds",
+            "Returns four bounds from the object pointed to by DS:881A: position fields plus +2C/+30/+2E/+32, or four zeroes when DS:89EA is nonzero.");
         function(0x0e06, "are_object_factory",
             "Scans the 64-entry pooled-object array and initializes a free object; the normal ARE path returns ES:DI and type 0x2B is initialized by the caller.");
         function(0x1749, "create_dedicated_are_effect",

@@ -89,6 +89,15 @@ tile ID, but preserves the existing cell's high bits when it writes an effect
 cell. No direct consumer of the seven high MAP property bits was found in
 these segment-3 users, so they are not yet a collision specification.
 
+The tile-effect callback's zero-state gate is separate from MAP access. Static
+code at `01F7:1DCA` checks `object+0x04/+0x08` against the current camera with
+128-pixel margins and returns carry for an outside object. `01F7:1DEE` then
+deactivates the object. Inside the camera window, `01F7:393C` returns dynamic
+X/Y bounds derived from the object at `DS:881A`; `01F7:8E4B` uses those bounds
+to decide whether to start the phase counter. This explains why the runtime
+probes must keep the camera centered on the synthetic object before testing
+the MAP-derived effects.
+
 ## Runtime follow-up
 
 The existing `quikytrace --state-machine-samples` path now records the input
