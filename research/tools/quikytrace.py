@@ -99,6 +99,7 @@ class PlayerTraceConfig:
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
+    capture_player_record: bool = False
     select_level: str | None = None
     selector_frames: int = 60
     screenshot: Path | None = None
@@ -183,6 +184,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
+        "capture_player_record": config.capture_player_record,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
     }
@@ -526,6 +528,14 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["branch_events"] = ordered_lua_array(
                 sample.get("branch_events", [])
             )
+        callback = sample.get("player_callback")
+        if isinstance(callback, dict):
+            if "writes" in callback:
+                callback["writes"] = ordered_lua_array(callback.get("writes", []))
+            if "global_writes" in callback:
+                callback["global_writes"] = ordered_lua_array(
+                    callback.get("global_writes", [])
+                )
     census = trace.get("descriptor_census")
     if isinstance(census, dict):
         table = census.get("descriptor_table")
@@ -681,6 +691,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-capture-record", action="store_true",
+                        help="capture the complete 0x78-byte player record before/after each callback")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -730,6 +742,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-samples cannot be negative")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
+    if args.player_capture_record and not args.player_focus_callback:
+        raise TraceError("--player-capture-record requires --player-focus-callback")
     if args.player_property_focus and args.player_map_focus:
         raise TraceError("--player-property-focus cannot be combined with --player-map-focus")
     if args.player_branch_focus and (args.player_map_focus or args.player_collision_focus or
@@ -883,6 +897,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
+                capture_player_record=args.player_capture_record,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,

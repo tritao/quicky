@@ -22,10 +22,13 @@ local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
+local capture_player_record = trace_config.capture_player_record or false
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local trace_event_counter = 0
 local descriptor_census_done = false
+
+local player_record_size = 0x78
 
 local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
 
@@ -51,6 +54,14 @@ local function dword(s, index)
     return word(s, index) | (word(s, index + 2) << 16)
 end
 
+local function signed16(value)
+    return value >= 0x8000 and value - 0x10000 or value
+end
+
+local function signed32(value)
+    return value >= 0x80000000 and value - 0x100000000 or value
+end
+
 local function selector_word(selector, offset)
     local raw = dosbox.mem_read_selector(selector, offset, 2)
     if not raw or #raw < 2 then
@@ -64,6 +75,44 @@ local function hex(s)
     return (s:gsub(".", function(c)
         return string.format("%02x", string.byte(c))
     end))
+end
+
+local function hex_differences(before_hex, after_hex)
+    if before_hex == nil or after_hex == nil or #before_hex ~= #after_hex then
+        return nil
+    end
+    local changes = {}
+    for index = 1, #before_hex, 2 do
+        local before = tonumber(before_hex:sub(index, index + 1), 16)
+        local after = tonumber(after_hex:sub(index, index + 1), 16)
+        if before ~= after then
+            changes[#changes + 1] = {
+                offset = (index - 1) >> 1,
+                before = before,
+                after = after,
+            }
+        end
+    end
+    return changes
+end
+
+local function numeric_differences(before, after)
+    if before == nil or after == nil then return nil end
+    local changes = {}
+    for key, value in pairs(before) do
+        if type(value) == "number" and type(after[key]) == "number" and
+           value ~= after[key] then
+            changes[#changes + 1] = {
+                field = key,
+                before = value,
+                after = after[key],
+            }
+        end
+    end
+    table.sort(changes, function(left, right)
+        return left.field < right.field
+    end)
+    return changes
 end
 
 local function wait_hit(label)
@@ -83,12 +132,16 @@ local function object_snapshot(raw, selector, offset, index)
         position = {
             x_fixed = x_fixed,
             y_fixed = y_fixed,
+            x_fixed_signed = signed32(x_fixed),
+            y_fixed_signed = signed32(y_fixed),
             x = x_fixed >> 16,
             y = y_fixed >> 16,
         },
         action_word = word(raw, 1),
         velocity_x_fixed = dword(raw, 0x0a + 1),
         velocity_y_fixed = dword(raw, 0x0e + 1),
+        velocity_x_fixed_signed = signed32(dword(raw, 0x0a + 1)),
+        velocity_y_fixed_signed = signed32(dword(raw, 0x0e + 1)),
         kind = word(raw, 0x14 + 1),
         phase = string.byte(raw, 0x17 + 1),
         callback = word(raw, 0x18 + 1),
@@ -96,6 +149,9 @@ local function object_snapshot(raw, selector, offset, index)
         sprite_slot = word(raw, 0x12 + 1),
         lifetime = word(raw, 0x2c + 1),
         state_field = word(raw, 0x2e + 1),
+        state_field_signed = signed32(dword(raw, 0x2e + 1)),
+        vertical_step = word(raw, 0x72 + 1),
+        vertical_step_signed = signed16(word(raw, 0x72 + 1)),
         update_state = word(raw, 0x32 + 1),
         player_byte_0x36 = string.byte(raw, 0x36 + 1),
         player_byte_0x37 = string.byte(raw, 0x37 + 1),
@@ -489,17 +545,21 @@ callback_object_snapshot = function(hit)
     local selector = registers.es
     local offset = (registers.edi or 0) & 0xffff
     if selector == nil then return nil end
+    local read_size = capture_player_record and player_record_size or 0x40
     local ok, raw_or_error = pcall(
-        dosbox.mem_read_selector, selector, offset, 0x40
+        dosbox.mem_read_selector, selector, offset, read_size
     )
-    if not ok or not raw_or_error or #raw_or_error < 0x40 then
+    if not ok or not raw_or_error or #raw_or_error < read_size then
         return {
             selector = selector,
             offset = offset,
+            state_size = read_size,
             read_error = ok and "short object state" or tostring(raw_or_error),
         }
     end
-    return object_snapshot(raw_or_error, selector, offset, -1)
+    local object = object_snapshot(raw_or_error, selector, offset, -1)
+    object.state_size = read_size
+    return object
 end
 
 local function record_map_lookup(sample, hit)
@@ -958,6 +1018,7 @@ for sequence = 1, sample_count do
     end
     if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
         local callback_object = callback_object_snapshot(hit)
+        local callback_globals = static_globals()
         sample.player_callback = {
             breakpoint = {segment = hit.segment, offset = hit.offset},
             callback_offset = hit.offset,
@@ -965,6 +1026,9 @@ for sequence = 1, sample_count do
             stack_hex = hex(dosbox.mem_read(
                 "ss", (hit.registers.esp or 0) & 0xffff, 12) or ""),
             object = callback_object,
+            pre_object = callback_object,
+            pre_globals = callback_globals,
+            record_size = callback_object and callback_object.state_size or 0x40,
         }
         local stack = dosbox.mem_read(
             "ss", (hit.registers.esp or 0) & 0xffff, 4) or ""
@@ -1075,18 +1139,28 @@ for sequence = 1, sample_count do
             sample.player_callback.return_actual = {
                 segment = returned.segment, offset = returned.offset,
             }
+            local read_size = capture_player_record and player_record_size or 0x40
             local ok, raw_or_error = pcall(
                 dosbox.mem_read_selector,
-                callback_object.selector, callback_object.offset, 0x40
+                callback_object.selector, callback_object.offset, read_size
             )
-            if ok and raw_or_error and #raw_or_error >= 0x40 then
+            if ok and raw_or_error and #raw_or_error >= read_size then
                 sample.player_callback.post_object = object_snapshot(
                     raw_or_error, callback_object.selector, callback_object.offset, -1
+                )
+                sample.player_callback.post_object.state_size = read_size
+                sample.player_callback.writes = hex_differences(
+                    callback_object.state_hex,
+                    sample.player_callback.post_object.state_hex
                 )
             else
                 sample.player_callback.post_object_read_error =
                     ok and "short object state" or tostring(raw_or_error)
             end
+            sample.player_callback.post_globals = static_globals()
+            sample.player_callback.global_writes = numeric_differences(
+                callback_globals, sample.player_callback.post_globals
+            )
         end
         if map_focus and sample.map_lookup == nil then
             dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})

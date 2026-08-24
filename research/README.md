@@ -435,6 +435,13 @@ The current boundary evidence distinguishes a stable left wall at `x=72` from
 a right-side reset near `(2132,368)`; it does not yet turn either case into a
 hard-coded engine rule.
 
+For frame-faithful player captures, pass `--player-capture-record` with
+callback focus and set `--player-frames-between 1`. Callback-focused
+samples then contain the complete `0x78`-byte record before and after
+`01F7:3FF8` as hex, a byte-level `writes` list, and selected global-state
+deltas. The mode is opt-in so existing collision/property traces retain their
+smaller records.
+
 MAP and descriptor pointers are protected-mode selectors. Traces produced
 before the selector-read correction used the real-mode `mem_read_word` helper
 for those pointers; their tile/descriptor fields are archived but invalid.

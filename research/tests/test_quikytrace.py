@@ -213,6 +213,7 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(player_trace_lua_config(config)["input_frames"], 0)
         self.assertEqual(player_trace_lua_config(config)["input_samples"], 0)
         self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
+        self.assertFalse(player_trace_lua_config(config)["capture_player_record"])
         self.assertFalse(player_trace_lua_config(config)["collision_focus"])
         self.assertFalse(player_trace_lua_config(config)["map_focus"])
         self.assertFalse(player_trace_lua_config(config)["property_focus"])
@@ -239,6 +240,17 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["property_focus"])
         self.assertEqual(payload["property_helper_offset"], 0x5C27)
+
+    def test_player_full_record_capture_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            focus_callback=True,
+            frames_between=1,
+            capture_player_record=True,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertTrue(payload["capture_player_record"])
 
     def test_player_branch_focus_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
@@ -294,6 +306,20 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("collision-patch-tile requires --player-focus-callback", host_source)
         self.assertIn("collision_patch_side=args.player_collision_patch_side", host_source)
 
+    def test_player_record_capture_has_full_state_delta_path(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("local player_record_size = 0x78", source)
+        self.assertIn("velocity_x_fixed_signed", source)
+        self.assertIn("vertical_step_signed", source)
+        self.assertIn("capture_player_record", source)
+        self.assertIn("sample.player_callback.writes", source)
+        self.assertIn("sample.player_callback.global_writes", source)
+        host_source = (Path(__file__).resolve().parents[1] / "tools/quikytrace.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("--player-capture-record", host_source)
+
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
         config = PlayerTraceConfig(
@@ -324,6 +350,21 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(census["descriptor_table"]["entries"][0]["tile_id"], 1)
         self.assertEqual(census["map"]["cells"][0]["x"], 0)
         self.assertEqual(census["map"]["flag_candidates"][0]["tile_id"], 7)
+
+    def test_normalize_player_record_deltas(self):
+        trace = normalize_player_trace({
+            "samples": {
+                "1": {
+                    "player_callback": {
+                        "writes": {"2": {"offset": 7}, "1": {"offset": 3}},
+                        "global_writes": {"1": {"field": "camera_x"}},
+                    }
+                }
+            }
+        })
+        callback = trace["samples"][0]["player_callback"]
+        self.assertEqual([item["offset"] for item in callback["writes"]], [3, 7])
+        self.assertEqual(callback["global_writes"][0]["field"], "camera_x")
 
 
 if __name__ == "__main__":
