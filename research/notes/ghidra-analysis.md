@@ -633,10 +633,31 @@ bits based on `AX bit 3` and `BX bit 3`: `0x02`, `0x01`, `0x04`, or `0x08`.
 It communicates the classification via return flags. `5CC3` returns the
 descriptor word in `DX`; its caller at `3D02` tests descriptor flags directly.
 That caller probes again after an eight-pixel X adjustment when `DX & 0x30`
-is clear, then uses `DX & 0x20` to choose the sign of a halved vertical
-velocity and `DX & 0x40` in the final eight-pixel alignment decision. These
-are exact bit consumers; names such as side, ceiling, or floor remain
-provisional until boundary traces distinguish the branches.
+is clear. The exact vertical part of `3D02` is:
+
+```c
+if (descriptor & 0x20) {
+    object->vertical_response = object->vertical_input >> 1;
+    object->vertical_state = 0xff;
+    phase = (object->x & 0x0f) >> 1;
+} else {
+    object->vertical_response = (-object->vertical_input) >> 1;
+    object->vertical_state = 1;
+    phase = (0x0f - (object->x & 0x0f)) >> 1;
+}
+
+target_y = (object->y & 0xfff0) + phase;
+if (!(descriptor & 0x40))
+    target_y -= 8;
+```
+
+Thus `0x20` is precisely the vertical-response polarity/state selector and
+`0x40` is precisely the eight-pixel vertical-alignment selector. They are not
+independent MAP upper-property bits, and `0x40` is not itself a floor/ceiling
+type. The source supports the usual y-down interpretation that the `0x20`
+clear branch reverses the vertical response, but the gameplay names
+“ceiling” and “floor” remain provisional until both boundary orientations
+are observed.
 The descriptor table is also used by the renderer, which indexes tile imagery
 by the same nine-bit tile ID, but the collision helpers consume the descriptor
 word's low flags instead of the MAP upper field. Runtime property-focused
@@ -662,6 +683,13 @@ Controlled boundary evidence is consistent with the static flag behavior:
   `0xe803` (low nibble `3`), on one side and tile `190`, descriptor `0`, on
   the other while the player returns from `y=350` toward `y=400`. This is a
   floor-transition correlation, not yet a unique floor/ceiling label.
+
+The dedicated `3D02` branch trace also reaches a nonzero vertical descriptor:
+at `(1163,338)` the first descriptor query is clear, the eight-pixel retry
+returns `0x0050`, and the path is `DX&0x20 == 0`, `DX&0x40 != 0`, then success
+with `AL=1` and `object+0x3A=1`. This is a runtime check of the two exact
+bit-consumer branches above; it does not by itself rename the response as
+floor or ceiling.
 
 The long right run reaches the known reset state at `(2131,368)` with
 `+0x37=0xff` and `+0x3e=1000`; a nearby `5C27` sample reads tile `6`,

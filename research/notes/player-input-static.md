@@ -113,10 +113,28 @@ what these helpers use.
 
 The `01F7:3D02` caller makes the next-level use explicit. It calls `5CC3`,
 and, when `DX & 0x30` is clear, retries after shifting the player eight pixels
-in X. It then uses `DX & 0x20` to select the sign of a halved vertical
-velocity and `DX & 0x40` for the final eight-pixel alignment adjustment. Those
-bit consumers are confirmed, but their gameplay names remain provisional
-until the corresponding floor, ceiling, and side boundary cases are traced.
+in X. It then applies the following exact response logic:
+
+```c
+if (descriptor & 0x20) {
+    vertical_response = vertical_input >> 1;
+    object->vertical_state = 0xff;
+    phase = (x & 0x0f) >> 1;
+} else {
+    vertical_response = (-vertical_input) >> 1;
+    object->vertical_state = 1;
+    phase = (0x0f - (x & 0x0f)) >> 1;
+}
+target_y = (y & 0xfff0) + phase;
+if (!(descriptor & 0x40))
+    target_y -= 8;
+```
+
+Therefore `0x20` is a vertical-response polarity/state selector, while
+`0x40` selects the eight-pixel vertical alignment. `0x40` is not itself a
+floor/ceiling type bit. In y-down coordinates the `0x20`-clear branch is the
+sign-reversing response, but the labels “floor” and “ceiling” remain
+provisional until both orientations are captured.
 
 The new `--player-branch-focus` probe watches `3D02` entry, the three
 `DX & 0x30` tests (`3D1E`, `3D36`, `3D40`), the `DX & 0x20` test (`3D45`),
@@ -131,11 +149,13 @@ are consistent across repeated samples:
   `DX&0x30=0x10`, `DX&0x20=0`, and `DX&0x40=0x40`; the object returns with
   `AL=1` and `object+0x3A=1` before the later checkpoint reset.
 
-This proves the right-side reset path is the descriptor-flag branch, while
-the stable left wall is handled by a different collision path. The observed
-`AL` at the `3D44` early return is caller-state residue and is not treated as
-a boolean result. Descriptor-bit gameplay names remain provisional until a
-controlled case exercises `DX&0x20`.
+This proves the `(1163,338)` vertical-correction path is the descriptor-flag
+branch, while the stable left wall is handled by a different collision path.
+The later checkpoint reset at `x=2131` is not attributed to `3D02` by this
+trace. The observed `AL` at the `3D44` early return is caller-state residue
+and is not treated as a boolean result. Static code resolves both `DX&0x20`
+branches; the current runtime sample exercises the clear branch only, so the
+floor/ceiling gameplay names remain provisional.
 
 The callback-focused tracer now records each helper's far-return address, so
 runtime observations can be tied to static call sites: `0x3A3E/0x3A50` are
@@ -155,6 +175,12 @@ Boundary traces provide these correlations without over-naming them:
   `0xe803`/low nibble `3`, on one side and tile `190`, descriptor `0`, on the
   other as the player returns toward the ground. The exact floor-versus-
   ceiling name remains open.
+
+The new `3D02` branch trace reaches a nonzero case at `(1163,338)`: the
+eight-pixel retry returns descriptor `0x0050`, the path has `0x20` clear and
+`0x40` set, and the helper returns `AL=1` with `object+0x3A=1`. This confirms
+the two high-bit consumers at runtime without assigning an unsupported
+floor/ceiling name.
 
 The reproducible W1L1 property matrix now covers neutral, left, right, and
 upward input. The independent `5CC3` rows show `(128,400)` reading raw cell
