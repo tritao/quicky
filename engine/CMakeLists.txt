@@ -9,6 +9,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_library(quiky_core
     src/area.cpp
     src/archive.cpp
+    src/bob.cpp
     src/binary_reader.cpp
     src/map.cpp
     src/palette.cpp
@@ -30,6 +31,9 @@ target_link_libraries(quiky-inspect PRIVATE quiky_core)
 
 add_executable(quiky-render apps/quiky-render.cpp)
 target_link_libraries(quiky-render PRIVATE quiky_core)
+
+add_executable(quiky-bob-sheet apps/quiky-bob-sheet.cpp)
+target_link_libraries(quiky-bob-sheet PRIVATE quiky_core)
 
 enable_testing()
 

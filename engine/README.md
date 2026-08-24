@@ -13,9 +13,10 @@ The current iteration supports:
 - column-interleaved `ICO` tile decoding;
 - indexed level rendering to an 8-bit BMP;
 - ARE layout/entity parsing and optional debug overlays;
+- BOB sprite decoding and indexed contact sheets;
 - synthetic unit tests for the format readers.
 
-Music, BOB sprites, and gameplay are intentionally deferred.
+Music and gameplay are intentionally deferred.
 
 Build and test from the repository root:
 
@@ -31,6 +32,7 @@ Inspect the bundled archive:
 build/engine/quiky-inspect game/NESTLE.DAT info W1L1.MAP
 build/engine/quiky-render game/NESTLE.DAT W1L1.MAP /tmp/W1L1.bmp
 build/engine/quiky-render game/NESTLE.DAT W1L1.MAP /tmp/W1L1-entities.bmp --overlay-are
+build/engine/quiky-bob-sheet game/NESTLE.DAT QUIKYW1.BOB W1.PCC /tmp/QUIKYW1.bmp
 ```
 
 The renderer output is an indexed BMP using the palette stored in the matching

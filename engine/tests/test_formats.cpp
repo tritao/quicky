@@ -1,5 +1,6 @@
 #include "quiky/area.h"
 #include "quiky/archive.h"
+#include "quiky/bob.h"
 #include "quiky/binary_reader.h"
 #include "quiky/map.h"
 #include "quiky/palette.h"
@@ -156,6 +157,37 @@ void testAreaAndOverlay() {
     assert(palette.colors[marker].red == static_cast<quiky::byte>(96 + ((0x002b * 73) % 160)));
 }
 
+void testBobParserDecoderAndSheet() {
+    const quiky::Bytes code = {
+        0xee, 0xd0, 0xc0, 0xc6, 0x84, 0x00, 0x00, 0x01,
+        0xee, 0xd0, 0xc0, 0xc6, 0x84, 0x00, 0x00, 0x02,
+        0x58, 0x5e, 0xcb,
+    };
+    quiky::Bytes bobData;
+    appendU16LE(bobData, 7);
+    appendU16LE(bobData, 1);
+    appendU16LE(bobData, 2);
+    appendU16LE(bobData, 2);
+    appendU16LE(bobData, 1);
+    appendU16LE(bobData, 4);
+    appendU16LE(bobData, 0);
+    appendU16LE(bobData, 8);
+    appendU16LE(bobData, static_cast<std::uint16_t>(code.size()));
+    bobData.insert(bobData.end(), code.begin(), code.end());
+
+    const quiky::Bob bob = quiky::Bob::parse(bobData, "TEST.BOB");
+    assert(bob.records.size() == 1);
+    const quiky::BobRecord &record = bob.records[0];
+    assert(record.slot == 7 && record.width == 2 && record.height == 1);
+    const std::vector<std::int16_t> pixels = quiky::decodeBobRecord(record);
+    assert(pixels.size() == 2 && pixels[0] == 1 && pixels[1] == 2);
+
+    quiky::Palette palette;
+    const quiky::IndexedSurface sheet = quiky::renderBobSheet(bob, palette, 1);
+    assert(sheet.width == 6 && sheet.height == 5);
+    assert(sheet.at(2, 2) == 1 && sheet.at(3, 2) == 2);
+}
+
 } // namespace
 
 int main() {
@@ -164,6 +196,7 @@ int main() {
         testArchive();
         testMapPaletteTilesetAndRenderer();
         testAreaAndOverlay();
+        testBobParserDecoderAndSheet();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;
