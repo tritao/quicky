@@ -1259,11 +1259,20 @@
         "event_object": "027F:0078",
         "event_object_update_callback": "01F7:10B5",
         "event_object_sprite_slot": 65535,
-        "event_object_state_field": "object+0x2E = 0x1D6 + animation_state + subtype",
+        "event_object_state_field": "object+0x2E = 0x1D6 + incremented animation_state + subtype",
+        "event_animation_asset": "LOOP_W1.ICO (LOOP_Wn.ICO in world context)",
+        "event_animation_resource": "GAMEDATA\\loop_W1.ico",
+        "event_animation_selector": "FS = 0x035F in W1L1 runtime",
+        "event_animation_records_observed": [1, 2],
+        "event_animation_match": "256-byte FS:BX blocks match LOOP_W1.ICO records byte-for-byte",
+        "event_animation_traces": [
+          "research/build/traces/entity-65-dedicated-animation-v8.json",
+          "research/build/traces/entity-65-dedicated-animation-v9.json"
+        ],
         "trace_ledger": "research/build/entity-65-dedicated-trace.json",
         "experiment": "target_type_65_dedicated_event_path",
         "experiment_manifest": "research/build/entity-65-runtime-manifest.json",
-        "note": "The type bypasses DS:81D2, sets subtype 0x00, queues one event, and creates a transient object with no standard BOB slot. Its gameplay/visual semantic name remains unresolved; the earlier one-ammo label is not supported by this path alone."
+        "note": "The type bypasses DS:81D2, sets subtype 0x00, queues one event, and creates a transient object with no standard BOB slot. Camera-centered W1L1 probes resolve its live animation blocks to LOOP_W1.ICO records 1 and 2; the gameplay semantic name remains unresolved, and the earlier one-ammo label is not supported by this path alone."
       }
     },
     {
@@ -1284,11 +1293,17 @@
         "event_object": "027F:0078",
         "event_object_update_callback": "01F7:10B5",
         "event_object_sprite_slot": 65535,
-        "event_object_state_field": "object+0x2E = 0x1D6 + animation_state + subtype",
+        "event_object_state_field": "object+0x2E = 0x1D6 + incremented animation_state + subtype",
+        "event_animation_asset": "LOOP_W1.ICO (LOOP_Wn.ICO in world context)",
+        "event_animation_resource": "GAMEDATA\\loop_W1.ico",
+        "event_animation_selector": "FS = 0x035F in W1L1 runtime",
+        "event_animation_records_observed": [6],
+        "event_animation_match": "256-byte FS:BX block matches LOOP_W1.ICO record 6 byte-for-byte",
+        "event_animation_trace": "research/build/traces/entity-66-dedicated-animation-v8.json",
         "trace_ledger": "research/build/entity-66-dedicated-trace.json",
         "experiment": "target_type_66_dedicated_event_path",
         "experiment_manifest": "research/build/entity-66-runtime-manifest.json",
-        "note": "The type bypasses DS:81D2 and shares the queued transient-event renderer with 0x65; only the dedicated subtype byte differs at the wrapper."
+        "note": "The type bypasses DS:81D2 and shares the queued transient-event renderer with 0x65; its subtype byte is 0x08 and a camera-centered W1L1 probe resolves the live animation block to LOOP_W1.ICO record 6."
       }
     },
     {
@@ -1309,11 +1324,17 @@
         "event_object": "027F:0078",
         "event_object_update_callback": "01F7:10B5",
         "event_object_sprite_slot": 65535,
-        "event_object_state_field": "object+0x2E = 0x1D6 + animation_state + subtype",
+        "event_object_state_field": "object+0x2E = 0x1D6 + incremented animation_state + subtype",
+        "event_animation_asset": "LOOP_W1.ICO (LOOP_Wn.ICO in world context)",
+        "event_animation_resource": "GAMEDATA\\loop_W1.ico",
+        "event_animation_selector": "FS = 0x035F in W1L1 runtime",
+        "event_animation_records_observed": [6],
+        "event_animation_match": "256-byte FS:BX block matches LOOP_W1.ICO record 6 byte-for-byte",
+        "event_animation_trace": "research/build/traces/entity-67-dedicated-animation-v8.json",
         "trace_ledger": "research/build/entity-67-dedicated-trace.json",
         "experiment": "target_type_67_dedicated_event_path",
         "experiment_manifest": "research/build/entity-67-runtime-manifest.json",
-        "note": "The type bypasses DS:81D2 and shares the queued transient-event renderer with 0x65; only the dedicated subtype byte differs at the wrapper."
+        "note": "The type bypasses DS:81D2 and shares the queued transient-event renderer with 0x65; its subtype byte is 0x10 and a camera-centered W1L1 probe resolves the live animation block to LOOP_W1.ICO record 6."
       }
     },
     {

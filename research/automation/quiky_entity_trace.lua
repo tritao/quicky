@@ -353,10 +353,129 @@ for attempt = 1, 4096 do
                    "unexpected dedicated event object allocation breakpoint")
             local event_object_selector = render_object_hit.registers.es
             local event_object_offset = render_object_hit.registers.edi & 0xffff
+            local event_animation_lookup = nil
+            local event_animation_candidates = {}
+            dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
             dosbox.debug_continue()
-            local render_return = wait_hit("dedicated event renderer return")
-            assert(render_return.segment == 0x01f7 and render_return.offset == 0x1897,
-                   "unexpected dedicated event renderer return breakpoint")
+            local render_return = nil
+            for attempt = 1, 64 do
+                local candidate = dosbox.wait_for_breakpoint(1000)
+                if not candidate then break end
+                if #event_animation_candidates < 16 then
+                    event_animation_candidates[#event_animation_candidates + 1] = {
+                        segment = candidate.segment,
+                        offset = candidate.offset,
+                        registers = candidate.registers,
+                    }
+                end
+                if candidate.segment == 0x01f7 and candidate.offset == 0x1897 then
+                    render_return = candidate
+                    break
+                end
+                if candidate.segment == 0x01f7 and candidate.offset == 0x1186 and
+                        candidate.registers.es == event_object_selector and
+                        (candidate.registers.edi & 0xffff) == event_object_offset then
+                    local animation_offset = candidate.registers.ebx & 0xffff
+                    local animation_bytes = dosbox.mem_read(
+                        "fs", animation_offset, 0x100) or ""
+                    event_animation_lookup = {
+                        object = {selector = event_object_selector,
+                                  offset = event_object_offset},
+                        selector = candidate.registers.fs,
+                        offset = animation_offset,
+                        raw_length = #animation_bytes,
+                        raw_prefix = byte_prefix(animation_bytes, 32),
+                        raw_bytes = byte_prefix(animation_bytes, #animation_bytes),
+                        breakpoint = {segment = candidate.segment,
+                                      offset = candidate.offset},
+                    }
+                end
+                if candidate.segment == 0x01f7 and candidate.offset == 0x1186 then
+                    dosbox.breakpoint_set(0x01f7, 0x1897, {once = true})
+                else
+                    dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
+                end
+                dosbox.debug_continue()
+            end
+            assert(render_return ~= nil,
+                   "dedicated event renderer return did not execute")
+            local event_object_state_before_update = dosbox.mem_read_selector(
+                event_object_selector, event_object_offset, 64)
+            local event_object_x = word(event_object_state_before_update, 5)
+            local event_object_y = word(event_object_state_before_update, 9)
+            local saved_event_camera_x = dosbox.mem_read_word("ds", 0x81c0)
+            local saved_event_camera_y = dosbox.mem_read_word("ds", 0x81c4)
+            dosbox.mem_write("ds", 0x81c0, little_word(event_object_x))
+            dosbox.mem_write("ds", 0x81c4, little_word(event_object_y))
+            local event_update_candidates = {}
+            local event_update_lookup = nil
+            local event_effect_call = nil
+            dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
+            dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
+            dosbox.breakpoint_set(0x01f7, 0x1693, {once = true})
+            dosbox.debug_continue()
+            for attempt = 1, 32 do
+                local candidate = dosbox.wait_for_breakpoint(500)
+                if not candidate then break end
+                if #event_update_candidates < 32 then
+                    event_update_candidates[#event_update_candidates + 1] = {
+                        segment = candidate.segment,
+                        offset = candidate.offset,
+                        registers = candidate.registers,
+                    }
+                end
+                local candidate_offset = candidate.registers.edi & 0xffff
+                local candidate_base = candidate.registers.ebp & 0xffff
+                local matches_event_object = candidate.registers.es == event_object_selector and
+                    (candidate_offset == event_object_offset or
+                     candidate_base == event_object_offset)
+                if candidate.segment == 0x01f7 and candidate.offset == 0x10b5 and
+                        matches_event_object and event_update_lookup == nil then
+                    event_update_lookup = {
+                        selector = candidate.registers.es,
+                        offset = event_object_offset,
+                        breakpoint = {segment = candidate.segment,
+                                      offset = candidate.offset},
+                        registers = candidate.registers,
+                    }
+                elseif candidate.segment == 0x01f7 and candidate.offset == 0x1186 and
+                        matches_event_object and event_animation_lookup == nil then
+                    local animation_offset = candidate.registers.ebx & 0xffff
+                    local animation_bytes = dosbox.mem_read(
+                        "fs", animation_offset, 0x100) or ""
+                    event_animation_lookup = {
+                        object = {selector = event_object_selector,
+                                  offset = event_object_offset},
+                        selector = candidate.registers.fs,
+                        offset = animation_offset,
+                        raw_length = #animation_bytes,
+                        raw_prefix = byte_prefix(animation_bytes, 32),
+                        raw_bytes = byte_prefix(animation_bytes, #animation_bytes),
+                        breakpoint = {segment = candidate.segment,
+                                      offset = candidate.offset},
+                    }
+                elseif candidate.segment == 0x01f7 and candidate.offset == 0x1693 and
+                        matches_event_object and event_effect_call == nil then
+                    event_effect_call = {
+                        breakpoint = {segment = candidate.segment,
+                                      offset = candidate.offset},
+                        registers = candidate.registers,
+                    }
+                end
+                if candidate.segment == 0x01f7 and candidate.offset == 0x10b5 then
+                    dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
+                    dosbox.breakpoint_set(0x01f7, 0x1693, {once = true})
+                elseif candidate.segment == 0x01f7 and candidate.offset == 0x1186 then
+                    dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
+                    dosbox.breakpoint_set(0x01f7, 0x1693, {once = true})
+                else
+                    dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
+                    dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
+                end
+                dosbox.debug_continue()
+            end
+            dosbox.mem_write("ds", 0x81c0, little_word(saved_event_camera_x))
+            dosbox.mem_write("ds", 0x81c4, little_word(saved_event_camera_y))
             local creator_queue_after_render = dedicated_event_queue()
             local event_object_state = dosbox.mem_read_selector(
                 event_object_selector, event_object_offset, 64)
@@ -397,10 +516,22 @@ for attempt = 1, 4096 do
                 event_object = {
                     selector = event_object_selector,
                     offset = event_object_offset,
+                    initial_state_hex = hex(event_object_state_before_update),
+                    initial_x = event_object_x,
+                    initial_y = event_object_y,
                     state_hex = hex(event_object_state),
                     sprite_slot = word(event_object_state, 0x12 + 1),
                     update_callback = word(event_object_state, 0x18 + 1),
                     state_field = word(event_object_state, 0x2e + 1),
+                },
+                animation_lookup = event_animation_lookup,
+                animation_candidates = event_animation_candidates,
+                update_lookup = event_update_lookup,
+                update_candidates = event_update_candidates,
+                effect_call = event_effect_call,
+                camera_override = {
+                    before = {x = saved_event_camera_x, y = saved_event_camera_y},
+                    applied = {x = event_object_x, y = event_object_y},
                 },
                 record_hex = hex(record),
             }

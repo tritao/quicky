@@ -355,12 +355,18 @@ These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to
 to the `DS:6586` table through the `DS:895E`/`DS:8960` ring. The event loop
 dispatches through `01F7:1892 -> 01F7:16CE` and creates a short-lived object
 whose update callback is `01F7:10B5`, whose normal sprite slot remains
-`0xFFFF`, and whose state field is an animation/effect index. This closes the
-runtime path but does not yet establish a gameplay name or a BOB asset, so the
-catalog deliberately records these as confirmed event variants with unresolved
-visual semantics. The durable ledgers are
+`0xFFFF`. On each event-loop pass the animation byte is incremented modulo eight;
+the loop adds the dedicated subtype and `0x1D6`, passes that index to `01F7:16CE`,
+and stores it in `object+0x2E`. The update callback first calls the `01F7:1693`
+visibility test. When the object is in the camera rectangle, `01F7:10B5` derives
+an `FS:BX` block at `01F7:1186`; camera-centered W1L1 probes show that these
+256-byte blocks match `LOOP_W1.ICO` records byte-for-byte. Type `0x65` selected
+records 1 and 2 in repeated runs, while the captured `0x66` and `0x67` runs
+selected record 6. The normal BOB slot remains unused, and the gameplay name
+is still unresolved. The durable path ledgers are
 `research/build/entity-65-dedicated-trace.json` through
-`entity-67-dedicated-trace.json`.
+`entity-67-dedicated-trace.json`; the animation ledgers are the corresponding
+`entity-{65,66,67}-dedicated-animation-v8.json` traces under `research/build/`.
 
 ### QUIKY.EXE — initial static survey
 

@@ -444,11 +444,25 @@ The event loop reaches the far call at `01F7:1892`, whose relocated target is
 `01F7:16CE`. That routine allocates a pooled object, leaves its normal
 `object+0x12` sprite slot at `0xFFFF`, stores a subtype/animation-derived
 index in `object+0x2E`, and installs the short-lived update callback
-`01F7:10B5`. Runtime captures at the common creator, renderer call, allocation
-point `01F7:171C`, and renderer return confirm one queued event for each type.
-The new ledgers are `entity-65-dedicated-trace.json`,
-`entity-66-dedicated-trace.json`, and `entity-67-dedicated-trace.json`; they
-establish the event path but not a gameplay or BOB asset name.
+`01F7:10B5`. The event loop increments the queued animation byte modulo eight,
+adds the subtype byte and `0x1D6`, and passes the resulting index as the
+`01F7:16CE` `CX` argument. The callback first calls `01F7:1693`, which rejects
+objects outside the camera rectangle. For a visible object, the code at
+`01F7:1186` derives the animation selector/offset from `DS:6570`, `DS:6574`,
+and `DS:6576`, then calls the short ICO drawing helper four times through
+`01F7:11B4`.
+
+Camera-centered W1L1 runs set the debugger-only camera override to the event's
+`(368,304)` object coordinates and restore `DS:81C0`/`DS:81C4` afterward. The
+live `FS:BX` blocks are 256 bytes and match `LOOP_W1.ICO` records exactly:
+type `0x65` produced records 1 and 2 in repeated runs, while types `0x66` and
+`0x67` produced record 6 in the captured runs. The W1 runtime selector was
+`FS=0x035F`; the resource trace independently records the lazy
+`GAMEDATA\\loop_W1.ico` request. These results resolve the animation asset as
+the world-specific `LOOP_Wn.ICO` family while leaving the gameplay name
+conservative. The path ledgers are `entity-65-dedicated-trace.json` through
+`entity-67-dedicated-trace.json`; the animation ledgers are the corresponding
+`entity-65/66/67-dedicated-animation-v8.json` traces under `research/build/`.
 
 Controlled W1L1 anchor traces for `0x29` and `0x2A` stop at the common
 post-initializer boundary `01F7:474D` and write slots 700/703 in

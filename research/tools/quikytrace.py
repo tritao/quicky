@@ -548,6 +548,20 @@ def main(argv: list[str] | None = None) -> int:
                 lookup["raw_bytes"] = ordered_lua_array(
                     lookup.get("raw_bytes", [])
                 )
+            dedicated_lookup = entity.get("animation_lookup")
+            if dedicated_lookup is not None:
+                dedicated_lookup["raw_prefix"] = ordered_lua_array(
+                    dedicated_lookup.get("raw_prefix", [])
+                )
+                dedicated_lookup["raw_bytes"] = ordered_lua_array(
+                    dedicated_lookup.get("raw_bytes", [])
+                )
+            entity["animation_candidates"] = ordered_lua_array(
+                entity.get("animation_candidates", [])
+            )
+            entity["update_candidates"] = ordered_lua_array(
+                entity.get("update_candidates", [])
+            )
             entity["frames"] = ordered_lua_array(entity.get("frames", []))
             events = [entity]
             script_path = entity_script_path
