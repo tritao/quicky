@@ -246,8 +246,10 @@ and overlap geometry. The accepted interaction branches join at `8E42` and do
 not call `1DEE`, so they clear the live callback without clearing the ARE
 re-stream claim; a collected object is not recreated by the normal off-camera
 scan in the same loaded buffer. Level selection is separately observed to
-reread the W1L2.ARE resource; only a persistent collected-bit across that
-reload remains untested. Puzzle completion bookkeeping remains separate. See
+reread the ARE resource. A stateful W1L1 type-0x6F collect-then-reload probe
+now reconstructs the same declaration and reinstalls callback `01F7:8D20`, so
+pickup reload persistence is resolved as reset/reconstruction behavior in the
+tested fixture. Puzzle completion bookkeeping remains separate. See
 [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json).
 
 The three adjacent pickup subtypes now have controlled native overlap ledgers.
@@ -407,6 +409,28 @@ live descriptor geometry `52x16` with origin `(26,16)`. The selector path is
 important: the default menu replay can time out before the first resource
 lookup even though the shared debugger binary is healthy.
 
+The stateful pickup reload probe uses the same tracer with the main-tree
+debugger build and an isolated W1L1 fixture:
+
+```sh
+DOSBOX_AUTOMATION_BIN=/home/joao/dev/quicky/research/build/dosbox-automation-debug/dosbox_with_debugger \
+DOSBOX_AUTOMATION_BUILD_DIR=/home/joao/dev/quicky/research/build \
+DOSBOX_AUTOMATION_DEPS_PREFIX=/home/joao/dev/quicky/research/build/sdl-prefix \
+python3 research/tools/object_behavior_trace.py --launch --headless \
+  --runtime-dir /home/joao/dev/quicky/research/build/entity-6f/baseline/game \
+  --entity-type 0x6f --record-offset 0x1838 --samples 6 \
+  --select-level W1L1 --align-object-to-player --align-y-offset -32 \
+  --force-active-player-bounds --trace-overlap --reload-after-collect \
+  --reload-level W1L1 --output research/build/entity-6f-reload-after-collect.json
+```
+
+The first callback sequence is `01F7:8BC2 -> 01F7:8D20`; the controlled
+overlap reaches `01F7:8E42` and leaves object+0x18 zero. The second selector
+load sees the same `6f0020003000` declaration, runs the factory and `8BC2`
+initializer again, and reinstalls `8D20` on the new live object. This closes
+pickup reload persistence for the tested fixture as reset/reconstruction
+behavior; it does not claim cross-session save semantics.
+
 For a level-specific representative, add `--select-level W2L1` and use the
 record offset from `quikyctl.py entity-catalog`. Use paired traces for each
 family variant, then run a one-record target-vs-inert mutation with
@@ -415,13 +439,12 @@ change. Keep the generated traces under ignored `research/build/`; only
 normalized conclusions and hashes belong in tracked notes/catalogs.
 
 The broad family pass is complete. The targeted probes now close the shared
-collectible overlap, pooled-leaf reuse, normal-enemy helper, and platform-carry
-boundaries. Remaining experiments are deliberately narrower:
+collectible overlap and pickup reload, pooled-leaf reuse, normal-enemy helper,
+and platform-carry boundaries. Remaining experiments are deliberately narrower:
 
-1. Level reload persistence remains the only collectible lifecycle gap. The
-   loader trace confirms a fresh `W1L2.ARE` resource read after level selection,
-   while the collection path leaves the ARE claim untouched; a stateful
-   collect-then-reload run would close the final distinction.
+1. Puzzle-letter level completion remains open; the letter collection bitfield
+   (`DS:60D8`) and per-letter removal are confirmed, but the completion/transition
+   consumer has not yet been isolated.
 2. If platform approach polarity is required, capture player-state variants
    just outside the accepted A075 band; native integration, carry offsets, MAP
    stop, and the absence of a platform-specific terminal table are confirmed.

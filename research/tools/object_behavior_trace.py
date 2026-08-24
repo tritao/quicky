@@ -53,6 +53,9 @@ class ObjectBehaviorConfig:
     force_velocity_x: int | None = None
     force_velocity_y: int | None = None
     force_platform_ready: bool = False
+    reload_after_collect: bool = False
+    reload_level: str | None = None
+    reload_wait_frames: int = 30
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -81,6 +84,9 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "force_velocity_x": config.force_velocity_x,
         "force_velocity_y": config.force_velocity_y,
         "force_platform_ready": config.force_platform_ready,
+        "reload_after_collect": config.reload_after_collect,
+        "reload_level": config.reload_level or "",
+        "reload_wait_frames": config.reload_wait_frames,
     }
 
 
@@ -236,6 +242,18 @@ def build_parser() -> argparse.ArgumentParser:
         "--force-platform-ready", action="store_true",
         help="debugger-only: clear the platform carry latch before its first callback",
     )
+    parser.add_argument(
+        "--reload-after-collect", action="store_true",
+        help="after a pickup clears its callback, re-enter the native level selector and probe reconstruction",
+    )
+    parser.add_argument(
+        "--reload-level",
+        help="level selector to use for --reload-after-collect (defaults to --select-level)",
+    )
+    parser.add_argument(
+        "--reload-wait-frames", type=int, default=30,
+        help="frames to let gameplay run before the reload selector probe",
+    )
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -255,6 +273,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--entity-type must be between 0 and 255")
     if args.select_level is not None and len(args.select_level) != 4:
         raise TraceError("--select-level must look like W4L1")
+    if args.reload_level is not None and len(args.reload_level) != 4:
+        raise TraceError("--reload-level must look like W4L1")
+    if args.reload_after_collect and args.select_level is None and args.reload_level is None:
+        raise TraceError("--reload-after-collect requires --select-level or --reload-level")
+    if args.reload_wait_frames < 0:
+        raise TraceError("--reload-wait-frames must be non-negative")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
     for name in ("camera_x", "camera_y"):
@@ -337,6 +361,9 @@ def main(argv: list[str] | None = None) -> int:
         force_velocity_x=args.force_velocity_x,
         force_velocity_y=args.force_velocity_y,
         force_platform_ready=args.force_platform_ready,
+        reload_after_collect=args.reload_after_collect,
+        reload_level=args.reload_level,
+        reload_wait_frames=args.reload_wait_frames,
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {

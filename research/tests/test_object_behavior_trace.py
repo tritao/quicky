@@ -31,6 +31,22 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["sprite_init_offset"], 0x6DB0)
         self.assertNotIn("player_callback_offset", payload)
 
+    def test_reload_probe_options_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1838,
+            entity_type=0x6F,
+            samples=1,
+            startup_recording=Path("startup.json"),
+            select_level="W1L1",
+            reload_after_collect=True,
+            reload_level="W1L1",
+            reload_wait_frames=12,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["reload_after_collect"])
+        self.assertEqual(payload["reload_level"], "W1L1")
+        self.assertEqual(payload["reload_wait_frames"], 12)
+
     def test_interaction_probe_flags_are_serialized(self):
         config = ObjectBehaviorConfig(
             record_offset=0x1606,
@@ -94,6 +110,13 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             source.count("dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})"),
             2,
         )
+
+    def test_reload_probe_has_reconstruction_capture(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("reload_after_collect", source)
+        self.assertIn("reload object factory return", source)
+        self.assertIn("reconstructed = false", source)
 
 
 if __name__ == "__main__":

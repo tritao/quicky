@@ -1,12 +1,17 @@
 {
   "schema": "entity-level-reload-persistence-evidence-v1",
-  "purpose": "Record the level-loader side of collectible persistence and the remaining collect-then-reload gap.",
+  "purpose": "Record the level-loader side of collectible persistence and the stateful collect-then-reload result.",
   "inputs": {
     "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
     "archive_sha256": "bf2832151e0d86a18064b7fc7f6b30d7998c1ae137214d51190cf2e3ffbf51ef",
     "resource_trace": "research/build/w1l2-reload-resource-trace.json",
     "resource_trace_sha256": "de191058a80d73c087d723ebef2ee18da6aa587ec08255f6440c9a6a039ac4fb",
-    "resource_trace_script_sha256": "b08a2f4f59c0713f853b29eaca0ff78b1c29439b0bd24cabac3ec13e2e4e1a65"
+    "resource_trace_script_sha256": "b08a2f4f59c0713f853b29eaca0ff78b1c29439b0bd24cabac3ec13e2e4e1a65",
+    "stateful_executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "stateful_archive_sha256": "9f2b0c7507eac28f2056b7a7950cc565de7eebaa7a41c0d3c74d2a23efc83d06",
+    "stateful_trace": "research/build/entity-6f-reload-after-collect.json",
+    "stateful_trace_sha256": "face0a09d68f6ed4952e521fd872ec1a98e2d6d1883745ebe5070a2d3795863c",
+    "stateful_trace_script_sha256": "1097a96b2fd1e79b9e1706ce387bb1c858490d0216add74654524c01c4be5a48"
   },
   "loader_probe": {
     "mode": "main-tree debug build with QUIKYSUPERHERO selector",
@@ -23,5 +28,26 @@
     "are_claim_clear": false,
     "stream_reset": "01F7:1DEE writes FS:[object+0x1A+1]=0 only on visibility removal"
   },
-  "conclusion": "Same-buffer re-stream respawn is ruled out after collection; the loader side is confirmed to read a fresh ARE resource on level selection. A single stateful collect-then-reload run is still required to prove whether the game carries a separate persistent collected-bit across reload or simply reconstructs the object from the archive."
+  "stateful_probe": {
+    "fixture": "W1L1 native selector, type 0x6F at ARE record 0x1838 (runtime declaration offset 0x16D8)",
+    "controls": ["align_object_to_player", "align_y_offset=-32", "force_active_player_bounds", "trace_overlap"],
+    "first_load": {
+      "record_hex": "6f0020003000",
+      "initializer": "01F7:8BC2",
+      "update_callback": "01F7:8D20",
+      "collection_callback_after": 0,
+      "overlap_return": "01F7:8E42"
+    },
+    "reload": {
+      "selected_level": "W1L1",
+      "record_hex": "6f0020003000",
+      "runtime_record_offset": "0x16D8",
+      "factory": "01F7:0E06",
+      "initializer": "01F7:8BC2",
+      "post_initializer_update_callback": "01F7:8D20",
+      "reconstructed": true
+    },
+    "interpretation": "After native collection, selecting the same level reads the same ARE declaration and allocates/reinitializes the pickup again. No separate persistent collected-bit suppressed reconstruction in this run."
+  },
+  "conclusion": "Same-buffer re-stream respawn is ruled out after collection; the loader reads a fresh ARE resource on level selection; and the stateful W1L1 collect-then-reload probe reconstructed type 0x6F with callback 01F7:8D20. Pickup reload persistence is therefore resolved as reconstruction/reset behavior for this fixture; puzzle-letter completion and any cross-session save semantics remain separate questions."
 }

@@ -26,6 +26,10 @@ local align_y_offset = trace_config.align_y_offset or 0
 local force_velocity_x = trace_config.force_velocity_x
 local force_velocity_y = trace_config.force_velocity_y
 local force_platform_ready = trace_config.force_platform_ready or false
+local reload_after_collect = trace_config.reload_after_collect or false
+local reload_level = trace_config.reload_level
+if reload_level == nil or reload_level == "" then reload_level = select_level end
+local reload_wait_frames = trace_config.reload_wait_frames or 30
 local runtime_offset = record_offset - 0x160
 
 local function word(s, index)
@@ -581,6 +585,121 @@ end
 
 assert(#samples > 0,
        "captured no callbacks for the initialized object")
+local reload_probe = nil
+if reload_after_collect then
+    assert(callback_offset == 0,
+           "--reload-after-collect requires the first callback to clear after collection")
+    assert(reload_level ~= "", "reload selector level is empty")
+
+    -- The callback return breakpoint leaves the machine paused in gameplay.
+    -- Let the level loop settle before invoking the same native selector path
+    -- used for the initial load.  This is deliberately a stateful probe: the
+    -- second ARE declaration and factory allocation are captured independently
+    -- of the first object's cleared callback.
+    dosbox.debug_continue()
+    dosbox.wait_frames(reload_wait_frames)
+    local second_declaration = choose_level(reload_level)
+    local second_target = nil
+    for attempt = 1, 4096 do
+        if second_declaration then
+            second_declaration = false
+        else
+            dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+        end
+        local declaration = wait_hit("reload ARE declaration")
+        local declaration_record = dosbox.mem_read("fs", declaration.registers.ebx & 0xffff, 6)
+        local declaration_type = word(declaration_record, 1) & 0xff
+        if (declaration.registers.ebx & 0xffff) == runtime_offset then
+            second_target = {entry = declaration, record = declaration_record,
+                             entity_type = declaration_type}
+            break
+        end
+        dosbox.debug_continue()
+        dosbox.wait_frames(1)
+    end
+    reload_probe = {
+        selected_level = reload_level,
+        target_declaration = nil,
+        reconstructed = false,
+    }
+    if second_target ~= nil then
+        reload_probe.target_declaration = {
+            selector = second_target.entry.registers.fs,
+            offset = second_target.entry.registers.ebx & 0xffff,
+            type = second_target.entity_type,
+            record_hex = hex(second_target.record),
+            entry = {segment = second_target.entry.segment,
+                     offset = second_target.entry.offset,
+                     registers = second_target.entry.registers},
+        }
+        local reload_dispatch_offset = 0x81d2 + expected_type * 4
+        local reload_dispatch = dosbox.mem_read("ds", reload_dispatch_offset, 4)
+        local reload_callback_offset = word(reload_dispatch, 1)
+        if second_target.entity_type == expected_type and reload_callback_offset ~= 0 then
+            dosbox.breakpoint_set(0x01f7, 0x1e8e, {once = true})
+            dosbox.debug_continue()
+            local reload_factory = wait_hit("reload object factory return")
+            local reload_object_selector = reload_factory.registers.es
+            local reload_object_offset = reload_factory.registers.edi & 0xffff
+            -- The factory return still contains the dispatch/initializer
+            -- callback (for 0x6f this is 8bc2).  Run that callback once and
+            -- sample the object only after its near return, when object+0x18
+            -- has been replaced by the shared update callback (8d20).
+            local reload_initializer = nil
+            local reload_initializer_return = nil
+            for initializer_attempt = 1, 16 do
+                dosbox.breakpoint_set(0x01f7, reload_callback_offset,
+                                      {once = true})
+                dosbox.debug_continue()
+                local initializer_hit = wait_hit("reload object initializer")
+                local matches_reload_object = initializer_hit.segment == 0x01f7 and
+                    initializer_hit.offset == reload_callback_offset and
+                    initializer_hit.registers.es == reload_object_selector and
+                    (initializer_hit.registers.edi & 0xffff) == reload_object_offset
+                if matches_reload_object then
+                    reload_initializer = initializer_hit
+                    local returned = stack_return(initializer_hit)
+                    assert(returned ~= nil,
+                           "reload object initializer has no near return address")
+                    dosbox.breakpoint_set(returned.segment, returned.offset,
+                                          {once = true})
+                    dosbox.debug_continue()
+                    reload_initializer_return = wait_hit(
+                        "reload object initializer return")
+                    break
+                end
+            end
+            assert(reload_initializer ~= nil,
+                   "reload object initializer did not match allocated object")
+            local reload_object = object_snapshot(reload_object_selector,
+                                                  reload_object_offset)
+            reload_probe.reconstructed = reload_object.update_callback ~= 0 and
+                reload_object.update_callback ~= reload_callback_offset
+            reload_probe.dispatch = {
+                segment = 0x01f7,
+                offset = reload_callback_offset,
+                raw_hex = hex(reload_dispatch),
+            }
+            reload_probe.factory = {
+                segment = reload_factory.segment,
+                offset = reload_factory.offset,
+                registers = reload_factory.registers,
+            }
+            reload_probe.initializer = {
+                segment = reload_initializer.segment,
+                offset = reload_initializer.offset,
+                registers = reload_initializer.registers,
+            }
+            reload_probe.initializer_return = {
+                segment = reload_initializer_return.segment,
+                offset = reload_initializer_return.offset,
+                registers = reload_initializer_return.registers,
+            }
+            reload_probe.object = reload_object
+            reload_probe.callback_installed = reload_object.update_callback
+        end
+    end
+end
 dosbox.output.behavior_trace = {
     trace_schema_version = 1,
     trace_kind = "object-behavior",
@@ -602,6 +721,7 @@ dosbox.output.behavior_trace = {
     interaction_alignment = interaction_alignment,
     initializer_breakpoint = initializer_breakpoint,
     camera_override = {x = camera_x, y = camera_y},
+    reload_probe = reload_probe,
     samples = samples,
 }
 dosbox.debug_continue()
