@@ -530,11 +530,13 @@ python3 research/tools/player_collision_report.py \
 ~~~
 
 The report preserves one row per helper and the low-16-bit `EAX/EBX/ECX/EDX`
-values plus player tail bytes. Fresh W1L1 captures show the stable horizontal
+values plus player tail bytes. It also records return registers: `648E`,
+`6484`, and `3A8A` use far returns, while `3A1F` and `3DF2` use near returns
+to `01F7:42B7` and `01F7:42CC`. Fresh W1L1 captures show the stable horizontal
 path `648E -> 6484 -> 3A8A -> 3A1F -> 3DF2`; during the jump, the final two
 property/descriptor probes disappear on the upward sample and reappear as the
-player descends. This is a coverage result, not yet a semantic name: the next
-pass correlates each helper's return value and descriptor read with the MAP
+player descends. The return matrix is still evidence, not a semantic name:
+the next pass correlates each return value and descriptor read with the MAP
 cell and animation/state transition before implementing collision rules.
 
 To isolate descriptor semantics without depending on the MAP stream's active

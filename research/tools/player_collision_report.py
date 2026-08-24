@@ -123,6 +123,13 @@ def collision_rows(paths: list[Path], labels: list[str] | None = None) -> list[d
                 if not isinstance(registers, dict):
                     raise CollisionReportError(f"{path}: collision.registers must be an object")
                 object_state = event.get("object")
+                return_state = event.get("return_breakpoint")
+                return_registers = (return_state.get("registers", {})
+                                   if isinstance(return_state, dict) else {})
+                if not isinstance(return_registers, dict):
+                    raise CollisionReportError(
+                        f"{path}: collision.return_breakpoint.registers must be an object"
+                    )
                 row = {
                     "trace": str(path),
                     "scenario": scenario,
@@ -138,6 +145,13 @@ def collision_rows(paths: list[Path], labels: list[str] | None = None) -> list[d
                     "ecx": _u16(registers, "ecx"),
                     "edx": _u16(registers, "edx"),
                     "event_index": event.get("event_index"),
+                    "return_offset": (return_state.get("offset")
+                                       if isinstance(return_state, dict) else None),
+                    "return_ax": _u16(return_registers, "eax"),
+                    "return_dx": _u16(return_registers, "edx"),
+                    "return_flags": (return_registers.get("flags")
+                                      if isinstance(return_registers.get("flags"), int)
+                                      else None),
                 }
                 row.update(_tail(object_state))
                 rows.append(row)
@@ -170,6 +184,7 @@ CSV_FIELDS = [
     "trace", "scenario", "sequence", "frame_index", "helper_order",
     "helper_offset", "helper_name", "player_x", "player_y",
     "eax", "ebx", "ecx", "edx", "event_index",
+    "return_offset", "return_ax", "return_dx", "return_flags",
     "object_0x36", "object_0x37", "object_0x38", "object_0x39",
     "object_0x3a", "object_0x3b",
 ]

@@ -27,6 +27,11 @@ def trace(*helpers):
             "object": {"player_byte_0x36": 1, "player_byte_0x37": 2,
                         "player_byte_0x38": 3, "player_byte_0x39": 4,
                         "player_byte_0x3a": 5, "player_byte_0x3b": 6},
+            "return_breakpoint": {
+                "segment": 0x1F7, "offset": 0x4000 + index,
+                "registers": {"eax": 0x90 + index, "edx": 0xA0 + index,
+                               "flags": 0x200},
+            },
         })
     return {"events": [{"samples": [{
         "sequence": 1,
@@ -51,6 +56,8 @@ class PlayerCollisionReportTests(unittest.TestCase):
         self.assertEqual(rows[0]["eax"], 0)
         self.assertEqual(rows[-1]["player_x"], 128)
         self.assertEqual(rows[-1]["object_0x3a"], 5)
+        self.assertEqual(rows[-1]["return_ax"], 0x92)
+        self.assertEqual(rows[-1]["return_offset"], 0x4002)
 
     def test_report_groups_path_by_sample(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -79,6 +86,7 @@ class PlayerCollisionReportTests(unittest.TestCase):
         self.assertIn("helper_name", header)
         self.assertIn("eax", header)
         self.assertIn("object_0x3a", header)
+        self.assertIn("return_ax", header)
 
 
 if __name__ == "__main__":

@@ -573,6 +573,21 @@ local function far_return_location(hit)
     return {offset = word(raw, 1), segment = word(raw, 3)}
 end
 
+-- 3A1F and 3DF2 are ordinary near-call helpers in segment 3.  Reading a
+-- four-byte far return for them would pair the two-byte return IP with the
+-- caller's stack data and leave the callback barrier armed at a bogus CS.
+local function collision_return_location(hit)
+    if hit.offset ~= 0x3a1f and hit.offset ~= 0x3df2 then
+        return far_return_location(hit)
+    end
+    local registers = hit.registers or {}
+    local raw = dosbox.mem_read(
+        "ss", (registers.esp or 0) & 0xffff, 2
+    ) or ""
+    if #raw < 2 then return nil end
+    return {offset = word(raw, 1), segment = hit.segment}
+end
+
 local function record_collision(sample, hit)
     local collision = {
         event_index = next_trace_event(),
@@ -586,6 +601,7 @@ local function record_collision(sample, hit)
     sample.collisions = sample.collisions or {}
     sample.collisions[#sample.collisions + 1] = collision
     sample.collision = collision
+    return collision
 end
 
 local function stop_for_capture()
@@ -763,6 +779,7 @@ for sequence = 1, sample_count do
             local returned = nil
             local property_return = nil
             local collision_return = nil
+            local collision_return_event = nil
             while returned == nil do
                 dosbox.breakpoint_set(return_segment, return_offset, {once = true})
                 if property_return ~= nil then
@@ -787,7 +804,15 @@ for sequence = 1, sample_count do
                 elseif collision_return ~= nil and
                        candidate.segment == collision_return.segment and
                        candidate.offset == collision_return.offset then
+                    if collision_return_event ~= nil then
+                        collision_return_event.return_breakpoint = {
+                            segment = candidate.segment,
+                            offset = candidate.offset,
+                            registers = candidate.registers,
+                        }
+                    end
                     collision_return = nil
+                    collision_return_event = nil
                 elseif candidate.segment == return_segment and candidate.offset == return_offset then
                     returned = candidate
                 else
@@ -800,8 +825,8 @@ for sequence = 1, sample_count do
                     elseif candidate.offset == 0x3376 and map_focus then
                         record_map_lookup(sample, candidate)
                     elseif is_collision_target(candidate.offset) then
-                        record_collision(sample, candidate)
-                        collision_return = far_return_location(candidate)
+                        collision_return_event = record_collision(sample, candidate)
+                        collision_return = collision_return_location(candidate)
                     end
                 end
             end

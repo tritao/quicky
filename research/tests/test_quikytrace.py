@@ -266,6 +266,13 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertNotIn("mem_read_word, map_selector", source)
         self.assertNotIn("mem_read_word, descriptor_selector", source)
 
+    def test_player_collision_trace_distinguishes_near_leaf_returns(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("local function collision_return_location", source)
+        self.assertIn("hit.offset ~= 0x3a1f and hit.offset ~= 0x3df2", source)
+        self.assertIn("collision_return_event.return_breakpoint", source)
+
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
         config = PlayerTraceConfig(

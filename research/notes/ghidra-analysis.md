@@ -794,6 +794,18 @@ left-input run instead remains at `(72,400)` with zero velocity, and its MAP
 sample is `(77,400)`, cell `0xEC8B`. These are controlled wall-versus-reset
 observations, not final gameplay names.
 
+The selector-safe callback barrier now captures the complete helper path and
+the registers after each helper returns. In the ordinary horizontal case the
+path is `648E -> 6484 -> 3A8A -> 3A1F -> 3DF2`. The first three helpers return
+through far-call continuations `01F7:400B`, `01F7:4014`, and `01F7:401D`; the
+leaf helpers are near calls returning to `01F7:42B7` and `01F7:42CC`. At the
+initial `(128,400)` sample, `3A1F` returns `AX=0`, `DX=0xFFD8`, and `3DF2`
+returns `AX=0x0190`, `DX=0x000C`; after the first movement sample, both leaf
+helpers return `AX=0x0190`, `DX=0x000C`. During the upward jump sample the
+chain stops after `3A8A`, and the leaf probes resume on descent. These values
+are the next correlation inputs for distinguishing vertical response from
+side-wall handling; they are not yet assigned gameplay names.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive
