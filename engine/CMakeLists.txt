@@ -16,6 +16,7 @@ add_library(quiky_core
     src/renderer.cpp
     src/runtime.cpp
     src/level.cpp
+    src/level_runtime.cpp
     src/tileset.cpp
 )
 

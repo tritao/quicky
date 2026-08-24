@@ -1,0 +1,97 @@
+#include "quiky/level_runtime.h"
+
+#include <cctype>
+
+namespace quiky {
+
+namespace {
+
+std::string worldFor(const std::string &mapName) {
+    if (mapName.size() < 2 || (mapName[0] != 'W' && mapName[0] != 'w')) {
+        throw FormatError("cannot derive world from MAP resource name");
+    }
+    std::string world(mapName.substr(0, 2));
+    world[0] = 'W';
+    world[1] = static_cast<char>(std::toupper(static_cast<unsigned char>(world[1])));
+    return world;
+}
+
+std::string areaNameFor(const std::string &mapName) {
+    const std::size_t extension = mapName.find_last_of('.');
+    if (extension == std::string::npos) {
+        throw FormatError("MAP resource has no extension: " + mapName);
+    }
+    return mapName.substr(0, extension) + ".ARE";
+}
+
+} // namespace
+
+std::unique_ptr<LevelRuntime> LevelRuntime::load(
+    const Archive &archive, const std::string &mapName,
+    const std::string &playerBobName, const LevelSessionConfig &config) {
+    const std::string worldName = worldFor(mapName);
+    const std::string areaName = areaNameFor(mapName);
+    const Map map = Map::parse(archive.read(mapName), mapName);
+    const Area area = Area::parse(archive.read(areaName), areaName);
+    const Palette palette = Palette::parsePcx(
+        archive.read(worldName + ".PCC"), worldName + ".PCC");
+    const Tileset tileset = Tileset::parseIco(
+        archive.read(worldName + ".ICO"), worldName + ".ICO");
+    const Bob playerBob = Bob::parse(
+        archive.read(playerBobName), playerBobName);
+
+    std::unique_ptr<LevelRuntime> result(new LevelRuntime(
+        mapName, areaName, worldName, playerBobName, map, area, palette,
+        tileset, playerBob, config));
+    result->loadEntityBobs(archive);
+    return result;
+}
+
+LevelRuntime::LevelRuntime(const std::string &mapName,
+                           const std::string &areaName,
+                           const std::string &worldName,
+                           const std::string &playerBobName,
+                           const Map &map, const Area &area,
+                           const Palette &palette, const Tileset &tileset,
+                           const Bob &playerBob,
+                           const LevelSessionConfig &config)
+    : _mapName(mapName),
+      _areaName(areaName),
+      _worldName(worldName),
+      _playerBobName(playerBobName),
+      _map(map),
+      _area(area),
+      _palette(palette),
+      _tileset(tileset),
+      _playerBob(playerBob),
+      _session(mapName, _map, _area, config),
+      _entityBobs() {
+}
+
+void LevelRuntime::loadEntityBobs(const Archive &archive) {
+    for (std::size_t index = 0; index < _session.entities().size(); ++index) {
+        const LevelEntity &entity = _session.entities()[index];
+        if (entity.spriteResource.empty() ||
+            _entityBobs.find(entity.spriteResource) != _entityBobs.end()) {
+            continue;
+        }
+        const Bob bob = Bob::parse(
+            archive.read(entity.spriteResource), entity.spriteResource);
+        _entityBobs.insert(std::make_pair(entity.spriteResource, bob));
+    }
+}
+
+void LevelRuntime::reset(PlayerState &player,
+                         const PlayerSimulation &simulation) {
+    _session.reset(player, simulation);
+    _session.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+}
+
+void LevelRuntime::tick(PlayerState &player,
+                        const PlayerSimulation &simulation,
+                        const InputState &input) {
+    const MapCollisionQuery collision(_map, simulation.collisionRules());
+    _session.tick(player, simulation, collision, input);
+}
+
+} // namespace quiky

@@ -1,15 +1,11 @@
 #include "quiky/archive.h"
-#include "quiky/area.h"
 #include "quiky/bob.h"
-#include "quiky/map.h"
-#include "quiky/palette.h"
-#include "quiky/level.h"
+#include "quiky/level_runtime.h"
 #ifdef QUIKY_WITH_MUSIC
 #include "quiky/music.h"
 #endif
 #include "quiky/renderer.h"
 #include "quiky/runtime.h"
-#include "quiky/tileset.h"
 
 #include <SDL3/SDL.h>
 
@@ -20,6 +16,7 @@
 #include <exception>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -46,21 +43,6 @@ long parseNumber(const std::string &value, const char *name) {
     return result;
 }
 
-std::string worldFor(const std::string &mapName) {
-    if (mapName.size() < 2 || (mapName[0] != 'W' && mapName[0] != 'w')) {
-        throw quiky::FormatError("cannot derive world from MAP resource name");
-    }
-    std::string world(mapName.substr(0, 2));
-    world[0] = 'W';
-    world[1] = static_cast<char>(std::toupper(static_cast<unsigned char>(world[1])));
-    return world;
-}
-
-std::string areaNameFor(const std::string &mapName) {
-    const std::size_t extension = mapName.find_last_of('.');
-    return mapName.substr(0, extension) + ".ARE";
-}
-
 const quiky::BobRecord *findSlot(const quiky::Bob &bob, std::uint16_t slot) {
     for (std::size_t index = 0; index < bob.records.size(); ++index) {
         if (bob.records[index].slot == slot) {
@@ -70,38 +52,17 @@ const quiky::BobRecord *findSlot(const quiky::Bob &bob, std::uint16_t slot) {
     return nullptr;
 }
 
-typedef std::map<std::string, quiky::Bob> EntityBobResources;
-
-void loadEntityBobResources(const quiky::Archive &archive,
-                            const quiky::LevelSession &level,
-                            EntityBobResources &resources) {
-    for (std::size_t index = 0; index < level.entities().size(); ++index) {
-        const quiky::LevelEntity &entity = level.entities()[index];
-        if (entity.spriteResource.empty() ||
-            resources.find(entity.spriteResource) != resources.end()) {
-            continue;
-        }
-        try {
-            const quiky::Bob bob = quiky::Bob::parse(
-                archive.read(entity.spriteResource), entity.spriteResource);
-            resources.insert(std::make_pair(entity.spriteResource, bob));
-        } catch (const std::exception &error) {
-            std::cerr << "warning: entity sprites unavailable from "
-                      << entity.spriteResource << ": " << error.what() << "\n";
-        }
-    }
-}
-
 void drawEntitySprites(quiky::IndexedSurface &surface,
-                       const quiky::LevelSession &level,
-                       const EntityBobResources &resources) {
+                       const quiky::LevelRuntime &runtime) {
+    const quiky::LevelSession &level = runtime.session();
+    const std::map<std::string, quiky::Bob> &resources = runtime.entityBobs();
     for (std::size_t index = 0; index < level.entities().size(); ++index) {
         const quiky::LevelEntity &entity = level.entities()[index];
         if (entity.phase != quiky::EntityPhase::Active ||
             entity.spriteResource.empty() || entity.spriteSlot == 0xffff) {
             continue;
         }
-        const EntityBobResources::const_iterator resource =
+        const std::map<std::string, quiky::Bob>::const_iterator resource =
             resources.find(entity.spriteResource);
         if (resource == resources.end()) {
             continue;
@@ -182,6 +143,28 @@ struct SdlState {
         SDL_Quit();
     }
 };
+
+SDL_Texture *createSurfaceTexture(SDL_Renderer *renderer,
+                                  const quiky::IndexedSurface &surface) {
+    SDL_Texture *texture = SDL_CreateTexture(
+        renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
+        static_cast<int>(surface.width), static_cast<int>(surface.height));
+    if (texture == nullptr) {
+        throw quiky::FormatError(std::string("SDL_CreateTexture: ") + SDL_GetError());
+    }
+    checkSdl(SDL_SetTextureScaleMode(texture, SDL_SCALEMODE_NEAREST),
+             "SDL_SetTextureScaleMode");
+    return texture;
+}
+
+void replaceSurfaceTexture(SdlState &sdl,
+                           const quiky::IndexedSurface &surface) {
+    SDL_Texture *texture = createSurfaceTexture(sdl.renderer, surface);
+    if (sdl.texture != nullptr) {
+        SDL_DestroyTexture(sdl.texture);
+    }
+    sdl.texture = texture;
+}
 
 #ifdef QUIKY_WITH_MUSIC
 bool startGameplayMusic(const quiky::Archive &archive, SdlState &sdl) {
@@ -275,6 +258,7 @@ void drawEntityMarkers(quiky::IndexedSurface &surface, quiky::Palette &palette,
 void updateTitle(SDL_Window *window, const std::string &mapName,
                  const quiky::PlayerState &player, std::uint64_t frame,
                  std::uint16_t slot, bool paused, const quiky::LevelSession &level,
+                 std::uint32_t carriedScore, std::uint32_t carriedDeaths,
                  const std::string &eventText) {
     std::ostringstream title;
     title << "Quiky | " << mapName << " | " << (paused ? "PAUSED | " : "")
@@ -284,7 +268,8 @@ void updateTitle(SDL_Window *window, const std::string &mapName,
           << " vx=" << player.velocityX.floorPixels()
           << " vy=" << player.velocityY.floorPixels()
           << (player.grounded ? " grounded" : " airborne")
-          << " score=" << level.score() << " deaths=" << level.deaths();
+          << " score=" << carriedScore + level.score()
+          << " deaths=" << carriedDeaths + level.deaths();
     if (!eventText.empty()) {
         title << " " << eventText;
     }
@@ -349,32 +334,17 @@ int main(int argc, char **argv) {
             startY = static_cast<std::int32_t>(parsedY);
             hasStartOverride = true;
         }
-        const std::string world = worldFor(mapName);
-
-        const quiky::Map map = quiky::Map::parse(archive.read(mapName), mapName);
-        const quiky::Palette palette = quiky::Palette::parsePcx(
-            archive.read(world + ".PCC"), world + ".PCC");
-        const quiky::Tileset tileset = quiky::Tileset::parseIco(
-            archive.read(world + ".ICO"), world + ".ICO");
-        const quiky::Bob bob = quiky::Bob::parse(archive.read(bobName), bobName);
-        const std::string areaName = areaNameFor(mapName);
-        const quiky::Area area = quiky::Area::parse(
-            archive.read(areaName), areaName);
-
         quiky::LevelSessionConfig levelConfig;
         if (hasStartOverride) {
             levelConfig.hasSpawn = true;
             levelConfig.spawnX = startX;
             levelConfig.spawnY = startY;
         }
-        quiky::LevelSession level(mapName, map, area, levelConfig);
-        EntityBobResources entityBobs;
-        loadEntityBobResources(archive, level, entityBobs);
         quiky::PlayerSimulation simulation;
-        const quiky::MapCollisionQuery collision(map, simulation.collisionRules());
+        std::unique_ptr<quiky::LevelRuntime> runtime =
+            quiky::LevelRuntime::load(archive, mapName, bobName, levelConfig);
         quiky::PlayerState player;
-        level.reset(player, simulation);
-        level.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+        runtime->reset(player, simulation);
 
         checkSdl(SDL_Init(SDL_INIT_VIDEO), "SDL_Init");
         SdlState sdl;
@@ -398,15 +368,9 @@ int main(int argc, char **argv) {
                      SDL_LOGICAL_PRESENTATION_INTEGER_SCALE),
                  "SDL_SetRenderLogicalPresentation");
 
-        const quiky::IndexedSurface initialSurface = quiky::renderMap(map, tileset);
-        sdl.texture = SDL_CreateTexture(
-            sdl.renderer, SDL_PIXELFORMAT_RGB24, SDL_TEXTUREACCESS_STREAMING,
-            static_cast<int>(initialSurface.width), static_cast<int>(initialSurface.height));
-        if (sdl.texture == nullptr) {
-            throw quiky::FormatError(std::string("SDL_CreateTexture: ") + SDL_GetError());
-        }
-        checkSdl(SDL_SetTextureScaleMode(sdl.texture, SDL_SCALEMODE_NEAREST),
-                 "SDL_SetTextureScaleMode");
+        const quiky::IndexedSurface initialSurface =
+            quiky::renderMap(runtime->map(), runtime->tileset());
+        sdl.texture = createSurfaceTexture(sdl.renderer, initialSurface);
 
         bool running = true;
         bool paused = false;
@@ -419,6 +383,8 @@ int main(int argc, char **argv) {
         std::uint64_t accumulator = 0;
         std::uint64_t titleTime = 0;
         std::uint64_t eventUntil = 0;
+        std::uint32_t carriedScore = 0;
+        std::uint32_t carriedDeaths = 0;
         std::string eventText;
 
         while (running) {
@@ -451,8 +417,7 @@ int main(int argc, char **argv) {
                     } else if (key == SDL_SCANCODE_N && down && !event.key.repeat) {
                         stepRequested = true;
                     } else if (key == SDL_SCANCODE_R && down && !event.key.repeat) {
-                        level.reset(player, simulation);
-                        level.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+                        runtime->reset(player, simulation);
                         frame = 0;
                         accumulator = 0;
                         jumpPressed = false;
@@ -471,10 +436,10 @@ int main(int argc, char **argv) {
                     input.left = left;
                     input.right = right;
                     input.jump = jumpPressed;
-                    level.tick(player, simulation, collision, input);
+                    runtime->tick(player, simulation, input);
                     ++frame;
                     jumpPressed = false;
-                    const quiky::LevelEvent event = level.consumeEvent();
+                    const quiky::LevelEvent event = runtime->session().consumeEvent();
                     if (event.type == quiky::LevelEventType::Collected) {
                         eventText = "collected";
                         eventUntil = now + 1000000000ULL;
@@ -486,6 +451,25 @@ int main(int argc, char **argv) {
                                         ? "exit"
                                         : "exit->" + event.targetLevel;
                         eventUntil = now + 5000000000ULL;
+                        if (!event.targetLevel.empty()) {
+                            std::unique_ptr<quiky::LevelRuntime> next =
+                                quiky::LevelRuntime::load(
+                                    archive, event.targetLevel, bobName);
+                            const quiky::IndexedSurface nextSurface =
+                                quiky::renderMap(next->map(), next->tileset());
+                            replaceSurfaceTexture(sdl, nextSurface);
+                            carriedScore += runtime->session().score();
+                            carriedDeaths += runtime->session().deaths();
+                            runtime.swap(next);
+                            runtime->reset(player, simulation);
+                            frame = 0;
+                            accumulator = 0;
+                            jumpPressed = false;
+                            stepRequested = false;
+                            eventText = "loaded " + runtime->mapName();
+                            eventUntil = now + 2000000000ULL;
+                            break;
+                        }
                     }
                 }
                 accumulator -= kTickNanoseconds;
@@ -495,23 +479,25 @@ int main(int argc, char **argv) {
                 input.left = left;
                 input.right = right;
                 input.jump = jumpPressed;
-                level.tick(player, simulation, collision, input);
+                runtime->tick(player, simulation, input);
                 ++frame;
                 jumpPressed = false;
                 stepRequested = false;
-                level.consumeEvent();
+                runtime->session().consumeEvent();
             }
 
-            quiky::Palette framePalette = palette;
-            quiky::IndexedSurface surface = quiky::renderMap(map, tileset);
+            quiky::Palette framePalette = runtime->palette();
+            quiky::IndexedSurface surface =
+                quiky::renderMap(runtime->map(), runtime->tileset());
             if (showArea) {
-                quiky::overlayArea(surface, framePalette, area);
+                quiky::overlayArea(surface, framePalette, runtime->area());
             }
             if (showEntities) {
-                drawEntityMarkers(surface, framePalette, level);
+                drawEntityMarkers(surface, framePalette, runtime->session());
             }
-            drawEntitySprites(surface, level, entityBobs);
-            const quiky::BobRecord &record = choosePlayerFrame(bob, player, frame);
+            drawEntitySprites(surface, *runtime);
+            const quiky::BobRecord &record =
+                choosePlayerFrame(runtime->playerBob(), player, frame);
             quiky::drawBobRecord(surface, record,
                                  player.x.floorPixels(), player.y.floorPixels());
             uploadSurface(sdl.texture, surface, framePalette);
@@ -535,8 +521,9 @@ int main(int argc, char **argv) {
                 if (now >= eventUntil) {
                     eventText.clear();
                 }
-                updateTitle(sdl.window, mapName, player, frame, record.slot, paused,
-                            level, eventText);
+                updateTitle(sdl.window, runtime->mapName(), player, frame,
+                            record.slot, paused, runtime->session(), carriedScore,
+                            carriedDeaths, eventText);
                 titleTime = now;
             }
             if (accumulator < kTickNanoseconds) {
