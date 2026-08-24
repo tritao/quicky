@@ -362,6 +362,15 @@ uniquely to record 0 of `WERBE.BOB`, a 26x34 opaque Nesquik-branded pickup/sign
 sprite. A baseline versus inert-type-0 archive mutation removes the object,
 confirming the catalog entry `ten_ammo_box`.
 
+The adjacent pickup callbacks share the same object layout and runtime update
+callback. `01F7:8BE5` writes slot 608 for type `0x70`, `01F7:8C08` writes
+slot 609 for type `0x71`, and `01F7:8C2B` writes slot 610 for type `0x72`.
+Their post-slot boundaries are `01F7:8BF1`, `01F7:8C14`, and `01F7:8C37`.
+`WERBE.BOB` records 1-3 decode to 21x22, 22x22, and 15x25 respectively.
+Target-typed archives with a one-record type-0 mutation confirm that all
+three are live removable pickup objects; the catalog names follow the
+previously established gameplay semantics.
+
 The exceptional-looking normal type `0x28` is likewise decoded without a
 special case: update callback `01F7:9256`, object class `0`, reserved byte `0`.
 Types `0x65`, `0x66`, and `0x67` branch before the table and call

@@ -221,6 +221,15 @@ class QuikyCtlTests(unittest.TestCase):
               "record_offset": 0, "origin_x": 0, "origin_y": 0,
               "width": 26, "height": 34},),
         )
+        for entity_type, name, slot, dimensions in (
+            (0x70, "extra_health_package", 608, (21, 22)),
+            (0x71, "health_upgrade", 609, (22, 22)),
+            (0x72, "temporary_invulnerability", 610, (15, 25)),
+        ):
+            self.assertEqual(names[entity_type].name, name)
+            match = find_archive_bob_slots(archive, {slot})
+            self.assertEqual(len(match), 1)
+            self.assertEqual((match[0]["width"], match[0]["height"]), dimensions)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = create_entity_variant(

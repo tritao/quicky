@@ -70,6 +70,93 @@
         "experiment_manifest": "research/build/entity-6f/experiment.json",
         "note": "The post-initializer writes logical slot 607; changing only this W1L1 declaration to inert type 0 removes the visible pickup/sign object."
       }
+    },
+    {
+      "type": 112,
+      "name": "extra_health_package",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L2",
+        "catalog_sample": [2992, 544],
+        "record_offset": 5976,
+        "synthetic_runtime_world": [768, 224],
+        "dispatch_slot": "DS:81D2+0x1C0",
+        "initializer_callback": "01F7:8BE5",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 608,
+        "sprite_initializer_return": "01F7:8BF1",
+        "bob_asset": "WERBE.BOB",
+        "bob_record_index": 1,
+        "bob_record_offset": 3399,
+        "bob_dimensions": [21, 22],
+        "bob_origin": [0, 0],
+        "sprite_preview": "research/notes/type-70-slot-608.png",
+        "sprite_sheet": "research/notes/type-6f-werbe-sheet.png",
+        "trace_ledger": "research/build/traces/entity-70-sprite.json",
+        "experiment": "target_type_70_vs_inert_type_0",
+        "experiment_manifest": "research/build/entity-70-confirm/experiment.json"
+      }
+    },
+    {
+      "type": 113,
+      "name": "health_upgrade",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [2736, 176],
+        "record_offset": 5876,
+        "synthetic_runtime_world": [768, 224],
+        "dispatch_slot": "DS:81D2+0x1C4",
+        "initializer_callback": "01F7:8C08",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 609,
+        "sprite_initializer_return": "01F7:8C14",
+        "bob_asset": "WERBE.BOB",
+        "bob_record_index": 2,
+        "bob_record_offset": 5340,
+        "bob_dimensions": [22, 22],
+        "bob_origin": [0, 0],
+        "sprite_preview": "research/notes/type-71-slot-609.png",
+        "sprite_sheet": "research/notes/type-6f-werbe-sheet.png",
+        "trace_ledger": "research/build/traces/entity-71-sprite.json",
+        "experiment": "target_type_71_vs_inert_type_0",
+        "experiment_manifest": "research/build/entity-71-confirm/experiment.json"
+      }
+    },
+    {
+      "type": 114,
+      "name": "temporary_invulnerability",
+      "confidence": "confirmed",
+      "evidence": {
+        "level": "W1L1",
+        "catalog_sample": [2240, 272],
+        "record_offset": 6396,
+        "synthetic_runtime_world": [768, 224],
+        "dispatch_slot": "DS:81D2+0x1C8",
+        "initializer_callback": "01F7:8C2B",
+        "runtime_update_callback": "01F7:8D20",
+        "object_class": 1,
+        "factory": "01F7:0E06",
+        "sprite_slot_field": "object+0x12",
+        "sprite_slot": 610,
+        "sprite_initializer_return": "01F7:8C37",
+        "bob_asset": "WERBE.BOB",
+        "bob_record_index": 3,
+        "bob_record_offset": 7267,
+        "bob_dimensions": [15, 25],
+        "bob_origin": [0, 0],
+        "sprite_preview": "research/notes/type-72-slot-610.png",
+        "sprite_sheet": "research/notes/type-6f-werbe-sheet.png",
+        "trace_ledger": "research/build/traces/entity-72-sprite.json",
+        "experiment": "target_type_72_vs_inert_type_0",
+        "experiment_manifest": "research/build/entity-72-confirm/experiment.json"
+      }
     }
   ]
 }

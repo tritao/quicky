@@ -150,6 +150,7 @@ for attempt = 1, 4096 do
                 record_hex = hex(record),
             }
             capture_timeline(removed_entity, nil, nil, capture)
+            if capture_frame_count <= 1 then dosbox.wait_frames(1) end
             dosbox.output.entity = removed_entity
             return
         end
@@ -289,6 +290,7 @@ for attempt = 1, 4096 do
             record_hex = hex(record),
         }
         capture_timeline(normal_entity, object_selector, object_offset, capture)
+        if capture_frame_count <= 1 then dosbox.wait_frames(1) end
         dosbox.output.entity = normal_entity
         return
     end

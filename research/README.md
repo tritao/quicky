@@ -524,6 +524,22 @@ python3 research/tools/quikyctl.py entity-experiment-plan game/NESTLE.DAT \
   --dispatch-ledger research/build/entity-dispatch-table.json --json
 ```
 
+For synchronized animated evidence, request multiple frames. The tracer holds
+the guest at a debugger barrier while Python captures each rendered frame and
+acknowledges it through the debugger API:
+
+```sh
+python3 research/tools/quikyentity.py game/NESTLE.DAT \
+  research/build/entity-2b-multiframe --type 0x2b \
+  --capture-frames 6 --frame-step 30 --overwrite
+```
+
+Each experiment records a runtime-state timeline, per-frame masks, a union
+mask, an intersection mask, changed-pixel counts, and a union bounding box.
+The image analysis is dependency-free and accepts RGB or RGBA 8-bit PNGs;
+ImageMagick is not required for evidence generation. `--capture-frames 1`
+retains the original single-frame workflow.
+
 The experiment never edits the source archive. Each runtime lives under its
 own mount-policy-compatible `variant/game` directory and includes hashes and
 an exact mutation manifest. Screenshot differences are supporting evidence;
@@ -557,6 +573,18 @@ That callback writes slot 607, which resolves uniquely to record 0 of
 [`notes/type-6f-slot-607.png`](notes/type-6f-slot-607.png), and the complete
 four-record family is shown in
 [`notes/type-6f-werbe-sheet.png`](notes/type-6f-werbe-sheet.png).
+
+The adjacent pickup types use the same initializer/update layout and the next
+three `WERBE.BOB` records:
+
+| ARE type | meaning | initializer | slot | dimensions |
+| --- | --- | --- | --- | --- |
+| `0x70` | extra health package | `01F7:8BE5` | 608 | 21x22 |
+| `0x71` | health upgrade | `01F7:8C08` | 609 | 22x22 |
+| `0x72` | temporary invulnerability | `01F7:8C2B` | 610 | 15x25 |
+
+Each slot is resolved by `bob-find`, and each target-typed archive was
+compared against an inert type-0 mutation at the same streamed W1L1 anchor.
 
 The confirmed cheat comparison path and debugger addresses are documented in
 [`research/notes/cheat-trace.md`](notes/cheat-trace.md). The debugger is

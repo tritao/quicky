@@ -175,6 +175,20 @@ def trace_entity_lua(
             replayed = True
         entity = status.get("output", {}).get("entity")
         if isinstance(entity, dict):
+            if capture_frames <= 1:
+                if screenshot is not None and not captured:
+                    # The inert branch can leave the presentation surface
+                    # blank while stopped; advance once after the script has
+                    # published its final state before taking a one-frame
+                    # compatibility screenshot.
+                    api.post("/api/v1/debug/continue")
+                    time.sleep(0.05)
+                    screenshot.parent.mkdir(parents=True, exist_ok=True)
+                    screenshot.write_bytes(api.get_binary(
+                        f"/api/v1/video/frame?format=png&mode={screenshot_mode}"
+                    ))
+                    captured.append(screenshot)
+                return entity, captured
             capture_index = entity.get("capture_index")
             if isinstance(capture_index, int) and capture_index not in acknowledged:
                 if screenshot is not None:
@@ -188,13 +202,6 @@ def trace_entity_lua(
                     captured.append(frame_path)
                 acknowledged.add(capture_index)
                 api.post("/api/v1/debug/continue")
-            elif capture_frames <= 1 and screenshot is not None and not captured \
-                    and status.get("state") == "completed":
-                screenshot.parent.mkdir(parents=True, exist_ok=True)
-                screenshot.write_bytes(api.get_binary(
-                    f"/api/v1/video/frame?format=png&mode={screenshot_mode}"
-                ))
-                captured.append(screenshot)
             if status.get("state") == "completed":
                 return entity, captured
         if status.get("state") == "completed":
@@ -450,6 +457,7 @@ def main(argv: list[str] | None = None) -> int:
             entity["lifetime_samples"] = ordered_lua_array(
                 entity.get("lifetime_samples", [])
             )
+            entity["frames"] = ordered_lua_array(entity.get("frames", []))
             events = [entity]
             script_path = entity_script_path
         else:
