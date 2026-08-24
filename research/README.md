@@ -288,7 +288,7 @@ falling leaves, and other living objects while leaving some static geometry
 and spikes. The tested object/reference values were:
 
 ~~~text
-0x20 nothing?             0x29/0x2a/0x2b falling leaves
+0x20 nothing?             0x28 cloud     0x29/0x2a/0x2b falling leaves
 0x64 nothing?             0x65 one ammo (context-dependent)
 0x67 one ammo             0x68/0x6d/0x6e nothing?
 0x6f ten-ammo box         0x70 extra health package
@@ -585,6 +585,22 @@ three `WERBE.BOB` records:
 
 Each slot is resolved by `bob-find`, and each target-typed archive was
 compared against an inert type-0 mutation at the same streamed W1L1 anchor.
+
+Normal type `0x28` is a cloud emitter. Its dispatch entry is
+`DS:81D2+0x0A0 -> 01F7:9256` with object class 0. A target-vs-inert W1L1
+capture removes the large white cloud. This object deliberately leaves
+`object+0x12` at `0xFFFF`, so it does not follow the standard logical-slot
+path; the rendered cloud matches the four 32x16 records in `WOLKE.BOB`, slots
+413-416. The sheet is [`notes/type-28-wolke-sheet.png`](notes/type-28-wolke-sheet.png).
+
+Types `0x29` and `0x2A` use the same `01F7:4727` leaf callback as confirmed
+type `0x2B`, with class 1 and the same `BLATT.BOB` slots 700-707/750-757,
+animation tables, and post-initializer boundary `01F7:474D`. Controlled
+target-to-inert experiments at a common streamed anchor reached the expected
+leaf slots for both types and removed their target contribution. They are
+cataloged as `falling_leaves_variant_29` and `falling_leaves_variant_2a`; the
+three types are behaviorally grouped because the executable dispatch callback
+does not distinguish them after lookup.
 
 The puzzle-letter family `0x79`-`0x7F` is also resolved. The seven normal
 dispatch entries use consecutive callbacks at `01F7:8C71`-`01F7:8D07`, all

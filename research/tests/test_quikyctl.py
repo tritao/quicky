@@ -211,6 +211,17 @@ class QuikyCtlTests(unittest.TestCase):
         candidate = next(item for item in catalog if item.entity_type == 0x2B)
         self.assertIn("W1L1.ARE", candidate.levels)
         self.assertEqual(candidate.dispatch_slot, "DS:81D2+0x0AC")
+        dispatch = load_dispatch_ledger(
+            repo_root / "research" / "build" / "entity-dispatch-table.json"
+        )
+        for entity_type, dispatch_slot, object_class in (
+            (0x28, "DS:81D2+0x0A0", 0),
+            (0x29, "DS:81D2+0x0A4", 1),
+            (0x2A, "DS:81D2+0x0A8", 1),
+        ):
+            candidate = next(item for item in catalog if item.entity_type == entity_type)
+            self.assertEqual(candidate.dispatch_slot, dispatch_slot)
+            self.assertEqual(dispatch[entity_type].object_class, object_class)
         dedicated = next(item for item in catalog if item.entity_type == 0x65)
         self.assertEqual(dedicated.dispatch_entry, "01F7:178D")
         names = load_entity_type_names()
@@ -233,7 +244,10 @@ class QuikyCtlTests(unittest.TestCase):
 
         self.assertEqual(names[0x73].confidence, "unknown")
         self.assertEqual(names[0x74].confidence, "unknown")
+        self.assertEqual(names[0x28].name, "cloud")
         for entity_type, name, slot in (
+            (0x29, "falling_leaves_variant_29", 700),
+            (0x2A, "falling_leaves_variant_2a", 700),
             (0x79, "puzzle_letter_N", 600),
             (0x7A, "puzzle_letter_E", 601),
             (0x7B, "puzzle_letter_S", 602),
@@ -244,9 +258,17 @@ class QuikyCtlTests(unittest.TestCase):
         ):
             self.assertEqual(names[entity_type].name, name)
             match = find_archive_bob_slots(archive, {slot})
-            self.assertEqual(len(match), 1)
-            self.assertEqual(match[0]["asset"], "PUZZLE.BOB")
-            self.assertEqual((match[0]["width"], match[0]["height"]), (16, 16))
+            if entity_type in (0x29, 0x2A):
+                match = [item for item in match if item["asset"] == "BLATT.BOB"]
+                self.assertEqual(len(match), 1)
+                self.assertEqual((match[0]["width"], match[0]["height"]), (14, 12))
+            else:
+                self.assertEqual(len(match), 1)
+                self.assertEqual(match[0]["asset"], "PUZZLE.BOB")
+                self.assertEqual((match[0]["width"], match[0]["height"]), (16, 16))
+        cloud = find_archive_bob_slots(archive, {413, 414, 415, 416})
+        self.assertEqual({item["asset"] for item in cloud}, {"WOLKE.BOB"})
+        self.assertEqual({(item["width"], item["height"]) for item in cloud}, {(32, 16)})
 
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = create_entity_variant(

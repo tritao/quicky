@@ -371,8 +371,16 @@ Target-typed archives with a one-record type-0 mutation confirm that all
 three are live removable pickup objects; the catalog names follow the
 previously established gameplay semantics.
 
-The exceptional-looking normal type `0x28` is likewise decoded without a
-special case: update callback `01F7:9256`, object class `0`, reserved byte `0`.
+Normal type `0x28` uses dispatch entry `01F7:9256`, object class `0`, and
+reserved byte `0`. Its initializer leaves `object+0x12` at `0xFFFF`; paired
+W1L1 captures remove a large white cloud when the record is changed to inert
+type 0. The corresponding four-frame `WOLKE.BOB` family is slots 413-416,
+each 32x16 with origin `(0,0)`. Because the standard logical-slot field is
+unused, the asset correlation is recorded as a special-renderer mapping, not
+as a direct slot write.
+
+Types `0x29` and `0x2A` use the same normal dispatch callback as `0x2B`:
+`01F7:4727`, object class `1`, reserved byte `0`.
 Types `0x65`, `0x66`, and `0x67` branch before the table and call
 `01F7:178D`, `01F7:1798`, and `01F7:17A3`, respectively. Those wrappers set a
 subtype byte to `0x00`, `0x08`, or `0x10` and converge on the common creator at
@@ -382,6 +390,16 @@ with each dedicated type independently confirmed all three runtime branches at
 the unchanged calculated world position `(768,224)`. The trace ledgers are
 `entity-65-handler-trace.json`, `entity-66-handler-trace.json`, and
 `entity-67-handler-trace.json` under `research/build/`.
+
+Controlled W1L1 anchor traces for `0x29` and `0x2A` stop at the common
+post-initializer boundary `01F7:474D` and write slots 700/703 in
+`object+0x12`. Both read the same `DS:3312`/`DS:3326` animation tables and
+resolve to the `BLATT.BOB` leaf families 700-707 and 750-757. Their target vs
+inert manifests are `research/build/entity-29-evidence/experiment.json` and
+`research/build/entity-2a-evidence/experiment.json`; the traces are
+`research/build/traces/entity-29-confirm.json` and
+`research/build/traces/entity-2a-confirm.json`. They are cataloged as leaf
+variants because the dispatch code converges before any type-specific branch.
 
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
