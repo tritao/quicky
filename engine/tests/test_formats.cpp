@@ -253,7 +253,7 @@ quiky::Area makeLevelArea(std::uint16_t firstType, std::uint16_t secondType) {
 
 void testLevelSession() {
     const quiky::Map map = makeLevelMap();
-    quiky::Area area = makeLevelArea(0x6f, 0x01);
+    quiky::Area area = makeLevelArea(0x6f, 0x79);
     quiky::LevelSessionConfig config;
     config.hasSpawn = true;
     config.spawnX = 16;
@@ -273,8 +273,11 @@ void testLevelSession() {
     assert(session.entities()[0].active);
     assert(session.entities()[0].phase == quiky::EntityPhase::Active);
     assert(session.entities()[0].spriteSlot == 607);
+    assert(session.entities()[0].spriteResource == "WERBE.BOB");
     assert(!session.entities()[1].active);
     assert(session.entities()[1].phase == quiky::EntityPhase::Dormant);
+    assert(session.entities()[1].spriteSlot == 600);
+    assert(session.entities()[1].spriteResource == "PUZZLE.BOB");
 
     session.tick(player, simulation, quiky::InputState());
     quiky::LevelEvent event = session.consumeEvent();

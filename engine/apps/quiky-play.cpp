@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <exception>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -67,6 +68,53 @@ const quiky::BobRecord *findSlot(const quiky::Bob &bob, std::uint16_t slot) {
         }
     }
     return nullptr;
+}
+
+typedef std::map<std::string, quiky::Bob> EntityBobResources;
+
+void loadEntityBobResources(const quiky::Archive &archive,
+                            const quiky::LevelSession &level,
+                            EntityBobResources &resources) {
+    for (std::size_t index = 0; index < level.entities().size(); ++index) {
+        const quiky::LevelEntity &entity = level.entities()[index];
+        if (entity.spriteResource.empty() ||
+            resources.find(entity.spriteResource) != resources.end()) {
+            continue;
+        }
+        try {
+            const quiky::Bob bob = quiky::Bob::parse(
+                archive.read(entity.spriteResource), entity.spriteResource);
+            resources.insert(std::make_pair(entity.spriteResource, bob));
+        } catch (const std::exception &error) {
+            std::cerr << "warning: entity sprites unavailable from "
+                      << entity.spriteResource << ": " << error.what() << "\n";
+        }
+    }
+}
+
+void drawEntitySprites(quiky::IndexedSurface &surface,
+                       const quiky::LevelSession &level,
+                       const EntityBobResources &resources) {
+    for (std::size_t index = 0; index < level.entities().size(); ++index) {
+        const quiky::LevelEntity &entity = level.entities()[index];
+        if (entity.phase != quiky::EntityPhase::Active ||
+            entity.spriteResource.empty() || entity.spriteSlot == 0xffff) {
+            continue;
+        }
+        const EntityBobResources::const_iterator resource =
+            resources.find(entity.spriteResource);
+        if (resource == resources.end()) {
+            continue;
+        }
+        const quiky::BobRecord *record = findSlot(resource->second, entity.spriteSlot);
+        if (record == nullptr) {
+            std::ostringstream message;
+            message << entity.spriteResource << " is missing entity sprite slot "
+                    << entity.spriteSlot;
+            throw quiky::FormatError(message.str());
+        }
+        quiky::drawBobRecord(surface, *record, entity.x, entity.y);
+    }
 }
 
 const quiky::BobRecord &choosePlayerFrame(const quiky::Bob &bob,
@@ -320,6 +368,8 @@ int main(int argc, char **argv) {
             levelConfig.spawnY = startY;
         }
         quiky::LevelSession level(mapName, map, area, levelConfig);
+        EntityBobResources entityBobs;
+        loadEntityBobResources(archive, level, entityBobs);
         quiky::PlayerSimulation simulation;
         quiky::PlayerState player;
         level.reset(player, simulation);
@@ -459,6 +509,7 @@ int main(int argc, char **argv) {
             if (showEntities) {
                 drawEntityMarkers(surface, framePalette, level);
             }
+            drawEntitySprites(surface, level, entityBobs);
             const quiky::BobRecord &record = choosePlayerFrame(bob, player, frame);
             quiky::drawBobRecord(surface, record,
                                  player.x.floorPixels(), player.y.floorPixels());

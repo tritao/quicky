@@ -62,6 +62,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.y = static_cast<std::int32_t>(placement.worldY);
         entity.kind = classify(entity.type);
         entity.spriteSlot = spriteSlotFor(entity.type);
+        entity.spriteResource = spriteResourceFor(entity.type);
         _entities.push_back(entity);
     }
 }
@@ -130,6 +131,16 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
         return static_cast<std::uint16_t>(600 + (type - 0x79));
     }
     return 0xffff;
+}
+
+std::string LevelSession::spriteResourceFor(std::uint16_t type) {
+    if (type >= 0x6f && type <= 0x72) {
+        return "WERBE.BOB";
+    }
+    if (type >= 0x79 && type <= 0x7f) {
+        return "PUZZLE.BOB";
+    }
+    return std::string();
 }
 
 std::uint32_t LevelSession::collectibleValue(std::uint16_t type) {
