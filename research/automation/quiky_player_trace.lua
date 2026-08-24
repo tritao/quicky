@@ -10,6 +10,7 @@ local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
 local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
+local property_helper_offset = trace_config.property_helper_offset or 0
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
@@ -154,32 +155,58 @@ local function map_property_snapshot(hit)
     local registers = hit.registers or {}
     local lookup = map_lookup_snapshot(hit)
     local tile_id = lookup.tile_id or 0
-    local tile_bank = (tile_id >> 8) & 0x01
+    local x = (registers.ebx or 0) & 0xffff
+    local y = (registers.eax or 0) & 0xffff
     local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
     local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
     local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
-    local descriptor_offset = descriptor_base + tile_bank * descriptor_stride + 2
+    local descriptor_offset = descriptor_base + tile_id * descriptor_stride + 2
     local ok, descriptor_word_or_error = pcall(
         dosbox.mem_read_word, descriptor_selector, descriptor_offset
     )
     local descriptor_read_error = nil
     if not ok then descriptor_read_error = tostring(descriptor_word_or_error) end
+    local x_bit_3 = (x >> 3) & 0x01
+    local y_bit_3 = (y >> 3) & 0x01
+    local quadrant_flag_mask = nil
+    if hit.offset == 0x5c27 then
+        if y_bit_3 ~= 0 then
+            quadrant_flag_mask = x_bit_3 ~= 0 and 0x02 or 0x01
+        else
+            quadrant_flag_mask = x_bit_3 ~= 0 and 0x04 or 0x08
+        end
+    end
+    local descriptor_word = ok and descriptor_word_or_error or nil
+    local descriptor_flag_set = nil
+    local quadrant_bits = nil
+    if descriptor_word ~= nil and quadrant_flag_mask ~= nil then
+        descriptor_flag_set = (descriptor_word & quadrant_flag_mask) ~= 0
+        quadrant_bits = descriptor_word & quadrant_flag_mask
+    end
     return {
         helper_offset = hit.offset,
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = registers,
         coordinates = {
-            x = (registers.ebx or 0) & 0xffff,
-            y = (registers.eax or 0) & 0xffff,
+            x = x,
+            y = y,
+            ax_bit_3 = y_bit_3,
+            bx_bit_3 = x_bit_3,
         },
         map_lookup = lookup,
         map_property_field = lookup.cell_word and (lookup.cell_word >> 9) or nil,
-        tile_bank = tile_bank,
+        raw_cell_word = lookup.cell_word,
+        tile_id = tile_id,
         descriptor_base = descriptor_base,
         descriptor_selector = descriptor_selector,
         descriptor_stride = descriptor_stride,
+        descriptor_tile_id = tile_id,
         descriptor_offset = descriptor_offset,
-        descriptor_word = ok and descriptor_word_or_error or nil,
+        descriptor_word = descriptor_word,
+        descriptor_low_nibble = descriptor_word and (descriptor_word & 0x0f) or nil,
+        quadrant_flag_mask = quadrant_flag_mask,
+        quadrant_bits = quadrant_bits,
+        descriptor_flag_set = descriptor_flag_set,
         descriptor_read_error = descriptor_read_error,
     }
 end
@@ -205,6 +232,21 @@ local function arm_callback_targets()
     end
 end
 
+local function arm_property_targets()
+    if property_helper_offset == 0x5c27 or property_helper_offset == 0x5cc3 then
+        dosbox.breakpoint_set(0x01f7, property_helper_offset, {once = true})
+    else
+        for _, offset in ipairs({0x5c27, 0x5cc3}) do
+            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        end
+    end
+end
+
+local function is_property_target(offset)
+    return property_focus and (offset == 0x5c27 or offset == 0x5cc3) and
+           (property_helper_offset == 0 or offset == property_helper_offset)
+end
+
 local function arm_targets()
     if focus_callback then
         arm_callback_targets()
@@ -218,9 +260,7 @@ local function arm_targets()
         end
     end
     if property_focus then
-        for _, offset in ipairs({0x5c27, 0x5cc3}) do
-            dosbox.breakpoint_set(0x01f7, offset, {once = true})
-        end
+        arm_property_targets()
     end
     if focus_callback or map_focus or collision_focus or property_focus then
         return
@@ -254,6 +294,22 @@ local function record_map_lookup(sample, hit)
     sample.map_lookups = sample.map_lookups or {}
     sample.map_lookups[#sample.map_lookups + 1] = lookup
     sample.map_lookup = lookup
+end
+
+local function record_property(sample, hit)
+    local property = map_property_snapshot(hit)
+    sample.map_properties = sample.map_properties or {}
+    sample.map_properties[#sample.map_properties + 1] = property
+    if sample.map_property == nil then sample.map_property = property end
+end
+
+local function far_return_location(hit)
+    local registers = hit.registers or {}
+    local raw = dosbox.mem_read(
+        "ss", (registers.esp or 0) & 0xffff, 4
+    ) or ""
+    if #raw < 4 then return nil end
+    return {offset = word(raw, 1), segment = word(raw, 3)}
 end
 
 local function record_collision(sample, hit)
@@ -375,7 +431,7 @@ for sequence = 1, sample_count do
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,
         }
-        sample.map_property = map_property_snapshot(initial_hit)
+        record_property(sample, initial_hit)
     elseif initial_hit.offset == 0x3376 and map_focus then
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,
@@ -425,17 +481,31 @@ for sequence = 1, sample_count do
                 segment = return_segment, offset = return_offset,
             }
             local returned = nil
+            local property_return = nil
             while returned == nil do
                 dosbox.breakpoint_set(return_segment, return_offset, {once = true})
+                if property_return ~= nil then
+                    dosbox.breakpoint_set(property_return.segment,
+                                          property_return.offset, {once = true})
+                elseif property_focus then
+                    arm_property_targets()
+                end
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
-                if candidate.segment == return_segment and candidate.offset == return_offset then
+                if property_return ~= nil and
+                   candidate.segment == property_return.segment and
+                   candidate.offset == property_return.offset then
+                    property_return = nil
+                elseif candidate.segment == return_segment and candidate.offset == return_offset then
                     returned = candidate
                 else
                     sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                         segment = candidate.segment, offset = candidate.offset,
                     }
-                    if candidate.offset == 0x3376 and map_focus then
+                    if is_property_target(candidate.offset) then
+                        record_property(sample, candidate)
+                        property_return = far_return_location(candidate)
+                    elseif candidate.offset == 0x3376 and map_focus then
                         record_map_lookup(sample, candidate)
                     elseif collision_focus and (candidate.offset == 0x6484 or
                                                 candidate.offset == 0x648e or

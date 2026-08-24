@@ -613,6 +613,36 @@ trace's state-4 calls `(AX,BX) = (336,448), (336,432), (336,464),
 (336,480), (336,496)` match the first table row exactly; the post-state
 effects `127,126,128,129,130` match the `DS:6986` and ICO evidence above.
 
+### Player MAP descriptor helpers
+
+The previously unresolved player-side MAP reads at `01F7:5C27` and
+`01F7:5CC3` are now decoded from raw 8086 bytes and cross-referenced from
+`3A1F`, `3DF2`, and `3D02`. Both helpers calculate the same cell address as
+`3376`, then load the raw word and execute `AND AH,1`. Because the low byte is
+unchanged, this operation is `raw_cell & 0x01ff`, not a test of only bit 8.
+It removes the seven upper MAP bits before indexing the tile descriptor table:
+
+```c
+uint16_t tile_id = raw_cell & 0x01ff;
+uint16_t descriptor = read_word(
+    DS_6584, DS_6582 + tile_id * DS_30D4 + 2);
+```
+
+`5C27` tests `descriptor & 0x0f` and then selects one of four low-nibble
+bits based on `AX bit 3` and `BX bit 3`: `0x02`, `0x01`, `0x04`, or `0x08`.
+It communicates the classification via return flags. `5CC3` returns the
+descriptor word in `DX`; its caller at `3D02` tests descriptor flags directly.
+That caller probes again after an eight-pixel X adjustment when `DX & 0x30`
+is clear, then uses `DX & 0x20` to choose the sign of a halved vertical
+velocity and `DX & 0x40` in the final eight-pixel alignment decision. These
+are exact bit consumers; names such as side, ceiling, or floor remain
+provisional until boundary traces distinguish the branches.
+The descriptor table is also used by the renderer, which indexes tile imagery
+by the same nine-bit tile ID, but the collision helpers consume the descriptor
+word's low flags instead of the MAP upper field. Runtime property-focused
+traces confirm the full raw cell, masked tile ID, descriptor offset, and word
+at each helper entry.
+
 The zero-state gate is also now decoded. `01F7:1DCA` evaluates the current
 object against the camera with unsigned comparisons:
 

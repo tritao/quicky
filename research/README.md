@@ -251,6 +251,16 @@ as “solid left/right” and D as “hit on the head”; those meanings remain
 inferences, not a completed collision specification. Other observed property
 values include 0x04, 0x0a, 0x0b, 0x1c, 0x2c, and 0x38.
 
+The player collision path now provides a stronger negative result for that
+upper field. Helpers `01F7:5C27` and `01F7:5CC3` mask each raw cell to
+`cell & 0x01ff`, use the full nine-bit tile ID to index the descriptor table
+at `DS:6582` with stride `DS:30D4`, and read the descriptor word at `+2`.
+`5C27` tests its low nibble against coordinate bit 3; `5CC3` returns the
+descriptor word to its caller. Thus these collision decisions are driven by
+per-tile descriptor flags, not by `value >> 9`. The loader's separate
+`OR 0x10` into one runtime row remains a confirmed mutation whose higher-level
+purpose is still open.
+
 ### ARE — structure now mechanically decoded; semantics still inferred
 
 There is no validated magic header. Simon's article reports a fixed-layout
@@ -424,6 +434,16 @@ the held key after N post-baseline samples and observe the release/reset path.
 The current boundary evidence distinguishes a stable left wall at `x=72` from
 a right-side reset near `(2132,368)`; it does not yet turn either case into a
 hard-coded engine rule.
+
+For the descriptor layer, use `--player-property-focus` and optionally select
+one helper with `--player-property-helper 0x5c27` or `0x5cc3`. Each property
+row records the raw MAP cell, its upper property field, the masked nine-bit
+tile ID, descriptor-table offset/word, and (for `5C27`) the coordinate-selected
+low-nibble mask. Combine the traces with `player_property_report.py` to emit
+machine-readable CSV/JSON evidence. The current W1L1 runs show the left wall
+at `(72,400)` querying raw cell `0xEC8B`/tile `0x08B`, while the right and jump
+paths query different descriptor words. Descriptor-bit gameplay names remain
+provisional.
 
 ### Dedicated transient event types `0x65`-`0x67`
 

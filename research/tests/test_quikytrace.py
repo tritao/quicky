@@ -194,6 +194,7 @@ class QuikyTraceTests(unittest.TestCase):
                     "samples": {"1": {
                         "pool": {"objects": {}, "kind_0x64": {}},
                         "scheduler": {"entries": {"1": {"index": 0}}},
+                        "map_properties": {"1": {"helper_offset": 0x5C27}},
                     }},
                     "final_pool": {"objects": {}, "kind_0x64": {}},
                 }}}
@@ -214,16 +215,28 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertFalse(player_trace_lua_config(config)["collision_focus"])
         self.assertFalse(player_trace_lua_config(config)["map_focus"])
         self.assertFalse(player_trace_lua_config(config)["property_focus"])
+        self.assertIsNone(player_trace_lua_config(config)["property_helper_offset"])
         normalized = normalize_player_trace(trace)
         self.assertEqual(normalized["samples"], [{
             "pool": {"objects": [], "kind_0x64": []},
             "scheduler": {"entries": [{"index": 0}]},
+            "map_properties": [{"helper_offset": 0x5C27}],
         }])
         self.assertNotIn("related_breakpoints", normalized["samples"][0])
         self.assertIn("TRACE_CONFIG = ", api.loaded_source)
         self.assertIn('["samples"]=2', api.loaded_source)
         self.assertNotIn("TRACE_PLAYER_", api.loaded_source)
         self.assertTrue(api.replayed)
+
+    def test_player_property_helper_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, property_focus=True,
+            property_helper_offset=0x5C27,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertTrue(payload["property_focus"])
+        self.assertEqual(payload["property_helper_offset"], 0x5C27)
 
 
 if __name__ == "__main__":

@@ -195,10 +195,10 @@ public class AnnotateQuiky extends GhidraScript {
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
         function(0x3376, "map_tile_id_lookup_16px",
             "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E and returns only the low 9-bit tile ID.");
-        function(0x5c27, "map_property_query_5c27",
-            "Raw MAP-cell query used by player collision helpers; returns property-derived flags for a coordinate.");
-        function(0x5cc3, "map_property_query_5cc3",
-            "Raw MAP-cell query used by player collision helpers; returns directional property flags for a coordinate.");
+        function(0x5c27, "map_tile_descriptor_query_5c27",
+            "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and tests descriptor flags against coordinate bit 3.");
+        function(0x5cc3, "map_tile_descriptor_query_5cc3",
+            "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and returns the descriptor word in DX.");
         function(0x5d00, "map_cell_descriptor_5d00",
             "Builds a nearby MAP-cell descriptor used by player movement; exact field meanings remain under analysis.");
         function(0x5d38, "map_cell_descriptor_5d38",

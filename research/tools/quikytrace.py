@@ -87,6 +87,7 @@ class PlayerTraceConfig:
     map_focus: bool = False
     collision_focus: bool = False
     property_focus: bool = False
+    property_helper_offset: int | None = None
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
@@ -162,6 +163,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "map_focus": config.map_focus,
         "collision_focus": config.collision_focus,
         "property_focus": config.property_focus,
+        "property_helper_offset": config.property_helper_offset,
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
@@ -500,6 +502,10 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["collisions"] = ordered_lua_array(sample.get("collisions", []))
         if "map_lookups" in sample:
             sample["map_lookups"] = ordered_lua_array(sample.get("map_lookups", []))
+        if "map_properties" in sample:
+            sample["map_properties"] = ordered_lua_array(
+                sample.get("map_properties", [])
+            )
     trace["samples"] = samples
     for key in ("final_pool",):
         pool = trace.get(key)
@@ -616,6 +622,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="break on the candidate player collision helpers 6484/648e/3a8a")
     parser.add_argument("--player-property-focus", action="store_true",
                         help="break on raw MAP/tile-property helpers 5c27/5cc3")
+    parser.add_argument("--player-property-helper", type=lambda value: int(value, 0),
+                        choices=(0x5C27, 0x5CC3),
+                        help="limit --player-property-focus to helper 0x5c27 or 0x5cc3")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
     parser.add_argument("--player-input-frames", type=int, default=0,
@@ -675,6 +684,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-map-focus and --player-collision-focus are mutually exclusive")
     if args.player_property_focus and (args.player_map_focus or args.player_collision_focus):
         raise TraceError("--player-property-focus cannot be combined with another player focus mode")
+    if args.player_property_helper is not None and not args.player_property_focus:
+        raise TraceError("--player-property-helper requires --player-property-focus")
     if not 0 <= args.player_callback_offset <= 0xffff:
         raise TraceError("--player-callback-offset must be between 0 and 65535")
     if (args.player_focus_callback and args.player_callback_offset == 0x3f27
@@ -794,6 +805,7 @@ def main(argv: list[str] | None = None) -> int:
                 map_focus=args.player_map_focus,
                 collision_focus=args.player_collision_focus,
                 property_focus=args.player_property_focus,
+                property_helper_offset=args.player_property_helper,
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,

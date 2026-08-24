@@ -80,7 +80,7 @@ and `DS:657E` is the byte stride of one MAP row. It reads the word through
 the segment in `DS:657C` and masks the result to the low nine-bit tile ID. It
 therefore proves the 16-pixel addressing used by the state-machine traces,
 while also showing that this helper intentionally discards the high MAP
-property bits; collision and hazard semantics still need a separate path.
+property bits. The player collision path is separate and is decoded below.
 
 The targeted MAP-user survey adds a useful negative result. `01F7:20C8` and
 `01F7:2CB2` are renderer paths: they read a MAP word, mask it with `0x01ff`,
@@ -88,6 +88,50 @@ and use the tile ID to select VGA pixels. `01F7:16CE` also masks its input to a
 tile ID, but preserves the existing cell's high bits when it writes an effect
 cell. No direct consumer of the seven high MAP property bits was found in
 these segment-3 users, so they are not yet a collision specification.
+
+The player collision helpers resolve the next layer. `01F7:5C27` and
+`01F7:5CC3` compute the same 16-pixel MAP-cell address, read the raw cell, and
+execute `AND AH,1`. In the 8086 word representation this is exactly
+`cell_word & 0x01ff`: it preserves all nine tile-ID bits and discards the
+seven upper MAP bits. The resulting tile ID indexes the descriptor table at
+`DS:6582` with `DS:30D4` bytes per entry; both helpers read the descriptor
+word at entry offset `+2`.
+
+A clean W1L1 right-input trace captured, for example, tile `126` with
+descriptor `0x0000` and tile `341` with descriptor `0x0032`, while their raw
+MAP property fields were `2` and `69`. The independent `5CC3` trace reads the
+same descriptor-table words, providing the runtime check for the static
+addressing and mask.
+
+`5C27` consumes the descriptor low nibble as four coordinate-quadrant tests.
+Depending on `AX bit 3` and `BX bit 3`, it tests descriptor bits `0x02`,
+`0x01`, `0x04`, or `0x08`, returning the result through the x86 flags. `5CC3`
+returns the descriptor word in `DX`, allowing its callers to test a wider set
+of descriptor flags. This is the first statically complete explanation of the
+collision helper's MAP input: the archive's seven-bit property field is not
+what these helpers use.
+
+The `01F7:3D02` caller makes the next-level use explicit. It calls `5CC3`,
+and, when `DX & 0x30` is clear, retries after shifting the player eight pixels
+in X. It then uses `DX & 0x20` to select the sign of a halved vertical
+velocity and `DX & 0x40` for the final eight-pixel alignment adjustment. Those
+bit consumers are confirmed, but their gameplay names remain provisional
+until the corresponding floor, ceiling, and side boundary cases are traced.
+
+The reproducible W1L1 property matrix now covers neutral, left, right, and
+upward input. The independent `5CC3` rows show `(128,400)` reading raw cell
+`0x08B8`/tile `0x0B8` with descriptor `0x0000`; the stable left wall at
+`(72,400)` reads `0xEC8B`/tile `0x08B` with descriptor `0x0000`; the jump
+samples read tiles `0x136` and `0x121` with descriptor `0x0000`; and the
+rightward path reaches tiles `0x151`, `0x000`, and `0x104`, including a
+nonzero descriptor (`0x000F`/`0xF700`) before the reset to `(1673,368)`.
+The corresponding `5C27` rows carry the coordinate-selected low-nibble mask
+and are kept separate from `5CC3`'s returned descriptor word. These are
+runtime observations, not names for the descriptor bits.
+
+The loader still mutates one runtime row by ORing `0x10` into each cell's high
+byte, which corresponds to runtime property bit `0x08`. That mutation should
+be tracked separately until another consumer proves its meaning.
 
 The tile-effect callback's zero-state gate is separate from MAP access. Static
 code at `01F7:1DCA` checks `object+0x04/+0x08` against the current camera with
