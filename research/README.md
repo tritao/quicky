@@ -358,6 +358,12 @@ Equivalent synthetic probes match W2 states 126-130 at offsets `0x7E00`-
 across W1-W5. The position, camera, bounds, and transient-lifetime overrides
 are debugger-only and do not modify `QUIKY.EXE`, MAP files, or the archive.
 
+The complete nonzero runtime tables and the matched W2 variant comparison are
+in [`effect-mappings.json`](effect-mappings.json). In that comparison, types
+`0x1F`, `0x20`, and `0x21` differ only in their initial `object+0x2E` values
+(`1`, `2`, and `3`); their sampled state progression, MAP queries, emitted
+effect sequence, and ICO lookups are identical.
+
 ### Dedicated transient event types `0x65`-`0x67`
 
 These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to

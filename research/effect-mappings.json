@@ -1,0 +1,175 @@
+{
+  "schema": "quiky-effect-mappings-v1",
+  "table": {
+    "address": "DS:6986",
+    "entries": 512,
+    "encoding": "nonzero MAP tile ID -> world ICO effect index",
+    "zero_entries_omitted": true
+  },
+  "worlds": {
+    "W1": {
+      "source_trace": "research/build/entity-1f-state-emission-v10.json",
+      "level_context": "W1L1",
+      "entries": [
+        {"tile": 200, "effect": 120},
+        {"tile": 201, "effect": 121},
+        {"tile": 202, "effect": 122},
+        {"tile": 203, "effect": 123},
+        {"tile": 204, "effect": 124},
+        {"tile": 220, "effect": 140},
+        {"tile": 221, "effect": 141},
+        {"tile": 222, "effect": 142},
+        {"tile": 223, "effect": 143},
+        {"tile": 224, "effect": 144},
+        {"tile": 232, "effect": 230},
+        {"tile": 233, "effect": 231},
+        {"tile": 235, "effect": 236},
+        {"tile": 240, "effect": 160},
+        {"tile": 241, "effect": 161},
+        {"tile": 242, "effect": 162},
+        {"tile": 243, "effect": 163},
+        {"tile": 244, "effect": 164},
+        {"tile": 252, "effect": 250},
+        {"tile": 253, "effect": 251},
+        {"tile": 255, "effect": 256},
+        {"tile": 260, "effect": 180},
+        {"tile": 261, "effect": 181},
+        {"tile": 262, "effect": 182},
+        {"tile": 263, "effect": 183},
+        {"tile": 264, "effect": 184}
+      ]
+    },
+    "W2": {
+      "source_trace": "research/build/traces/state-machine-w2l1-v3.json",
+      "level_context": "W2L1",
+      "entries": [
+        {"tile": 120, "effect": 126},
+        {"tile": 121, "effect": 127},
+        {"tile": 122, "effect": 128},
+        {"tile": 123, "effect": 129},
+        {"tile": 124, "effect": 130},
+        {"tile": 140, "effect": 146},
+        {"tile": 141, "effect": 147},
+        {"tile": 142, "effect": 148},
+        {"tile": 143, "effect": 149},
+        {"tile": 144, "effect": 150},
+        {"tile": 160, "effect": 166},
+        {"tile": 161, "effect": 167},
+        {"tile": 162, "effect": 168},
+        {"tile": 163, "effect": 169},
+        {"tile": 164, "effect": 170},
+        {"tile": 180, "effect": 186},
+        {"tile": 181, "effect": 187},
+        {"tile": 182, "effect": 188},
+        {"tile": 183, "effect": 189},
+        {"tile": 184, "effect": 190},
+        {"tile": 376, "effect": 378},
+        {"tile": 377, "effect": 379},
+        {"tile": 396, "effect": 398},
+        {"tile": 397, "effect": 399}
+      ]
+    },
+    "W3": {
+      "source_trace": "research/build/traces/state-machine-w3l1-v2.json",
+      "level_context": "W3L1",
+      "entries": [
+        {"tile": 405, "effect": 400},
+        {"tile": 406, "effect": 401},
+        {"tile": 407, "effect": 402},
+        {"tile": 408, "effect": 403},
+        {"tile": 409, "effect": 404},
+        {"tile": 425, "effect": 420},
+        {"tile": 426, "effect": 421},
+        {"tile": 427, "effect": 422},
+        {"tile": 428, "effect": 423},
+        {"tile": 429, "effect": 424},
+        {"tile": 445, "effect": 440},
+        {"tile": 446, "effect": 441},
+        {"tile": 447, "effect": 442},
+        {"tile": 448, "effect": 443},
+        {"tile": 449, "effect": 444},
+        {"tile": 465, "effect": 460},
+        {"tile": 466, "effect": 461},
+        {"tile": 467, "effect": 462},
+        {"tile": 468, "effect": 463},
+        {"tile": 469, "effect": 464}
+      ]
+    },
+    "W4": {
+      "source_trace": "research/build/traces/state-machine-w4l1-v2.json",
+      "level_context": "W4L1",
+      "entries": [
+        {"tile": 160, "effect": 240},
+        {"tile": 161, "effect": 241},
+        {"tile": 162, "effect": 242},
+        {"tile": 163, "effect": 243},
+        {"tile": 164, "effect": 244},
+        {"tile": 180, "effect": 260},
+        {"tile": 181, "effect": 261},
+        {"tile": 182, "effect": 262},
+        {"tile": 183, "effect": 263},
+        {"tile": 184, "effect": 264},
+        {"tile": 200, "effect": 280},
+        {"tile": 201, "effect": 281},
+        {"tile": 202, "effect": 282},
+        {"tile": 203, "effect": 283},
+        {"tile": 204, "effect": 284},
+        {"tile": 220, "effect": 300},
+        {"tile": 221, "effect": 301},
+        {"tile": 222, "effect": 302},
+        {"tile": 223, "effect": 303},
+        {"tile": 224, "effect": 304}
+      ]
+    },
+    "W5": {
+      "source_trace": "research/build/traces/state-machine-w5l1-mapstrip140-v13.json",
+      "level_context": "W5L1",
+      "entries": [
+        {"tile": 141, "effect": 61},
+        {"tile": 142, "effect": 62},
+        {"tile": 143, "effect": 63},
+        {"tile": 144, "effect": 64},
+        {"tile": 149, "effect": 60},
+        {"tile": 160, "effect": 80},
+        {"tile": 161, "effect": 81},
+        {"tile": 162, "effect": 82},
+        {"tile": 163, "effect": 83},
+        {"tile": 164, "effect": 84},
+        {"tile": 180, "effect": 100},
+        {"tile": 181, "effect": 101},
+        {"tile": 182, "effect": 102},
+        {"tile": 183, "effect": 103},
+        {"tile": 184, "effect": 104},
+        {"tile": 200, "effect": 120},
+        {"tile": 201, "effect": 121},
+        {"tile": 202, "effect": 122},
+        {"tile": 203, "effect": 123},
+        {"tile": 204, "effect": 124}
+      ]
+    }
+  },
+  "variant_comparison": {
+    "level_context": "W2L1",
+    "traces": {
+      "0x1F": "research/build/traces/state-machine-w2l1-mapstrip120-v1.json",
+      "0x20": "research/build/traces/state-machine-w2l1-type20-v1.json",
+      "0x21": "research/build/traces/state-machine-w2l1-type21-v1.json"
+    },
+    "initial_state_fields": {
+      "0x1F": 1,
+      "0x20": 2,
+      "0x21": 3
+    },
+    "update_state_sequences": {
+      "0x1F": [0, 1, 2, 3],
+      "0x20": [0, 1, 2, 3],
+      "0x21": [0, 1, 2, 3]
+    },
+    "emitted_effect_sequences": {
+      "0x1F": [127, 126, 128, 129, 130],
+      "0x20": [127, 126, 128, 129, 130],
+      "0x21": [127, 126, 128, 129, 130]
+    },
+    "conclusion": "The three ARE variants differ in initial object+0x2E state (1/2/3); their sampled update progression, MAP queries, DS:6986 table, emitted effects, and ICO lookups are identical."
+  }
+}

@@ -555,6 +555,12 @@ returned carry set; reapplying the debugger-only camera at `10B5` makes the
 same objects pass `1693` and reach `1186`. This confirms both the visibility
 gate and the world-relative ICO table across W1-W5.
 
+The normalized nonzero `DS:6986` entries for all five worlds, together with a
+matched W2L1 run of types `0x1F`, `0x20`, and `0x21`, are recorded in
+[`research/effect-mappings.json`](../effect-mappings.json). The matched runs
+all produce update states `0,1,2,3` and effect sequence `127,126,128,129,130`;
+only the initial `object+0x2E` field changes from `1` to `2` to `3`.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive
