@@ -861,6 +861,55 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
     -- the native game loop run for a bounded interval, then sample the puzzle
     -- mask, loader globals, and current execution state. A transition would
     -- change these fields even when no direct DS:60D8 comparator is present.
+    local presentation_points = {
+        {segment = 0x01d7, offset = 0x1670},
+        {segment = 0x01d7, offset = 0x16c6},
+        {segment = 0x01d7, offset = 0x16de},
+        {segment = 0x01d7, offset = 0x16f0},
+        {segment = 0x01d7, offset = 0x1704},
+        {segment = 0x01d7, offset = 0x4f10},
+        {segment = 0x01d7, offset = 0x4faf},
+        {segment = 0x01d7, offset = 0x5017},
+        {segment = 0x01d7, offset = 0x5038},
+        {segment = 0x01d7, offset = 0x5047},
+    }
+    local presentation_hits = {}
+    local presentation_timeout_ms = math.min(timeout_ms, 5000)
+    local function arm_presentation_points()
+        for _, point in ipairs(presentation_points) do
+            dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+        end
+    end
+    arm_presentation_points()
+    dosbox.debug_continue()
+    for sequence = 1, 32 do
+        local hit = dosbox.wait_for_breakpoint(presentation_timeout_ms)
+        if not hit then break end
+        local is_presentation = false
+        for _, point in ipairs(presentation_points) do
+            if hit.segment == point.segment and hit.offset == point.offset then
+                is_presentation = true
+                break
+            end
+        end
+        if is_presentation then
+            local stack = dosbox.mem_read("ss", hit.registers.esp & 0xffff, 12) or ""
+            presentation_hits[#presentation_hits + 1] = {
+                sequence = #presentation_hits + 1,
+                hit = {segment = hit.segment, offset = hit.offset,
+                       registers = hit.registers},
+                stack_hex = hex(stack),
+                tile_mask = dosbox.mem_read_word("ds", 0x60d8),
+                completion_flag = dosbox.mem_read_word("ds", 0x85db),
+                selector_index = dosbox.mem_read_word("ds", 0x85d4),
+                selector_state = dosbox.mem_read_word("ds", 0x85d6),
+                action_word = dosbox.mem_read_word("ds", 0x612e),
+            }
+        end
+        if #presentation_hits >= 32 then break end
+        if is_presentation then arm_presentation_points() end
+        dosbox.debug_continue()
+    end
     dosbox.debug_continue()
     dosbox.wait_frames(puzzle_probe_frames)
     local resource_state = dosbox.mem_read("ds", 0x97e4, 12) or ""
@@ -875,6 +924,7 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         },
         selector_index = dosbox.mem_read_word("ds", 0x85d4),
         level_loop_state = dosbox.mem_read_word("ds", 0x819e),
+        presentation_hits = presentation_hits,
         cpu = dosbox.cpu_state(),
     }
 end

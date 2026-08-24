@@ -270,7 +270,10 @@ the authored path: `01D7:1670` compares `DS:60D8` with `0x7F`,
 `01D7:16C6-1704` renders `NESQUIK: 2000` and `BONUS-LEVEL!`, adds 2000 points,
 and sets `DS:85DB=1`; the caller consumes that state at `01D7:4F10-4FAF` and
 enters reload/transition setup at `01D7:5017`. The synthetic run simply did
-not enter that presentation branch. See [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
+not enter that presentation branch; a refined 300-frame probe armed only the
+authored comparator, presentation, and transition addresses and recorded zero
+hits, confirming that the negative result is not an artifact of the older
+display-consumer breakpoints. See [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
 and [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 
 The three adjacent pickup subtypes now have controlled native overlap ledgers.
@@ -574,8 +577,10 @@ and lifecycle boundary, and platform-carry boundaries. Remaining experiments
 are deliberately narrower:
 
 1. Capture the fully authored all-seven-letter run if exact completion timing is
-   needed. The static comparator and transition handoff are now identified, but
-   the synthetic fixture did not execute the presentation branch.
+   needed. The static comparator and transition handoff are now identified, and
+   a comparator/presentation/transition-only probe recorded no hits after the
+   synthetic fixture reached `0x7F`; the authored prerequisite or timing remains
+   open.
 2. If pixel-level renderer provenance is required, continue from the narrowed
    WOLKE boundary: identify the alternate descriptor/resource path (or a
    fixture that reaches it) after the outer `01D7:4EA0` state consumer. The

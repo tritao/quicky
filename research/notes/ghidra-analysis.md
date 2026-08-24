@@ -849,5 +849,7 @@ to `01D7:4FAF`, maps the selector state, and enters the reload/transition setup
 at `01D7:5017` (relocated target `01F7:0908`) followed by the resource/object
 handoff calls through `01D7:5047`. The final-letter synthetic run reaches the
 mask and clears the object but does not execute this authored presentation
-branch within its 1,800-frame window; the static handoff is nevertheless now
-resolved.
+branch within its 1,800-frame window. A refined 300-frame probe armed only the
+authored comparator, presentation, and transition addresses and also recorded
+zero hits, so the static handoff is resolved while the fixture prerequisite or
+exact timing remains open.
