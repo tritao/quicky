@@ -39,6 +39,7 @@ class ObjectBehaviorConfig:
     camera_x: int | None = None
     camera_y: int | None = None
     followup_passes: int = 0
+    capture_pool: bool = True
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
 
@@ -55,6 +56,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "camera_x": config.camera_x,
         "camera_y": config.camera_y,
         "followup_passes": config.followup_passes,
+        "capture_pool": config.capture_pool,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
     }
@@ -194,6 +196,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--camera-y", type=int)
     parser.add_argument("--followup-passes", type=int, default=0,
                         help="capture scheduler entries through this many later passes")
+    parser.add_argument("--no-pool-snapshots", dest="capture_pool",
+                        action="store_false",
+                        help="omit the expensive 64-entry pool snapshots")
     parser.add_argument("--reactivate-camera-x", type=int,
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
@@ -293,6 +298,7 @@ def main(argv: list[str] | None = None) -> int:
             camera_x=args.camera_x,
             camera_y=args.camera_y,
             followup_passes=args.followup_passes,
+            capture_pool=args.capture_pool,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
         )

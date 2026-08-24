@@ -355,6 +355,12 @@ initialization transition and retains `01F7:47E7` thereafter. No accepted
 sample reaches the cleanup gate at `01F7:1DEE` or a known state-machine exit.
 This establishes short-window persistence; longer movement/traversal probes
 are still needed for eventual camera culling, object death, and reactivation.
+For long object-only traces, add `--no-pool-snapshots`; the tracer then stops
+cleanly on a callback clear and preserves the source-marker/gate evidence while
+avoiding the expensive full pool snapshots. A controlled `0x2B` run with
+camera `(500,0)` reaches `y=305` at sample 74 and records
+`01F7:1DCA -> 01F7:1DEE`, callback clear, and source marker
+`0x012B -> 0x002B`. The same object survives 192 samples at camera `(500,100)`.
 
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry

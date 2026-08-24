@@ -12,6 +12,7 @@ local selector_frames = trace_config.selector_frames or 60
 local camera_x = trace_config.camera_x or -1
 local camera_y = trace_config.camera_y or -1
 local followup_passes = trace_config.followup_passes or 0
+local capture_pool = trace_config.capture_pool ~= false
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local runtime_offset = record_offset - 0x160
@@ -396,6 +397,7 @@ assert(class_return_offsets[object_class] ~= nil,
 
 local samples = {}
 local attempts = 0
+local terminated = false
 local scheduler_entry_offset = class_entry_offsets[object_class + 1]
 while #samples < sample_count and attempts < sample_count * 128 do
     attempts = attempts + 1
@@ -408,8 +410,10 @@ while #samples < sample_count and attempts < sample_count * 128 do
         -- callbacks are stepped over until ES:DI identifies the target.
         local steady_object = object_snapshot(object_selector, object_offset)
         local steady_callback = steady_object.update_callback
-        assert(steady_callback ~= 0,
-               string.format("object callback cleared before steady sample %d", #samples + 1))
+        if steady_callback == 0 then
+            terminated = true
+            break
+        end
         dosbox.breakpoint_clear()
         dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
         local steady_hit = nil
@@ -481,7 +485,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
         end
         local source_before = source_snapshot(source_selector, before.source_offset)
         local globals_before = lifecycle_globals()
-        local pool_before = pool_snapshot()
+        local pool_before = capture_pool and pool_snapshot() or nil
         local expected_return = class_return_offsets[object_class]
         local post_offset = class_post_offsets[object_class]
         local callback_offset = scheduler_hit.registers.eax & 0xffff
@@ -579,7 +583,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
         local after = object_snapshot(object_selector, object_offset)
         local source_after = source_snapshot(source_selector, after.source_offset)
         local globals_after = lifecycle_globals()
-        local pool_after = pool_snapshot()
+        local pool_after = capture_pool and pool_snapshot() or nil
         local callback_cleared = before.update_callback ~= 0 and
             after.update_callback == 0
         local visibility_gate_hit = related_hit(related_hits, 0x1dee)
@@ -662,7 +666,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
     end
 end
 
-assert(#samples == sample_count,
+assert(#samples == sample_count or terminated,
        string.format("captured %d/%d object callbacks", #samples, sample_count))
 local reactivation = {}
 if reactivate_camera_x >= 0 and reactivate_camera_y >= 0 then
@@ -813,6 +817,7 @@ dosbox.output.behavior_trace = {
     initial_object = initial_object,
     camera_override = {x = camera_x, y = camera_y},
     samples = samples,
+    terminated = terminated,
     reactivation = reactivation,
     followup_passes = followup,
 }

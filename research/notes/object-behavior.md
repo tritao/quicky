@@ -225,6 +225,24 @@ one-shot callback for these accepted families over the captured eight-frame
 window. It does not replace the separate out-of-window traversal needed to
 study eventual camera culling, object death, or reactivation.
 
+### Long-window boundary result
+
+The tracer supports `--no-pool-snapshots` for long runs. This keeps the object,
+source, position, callback, and termination evidence while omitting the costly
+64-entry pool tables. With the normal accepted camera `(500,100)`, type `0x2B`
+survives 192 samples and reaches `y=360` with callback `0x47E7` and source
+marker `0x012B`; type `0x28` survives 128 samples at a fixed position with
+callback `0x9269` and marker `0x0128`.
+
+A controlled boundary run moves the camera window upward without moving the
+object horizontally: type `0x2B` starts accepted at camera `(500,0)`, then
+reaches `y=305` on sample 74. That callback hits `01F7:0x1DCA` followed by
+`01F7:0x1DEE`, clears `object+0x18` (`0x47E7 → 0`), and changes the source
+marker `0x012B → 0x002B`. The tracer stops after this terminal sample and marks
+the trace `terminated=true`. This is the complete runtime signature of camera
+culling, distinct from a callback-specific end: the same callback survives
+192 accepted-camera samples when the object remains inside the window.
+
 ## Real-input reactivation and allocator choice
 
 The guest-timed movement probe holds the key through `dosbox.key` while the
