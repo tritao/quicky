@@ -696,6 +696,11 @@ resolves slot 400 through map index 149 to a `32x23` descriptor at offset 6556,
 while types `0x3D`-`0x40` resolve map indices 104/109/85/119 and exact
 `32x14`/`48x16`/`32x14`/`48x16` geometry in the W4/W3/W1/W2 contexts. All five
 live descriptors match the selected BOB record dimensions and origins.
+The same probe now covers representative ordinary families: W1L1 WURM2/BIENE,
+W2L1 FISCH/KRABBE, W3L1 PENGO, W4L1 FLIEGE/SPINNE, W5L1 BUGGY/UFO, and W2L2
+PAPIER all produce live descriptors whose dimensions and origins match the
+catalogued BOB records. The per-type trace paths and descriptor offsets are
+recorded in `research/entity-types.json`.
 Types `0x1F`-`0x21` converge on update callback `01F7:8E4B`
 but leave `object+0x12` unset; they remain explicitly unknown state-machine
 variants.

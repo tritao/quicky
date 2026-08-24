@@ -491,6 +491,16 @@ matching the W4, W3, W1, and W2 `PLATFW*.BOB` records selected by the resource
 batches. These checks tie the world-specific BOB choice to the renderer's
 actual GS descriptor rather than relying only on slot or filename correlation.
 
+Native probes also cover representative ordinary families. W1L1 types `0x01`
+and `0x03` resolve WURM2/BIENE descriptors with geometries `52x16` and
+`46x36`; W2L1 types `0x05` and `0x07` resolve FISCH/KRABBE as `40x19` and
+`41x21`; W3L1 type `0x09` resolves PENGO as `36x35`; W4L1 types `0x15` and
+`0x17` resolve FLIEGE/SPINNE as `37x30` and `36x29`; and W5L1 types `0x19`
+and `0x1B` resolve BUGGY/UFO as `33x27` and `31x31`. Type `0x2C` in W2L2
+resolves slot 710 to the `18x15` PAPIER descriptor. In every case the live
+width, height, and origin equal the selected BOB record, extending the direct
+renderer check beyond the previously tested shared-slot effects.
+
 The normal types `0x1F`-`0x21` initialize `object+0x2E` to 1, 2, and 3 and
 converge on update callback `01F7:8E4B`, but leave `object+0x12` at `0xFFFF`.
 Controlled W1L1 probes redirect the traced object to world `(3072,272)`, where
