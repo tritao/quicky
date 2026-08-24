@@ -182,6 +182,15 @@ eight-pixel retry returns descriptor `0x0050`, the path has `0x20` clear and
 the two high-bit consumers at runtime without assigning an unsupported
 floor/ceiling name.
 
+The player tracer now has a descriptor-census mode. It reads the live table
+through `DS:6582/6584/30D4`, scans the loaded MAP with explicit dimensions,
+and records every cell's raw word, masked tile ID, world coordinate, and
+descriptor word. Candidate cells with `descriptor & 0x70` set are retained for
+targeted approaches. Collision focus also includes the `3A1F` and `3DF2` side
+helpers alongside `3A8A`, `6484`, and `648E`; helper and branch events carry
+experiment-relative frame and event indices so a later C++ model can compare
+state transitions without reconstructing timing from wall-clock logs.
+
 The reproducible W1L1 property matrix now covers neutral, left, right, and
 upward input. The independent `5CC3` rows show `(128,400)` reading raw cell
 `0x08B8`/tile `0x0B8` with descriptor `0x0000`; the stable left wall at

@@ -469,6 +469,27 @@ the `DX&30`/`DX&40` path and returning with `AL=1`; neutral, left, and jump
 cases keep those masks clear and return through `3D44`. This is evidence for
 separating descriptor-driven reset behavior from the stable left wall.
 
+For a loaded-table census, add `--player-descriptor-census`. The probe reads
+the live descriptor table through `DS:6582/6584/30D4` and scans the loaded MAP
+using the supplied dimensions (W1L1 defaults to `270x30`):
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-descriptor-census --select-level W1L1 \
+  --player-samples 1 --output research/build/player-descriptor-w1l1.json
+
+python3 research/tools/descriptor_census_report.py \
+  research/build/player-descriptor-w1l1.json \
+  --json-output research/build/player-descriptor-w1l1-candidates.json
+~~~
+
+The report retains exact MAP cell/world coordinates and emits candidates whose
+descriptor contains `0x20`, `0x40`, or either side of `0x30`. Use
+`--player-map-width/height` for a selected level with different dimensions.
+Collision focus now also records the `3A1F`, `3DF2`, `3A8A`, `6484`, and `648E`
+helpers, with experiment-relative frame and event indices for later model
+comparison.
+
 ### Dedicated transient event types `0x65`-`0x67`
 
 These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to

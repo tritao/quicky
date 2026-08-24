@@ -89,6 +89,10 @@ class PlayerTraceConfig:
     property_focus: bool = False
     property_helper_offset: int | None = None
     branch_focus: bool = False
+    descriptor_census: bool = False
+    descriptor_count: int = 512
+    map_width: int = 270
+    map_height: int = 30
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
@@ -166,6 +170,10 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "property_focus": config.property_focus,
         "property_helper_offset": config.property_helper_offset,
         "branch_focus": config.branch_focus,
+        "descriptor_census": config.descriptor_census,
+        "descriptor_count": config.descriptor_count,
+        "map_width": config.map_width,
+        "map_height": config.map_height,
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
@@ -512,6 +520,19 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["branch_events"] = ordered_lua_array(
                 sample.get("branch_events", [])
             )
+    census = trace.get("descriptor_census")
+    if isinstance(census, dict):
+        table = census.get("descriptor_table")
+        if isinstance(table, dict):
+            table["entries"] = ordered_lua_array(table.get("entries", []))
+        loaded_map = census.get("map")
+        if isinstance(loaded_map, dict):
+            loaded_map["cells"] = ordered_lua_array(
+                loaded_map.get("cells", [])
+            )
+            loaded_map["flag_candidates"] = ordered_lua_array(
+                loaded_map.get("flag_candidates", [])
+            )
     trace["samples"] = samples
     for key in ("final_pool",):
         pool = trace.get(key)
@@ -633,6 +654,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="limit --player-property-focus to helper 0x5c27 or 0x5cc3")
     parser.add_argument("--player-branch-focus", action="store_true",
                         help="trace the 01F7:3D02 descriptor branch masks and return path")
+    parser.add_argument("--player-descriptor-census", action="store_true",
+                        help="dump the loaded descriptor table and MAP cells")
+    parser.add_argument("--player-descriptor-count", type=int, default=512,
+                        help="number of descriptor entries to read (default 512)")
+    parser.add_argument("--player-map-width", type=int, default=270,
+                        help="loaded MAP width for descriptor census (default 270)")
+    parser.add_argument("--player-map-height", type=int, default=30,
+                        help="loaded MAP height for descriptor census (default 30)")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
     parser.add_argument("--player-input-frames", type=int, default=0,
@@ -695,6 +724,10 @@ def main(argv: list[str] | None = None) -> int:
     if args.player_branch_focus and (args.player_map_focus or args.player_collision_focus or
                                     args.player_property_focus):
         raise TraceError("--player-branch-focus cannot be combined with another player focus mode")
+    if args.player_descriptor_count < 1 or args.player_descriptor_count > 512:
+        raise TraceError("--player-descriptor-count must be between 1 and 512")
+    if args.player_map_width < 1 or args.player_map_height < 1:
+        raise TraceError("--player-map-width/height must be positive")
     if args.player_property_helper is not None and not args.player_property_focus:
         raise TraceError("--player-property-helper requires --player-property-focus")
     if not 0 <= args.player_callback_offset <= 0xffff:
@@ -818,6 +851,10 @@ def main(argv: list[str] | None = None) -> int:
                 property_focus=args.player_property_focus,
                 property_helper_offset=args.player_property_helper,
                 branch_focus=args.player_branch_focus,
+                descriptor_census=args.player_descriptor_census,
+                descriptor_count=args.player_descriptor_count,
+                map_width=args.player_map_width,
+                map_height=args.player_map_height,
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,

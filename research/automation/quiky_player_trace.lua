@@ -12,11 +12,31 @@ local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
 local property_helper_offset = trace_config.property_helper_offset or 0
 local branch_focus = trace_config.branch_focus or false
+local descriptor_census = trace_config.descriptor_census or false
+local descriptor_count = trace_config.descriptor_count or 512
+local map_width = trace_config.map_width or 270
+local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
+local trace_event_counter = 0
+
+local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
+
+local function is_collision_target(offset)
+    if not collision_focus then return false end
+    for _, target in ipairs(collision_offsets) do
+        if target == offset then return true end
+    end
+    return false
+end
+
+local function next_trace_event()
+    trace_event_counter = trace_event_counter + 1
+    return trace_event_counter
+end
 
 local function word(s, index)
     local lo, hi = string.byte(s, index, index + 1)
@@ -237,6 +257,108 @@ local function static_globals()
     }
 end
 
+-- Read the table used by 5CC3 and the currently loaded MAP.  This is kept
+-- inside the guest so the evidence records the actual runtime selectors and
+-- offsets rather than assuming that the archive layout is identical to the
+-- loaded segment layout.
+local function descriptor_census_snapshot()
+    local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
+    local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
+    local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
+    local pointer_raw = dosbox.mem_read("ds", 0x657a, 4) or ""
+    local map_pointer = nil
+    local map_selector = nil
+    local map_base = nil
+    if #pointer_raw >= 4 then
+        local pointer = dword(pointer_raw, 1)
+        map_base = pointer & 0xffff
+        map_selector = (pointer >> 16) & 0xffff
+        map_pointer = {selector = map_selector, offset = map_base}
+    end
+    local row_stride = dosbox.mem_read_word("ds", 0x657e)
+    local descriptors = {}
+    local descriptor_errors = 0
+    for tile_id = 0, descriptor_count - 1 do
+        local offset = descriptor_base + tile_id * descriptor_stride + 2
+        local ok, value_or_error = pcall(
+            dosbox.mem_read_word, descriptor_selector, offset
+        )
+        local item = {
+            tile_id = tile_id,
+            offset = offset,
+            word = ok and value_or_error or nil,
+        }
+        if not ok then
+            descriptor_errors = descriptor_errors + 1
+            item.read_error = tostring(value_or_error)
+        end
+        descriptors[#descriptors + 1] = item
+    end
+
+    local cells = {}
+    local candidates = {}
+    local cell_errors = 0
+    if map_base ~= nil and map_selector ~= nil and row_stride ~= 0 then
+        for y = 0, map_height - 1 do
+            for x = 0, map_width - 1 do
+                local offset = map_base + y * row_stride + x * 2
+                local ok, cell_or_error = pcall(
+                    dosbox.mem_read_word, map_selector, offset
+                )
+                local cell = {
+                    x = x,
+                    y = y,
+                    world_x = x * 16,
+                    world_y = y * 16,
+                    offset = offset,
+                    cell = ok and cell_or_error or nil,
+                }
+                if ok then
+                    local tile_id = cell_or_error & 0x1ff
+                    local descriptor_offset =
+                        descriptor_base + tile_id * descriptor_stride + 2
+                    local d_ok, descriptor_or_error = pcall(
+                        dosbox.mem_read_word, descriptor_selector,
+                        descriptor_offset
+                    )
+                    cell.tile_id = tile_id
+                    cell.property = (cell_or_error >> 9) & 0x7f
+                    cell.descriptor = d_ok and descriptor_or_error or nil
+                    if not d_ok then
+                        cell.descriptor_read_error = tostring(descriptor_or_error)
+                    end
+                    if d_ok and (descriptor_or_error & 0x70) ~= 0 then
+                        candidates[#candidates + 1] = cell
+                    end
+                else
+                    cell_errors = cell_errors + 1
+                    cell.read_error = tostring(cell_or_error)
+                end
+                cells[#cells + 1] = cell
+            end
+        end
+    end
+    return {
+        map = {
+            pointer = map_pointer,
+            row_stride = row_stride,
+            width = map_width,
+            height = map_height,
+            cells = cells,
+            flag_candidates = candidates,
+            read_errors = cell_errors,
+        },
+        descriptor_table = {
+            base = descriptor_base,
+            selector = descriptor_selector,
+            stride = descriptor_stride,
+            count = descriptor_count,
+            entries = descriptors,
+            read_errors = descriptor_errors,
+        },
+    }
+end
+
 local function arm_callback_targets()
     for _, segment in ipairs({0x01d7, 0x01e7, 0x01f7, 0x0207, 0x0227, 0x0237,
                               0x1997}) do
@@ -299,7 +421,7 @@ local function arm_targets()
         dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
     end
     if collision_focus then
-        for _, offset in ipairs({0x6484, 0x648e, 0x3a8a}) do
+        for _, offset in ipairs(collision_offsets) do
             dosbox.breakpoint_set(0x01f7, offset, {once = true})
         end
     end
@@ -355,6 +477,8 @@ local function record_branch(sample, hit)
     local registers = hit.registers or {}
     local dx = (registers.edx or 0) & 0xffff
     local event = {
+        event_index = next_trace_event(),
+        frame_index = sample.frame_index,
         offset = hit.offset,
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = registers,
@@ -408,6 +532,8 @@ end
 
 local function record_collision(sample, hit)
     local collision = {
+        event_index = next_trace_event(),
+        frame_index = sample.frame_index,
         helper_offset = hit.offset,
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
@@ -497,6 +623,7 @@ else
 end
 
 local samples = {}
+local experiment_frame = 0
 for sequence = 1, sample_count do
     if sequence > 1 then
         if input_key ~= "" and input_frames > 0 and
@@ -504,14 +631,17 @@ for sequence = 1, sample_count do
             dosbox.key(input_key, true)
             dosbox.wait_frames(input_frames)
             dosbox.key(input_key, false)
+            experiment_frame = experiment_frame + input_frames
         end
         dosbox.wait_frames(frames_between)
+        experiment_frame = experiment_frame + frames_between
     end
     arm_targets()
     dosbox.debug_continue()
     local hit = wait_hit("player/object update breakpoint")
     local sample = {
         sequence = sequence,
+        frame_index = experiment_frame,
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
         globals = static_globals(),
@@ -531,9 +661,7 @@ for sequence = 1, sample_count do
             segment = initial_hit.segment, offset = initial_hit.offset,
         }
         record_map_lookup(sample, initial_hit)
-    elseif collision_focus and (initial_hit.offset == 0x6484 or
-                                initial_hit.offset == 0x648e or
-                                initial_hit.offset == 0x3a8a) then
+    elseif is_collision_target(initial_hit.offset) then
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,
         }
@@ -579,13 +707,21 @@ for sequence = 1, sample_count do
             }
             local returned = nil
             local property_return = nil
+            local collision_return = nil
             while returned == nil do
                 dosbox.breakpoint_set(return_segment, return_offset, {once = true})
                 if property_return ~= nil then
                     dosbox.breakpoint_set(property_return.segment,
                                           property_return.offset, {once = true})
+                elseif collision_return ~= nil then
+                    dosbox.breakpoint_set(collision_return.segment,
+                                          collision_return.offset, {once = true})
                 elseif property_focus then
                     arm_property_targets()
+                elseif collision_focus then
+                    for _, offset in ipairs(collision_offsets) do
+                        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                    end
                 end
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
@@ -593,6 +729,10 @@ for sequence = 1, sample_count do
                    candidate.segment == property_return.segment and
                    candidate.offset == property_return.offset then
                     property_return = nil
+                elseif collision_return ~= nil and
+                       candidate.segment == collision_return.segment and
+                       candidate.offset == collision_return.offset then
+                    collision_return = nil
                 elseif candidate.segment == return_segment and candidate.offset == return_offset then
                     returned = candidate
                 else
@@ -604,10 +744,9 @@ for sequence = 1, sample_count do
                         property_return = far_return_location(candidate)
                     elseif candidate.offset == 0x3376 and map_focus then
                         record_map_lookup(sample, candidate)
-                    elseif collision_focus and (candidate.offset == 0x6484 or
-                                                candidate.offset == 0x648e or
-                                                candidate.offset == 0x3a8a) then
+                    elseif is_collision_target(candidate.offset) then
                         record_collision(sample, candidate)
+                        collision_return = far_return_location(candidate)
                     end
                 end
             end
@@ -636,7 +775,7 @@ for sequence = 1, sample_count do
             }
             record_map_lookup(sample, related)
         elseif collision_focus and sample.collision == nil then
-            for _, offset in ipairs({0x6484, 0x648e, 0x3a8a}) do
+            for _, offset in ipairs(collision_offsets) do
                 dosbox.breakpoint_set(0x01f7, offset, {once = true})
             end
             dosbox.debug_continue()
@@ -663,4 +802,7 @@ local result = {
     final_globals = static_globals(),
     final_pool = pool_snapshot(),
 }
+if descriptor_census then
+    result.descriptor_census = descriptor_census_snapshot()
+end
 dosbox.output.player_trace = result

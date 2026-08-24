@@ -247,6 +247,37 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertTrue(player_trace_lua_config(config)["branch_focus"])
 
+    def test_player_descriptor_census_config_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            descriptor_census=True,
+            descriptor_count=256,
+            map_width=55,
+            map_height=60,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertTrue(payload["descriptor_census"])
+        self.assertEqual(payload["descriptor_count"], 256)
+        self.assertEqual(payload["map_width"], 55)
+        self.assertEqual(payload["map_height"], 60)
+
+    def test_normalize_player_descriptor_census_arrays(self):
+        trace = normalize_player_trace({
+            "descriptor_census": {
+                "descriptor_table": {"entries": {"1": {"tile_id": 1}}},
+                "map": {
+                    "cells": {"1": {"x": 0, "y": 0}},
+                    "flag_candidates": {"1": {"tile_id": 7}},
+                },
+            },
+            "samples": [],
+        })
+        census = trace["descriptor_census"]
+        self.assertEqual(census["descriptor_table"]["entries"][0]["tile_id"], 1)
+        self.assertEqual(census["map"]["cells"][0]["x"], 0)
+        self.assertEqual(census["map"]["flag_candidates"][0]["tile_id"], 7)
+
 
 if __name__ == "__main__":
     unittest.main()
