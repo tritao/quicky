@@ -176,6 +176,16 @@ callbacks, this confirms off-camera removal across the enemy families; it does
 not turn the still-open player-caused death/drop path into a claim. See
 [`entity-normal-enemy-family-removal-evidence.json`](../entity-normal-enemy-family-removal-evidence.json).
 
+The strict family audit now has a static ledger for every normal-enemy row, not
+just slot identity. [`entity-normal-enemy-static-evidence.json`](../entity-normal-enemy-static-evidence.json)
+records the common object field layout, each initializer's velocity/orientation/
+phase/timer writes, callback state bytes and transition ranges, MAP/player probe
+constants, and animation delay/cursor plus BOB record mapping. This closes the
+normal families' initializer, state-machine, movement, collision, and animation
+dimensions. The remaining normal-enemy questions are semantic: what the
+player-range branch does to gameplay state, and which authored level events
+produce drops or respawn.
+
 The falling-leaf family is now decoded through its child callback. `01F7:474D`
 selects one of two PRNG tables (`DS:3312` delay 8 and `DS:3326` delay 10),
 seeds `object+0x0E` with `0x13000-(signed_random_byte<<7)`, copies the source
@@ -189,9 +199,10 @@ offsets `120, 240, 360, 480, 720, 840, 960, 1080`, later emissions reuse
 `360, 480, 720, 840, 960, 1080`; animation delay counts down through zero and
 the cursor advances from slot 700 to 701, while the alternate table emits slot
 703. This is direct evidence of pooled child reuse and animation rollover. The
-remaining leaf questions are the allocator's exact free predicate, authored
-spawn cadence across levels, and any player collision (the family is otherwise
-visual/ambient). See [`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json)
+remaining leaf questions are the allocator's exact free predicate and authored
+spawn cadence across levels. The child callback has no persistent player/entity
+collision branch; BLATT geometry is render-only, so collision is not applicable
+to this family. See [`entity-leaf-pool-evidence.json`](../entity-leaf-pool-evidence.json)
 and [`entity-leaf-state-evidence.json`](../entity-leaf-state-evidence.json).
 
 The remaining effect-family uncertainty is no longer object identity: all of
@@ -264,6 +275,11 @@ the signed `0x28000` directions. These traces prove integration and blocked
 state mechanics, but deliberately do not claim the authored terminal/reset
 table or an original-runtime player contact result; see
 [`entity-platform-motion-evidence.json`](../entity-platform-motion-evidence.json).
+The platform animation dimension is intentionally not applicable: the four
+initializers choose static `PLATFW` records (slots 300/301), and callback
+`9DC7` never advances an object animation cursor. Remaining platform questions
+are semantic one-way-floor/player-carry outcomes, authored terminal/reset
+tables, W5 resource confirmation, and level-driven respawn.
 
 BUMP `0x34` is now bounded across all requested dimensions. Its callback uses
 the open player gate `object_x-25 < player_x < object_x+25` and

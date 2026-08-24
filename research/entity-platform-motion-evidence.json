@@ -21,7 +21,9 @@
     "horizontal_integration": "object+0x0A fixed-point velocity is added to x; MAP checks at 01F7:9E75/9EA6 stop, snap, and set object+0x54=0x46",
     "vertical_integration": "object+0x0E fixed-point velocity is added to y; MAP checks at 01F7:9FB2/9FDF stop, snap, and set object+0x54=0x46",
     "direction_reversal": "01F7:9F35/9F4A and 01F7:A03D/A051 select +/-0x28000 and update direction bytes",
-    "carry_helpers": ["01F7:A075", "01F7:A0B2"]
+    "carry_helpers": ["01F7:A075", "01F7:A0B2"],
+    "animation": "9DC7 never writes object+0x12 or an animation cursor; each initializer selects one static PLATFW slot (300 or 301), so the BOB record is a static platform frame rather than a callback animation table.",
+    "player_overlap_shape": "A075 tests object_x < player_x < object_x+object_width and object_y <= player_y < object_y+12; object_width is the live +0x3E geometry field (32 or 48 pixels by PLATFW variant), and accepted overlap publishes DS:5006=-1 for A0B2."
   },
   "controlled_motion": {
     "controls": ["debugger-only force_platform_ready clears +0x58/+0x59/+0x5A/+0x54", "debugger-only force_velocity_x=0x28000"],
