@@ -80,6 +80,13 @@ masks the result to the low nine-bit tile ID. It therefore proves the
 this helper intentionally discards the high MAP property bits; collision and
 hazard semantics still need a separate path.
 
+The targeted MAP-user survey adds a useful negative result. `01F7:20C8` and
+`01F7:2CB2` are renderer paths: they read a MAP word, mask it with `0x01ff`,
+and use the tile ID to select VGA pixels. `01F7:16CE` also masks its input to a
+tile ID, but preserves the existing cell's high bits when it writes an effect
+cell. No direct consumer of the seven high MAP property bits was found in
+these segment-3 users, so they are not yet a collision specification.
+
 ## Runtime follow-up
 
 The existing `quikytrace --state-machine-samples` path now records the input

@@ -100,6 +100,8 @@ public class DumpQuikyDecomp extends GhidraScript {
         }
         if ("SEG03".equals(segment)) {
             return new String[][] {
+                {"08c9", "release_map_buffer"},
+                {"0a43", "initialize_game_state"},
                 {"0e06", "are_object_factory"},
                 {"0e66", "object_pool_count_active"},
                 {"0e96", "object_update_pass_by_phase"},
@@ -110,6 +112,8 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"1cda", "stream_are_regions"},
                 {"1ec4", "seg3_target_1ec4"},
                 {"1ed7", "update_camera_scroll"},
+                {"20c8", "render_map_column"},
+                {"2cb2", "render_map_strip"},
                 {"332c", "seg3_target_332c"},
                 {"335e", "seg3_target_335e"},
                 {"33bf", "seg3_target_33bf"},

@@ -409,6 +409,8 @@ and exit, so the labels remain hypotheses that can be checked against DOSBox
 state rather than names inferred from a screenshot. The evidence and the
 remaining deliberately unresolved semantics are summarized in
 [`notes/player-input-static.md`](notes/player-input-static.md).
+`FindQuikyReferences.java` provides the repeatable raw-segment data-user survey
+used to distinguish MAP rendering from the still-unresolved collision path.
 
 ### BOB — compiled sprites decoded safely
 
