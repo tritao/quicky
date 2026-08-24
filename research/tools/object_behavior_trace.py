@@ -40,6 +40,7 @@ class ObjectBehaviorConfig:
     camera_y: int | None = None
     followup_passes: int = 0
     capture_pool: bool = True
+    helper_trace: bool = False
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
     movement_key: str = ""
@@ -58,6 +59,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "camera_y": config.camera_y,
         "followup_passes": config.followup_passes,
         "capture_pool": config.capture_pool,
+        "helper_trace": config.helper_trace,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
         "movement_key": config.movement_key,
@@ -115,6 +117,12 @@ def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["changed_bytes"] = ordered_lua_array(
                 sample.get("changed_bytes", [])
             )
+            callback = sample.get("callback")
+            if isinstance(callback, dict):
+                for hit_name in ("related_hits", "helper_calls"):
+                    callback[hit_name] = ordered_lua_array(
+                        callback.get(hit_name, [])
+                    )
             for pool_name in ("pool_before", "pool_after"):
                 normalize_pool_tables(sample.get(pool_name))
     trace["samples"] = samples
@@ -201,6 +209,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--no-pool-snapshots", dest="capture_pool",
                         action="store_false",
                         help="omit the expensive 64-entry pool snapshots")
+    parser.add_argument("--helper-trace", action="store_true",
+                        help="capture selected far-helper entries and returns inside callbacks")
     parser.add_argument("--reactivate-camera-x", type=int,
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
@@ -303,6 +313,7 @@ def main(argv: list[str] | None = None) -> int:
             camera_y=args.camera_y,
             followup_passes=args.followup_passes,
             capture_pool=args.capture_pool,
+            helper_trace=args.helper_trace,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
             movement_key=args.movement_key or "",

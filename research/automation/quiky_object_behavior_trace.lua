@@ -13,6 +13,7 @@ local camera_x = trace_config.camera_x or -1
 local camera_y = trace_config.camera_y or -1
 local followup_passes = trace_config.followup_passes or 0
 local capture_pool = trace_config.capture_pool ~= false
+local helper_trace_enabled = trace_config.helper_trace or false
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local movement_key = trace_config.movement_key or ""
@@ -24,6 +25,9 @@ local class_post_offsets = {[0] = 0x0edb, [1] = 0x0f05, [2] = 0x0f2e}
 local callback_related_offsets = {
     0x1dca, 0x1dee, 0x106a, 0x1036, 0x0fa2,
     0x8e4b, 0x8e78, 0x8e85, 0x9254, 0x9255,
+}
+local callback_helper_offsets = {
+    0x393c, 0x1b77, 0x1c4d, 0x39fe, 0x5c27, 0x5d38, 0x5d60,
 }
 local callback_step_offsets = {
     [0x47e7] = 0x47ec,
@@ -56,6 +60,39 @@ local function wait_hit(label)
     local hit, err = dosbox.wait_for_breakpoint(timeout_ms)
     if not hit then error(label .. ": " .. (err or "timeout")) end
     return hit
+end
+
+local function is_helper_offset(offset)
+    for _, helper_offset in ipairs(callback_helper_offsets) do
+        if helper_offset == offset then return true end
+    end
+    return false
+end
+
+local function arm_callback_related_breakpoints(skip_helper, arm_related)
+    if arm_related ~= false then
+        for _, offset in ipairs(callback_related_offsets) do
+            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        end
+    end
+    if helper_trace_enabled then
+        for _, offset in ipairs(callback_helper_offsets) do
+            if offset ~= skip_helper then
+                dosbox.breakpoint_set(0x01f7, offset, {once = true})
+            end
+        end
+    end
+end
+
+local function remove_callback_related_breakpoints()
+    for _, offset in ipairs(callback_related_offsets) do
+        dosbox.breakpoint_remove(0x01f7, offset)
+    end
+    if helper_trace_enabled then
+        for _, offset in ipairs(callback_helper_offsets) do
+            dosbox.breakpoint_remove(0x01f7, offset)
+        end
+    end
 end
 
 local function object_snapshot(selector, offset)
@@ -268,6 +305,75 @@ local function stack_return(hit)
         stack_hex = hex(raw),
         kind = "near",
     }
+end
+
+local function far_stack_return(hit)
+    local raw = dosbox.mem_read("ss", hit.registers.esp & 0xffff, 4) or ""
+    if #raw < 4 then return nil end
+    return {
+        offset = word(raw, 1),
+        segment = word(raw, 3),
+        stack_hex = hex(raw),
+        kind = "far",
+    }
+end
+
+local function selector_word(selector, offset)
+    if not selector or selector == 0 then return nil, "no selector" end
+    local ok, raw_or_error = pcall(dosbox.mem_read_selector, selector,
+                                   offset & 0xffff, 2)
+    if not ok then return nil, tostring(raw_or_error) end
+    if not raw_or_error or #raw_or_error < 2 then
+        return nil, "short selector read"
+    end
+    return word(raw_or_error, 1), nil
+end
+
+local function map_probe(registers)
+    local y = registers.eax & 0xffff
+    local x = registers.ebx & 0xffff
+    local map_base = dosbox.mem_read_word("ds", 0x657a)
+    local map_selector = dosbox.mem_read_word("ds", 0x657c)
+    local map_stride = dosbox.mem_read_word("ds", 0x657e)
+    local map_offset = (map_base + ((x >> 3) & 0xfffe) +
+                       (y >> 4) * map_stride) & 0xffff
+    local raw_word, map_error = selector_word(map_selector, map_offset)
+    local result = {
+        x = x,
+        y = y,
+        map_selector = map_selector,
+        map_base = map_base,
+        map_stride = map_stride,
+        map_offset = map_offset,
+        map_word = raw_word,
+        tile_id = raw_word and (raw_word & 0x1ff) or nil,
+        map_error = map_error,
+        descriptor_base = dosbox.mem_read_word("ds", 0x6582),
+        descriptor_stride = dosbox.mem_read_word("ds", 0x30d4),
+    }
+    if result.tile_id then
+        result.descriptor_offset = result.descriptor_base +
+            result.tile_id * result.descriptor_stride + 2
+        result.descriptor_word = dosbox.mem_read_word(
+            "ds", result.descriptor_offset & 0xffff)
+        if result.descriptor_word then
+            result.descriptor_flags = result.descriptor_word & 0x0f
+        end
+    end
+    return result
+end
+
+local function take_pending_helper_return(pending, hit)
+    for index = #pending, 1, -1 do
+        local expected = pending[index].return_address
+        if expected and expected.offset == hit.offset and
+                expected.segment == hit.segment then
+            local call = pending[index]
+            table.remove(pending, index)
+            return call
+        end
+    end
+    return nil
 end
 
 local function static_globals()
@@ -526,15 +632,15 @@ while #samples < sample_count and attempts < sample_count * 128 do
                              callback_entry.registers.esp or 0))
         dosbox.breakpoint_set(0x01f7, callback_return_offset, {once = true})
         dosbox.breakpoint_set(0x01f7, post_offset, {once = true})
-        for _, offset in ipairs(callback_related_offsets) do
-            dosbox.breakpoint_set(0x01f7, offset, {once = true})
-        end
+        arm_callback_related_breakpoints()
         local callback_return = nil
         local related_hits = {}
+        local helper_calls = {}
+        local pending_helper_returns = {}
         local callback_return_attempts = 0
         while callback_return == nil do
             callback_return_attempts = callback_return_attempts + 1
-            if callback_return_attempts > 32 then
+            if callback_return_attempts > 128 then
                 local offsets = {}
                 for _, hit in ipairs(related_hits) do
                     offsets[#offsets + 1] = string.format("%04x", hit.offset)
@@ -548,38 +654,67 @@ while #samples < sample_count and attempts < sample_count * 128 do
             if candidate.offset == callback_return_offset then
                 callback_return = candidate
             else
-                local related = {
-                    segment = candidate.segment,
-                    offset = candidate.offset,
-                    registers = candidate.registers,
-                }
-                if candidate.offset == 0x1dca then
-                    related.camera_before = {
-                        x = dosbox.mem_read_word("ds", 0x81c0),
-                        y = dosbox.mem_read_word("ds", 0x81c4),
+                local returned_helper = helper_trace_enabled and
+                    take_pending_helper_return(pending_helper_returns, candidate)
+                if returned_helper then
+                    returned_helper.return_hit = {
+                        segment = candidate.segment,
+                        offset = candidate.offset,
+                        registers = candidate.registers,
                     }
-                    if camera_x >= 0 then
-                        dosbox.mem_write("ds", 0x81c0, little_word(camera_x))
-                    end
-                    if camera_y >= 0 then
-                        dosbox.mem_write("ds", 0x81c4, little_word(camera_y))
-                    end
-                    related.camera_after_write = {
-                        x = dosbox.mem_read_word("ds", 0x81c0),
-                        y = dosbox.mem_read_word("ds", 0x81c4),
+                    returned_helper.return_flags = candidate.registers.flags
+                    arm_callback_related_breakpoints(nil, not direct_sample)
+                elseif helper_trace_enabled and is_helper_offset(candidate.offset) then
+                    local helper_call = {
+                        segment = candidate.segment,
+                        offset = candidate.offset,
+                        registers = candidate.registers,
+                        entry_flags = candidate.registers.flags,
                     }
-                end
-                related_hits[#related_hits + 1] = related
-                if not direct_sample then
-                    for _, offset in ipairs(callback_related_offsets) do
-                        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                    local return_address = far_stack_return(candidate)
+                    if return_address then
+                        helper_call.return_address = return_address
+                        pending_helper_returns[#pending_helper_returns + 1] = helper_call
+                        dosbox.breakpoint_set(return_address.segment,
+                                              return_address.offset,
+                                              {once = true})
+                    end
+                    if candidate.offset == 0x5c27 then
+                        helper_call.map_probe = map_probe(candidate.registers)
+                    end
+                    helper_calls[#helper_calls + 1] = helper_call
+                    arm_callback_related_breakpoints(candidate.offset,
+                                                      not direct_sample)
+                else
+                    local related = {
+                        segment = candidate.segment,
+                        offset = candidate.offset,
+                        registers = candidate.registers,
+                    }
+                    if candidate.offset == 0x1dca then
+                        related.camera_before = {
+                            x = dosbox.mem_read_word("ds", 0x81c0),
+                            y = dosbox.mem_read_word("ds", 0x81c4),
+                        }
+                        if camera_x >= 0 then
+                            dosbox.mem_write("ds", 0x81c0, little_word(camera_x))
+                        end
+                        if camera_y >= 0 then
+                            dosbox.mem_write("ds", 0x81c4, little_word(camera_y))
+                        end
+                        related.camera_after_write = {
+                            x = dosbox.mem_read_word("ds", 0x81c0),
+                            y = dosbox.mem_read_word("ds", 0x81c4),
+                        }
+                    end
+                    related_hits[#related_hits + 1] = related
+                    if not direct_sample then
+                        arm_callback_related_breakpoints()
                     end
                 end
             end
         end
-        for _, offset in ipairs(callback_related_offsets) do
-            dosbox.breakpoint_remove(0x01f7, offset)
-        end
+        remove_callback_related_breakpoints()
         dosbox.debug_continue()
         local scheduler_post = wait_hit("object scheduler post-callback")
         local after = object_snapshot(object_selector, object_offset)
@@ -621,6 +756,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
                 return_address = returned,
                 other_callback_hits = other_callback_hits,
                 related_hits = related_hits,
+                helper_calls = helper_calls,
             },
             return_hit = {
                 segment = callback_return.segment,

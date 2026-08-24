@@ -24,6 +24,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             reactivate_camera_x=816,
             reactivate_camera_y=272,
             capture_pool=False,
+            helper_trace=True,
             movement_key="KBD_right",
         )
         payload = lua_config(config)
@@ -34,6 +35,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["reactivate_camera_x"], 816)
         self.assertEqual(payload["reactivate_camera_y"], 272)
         self.assertFalse(payload["capture_pool"])
+        self.assertTrue(payload["helper_trace"])
         self.assertEqual(payload["movement_key"], "KBD_right")
         self.assertNotIn("player_callback_offset", payload)
 
@@ -42,6 +44,9 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             "samples": {
                 "2": {"sequence": 2, "changed_bytes": {
                     "2": {"offset": 4}, "1": {"offset": 1},
+                }, "callback": {
+                    "related_hits": {"2": {"offset": 0x1dee}},
+                    "helper_calls": {"1": {"offset": 0x5d38}},
                 }},
                 "1": {"sequence": 1, "changed_bytes": {}},
             },
@@ -49,6 +54,8 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual([sample["sequence"] for sample in trace["samples"]], [1, 2])
         self.assertEqual(trace["samples"][1]["changed_bytes"][0]["offset"], 1)
         self.assertEqual(trace["samples"][1]["changed_bytes"][1]["offset"], 4)
+        self.assertEqual(trace["samples"][1]["callback"]["related_hits"][0]["offset"], 0x1dee)
+        self.assertEqual(trace["samples"][1]["callback"]["helper_calls"][0]["offset"], 0x5d38)
 
     def test_normalizes_followup_pool_tables(self):
         trace = normalize_behavior_trace({

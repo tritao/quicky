@@ -282,10 +282,51 @@ three fixtures at accepted camera `(500,100)`:
 
 Every input trace retained its processed source marker and hit only the
 accepted `0x1DCA` check; none reached `0x1DEE`, a known state-machine exit, or
-a callback-specific clear. The next useful static/runtime target is therefore
-the unresolved far-helper semantics (`0x1B77`, `0x1C4D`, `0x39FE`, and the
-`0x5D38`/`0x5D60` MAP helpers), followed by controlled MAP/player proximity
-experiments rather than more right-input runs against these same objects.
+a callback-specific clear. This motivates the helper-level pass below: the
+remaining work is to correlate its register and MAP results with object state,
+rather than repeat right-input runs against these same autonomous objects.
+
+## Helper-level callback pass
+
+The object tracer now accepts `--helper-trace`. For the selected callback it
+arms breakpoints on the far helpers `0x1B77`, `0x1C4D`, `0x393C`, `0x39FE`,
+`0x5C27`, `0x5D38`, and `0x5D60`, reads the far return address from `SS:SP`, and records
+the registers at helper entry and return. The return breakpoint is matched by
+far segment and offset, so nested helper calls do not get attributed to the
+wrong callback. This also required avoiding a re-arm at the currently stopped
+helper IP; otherwise the debugger repeatedly stopped on the same instruction
+and never reached the callback return.
+
+The corrected 48-sample accepted-camera traces are
+`helper-2c-s48-mapprobe.json`, `helper-33-s48-mapprobe.json`, and
+`helper-34-s48-mapprobe.json` in the ignored object-behavior build directory.
+The first callback is the initializer; later samples are the steady callback:
+
+| Type | Initializer helper | Steady helper order | Representative low-16-bit results |
+| ---: | --- | --- | --- |
+| `0x2C` | none observed (`0x8C4E`) | `0x393C` | entry `AX=0x0103, BX=0x0200, CX=0x0BC8, DX=0x0E3F`; return `AX=0x0076, BX=0x01B8, CX=0x008A, DX=0x0190` |
+| `0x33` | `0x5D38` | `0x1B77 → 0x393C → 0x1C4D → 0x5C27 → 0x5D60` | `0x5D38` returns `AX=0x00D6`; `0x1C4D` returns `AX=0x0033, BX=CX=0x1DEA`; `0x5C27` reads tile `0x0033/flags 4`, then `0x0032/flags 0`; `0x5D60` preserves `AX=0x0400` while its `BX` input changes with object state |
+| `0x34` | `0x5D38` | `0x5D60 → 0x39FE` | `0x5D38` returns `AX=0x0190`; one populated `0x39FE` call returns `AX=0x0080, BX=0x0190, CX=0x0B00, DX=0x0E3F`, while later empty-state calls return zeros |
+
+These values are register evidence, not final helper signatures: the 16-bit
+code often leaves upper register halves and transient descriptor state intact.
+The stable call order is stronger than any single return value. It confirms
+that type `0x33` combines a bounds/helper chain with a MAP-state helper, while
+type `0x34` consumes a MAP-state result through its local proximity test.
+
+The corrected type `0x33` run reaches `0x5C27` once on every steady callback
+(47 calls). The helper receives `AX=0x0100` and an X-like `BX` that moves from
+`0x0319` down to `0x02DA` as the object moves left; it preserves those
+registers on return. The tracer's MAP probe resolves the first branch to
+selector `0x0377`, row stride `0x021C`, MAP offset `0x2222`, raw word/tile
+`0x0033`, and descriptor word `0x6544` with low-nibble flags `0x4`. At sample
+23 the coordinate changes to MAP offset `0x221A`, raw word/tile `0x0032`, and
+descriptor word `0` with flags `0`; the far return address switches at exactly
+the same point from `0x888A` to `0x8876`. Static decoding identifies `0x5C27`
+as a low-9-bit MAP tile lookup followed by a `DS:0x6582` descriptor test using
+the coordinate bit-3 flags. The call-site switch is therefore explained by a
+MAP tile/descriptor transition, leaving the higher-level response of the two
+branches as the next target alongside the `0x5D38`/`0x5D60` descriptor words.
 
 ## Real-input reactivation and allocator choice
 

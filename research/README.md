@@ -310,6 +310,12 @@ puts the object back into the scheduler banks. This is confirmed for W1L1
 types `0x01` and `0x2B`, including the exact source-marker and pool-slot
 transitions.
 
+For callback-internal evidence on the custom families, add `--helper-trace` to
+`research/tools/object_behavior_trace.py`. It captures selected far-helper
+entries and returns for types `0x2C`, `0x33`, and `0x34`; the register-level
+findings and remaining MAP-helper questions are recorded in
+[`notes/object-behavior.md`](notes/object-behavior.md).
+
 For real-input lifetime checks, use the isolated movement driver. It waits for
 the selected entity to initialize, injects a guest-key sequence, and captures
 the same pooled record at synchronized frame barriers:
