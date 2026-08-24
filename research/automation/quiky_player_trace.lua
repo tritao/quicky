@@ -124,6 +124,7 @@ end
 local function object_snapshot(raw, selector, offset, index)
     local x_fixed = dword(raw, 3)
     local y_fixed = dword(raw, 7)
+    local vertical_step = #raw >= 0x74 and word(raw, 0x72 + 1) or nil
     return {
         index = index,
         selector = selector,
@@ -150,8 +151,8 @@ local function object_snapshot(raw, selector, offset, index)
         lifetime = word(raw, 0x2c + 1),
         state_field = word(raw, 0x2e + 1),
         state_field_signed = signed32(dword(raw, 0x2e + 1)),
-        vertical_step = word(raw, 0x72 + 1),
-        vertical_step_signed = signed16(word(raw, 0x72 + 1)),
+        vertical_step = vertical_step,
+        vertical_step_signed = vertical_step and signed16(vertical_step) or nil,
         update_state = word(raw, 0x32 + 1),
         player_byte_0x36 = string.byte(raw, 0x36 + 1),
         player_byte_0x37 = string.byte(raw, 0x37 + 1),
