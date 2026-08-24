@@ -34,6 +34,7 @@ research/extracted/tools/QuikyLevelEditor/dist/
 research/extracted/tools/QuikyLevelEditor/nbproject/private/
 
 # Common local build/editor files.
+/build/
 *.o
 *.class
 *.swp

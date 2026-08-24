@@ -1,0 +1,36 @@
+# Quiky C++ engine core
+
+This is the first standalone C++ slice of the Quiky engine recreation. It is
+kept independent of SDL and ScummVM so the format and renderer code can be
+tested against the original data before a ScummVM frontend is added.
+
+The current iteration supports:
+
+- checked binary reads with explicit endianness;
+- direct reading of the `NESTLE.DAT` archive;
+- `MAP` decoding;
+- world `PCC` palette extraction;
+- column-interleaved `ICO` tile decoding;
+- indexed level rendering to an 8-bit BMP;
+- synthetic unit tests for the format readers.
+
+Music, ARE overlays, BOB sprites, and gameplay are intentionally deferred.
+
+Build and test from the repository root:
+
+```sh
+cmake -S engine -B build/engine
+cmake --build build/engine
+ctest --test-dir build/engine --output-on-failure
+```
+
+Inspect the bundled archive:
+
+```sh
+build/engine/quiky-inspect game/NESTLE.DAT info W1L1.MAP
+build/engine/quiky-render game/NESTLE.DAT W1L1.MAP /tmp/W1L1.bmp
+```
+
+The renderer output is an indexed BMP using the palette stored in the matching
+world PCC resource. The C++ W1L1 output currently matches the existing Python
+renderer pixel-for-pixel when ARE overlays are disabled.
