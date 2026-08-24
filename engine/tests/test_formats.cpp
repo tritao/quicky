@@ -279,6 +279,16 @@ void testLevelSession() {
     assert(session.entities()[1].spriteSlot == 600);
     assert(session.entities()[1].spriteResource == "PUZZLE.BOB");
 
+    quiky::Area platformArea = makeLevelArea(0x3f, 0x34);
+    quiky::LevelSession platformSession("W1L3.MAP", map, platformArea, config);
+    assert(platformSession.entities()[0].kind == quiky::EntityKind::MovingPlatform);
+    assert(platformSession.entities()[0].spriteSlot == 301);
+    assert(platformSession.entities()[0].spriteResource == "PLATFW1.BOB");
+    assert(platformSession.entities()[0].collisionWidth == 32);
+    assert(platformSession.entities()[0].collisionHeight == 14);
+    assert(platformSession.entities()[1].spriteSlot == 400);
+    assert(platformSession.entities()[1].spriteResource == "BUMP_W1.BOB");
+
     session.tick(player, simulation, quiky::InputState());
     quiky::LevelEvent event = session.consumeEvent();
     assert(event.type == quiky::LevelEventType::Collected);
@@ -347,6 +357,18 @@ void testLevelSessionCollisionQuery() {
     }
     assert(player.grounded);
     assert(player.y.floorPixels() == 52);
+
+    quiky::LevelSessionConfig platformConfig = config;
+    platformConfig.spawnY = 0;
+    const quiky::Area platformArea = makeLevelArea(0x3f, 0x28);
+    quiky::LevelSession platformSession("W1L3.MAP", map, platformArea, platformConfig);
+    platformSession.reset(player, simulation);
+    for (int frame = 0; frame < 30; ++frame) {
+        platformSession.tick(player, simulation, collision, quiky::InputState());
+        platformSession.consumeEvent();
+    }
+    assert(player.grounded);
+    assert(player.y.floorPixels() == 4);
 }
 
 void testPlayerSimulation() {

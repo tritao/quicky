@@ -25,6 +25,71 @@ std::int32_t floorRegion(std::int32_t pixel) {
              static_cast<std::int32_t>(Area::kRegionSize));
 }
 
+std::int32_t floorTile(std::int32_t pixel) {
+    if (pixel >= 0) {
+        return pixel / 16;
+    }
+    return -static_cast<std::int32_t>((-static_cast<std::int64_t>(pixel) + 15) / 16);
+}
+
+std::string worldForMap(const std::string &mapName) {
+    if (mapName.size() < 2 || (mapName[0] != 'W' && mapName[0] != 'w')) {
+        return std::string();
+    }
+    std::string world(mapName.substr(0, 2));
+    world[0] = 'W';
+    world[1] = static_cast<char>(std::toupper(static_cast<unsigned char>(world[1])));
+    return world;
+}
+
+class EntityCollisionQuery : public CollisionQuery {
+public:
+    EntityCollisionQuery(const CollisionQuery &base,
+                         const std::vector<LevelEntity> &entities)
+        : _base(base), _entities(entities) {}
+
+    bool blocksHorizontal(std::int32_t tileX,
+                          std::int32_t tileY) const override {
+        return _base.blocksHorizontal(tileX, tileY);
+    }
+
+    bool blocksFloor(std::int32_t tileX,
+                     std::int32_t tileY) const override {
+        // The confirmed platform footprints are known, but their motion
+        // tables are not. Treating them as one-way floor preserves the
+        // useful static interaction without inventing a trajectory.
+        if (_base.blocksFloor(tileX, tileY)) {
+            return true;
+        }
+        for (std::size_t index = 0; index < _entities.size(); ++index) {
+            const LevelEntity &entity = _entities[index];
+            if (entity.kind != EntityKind::MovingPlatform ||
+                entity.phase != EntityPhase::Active ||
+                entity.collisionWidth == 0 || entity.collisionHeight == 0) {
+                continue;
+            }
+            const std::int32_t platformTop = floorTile(entity.y);
+            const std::int32_t platformLeft = floorTile(entity.x);
+            const std::int32_t platformRight = floorTile(
+                entity.x + static_cast<std::int32_t>(entity.collisionWidth) - 1);
+            if (tileY == platformTop && tileX >= platformLeft &&
+                tileX <= platformRight) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    bool blocksCeiling(std::int32_t tileX,
+                       std::int32_t tileY) const override {
+        return _base.blocksCeiling(tileX, tileY);
+    }
+
+private:
+    const CollisionQuery &_base;
+    const std::vector<LevelEntity> &_entities;
+};
+
 } // namespace
 
 LevelSessionConfig::LevelSessionConfig()
@@ -63,6 +128,8 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.kind = classify(entity.type);
         entity.spriteSlot = spriteSlotFor(entity.type);
         entity.spriteResource = spriteResourceFor(entity.type);
+        entity.collisionWidth = collisionWidthFor(entity.type);
+        entity.collisionHeight = collisionHeightFor(entity.type);
         _entities.push_back(entity);
     }
 }
@@ -122,8 +189,34 @@ EntityKind LevelSession::classify(std::uint16_t type) {
 }
 
 std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
-    // These are the direct runtime-confirmed families. Other entity slots
-    // remain unknown until their world-specific BOB resource is selected.
+    switch (type) {
+    case 0x01: return 281;
+    case 0x02: return 231;
+    case 0x03: return 276;
+    case 0x04: return 226;
+    case 0x05: return 254;
+    case 0x06: return 204;
+    case 0x07: return 200;
+    case 0x08: return 250;
+    case 0x09: return 250;
+    case 0x0a: return 200;
+    case 0x0b: return 209;
+    case 0x0c: return 209;
+    case 0x15: return 208;
+    case 0x16: return 208;
+    case 0x17: return 250;
+    case 0x18: return 200;
+    case 0x19: return 250;
+    case 0x1a: return 200;
+    case 0x1b: return 264;
+    case 0x1c: return 214;
+    case 0x34: return 400;
+    case 0x3d: return 301;
+    case 0x3e: return 300;
+    case 0x3f: return 301;
+    case 0x40: return 300;
+    default: break;
+    }
     if (type >= 0x6f && type <= 0x72) {
         return static_cast<std::uint16_t>(607 + (type - 0x6f));
     }
@@ -133,7 +226,72 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
     return 0xffff;
 }
 
-std::string LevelSession::spriteResourceFor(std::uint16_t type) {
+std::uint16_t LevelSession::collisionWidthFor(std::uint16_t type) {
+    if (type == 0x3d || type == 0x3f) {
+        return 32;
+    }
+    if (type == 0x3e || type == 0x40) {
+        return 48;
+    }
+    return 0;
+}
+
+std::uint16_t LevelSession::collisionHeightFor(std::uint16_t type) {
+    if (type == 0x3d || type == 0x3f) {
+        return 14;
+    }
+    if (type == 0x3e || type == 0x40) {
+        return 16;
+    }
+    return 0;
+}
+
+std::string LevelSession::spriteResourceFor(std::uint16_t type) const {
+    if (type >= 0x01 && type <= 0x02) {
+        return "WURM2.BOB";
+    }
+    if (type >= 0x03 && type <= 0x04) {
+        return "BIENE.BOB";
+    }
+    if (type >= 0x05 && type <= 0x06) {
+        return "FISCH.BOB";
+    }
+    if (type >= 0x07 && type <= 0x08) {
+        return "KRABBE.BOB";
+    }
+    if (type >= 0x09 && type <= 0x0a) {
+        return "PENGO.BOB";
+    }
+    if (type >= 0x0b && type <= 0x0c) {
+        return "SCHNEE.BOB";
+    }
+    if (type >= 0x15 && type <= 0x16) {
+        return "FLIEGE.BOB";
+    }
+    if (type >= 0x17 && type <= 0x18) {
+        return "SPINNE.BOB";
+    }
+    if (type >= 0x19 && type <= 0x1a) {
+        return "BUGGY.BOB";
+    }
+    if (type >= 0x1b && type <= 0x1c) {
+        return "UFO.BOB";
+    }
+    if (type == 0x34) {
+        return "BUMP_" + worldForMap(_mapName) + ".BOB";
+    }
+    if (type == 0x3d) {
+        return "PLATFW4.BOB";
+    }
+    if (type == 0x3e) {
+        return "PLATFW3.BOB";
+    }
+    if (type == 0x3f) {
+        return "PLATFW1.BOB";
+    }
+    if (type == 0x40) {
+        return "PLATFW2.BOB";
+    }
     if (type >= 0x6f && type <= 0x72) {
         return "WERBE.BOB";
     }
@@ -236,7 +394,9 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
 void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
                         const CollisionQuery &collision, const InputState &input) {
     _event = LevelEvent();
-    simulation.tick(player, collision, input);
+    updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+    const EntityCollisionQuery entityCollision(collision, _entities);
+    simulation.tick(player, entityCollision, input);
     updateStreaming(player.x.floorPixels(), player.y.floorPixels());
     advanceActiveEntities();
 

@@ -66,6 +66,8 @@ struct LevelEntity {
     EntityPhase phase;
     std::uint16_t spriteSlot;
     std::string spriteResource;
+    std::uint16_t collisionWidth;
+    std::uint16_t collisionHeight;
     std::uint16_t animationFrame;
     std::uint32_t activeFrames;
     bool active;
@@ -74,7 +76,8 @@ struct LevelEntity {
     LevelEntity()
         : id(0), recordOffset(0), type(0), regionX(0), regionY(0), x(0), y(0),
           kind(EntityKind::Unknown), phase(EntityPhase::Dormant),
-          spriteSlot(0xffff), spriteResource(), animationFrame(0), activeFrames(0),
+          spriteSlot(0xffff), spriteResource(), collisionWidth(0), collisionHeight(0),
+          animationFrame(0), activeFrames(0),
           active(false), collected(false) {}
 };
 
@@ -100,7 +103,9 @@ public:
 private:
     static EntityKind classify(std::uint16_t type);
     static std::uint16_t spriteSlotFor(std::uint16_t type);
-    static std::string spriteResourceFor(std::uint16_t type);
+    static std::uint16_t collisionWidthFor(std::uint16_t type);
+    static std::uint16_t collisionHeightFor(std::uint16_t type);
+    std::string spriteResourceFor(std::uint16_t type) const;
     static std::uint32_t collectibleValue(std::uint16_t type);
     static std::string nextLevelName(const std::string &mapName);
     void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;
