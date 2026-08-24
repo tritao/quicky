@@ -19,6 +19,7 @@ local trace_platform = trace_config.trace_platform or false
 local trace_bump = trace_config.trace_bump or false
 local trace_contact = trace_config.trace_contact or false
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
+local force_bump_player_state = trace_config.force_bump_player_state or false
 local force_contact_gate = trace_config.force_contact_gate or false
 local align_x_offset = trace_config.align_x_offset or 0
 local align_y_offset = trace_config.align_y_offset or 0
@@ -105,10 +106,17 @@ local function stack_return(hit)
     }
 end
 
-local function static_globals()
+local function action_descriptor(action_selector, action)
+    if not action_selector or action_selector == 0 then return nil end
+    local raw = dosbox.mem_read_selector(action_selector, 0x200 + action * 8, 8)
+    return {selector = action_selector, action = action, raw_hex = hex(raw)}
+end
+
+local function static_globals(object_selector)
     local carry_y_raw = dosbox.mem_read("ds", 0x8812, 4) or ""
     local carry_x_raw = dosbox.mem_read("ds", 0x8816, 4) or ""
-    return {
+    local action_selector = dosbox.mem_read_word("ds", 0x504e)
+    local globals = {
         camera_x = dosbox.mem_read_word("ds", 0x81c0),
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
         action_flags = dosbox.mem_read_word("ds", 0x8196),
@@ -117,6 +125,12 @@ local function static_globals()
         bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
         tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
         action_word = dosbox.mem_read_word("ds", 0x612e),
+        action_table_selector = action_selector,
+        action_descriptors = {
+            ["2"] = action_descriptor(action_selector, 2),
+            ["4"] = action_descriptor(action_selector, 4),
+            ["13"] = action_descriptor(action_selector, 13),
+        },
         platform_overlap_latch = dosbox.mem_read_word("ds", 0x5006),
         player_carry_y_fixed = dword(carry_y_raw, 1),
         player_carry_x_fixed = dword(carry_x_raw, 1),
@@ -129,6 +143,12 @@ local function static_globals()
         object_global_8824 = dosbox.mem_read_word("ds", 0x8824),
         cloud_global_89e6 = dosbox.mem_read_word("ds", 0x89e6),
     }
+    if object_selector then
+        local bounds_offset = globals.bounds_object_offset
+        local state = dosbox.mem_read_selector(object_selector, bounds_offset + 0x37, 1)
+        globals.player_state_byte = string.byte(state, 1) or 0
+    end
+    return globals
 end
 
 local function choose_level(level)
@@ -300,6 +320,15 @@ if align_object_to_player then
         dosbox.mem_write_selector(object_selector, bounds_offset + 0x32,
                                   little_word(0x0000))
     end
+    if force_bump_player_state then
+        -- BUMP's shared player helper returns a zero-length gate when the
+        -- persistent-player flag is set or player+0x37 is zero.  Keep this
+        -- explicit debugger-only state control separate from the normal
+        -- active bounds override.
+        dosbox.mem_write("ds", 0x89ea, little_word(0))
+        dosbox.mem_write_selector(object_selector, bounds_offset + 0x37,
+                                  string.char(0x01))
+    end
     local aligned_x_fixed = player.position.x_fixed + align_x_offset * 0x10000
     dosbox.mem_write_selector(object_selector, object_offset + 0x02,
                               little_dword(aligned_x_fixed))
@@ -383,6 +412,12 @@ while #samples < sample_count and attempts < sample_count * 128 do
             dosbox.mem_write_selector(object_selector, bounds_offset + 0x32,
                                       little_word(0x0000))
         end
+        if force_bump_player_state then
+            local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+            dosbox.mem_write("ds", 0x89ea, little_word(0))
+            dosbox.mem_write_selector(object_selector, bounds_offset + 0x37,
+                                      string.char(0x01))
+        end
         local before = object_snapshot(object_selector, object_offset)
         if force_contact_gate then
             dosbox.mem_write("ds", 0x8806, little_word(1))
@@ -393,7 +428,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             -- explicit.
             dosbox.mem_write("ds", 0x87e0, little_word(before.position.y - 12))
         end
-        local globals_before = static_globals()
+        local globals_before = static_globals(object_selector)
         local returned = stack_return(callback_entry)
         assert(returned ~= nil, "object callback has no near return address")
         local overlap_probe = nil
@@ -518,7 +553,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
                 registers = callback_return.registers,
             },
             globals_before = globals_before,
-            globals_after = static_globals(),
+            globals_after = static_globals(object_selector),
             object_before = before,
             object_after = after,
             changed_bytes = changed_bytes(before.raw_hex, after.raw_hex),

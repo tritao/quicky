@@ -41,6 +41,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             trace_collision=True,
             trace_platform=True,
             force_active_player_bounds=True,
+            force_bump_player_state=True,
             align_object_to_player=True,
             align_y_offset=-32,
             force_platform_ready=True,
@@ -54,6 +55,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertTrue(payload["trace_collision"])
         self.assertTrue(payload["trace_platform"])
         self.assertTrue(payload["force_active_player_bounds"])
+        self.assertTrue(payload["force_bump_player_state"])
         self.assertEqual(payload["align_y_offset"], -32)
         self.assertTrue(payload["force_platform_ready"])
         self.assertTrue(payload["trace_bump"])

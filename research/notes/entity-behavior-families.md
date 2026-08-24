@@ -198,6 +198,15 @@ record high byte at `FS:[object+0x1A+1]`, so a later camera-region scan can
 recreate the object; this is the normal re-stream respawn trigger. See
 [`entity-normal-enemy-contact-response-evidence.json`](../entity-normal-enemy-contact-response-evidence.json).
 
+The shared action word is now decoded as an effect/event selector rather than
+an inventory or health field. Segment `01E7:0FCF` reads `DS:612E` and calls
+`01E7:3360`; the dispatcher indexes an eight-byte descriptor at
+`ES:[0x200 + action*8]` using the table selector in `DS:504E`, then writes the
+descriptor into a pooled record selected through `DS:2F5C`. Runtime W1L2 data
+captures descriptors for actions 2, 4, and 13 (`1502f30003620005`,
+`1504f30003680005`, and `150df300036a0005`). The exact resource-facing names
+remain open. See [`entity-action-dispatch-evidence.json`](../entity-action-dispatch-evidence.json).
+
 The falling-leaf family is now decoded through its child callback. `01F7:474D`
 selects one of two PRNG tables (`DS:3312` delay 8 and `DS:3326` delay 10),
 seeds `object+0x0E` with `0x13000-(signed_random_byte<<7)`, copies the source
@@ -231,9 +240,13 @@ that updates `DS:89E6`. Paper `0x2C` initializes slot 710 and callback `8D20`
 with subtype 5. The same `8D20` callback is used by pickups and puzzle letters:
 it checks an x range extended by 16 pixels and a 16-pixel-aligned y range,
 then dispatches `+0x2C` (pickup subtype) or ORs the letter bit in `+0x2A`
-into `DS:60D8` before clearing `object+0x18`. This establishes fixed placement,
-overlap geometry, and callback removal for those families; inventory/score
-meaning, level completion, persistence, and respawn remain separate questions.
+into `DS:60D8` before clearing `object+0x18`. This establishes fixed placement
+and overlap geometry. The accepted interaction branches join at `8E42` and do
+not call `1DEE`, so they clear the live callback without clearing the ARE
+re-stream claim; a collected object is not recreated by the normal off-camera
+scan in the same loaded buffer. Level reload/reset persistence, inventory
+names, and puzzle completion bookkeeping remain separate questions. See
+[`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json).
 
 Wind `0x33` and UFO effects `0x35/0x36` are moving callback families rather
 than inert visuals. Their initializers load animation tables, seed signed
@@ -312,9 +325,12 @@ the open player gate `object_x-25 < player_x < object_x+25` and
 A 128-sample native run cycles slots `400,402,403,401` with a seven-tick
 `object+0x20` counter, and the five `BUMP_Wn.BOB` tables are cataloged with
 exact geometry. A camera-(0,0) run takes `1DCA -> 1DEE` and clears the callback.
-The controlled overlap did not satisfy the original player-state precondition,
-so the hazard write is static/branch evidence rather than an unmodified
-player-hit claim; see [`entity-bump-evidence.json`](../entity-bump-evidence.json).
+A controlled native overlap with `DS:89EA=0`, player `+0x37=1`, and the object
+four pixels below the player reaches every helper and the live `9C64` action
+write. The player-state precondition and hazard action are therefore resolved
+under explicit debugger controls; the remaining question is hazard reset
+semantics. See [`entity-action-dispatch-evidence.json`](../entity-action-dispatch-evidence.json)
+and [`entity-bump-evidence.json`](../entity-bump-evidence.json).
 
 ## Cross-world rules
 
@@ -393,7 +409,8 @@ collectible overlap, pooled-leaf reuse, normal-enemy helper, and platform-carry
 boundaries. Remaining experiments are deliberately narrower:
 
 1. Repeat the overlap probe for pickup subtypes `0x70`-`0x72` only if the
-   inventory names or their persistence semantics are required.
+   inventory names are required; same-buffer re-stream persistence is already
+   ruled out by the shared `8D20`/`8E42` path.
 2. If platform approach polarity is required, capture player-state variants
    just outside the accepted A075 band; native integration, carry offsets, MAP
    stop, and the absence of a platform-specific terminal table are confirmed.

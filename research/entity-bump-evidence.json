@@ -19,7 +19,8 @@
     "shape_static": {"x_interval": "object_x-25 < player_x < object_x+25", "y_interval": "object_y-8 < player_y < object_y"},
     "helper_path": ["01F7:9C13", "01F7:9C20", "01F7:9C29"],
     "hazard_action": "DS:612E=4 at 01F7:9C64 after the overlap gate",
-    "controlled_overlap": {"object_position": [240, 512], "player_bounds": "f6ffd8ff0a000000", "post_helper": "01F7:9C2E", "hazard_branch_reached": false}
+    "controlled_overlap": {"object_position": [240, 512], "player_bounds": "f6ffd8ff0a000000", "post_helper": "01F7:9C2E", "hazard_branch_reached": false},
+    "valid_player_state_probe": {"trace": "research/build/entity-34-bump-valid-player-state-v3.json", "object_position": [240, 516], "player_bounds": "f6ffd8ff0a000000", "DS:89EA": 0, "player+0x37": 1, "helper_path": ["01F7:9C13", "01F7:9C20", "01F7:9C29", "01F7:9C2E", "01F7:9C45", "01F7:9C57", "01F7:9C5F", "01F7:9C64", "01F7:9C6A"], "action_before": 0, "action_after": 4}
   },
   "animation": {
     "samples": 128,
@@ -39,6 +40,6 @@
   "conclusions": [
     "The BUMP callback has a precisely decoded 50-by-8 player overlap gate and writes hazard action 4 after the gate.",
     "A 128-sample live run proves the four-frame 400-403 animation cycle and seven-tick frame counter; all five world-specific BUMP tables are cataloged with geometry.",
-    "A live off-camera run clears object+0x18; the controlled overlap did not reach the hazard write because the original helper's player-state precondition was not satisfied."
+    "A live off-camera run clears object+0x18. The first controlled overlap did not reach the hazard write because the original helper's player-state precondition was not satisfied; a follow-up debugger-controlled probe sets DS:89EA=0 and player+0x37=1 and reaches 01F7:9C64 with DS:612E=4."
   ]
 }

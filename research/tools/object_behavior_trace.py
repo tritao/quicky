@@ -46,6 +46,7 @@ class ObjectBehaviorConfig:
     trace_bump: bool = False
     trace_contact: bool = False
     force_active_player_bounds: bool = False
+    force_bump_player_state: bool = False
     force_contact_gate: bool = False
     align_x_offset: int = 0
     align_y_offset: int = 0
@@ -73,6 +74,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_bump": config.trace_bump,
         "trace_contact": config.trace_contact,
         "force_active_player_bounds": config.force_active_player_bounds,
+        "force_bump_player_state": config.force_bump_player_state,
         "force_contact_gate": config.force_contact_gate,
         "align_x_offset": config.align_x_offset,
         "align_y_offset": config.align_y_offset,
@@ -211,6 +213,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="use the original active-player vertical bound (-40..0) for the controlled overlap probe",
     )
     parser.add_argument(
+        "--force-bump-player-state", action="store_true",
+        help="debugger-only: enable the BUMP helper's player-state gate (DS:89EA=0, player+0x37 nonzero)",
+    )
+    parser.add_argument(
         "--force-contact-gate", action="store_true",
         help="debugger-only: enable the normal-enemy player-range gate and align its shared integer player coordinates",
     )
@@ -324,6 +330,7 @@ def main(argv: list[str] | None = None) -> int:
         trace_bump=args.trace_bump,
         trace_contact=args.trace_contact,
         force_active_player_bounds=args.force_active_player_bounds,
+        force_bump_player_state=args.force_bump_player_state,
         force_contact_gate=args.force_contact_gate,
         align_x_offset=args.align_x_offset,
         align_y_offset=args.align_y_offset,

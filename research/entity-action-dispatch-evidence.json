@@ -1,0 +1,65 @@
+{
+  "schema": "entity-action-dispatch-evidence-v1",
+  "purpose": "Decode DS:612E action producers and the native consumer used by pickup, puzzle, hazard, and enemy-contact paths.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment2_sha256": "48a61204f92903e5aa9b52e68705c2ed00926de200d8127d19b00e57a7d3e328",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "trace_script_sha256": "8d3df09985f3580d9674032d309857f7205aa04bd8f96bf9bc284027443cbc3e"
+  },
+  "consumer": {
+    "main_loop": {"address": "01E7:0FCF", "reads": "DS:612E", "call": "01E7:3360"},
+    "dispatcher": {
+      "address": "01E7:3360",
+      "action_index": "CX",
+      "descriptor_table_selector": "DS:504E",
+      "descriptor_base": "ES:[0x200 + action*8]",
+      "pool_table": "DS:2F5C",
+      "effects": [
+        "loads descriptor byte +2 and indexes DS:2F5C",
+        "rejects a duplicate descriptor byte or duplicate pool record",
+        "writes descriptor fields into the selected pool record at +0x3A/+0x3B/+0x3D/+0x41"
+      ]
+    }
+  },
+  "known_producers": {
+    "segment3_offsets": {
+      "0x2": ["0x4BC4"],
+      "0x4": ["0x9C64"],
+      "0x7": ["0x6420", "0x653C"],
+      "0x8": ["0x457C"],
+      "0x9": ["0x1954", "0x8D7B", "0x8DAA"],
+      "0xA": ["0x8DBF"],
+      "0xB": ["0x8E37"],
+      "0xC": ["0x4968", "0x8DFB", "0x8E11"],
+      "0xD": ["0x4AD7", "0x4B94", "0x5904", "0x630B", "0xB2F3", "0xBBA4", "0xC3BE", "0xCE39", "0xD5F0"]
+    }
+  },
+  "runtime_probe": {
+    "fixture": "W1L2 native BUMP 0x34",
+    "trace": "research/build/entity-34-bump-valid-player-state-v3.json",
+    "controlled_preconditions": {
+      "object_aligned_to_player": true,
+      "object_y_offset": 4,
+      "active_player_bounds": "f6ffd8ff0a000000",
+      "DS:89EA": 0,
+      "player+0x37": 1
+    },
+    "result": {
+      "DS:612E_before": 0,
+      "DS:612E_after": 4,
+      "callback_hits": ["01F7:9C13", "01F7:9C20", "01F7:9C29", "01F7:9C2E", "01F7:9C45", "01F7:9C57", "01F7:9C5F", "01F7:9C64", "01F7:9C6A"],
+      "action_table_selector": 879,
+      "descriptors": {
+        "2": "1502f30003620005",
+        "4": "1504f30003680005",
+        "13": "150df300036a0005"
+      }
+    }
+  },
+  "conclusions": [
+    "DS:612E is an action/effect queue selector, not a direct health or inventory field.",
+    "The native dispatcher indexes an eight-byte descriptor table and writes a pooled effect record; exact human-facing names require decoding descriptor/resource consumers.",
+    "Action 4 is live-confirmed for BUMP with its original player-state gate satisfied; actions 2 and 13 are structurally confirmed as the same dispatcher family."
+  ]
+}
