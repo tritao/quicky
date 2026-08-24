@@ -55,6 +55,34 @@ CollisionRules::CollisionRules()
     : horizontalMask(0x20), floorMask(0x20), ceilingMask(0x08), outsideIsSolid(true) {
 }
 
+std::uint16_t PlayerDescriptorRules::quadrantMask(std::uint16_t x,
+                                                  std::uint16_t y) {
+    const bool xBit3 = (x & 0x08) != 0;
+    const bool yBit3 = (y & 0x08) != 0;
+    if (yBit3) {
+        return xBit3 ? 0x02 : 0x01;
+    }
+    return xBit3 ? 0x04 : 0x08;
+}
+
+bool PlayerDescriptorRules::blocksProbe(std::uint16_t descriptor,
+                                        std::uint16_t x,
+                                        std::uint16_t y) {
+    return (descriptor & quadrantMask(x, y)) != 0;
+}
+
+bool PlayerDescriptorRules::hasVerticalResponse(std::uint16_t descriptor) {
+    return (descriptor & 0x20) != 0;
+}
+
+bool PlayerDescriptorRules::alignsEightPixels(std::uint16_t descriptor) {
+    return (descriptor & 0x40) != 0;
+}
+
+std::uint16_t PlayerDescriptorRules::snapProbeY(std::uint16_t y) {
+    return static_cast<std::uint16_t>(y & 0xfff8);
+}
+
 PlayerState::PlayerState()
     : x(), y(), velocityX(), velocityY(), grounded(false), facingRight(true) {
 }

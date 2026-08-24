@@ -59,6 +59,18 @@ struct CollisionRules {
     CollisionRules();
 };
 
+// Rules recovered from the protected-mode 5C27/3D02 probes.  This is kept
+// separate from CollisionRules because the current MAP-backed simulation does
+// not yet carry the executable's descriptor table alongside each cell.
+struct PlayerDescriptorRules {
+    static std::uint16_t quadrantMask(std::uint16_t x, std::uint16_t y);
+    static bool blocksProbe(std::uint16_t descriptor,
+                            std::uint16_t x, std::uint16_t y);
+    static bool hasVerticalResponse(std::uint16_t descriptor);
+    static bool alignsEightPixels(std::uint16_t descriptor);
+    static std::uint16_t snapProbeY(std::uint16_t y);
+};
+
 // The player callback asks directional collision helpers about the current
 // object rather than consuming a MAP object directly. Keeping that boundary
 // explicit lets refined tile semantics replace the current masks without

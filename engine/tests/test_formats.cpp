@@ -474,6 +474,26 @@ void testPlayerSimulation() {
     assert(actionFlags.left && actionFlags.right && actionFlags.jump);
 }
 
+void testPlayerDescriptorRules() {
+    assert(quiky::PlayerDescriptorRules::quadrantMask(123, 400) == 0x04);
+    assert(quiky::PlayerDescriptorRules::quadrantMask(133, 400) == 0x08);
+    assert(quiky::PlayerDescriptorRules::quadrantMask(123, 392) == 0x02);
+    assert(quiky::PlayerDescriptorRules::quadrantMask(133, 392) == 0x01);
+
+    assert(quiky::PlayerDescriptorRules::blocksProbe(0x000c, 123, 400));
+    assert(quiky::PlayerDescriptorRules::blocksProbe(0x000c, 133, 400));
+    assert(!quiky::PlayerDescriptorRules::blocksProbe(0x0070, 123, 400));
+    assert(!quiky::PlayerDescriptorRules::blocksProbe(0x0030, 133, 400));
+
+    assert(!quiky::PlayerDescriptorRules::hasVerticalResponse(0x0010));
+    assert(quiky::PlayerDescriptorRules::hasVerticalResponse(0x0030));
+    assert(!quiky::PlayerDescriptorRules::hasVerticalResponse(0x0050));
+    assert(quiky::PlayerDescriptorRules::alignsEightPixels(0x0070));
+    assert(quiky::PlayerDescriptorRules::alignsEightPixels(0x0050));
+    assert(!quiky::PlayerDescriptorRules::alignsEightPixels(0x0030));
+    assert(quiky::PlayerDescriptorRules::snapProbeY(0x0191) == 0x0190);
+}
+
 void testPlayerInputTraceAndCollisionQuery() {
     TraceCollisionQuery collision;
     quiky::PlayerConfig config;
@@ -544,6 +564,7 @@ int main() {
         testAreaAndOverlay();
         testBobParserDecoderAndSheet();
         testPlayerSimulation();
+        testPlayerDescriptorRules();
         testPlayerInputTraceAndCollisionQuery();
         testLevelSession();
         testLevelSessionCollisionQuery();
