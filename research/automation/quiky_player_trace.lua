@@ -162,6 +162,8 @@ local function map_property_snapshot(hit)
     local ok, descriptor_word_or_error = pcall(
         dosbox.mem_read_word, descriptor_selector, descriptor_offset
     )
+    local descriptor_read_error = nil
+    if not ok then descriptor_read_error = tostring(descriptor_word_or_error) end
     return {
         helper_offset = hit.offset,
         breakpoint = {segment = hit.segment, offset = hit.offset},
@@ -178,7 +180,7 @@ local function map_property_snapshot(hit)
         descriptor_stride = descriptor_stride,
         descriptor_offset = descriptor_offset,
         descriptor_word = ok and descriptor_word_or_error or nil,
-        descriptor_read_error = ok and nil or tostring(descriptor_word_or_error),
+        descriptor_read_error = descriptor_read_error,
     }
 end
 
