@@ -190,9 +190,40 @@ one-sample window. The observed first callback transitions are:
 | `0x34` | class 1 / `0x0EEE` | `0x9BEE → 0x9C0C` | `0x0134 → 0x0134` |
 
 This pass establishes accepted-camera persistence and the callback installation
-boundaries for the seven families. It does not yet prove a later self-ending
-path: the first pass for `0x29`-`0x2B` is their initialization transition, and
-the next steady callback belongs in a separate frame-synchronized probe.
+boundaries for the seven families. The first pass for `0x29`-`0x2B` is their
+initialization transition, so a second callback is needed before making any
+claim about persistence or self-termination.
+
+### Frame-synchronized steady callback pass
+
+The tracer now follows the accepted callback into the next scheduler frame. It
+stops the first sample at the class post-callback site, then watches the next
+`01F7:0x0E96` frame boundary and directly hooks the selected object's live
+callback. Shared callback entries are stepped over until the breakpoint has
+the target `ES:DI`; the callback's actual near return address is read from the
+stack rather than assumed from the scheduler class. The camera override is
+reasserted once at `01F7:0x1DCA` for each steady callback, preserving the
+accepted-camera condition without repeatedly stopping inside the gate.
+
+Eight-sample runs (`steady-accepted-*-s8.json` in the ignored build directory)
+cover the same seven W1L1 fixtures:
+
+| Types | First callback transition | Steady callback after sample 1 | Source marker | Exit sites |
+| --- | --- | --- | --- | --- |
+| `0x28` | `0x9256 → 0x9269` | `0x9269` | remains `0x0128` | none |
+| `0x29`-`0x2B` | `0x4727 → 0x47E7` | `0x47E7` | remains `0x0129`-`0x012B` | none |
+| `0x2C` | `0x8C4E → 0x8D20` | `0x8D20` | remains `0x012C` | none |
+| `0x33` | `0x87D1 → 0x882F` | `0x882F` | remains `0x0133` | none |
+| `0x34` | `0x9BEE → 0x9C0C` | `0x9C0C` | remains `0x0134` | none |
+
+Every sample classifies as `callback_survived`; the only related site is the
+one-time camera check at `0x1DCA`. No sample reaches `0x1DEE` or any of the
+known state-machine exits, and no source marker loses its processed high byte.
+For type `0x2B`, the live callback advances the object downward by roughly one
+pixel per sample while retaining callback `0x47E7`. This rules out an immediate
+one-shot callback for these accepted families over the captured eight-frame
+window. It does not replace the separate out-of-window traversal needed to
+study eventual camera culling, object death, or reactivation.
 
 ## Real-input reactivation and allocator choice
 

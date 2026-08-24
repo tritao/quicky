@@ -349,11 +349,12 @@ when the source marker remains processed.
 
 The accepted-camera callback pass covers W1L1 fixtures for types `0x28`,
 `0x29`-`0x2C`, `0x33`, and `0x34`. Each keeps its processed source marker and
-nonzero callback through the captured window; the `0x29`-`0x2B` leaf family
-shows the expected `01F7:4727 -> 01F7:47E7` initialization transition. These
-results establish persistence and callback installation, while a later
-frame-synchronized sample is still required to attribute any eventual clear
-to a self-ending callback versus a state-machine exit.
+nonzero callback through an eight-sample frame-synchronized window; the
+`0x29`-`0x2B` leaf family shows the expected `01F7:4727 -> 01F7:47E7`
+initialization transition and retains `01F7:47E7` thereafter. No accepted
+sample reaches the cleanup gate at `01F7:1DEE` or a known state-machine exit.
+This establishes short-window persistence; longer movement/traversal probes
+are still needed for eventual camera culling, object death, and reactivation.
 
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry

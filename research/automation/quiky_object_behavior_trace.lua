@@ -23,6 +23,13 @@ local callback_related_offsets = {
     0x1dca, 0x1dee, 0x106a, 0x1036, 0x0fa2,
     0x8e4b, 0x8e78, 0x8e85, 0x9254, 0x9255,
 }
+local callback_step_offsets = {
+    [0x47e7] = 0x47ec,
+    [0x9269] = 0x926e,
+    [0x8d20] = 0x8d25,
+    [0x882f] = 0x8834,
+    [0x9c0c] = 0x9c11,
+}
 
 local function word(s, index)
     local lo, hi = string.byte(s, index, index + 1)
@@ -392,12 +399,80 @@ local attempts = 0
 local scheduler_entry_offset = class_entry_offsets[object_class + 1]
 while #samples < sample_count and attempts < sample_count * 128 do
     attempts = attempts + 1
-    dosbox.breakpoint_set(0x01f7, scheduler_entry_offset, {once = true})
-    dosbox.debug_continue()
-    local scheduler_hit = wait_hit("object scheduler entry")
-    local scheduler_match = scheduler_hit.offset == scheduler_entry_offset and
+    local direct_scheduler_hit = nil
+    local direct_callback_entry = nil
+    if #samples > 0 then
+        -- The previous sample stopped at the class post-callback site, so its
+        -- scheduler entry has already been consumed. Hook the live callback
+        -- directly, while also watching the next frame boundary. Shared
+        -- callbacks are stepped over until ES:DI identifies the target.
+        local steady_object = object_snapshot(object_selector, object_offset)
+        local steady_callback = steady_object.update_callback
+        assert(steady_callback ~= 0,
+               string.format("object callback cleared before steady sample %d", #samples + 1))
+        dosbox.breakpoint_clear()
+        dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
+        local steady_hit = nil
+        local steady_attempts = 0
+        local steady_candidates = {}
+        while steady_hit == nil do
+            steady_attempts = steady_attempts + 1
+            if steady_attempts > 128 then
+                local candidates = {}
+                for _, candidate in ipairs(steady_candidates) do
+                    candidates[#candidates + 1] = string.format(
+                        "%04x:%04x:%04x", candidate.offset, candidate.es,
+                        candidate.di)
+                end
+                error(string.format(
+                    "steady callback did not reach target %04x:%04x candidates=%s",
+                    object_selector, object_offset, table.concat(candidates, ",")))
+            end
+            dosbox.breakpoint_set(0x01f7, steady_callback, {once = true})
+            dosbox.debug_continue()
+            local candidate = wait_hit("steady callback entry")
+            if #steady_candidates < 16 then
+                steady_candidates[#steady_candidates + 1] = {
+                    offset = candidate.offset,
+                    es = candidate.registers.es,
+                    di = candidate.registers.edi & 0xffff,
+                }
+            end
+            if candidate.offset == steady_callback and
+               candidate.registers.es == object_selector and
+               (candidate.registers.edi & 0xffff) == object_offset then
+                steady_hit = candidate
+            elseif candidate.offset == steady_callback then
+                local step_offset = callback_step_offsets[steady_callback]
+                assert(step_offset ~= nil,
+                       string.format("no steady callback step-over for %04x",
+                                     steady_callback))
+                dosbox.breakpoint_set(0x01f7, step_offset, {once = true})
+                dosbox.debug_continue()
+                local stepped = wait_hit("steady callback step-over")
+                assert(stepped.offset == step_offset,
+                       string.format("unexpected steady callback step-over %04x",
+                                     stepped.offset))
+            end
+        end
+        direct_scheduler_hit = {
+            segment = steady_hit.segment,
+            offset = scheduler_entry_offset,
+            generation = steady_hit.generation,
+            registers = steady_hit.registers,
+        }
+        direct_callback_entry = steady_hit
+    end
+    local scheduler_hit = direct_scheduler_hit
+    if scheduler_hit == nil then
+        dosbox.breakpoint_set(0x01f7, scheduler_entry_offset, {once = true})
+        dosbox.debug_continue()
+        scheduler_hit = wait_hit("object scheduler entry")
+    end
+    local scheduler_match = direct_scheduler_hit ~= nil or
+        (scheduler_hit.offset == scheduler_entry_offset and
         scheduler_hit.registers.es == object_selector and
-        (scheduler_hit.registers.edi & 0xffff) == object_offset
+        (scheduler_hit.registers.edi & 0xffff) == object_offset)
     if scheduler_match then
         local before = object_snapshot(object_selector, object_offset)
         if initial_object.observed_scheduler_class == nil then
@@ -411,11 +486,12 @@ while #samples < sample_count and attempts < sample_count * 128 do
         local post_offset = class_post_offsets[object_class]
         local callback_offset = scheduler_hit.registers.eax & 0xffff
         assert(callback_offset ~= 0, "scheduler supplied no object callback")
-        dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
-        local callback_entry = nil
+        local callback_entry = direct_callback_entry
+        local direct_sample = callback_entry ~= nil
         local other_callback_hits = {}
         local callback_attempts = 0
         while callback_entry == nil do
+            dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
             callback_attempts = callback_attempts + 1
             assert(callback_attempts <= 128,
                    string.format("shared callback did not reach target %04x:%04x",
@@ -437,17 +513,33 @@ while #samples < sample_count and attempts < sample_count * 128 do
         end
         local returned = stack_return(callback_entry)
         assert(returned ~= nil, "object callback has no near return address")
-        dosbox.breakpoint_set(0x01f7, expected_return, {once = true})
+        local callback_return_offset = returned.offset
+        assert(callback_return_offset ~= callback_entry.offset,
+               string.format("steady callback stack points back to callback %04x (stack=%s esp=%08x)",
+                             callback_entry.offset, returned.stack_hex or "",
+                             callback_entry.registers.esp or 0))
+        dosbox.breakpoint_set(0x01f7, callback_return_offset, {once = true})
         dosbox.breakpoint_set(0x01f7, post_offset, {once = true})
         for _, offset in ipairs(callback_related_offsets) do
             dosbox.breakpoint_set(0x01f7, offset, {once = true})
         end
         local callback_return = nil
         local related_hits = {}
+        local callback_return_attempts = 0
         while callback_return == nil do
+            callback_return_attempts = callback_return_attempts + 1
+            if callback_return_attempts > 32 then
+                local offsets = {}
+                for _, hit in ipairs(related_hits) do
+                    offsets[#offsets + 1] = string.format("%04x", hit.offset)
+                end
+                error(string.format("callback return not reached: entry=%04x return=%04x stack=%s hits=%s",
+                                    callback_entry.offset, callback_return_offset,
+                                    returned.stack_hex or "", table.concat(offsets, ",")))
+            end
             dosbox.debug_continue()
             local candidate = wait_hit("object callback return")
-            if candidate.offset == expected_return then
+            if candidate.offset == callback_return_offset then
                 callback_return = candidate
             else
                 local related = {
@@ -472,8 +564,10 @@ while #samples < sample_count and attempts < sample_count * 128 do
                     }
                 end
                 related_hits[#related_hits + 1] = related
-                for _, offset in ipairs(callback_related_offsets) do
-                    dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                if not direct_sample then
+                    for _, offset in ipairs(callback_related_offsets) do
+                        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                    end
                 end
             end
         end
@@ -511,11 +605,13 @@ while #samples < sample_count and attempts < sample_count * 128 do
                 expected_return = expected_return,
                 post_offset = post_offset,
                 callback_offset = callback_offset,
+                mode = direct_sample and "direct_callback" or "scheduler_entry",
             },
             callback = {
                 segment = callback_entry.segment,
                 offset = callback_entry.offset,
                 registers = callback_entry.registers,
+                mode = direct_sample and "steady_direct" or "scheduler_callback",
                 return_address = returned,
                 other_callback_hits = other_callback_hits,
                 related_hits = related_hits,
