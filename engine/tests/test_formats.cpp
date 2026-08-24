@@ -187,6 +187,10 @@ void testBobParserDecoderAndSheet() {
     const quiky::IndexedSurface sheet = quiky::renderBobSheet(bob, palette, 1);
     assert(sheet.width == 6 && sheet.height == 5);
     assert(sheet.at(2, 2) == 1 && sheet.at(3, 2) == 2);
+
+    quiky::IndexedSurface frame(16, 16);
+    quiky::drawBobRecord(frame, record, 5, 5);
+    assert(frame.at(4, 3) == 1 && frame.at(5, 3) == 2);
 }
 
 quiky::Map makePhysicsMap() {

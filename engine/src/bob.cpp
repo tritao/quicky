@@ -161,4 +161,25 @@ IndexedSurface renderBobSheet(const Bob &bob, Palette &palette, std::uint32_t co
     return surface;
 }
 
+void drawBobRecord(IndexedSurface &surface, const BobRecord &record,
+                   std::int32_t worldX, std::int32_t worldY, bool applyOrigin) {
+    const std::vector<std::int16_t> pixels = decodeBobRecord(record);
+    const std::int32_t left = worldX - (applyOrigin ? record.originX : 0);
+    const std::int32_t top = worldY - (applyOrigin ? record.originY : 0);
+    for (std::int32_t y = 0; y < record.height; ++y) {
+        for (std::int32_t x = 0; x < record.width; ++x) {
+            const std::int16_t color = pixels[static_cast<std::size_t>(y) * record.width + x];
+            const std::int32_t destinationX = left + x;
+            const std::int32_t destinationY = top + y;
+            if (color < 0 || destinationX < 0 || destinationY < 0 ||
+                static_cast<std::uint32_t>(destinationX) >= surface.width ||
+                static_cast<std::uint32_t>(destinationY) >= surface.height) {
+                continue;
+            }
+            surface.at(static_cast<std::uint32_t>(destinationX),
+                       static_cast<std::uint32_t>(destinationY)) = static_cast<byte>(color);
+        }
+    }
+}
+
 } // namespace quiky

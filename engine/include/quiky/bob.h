@@ -29,6 +29,9 @@ struct Bob {
 
 std::vector<std::int16_t> decodeBobRecord(const BobRecord &record);
 IndexedSurface renderBobSheet(const Bob &bob, Palette &palette, std::uint32_t columns = 8);
+void drawBobRecord(IndexedSurface &surface, const BobRecord &record,
+                   std::int32_t worldX, std::int32_t worldY,
+                   bool applyOrigin = true);
 
 } // namespace quiky
 
