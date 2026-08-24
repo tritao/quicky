@@ -508,6 +508,35 @@ Collision focus now also records the `3A1F`, `3DF2`, `3A8A`, `6484`, and `648E`
 helpers, with experiment-relative frame and event indices for later model
 comparison.
 
+Run the callback-barrier form of the probe when the ordered helper chain is
+needed; collision-only mode stops at the first helper by design:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-collision-focus --player-focus-callback \
+  --select-level W1L1 --player-input-key KBD_right \
+  --player-input-frames 60 --player-input-samples 2 \
+  --player-samples 3 --player-frames-between 6 \
+  --output research/build/player-helpers-w1l1-right.json
+
+python3 research/tools/player_collision_report.py \
+  --label neutral --label left --label right --label up \
+  research/build/player-helpers-w1l1-neutral.json \
+  research/build/player-helpers-w1l1-left.json \
+  research/build/player-helpers-w1l1-right.json \
+  research/build/player-helpers-w1l1-up.json \
+  --csv-output research/build/player-collision-matrix.csv \
+  --json-output research/build/player-collision-matrix.json
+~~~
+
+The report preserves one row per helper and the low-16-bit `EAX/EBX/ECX/EDX`
+values plus player tail bytes. Fresh W1L1 captures show the stable horizontal
+path `648E -> 6484 -> 3A8A -> 3A1F -> 3DF2`; during the jump, the final two
+property/descriptor probes disappear on the upward sample and reappear as the
+player descends. This is a coverage result, not yet a semantic name: the next
+pass correlates each helper's return value and descriptor read with the MAP
+cell and animation/state transition before implementing collision rules.
+
 To isolate descriptor semantics without depending on the MAP stream's active
 window, `--player-branch-patch-tile 0x160` temporarily replaces only the
 low-nine-bit tile at the live `3D02` probe, records the original word, and
