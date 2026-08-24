@@ -62,31 +62,6 @@ std::uint16_t animatedEntitySlot(const quiky::LevelEntity &entity) {
     return entity.spriteSlot;
 }
 
-std::uint16_t worldEffectTile(const std::string &worldName,
-                              std::uint16_t animationFrame) {
-    // The ARE effect records emit short-lived tiles around their anchor. The
-    // emission table is not fully reconstructed yet, so this keeps the
-    // confirmed world-specific tile sequence visible at the source anchor.
-    const std::uint16_t frame = static_cast<std::uint16_t>(animationFrame / 3);
-    if (worldName == "W1" || worldName == "W2") {
-        const std::uint16_t sequence[] = {127, 126, 128, 129, 130};
-        return sequence[frame % 5];
-    }
-    if (worldName == "W3") {
-        const std::uint16_t sequence[] = {401, 400, 402, 403, 404};
-        return sequence[frame % 5];
-    }
-    if (worldName == "W4") {
-        const std::uint16_t sequence[] = {241, 240, 242, 243, 244};
-        return sequence[frame % 5];
-    }
-    if (worldName == "W5") {
-        const std::uint16_t sequence[] = {62, 61, 63, 64};
-        return sequence[frame % 4];
-    }
-    return 0xffff;
-}
-
 std::uint16_t dedicatedEffectSlot(const quiky::LevelEffect &effect,
                                   const std::string &worldName) {
     if (effect.sourceType == 0x65 && worldName == "W1") {
@@ -107,7 +82,10 @@ void drawTransientEffects(quiky::IndexedSurface &surface,
             continue;
         }
         const std::uint16_t slot = dedicatedEffectSlot(effect, runtime.worldName());
-        quiky::drawIcoTile(surface, runtime.loopTileset(), slot,
+        const quiky::Tileset &tileset = effect.effectResource == "WORLD"
+                                            ? runtime.tileset()
+                                            : runtime.loopTileset();
+        quiky::drawIcoTile(surface, tileset, slot,
                            effect.x, effect.y);
     }
 }
@@ -138,14 +116,6 @@ void drawEntitySprites(quiky::IndexedSurface &surface,
             }
         }
 
-        if (entity.effectResource == "WORLD") {
-            const std::uint16_t tile = worldEffectTile(
-                runtime.worldName(), entity.animationFrame);
-            if (tile != 0xffff) {
-                quiky::drawIcoTile(surface, runtime.tileset(), tile,
-                                   entity.x, entity.y);
-            }
-        }
     }
 }
 

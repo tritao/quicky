@@ -42,6 +42,46 @@ std::string worldForMap(const std::string &mapName) {
     return world;
 }
 
+std::uint16_t worldEffectSlotFor(const std::string &world,
+                                 std::uint16_t tile) {
+    if (world == "W1") {
+        if (tile >= 200 && tile <= 204) return static_cast<std::uint16_t>(120 + tile - 200);
+        if (tile >= 220 && tile <= 224) return static_cast<std::uint16_t>(140 + tile - 220);
+        if (tile == 232) return 230;
+        if (tile == 233) return 231;
+        if (tile == 235) return 236;
+        if (tile >= 240 && tile <= 244) return static_cast<std::uint16_t>(160 + tile - 240);
+        if (tile == 252) return 250;
+        if (tile == 253) return 251;
+        if (tile == 255) return 256;
+        if (tile >= 260 && tile <= 264) return static_cast<std::uint16_t>(180 + tile - 260);
+    } else if (world == "W2") {
+        if (tile >= 120 && tile <= 124) return static_cast<std::uint16_t>(126 + tile - 120);
+        if (tile >= 140 && tile <= 144) return static_cast<std::uint16_t>(146 + tile - 140);
+        if (tile >= 160 && tile <= 164) return static_cast<std::uint16_t>(166 + tile - 160);
+        if (tile >= 180 && tile <= 184) return static_cast<std::uint16_t>(186 + tile - 180);
+        if (tile >= 376 && tile <= 377) return static_cast<std::uint16_t>(378 + tile - 376);
+        if (tile >= 396 && tile <= 397) return static_cast<std::uint16_t>(398 + tile - 396);
+    } else if (world == "W3") {
+        if (tile >= 405 && tile <= 409) return static_cast<std::uint16_t>(400 + tile - 405);
+        if (tile >= 425 && tile <= 429) return static_cast<std::uint16_t>(420 + tile - 425);
+        if (tile >= 445 && tile <= 449) return static_cast<std::uint16_t>(440 + tile - 445);
+        if (tile >= 465 && tile <= 469) return static_cast<std::uint16_t>(460 + tile - 465);
+    } else if (world == "W4") {
+        if (tile >= 160 && tile <= 164) return static_cast<std::uint16_t>(240 + tile - 160);
+        if (tile >= 180 && tile <= 184) return static_cast<std::uint16_t>(260 + tile - 180);
+        if (tile >= 200 && tile <= 204) return static_cast<std::uint16_t>(280 + tile - 200);
+        if (tile >= 220 && tile <= 224) return static_cast<std::uint16_t>(300 + tile - 220);
+    } else if (world == "W5") {
+        if (tile >= 141 && tile <= 144) return static_cast<std::uint16_t>(61 + tile - 141);
+        if (tile == 149) return 60;
+        if (tile >= 160 && tile <= 164) return static_cast<std::uint16_t>(80 + tile - 160);
+        if (tile >= 180 && tile <= 184) return static_cast<std::uint16_t>(100 + tile - 180);
+        if (tile >= 200 && tile <= 204) return static_cast<std::uint16_t>(120 + tile - 200);
+    }
+    return 0;
+}
+
 class EntityCollisionQuery : public CollisionQuery {
 public:
     EntityCollisionQuery(const CollisionQuery &base,
@@ -175,8 +215,9 @@ void LevelSession::resetPlayer(PlayerState &player,
 }
 
 EntityKind LevelSession::classify(std::uint16_t type) {
-    // These ranges are the confirmed families in entity-types.json. Unknown
-    // and effect/event types remain visible to the debug overlay but inert.
+    // These ranges are the confirmed gameplay families in entity-types.json.
+    // Unknown and effect/event types are handled by the visual layer instead
+    // of participating in entity collision or collection.
     if (type >= 0x01 && type <= 0x1c) {
         return EntityKind::Hazard;
     }
@@ -235,8 +276,8 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
 }
 
 std::uint16_t LevelSession::effectSlotFor(std::uint16_t type) const {
-    // World-ICO effects select their tile from the active world's state
-    // machine, so they deliberately do not have a fixed slot here.
+    // Dedicated LOOP effects use a world-relative representative slot. The
+    // shared WORLD state machine resolves its slot from MAP data instead.
     if (type == 0x65) {
         return worldForMap(_mapName) == "W5" ? 4 : 1;
     }
@@ -342,6 +383,10 @@ std::string LevelSession::effectResourceFor(std::uint16_t type) const {
 
 bool LevelSession::isTransientEffectType(std::uint16_t type) {
     return type >= 0x65 && type <= 0x67;
+}
+
+bool LevelSession::isWorldEffectType(std::uint16_t type) {
+    return type >= 0x1f && type <= 0x21;
 }
 
 std::uint32_t LevelSession::collectibleValue(std::uint16_t type) {
@@ -478,6 +523,63 @@ void LevelSession::advanceActiveEffects() {
     }
 }
 
+void LevelSession::emitWorldEffectsForActiveEntities() {
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        const LevelEntity &entity = _entities[index];
+        if (entity.phase != EntityPhase::Active ||
+            !isWorldEffectType(entity.type)) {
+            continue;
+        }
+        if (entity.activeFrames == 4 || entity.activeFrames == 6 ||
+            entity.activeFrames == 8 || entity.activeFrames == 10) {
+            emitWorldEffects(entity,
+                             static_cast<std::uint16_t>(entity.activeFrames));
+        }
+    }
+}
+
+void LevelSession::emitWorldEffects(const LevelEntity &entity,
+                                    std::uint16_t state) {
+    const std::int32_t yOffset = state == 4 ? 0 : (state / 2 - 2) * 16;
+    const std::int32_t firstXOffset = state == 4 ? 0 : 16;
+    const std::int32_t xOffsets[] = {16, 0, 32, 48, 64};
+    const std::string world = worldForMap(_mapName);
+
+    for (std::size_t index = 0; index < 5; ++index) {
+        const std::int32_t x = entity.x +
+            (state == 4 ? xOffsets[index] : firstXOffset +
+             static_cast<std::int32_t>(index) * 16);
+        const std::int32_t y = entity.y + yOffset;
+        if (x < 0 || y < 0) {
+            continue;
+        }
+        const std::int32_t tileX = x / 16;
+        const std::int32_t tileY = y / 16;
+        if (tileX >= _map.width || tileY >= _map.height) {
+            continue;
+        }
+        const std::uint16_t tile = Map::tileId(
+            _map.cell(static_cast<std::uint16_t>(tileX),
+                      static_cast<std::uint16_t>(tileY)));
+        const std::uint16_t effectSlot = worldEffectSlotFor(world, tile);
+        if (effectSlot == 0) {
+            continue;
+        }
+
+        LevelEffect effect;
+        effect.sourceEntityId = entity.id;
+        effect.sourceType = entity.type;
+        effect.x = x;
+        effect.y = y;
+        effect.effectSlot = effectSlot;
+        effect.effectResource = "WORLD";
+        effect.animationFrame = 0;
+        effect.lifetime = 3;
+        effect.active = true;
+        _effects.push_back(effect);
+    }
+}
+
 void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
                         const InputState &input) {
     const MapCollisionQuery collision(_map, simulation.collisionRules());
@@ -493,6 +595,7 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
     updateStreaming(player.x.floorPixels(), player.y.floorPixels());
     advanceActiveEntities();
     advanceActiveEffects();
+    emitWorldEffectsForActiveEntities();
 
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];

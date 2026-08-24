@@ -305,6 +305,34 @@ void testLevelSession() {
     assert(worldEffectSession.entities()[0].effectResource == "WORLD");
     assert(worldEffectSession.entities()[0].effectSlot == 0xffff);
 
+    quiky::Map worldEmissionMap = makeLevelMap();
+    worldEmissionMap.cells[16 + 2] = 201;
+    worldEmissionMap.cells[16 + 1] = 200;
+    worldEmissionMap.cells[16 + 3] = 202;
+    worldEmissionMap.cells[16 + 4] = 203;
+    worldEmissionMap.cells[16 + 5] = 204;
+    quiky::LevelSession worldEmissionSession("W1L1.MAP", worldEmissionMap,
+                                             worldEffectArea, config);
+    worldEmissionSession.reset(player, simulation);
+    worldEmissionSession.updateStreaming(player.x.floorPixels(),
+                                         player.y.floorPixels());
+    for (int frame = 0; frame < 3; ++frame) {
+        worldEmissionSession.tick(player, simulation, quiky::InputState());
+    }
+    assert(worldEmissionSession.effects().empty());
+    worldEmissionSession.tick(player, simulation, quiky::InputState());
+    assert(worldEmissionSession.effects().size() == 5);
+    assert(worldEmissionSession.effects()[0].effectSlot == 121);
+    assert(worldEmissionSession.effects()[0].x == 32);
+    assert(worldEmissionSession.effects()[1].effectSlot == 120);
+    assert(worldEmissionSession.effects()[1].x == 16);
+    assert(worldEmissionSession.effects()[4].effectSlot == 124);
+    assert(worldEmissionSession.effects()[4].x == 80);
+    for (int frame = 0; frame < 3; ++frame) {
+        worldEmissionSession.tick(player, simulation, quiky::InputState());
+    }
+    assert(worldEmissionSession.effects().empty());
+
     const quiky::Area transientArea = makeLevelArea(0x65, 0x67);
     quiky::LevelSessionConfig transientConfig = config;
     transientConfig.streamRadiusRegions = 1;

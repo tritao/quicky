@@ -136,9 +136,12 @@ private:
     void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;
     void advanceActiveEntities();
     void advanceActiveEffects();
+    void emitWorldEffectsForActiveEntities();
+    void emitWorldEffects(const LevelEntity &entity, std::uint16_t state);
     void spawnTransientEffect(const LevelEntity &entity);
     void removeTransientEffectsFor(std::uint32_t entityId);
     static bool isTransientEffectType(std::uint16_t type);
+    static bool isWorldEffectType(std::uint16_t type);
     bool overlaps(const PlayerState &player, const PlayerConfig &playerConfig,
                   const LevelEntity &entity, std::int32_t radius) const;
     bool atRightExit(const PlayerState &player) const;
