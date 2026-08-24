@@ -381,6 +381,44 @@ These probes close the helper-input and branch conditions needed for the
 first C++ behavior models. The next comparison target is callback state and
 action output frame-by-frame against DOSBox.
 
+## Targeted static pass: type-0x33 state machine and type-0x34 gate
+
+The remaining broad decompilation pass was narrowed to the two callback
+families whose high-level branch meanings were still open. Raw segment
+disassembly is more reliable here than the raw-segment C output because the
+far-call relocations are represented as placeholder calls by Ghidra.
+
+The type-`0x33` callback at `01F7:882F` has four explicit motion substates in
+`object+0x32`, plus a separate transition flag at `object+0x2F`:
+
+| State / field | Static behavior |
+| --- | --- |
+| entry | Runs the camera gate; an out-of-window object goes through `0x1DEE`. The accepted path saves probe context, queries player bounds, and performs the directional `0x1C4D`/`0x1C6E`/`0x5C27` chain. |
+| `+0x32 == 0` | Applies signed acceleration to `+0x0A` (`+/-0x400`), integrates it into `+0x02`, clamps velocity to `+/-0x6000`, and decrements `+0x2D`. The sign flip at expiry reverses direction/phase and reloads `+0x2D=0x14`. |
+| `+0x32 == 1` | Applies a smaller signed velocity step (`+/-0x100`) toward a zero-crossing. When the direction-specific crossing occurs, velocity is zeroed, state becomes `2`, descriptor `DS:3510` is loaded, and the callback continues through the common tail. |
+| `+0x32 == 2` | Holds for `0x2E` ticks using `+0x33`, then changes to state `3`, resets `+0x33`, and reloads descriptor `DS:3504`. |
+| `+0x32 == 3` | Applies signed `+0x200` acceleration, clamps to `+/-0x5000`, and returns to state `0` at the direction-specific limit. |
+| `+0x2A/+0x35` | The state-0 travel counter advances animation timing: `+0x35` resets at `0x51`, while `+0x2A` advances until `0x32`, then consumes the byte ring at `DS:646C` and enters state `1`. |
+
+The two previously observed return sites are now placed exactly in this
+control flow. The left/right boundary probes call `0x1C4D` at `0x8871` and
+`0x8885`; their conditional return sites are `0x8876` and `0x888A`, both
+feeding the common `+0x2F=1` transition path at `0x888E`. Thus the sites are
+directional MAP-contact decisions, not separate callbacks or scheduler exits.
+`01F7:1C4D` itself preserves the incoming Y probe in `CX`, selects the X
+offset sign from `+0x29`, adds it to object X, adds the Y offset, and forwards
+the result to `0x1C6E`; the latter returns the raw MAP contact bit in carry.
+
+The type-`0x34` gate is now exact. `01F7:9C0C` begins with
+`CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
+can reach the visibility check, descriptor advance, and local `0x9C29`
+proximity test. A controlled accepted-camera pair confirms the boundary:
+with the object forced to `(128,404)`, player bounds `(128,400)`, and
+collision class `1`, `DS:85DA=0x31` changes `DS:612E` from `0` to `4` and
+reaches the `0x5D38 -> 0x1B5D -> 0x5D38 -> 01E7:0x0FCF` chain; `0x32` reaches
+none of those helpers and leaves `DS:612E=0`. The C++ model and test now use
+this strict-less-than gate.
+
 ## Descriptor state-machine pass
 
 The tracer now records the descriptor fields and the first eight words at the

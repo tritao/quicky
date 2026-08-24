@@ -112,7 +112,9 @@ Type34Action test_type34_proximity(const ObjectRecord& object,
                                     PlayerState& player,
                                     std::uint16_t activation_state) {
     Type34Action result;
-    if (activation_state < 0x32 ||
+    // 01F7:9C0C uses CMP DS:85DA,0x32 / JGE to skip the proximity helper.
+    // The active range is therefore strictly below 0x32.
+    if (activation_state >= 0x32 ||
         player.collision_class == 0 || player.collision_class >= 0x80) {
         return result;
     }

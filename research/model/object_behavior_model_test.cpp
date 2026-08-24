@@ -92,9 +92,7 @@ static void test_type34_proximity() {
     player.world_y_fixed = fixed16_16_from_pixels(400);
     player.collision_class = 1;
 
-    const auto miss = test_type34_proximity(object, player, 0x31);
-    assert(!miss.proximity_hit);
-    const auto hit = test_type34_proximity(object, player, 0x32);
+    const auto hit = test_type34_proximity(object, player, 0x31);
     assert(hit.proximity_hit);
     assert(hit.action_word == 4);
     assert(hit.effect_code == 0x2a);
@@ -102,8 +100,11 @@ static void test_type34_proximity() {
     assert(player.contact_state == 0xff);
     assert(player.displacement_field_fixed == -0x1b000);
 
+    const auto gated = test_type34_proximity(object, player, 0x32);
+    assert(!gated.proximity_hit);
+
     object.world_x_fixed = fixed16_16_from_pixels(103);
-    assert(!test_type34_proximity(object, player, 0x32).proximity_hit);
+    assert(!test_type34_proximity(object, player, 0x31).proximity_hit);
 }
 
 int main() {

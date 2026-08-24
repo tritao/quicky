@@ -119,7 +119,7 @@ directions.
 | --- | --- | --- | --- |
 | `01F7:1B5D` | `apply_player_displacement` | probable | Sets player state, subtracts `0x1B000` from the player position dword, and returns action input `0x000A` in the hit trace. |
 | `01E7:0FCF` | `emit_effect_action` | probable | Publishes effect code `0x2A` at `DS:504C` and conditionally forwards `DS:612E`. |
-| `DS:85DA` | `type34_activation_state` | provisional | Type `0x34` callback checks this state against `0x32` before its proximity path. |
+| `DS:85DA` | `type34_activation_state` | confirmed | Type `0x34` callback enters the visibility/descriptor/proximity path only when this byte is strictly below `0x32`; `0x32` and above return immediately. |
 | `DS:612E` | `pending_action_word` | confirmed | Changes from `0` to `4` on the controlled type-`0x34` proximity hit. |
 | `DS:504C` | `pending_effect_code` | confirmed | Receives `0x2A` in the action/effect trace. |
 | `DS:881A` | `player_object_offset` | confirmed | Persistent player object offset; W1L1 uses pool record offset zero. |
