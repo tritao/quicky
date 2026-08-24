@@ -14,9 +14,11 @@ The current iteration supports:
 - indexed level rendering to an 8-bit BMP;
 - ARE layout/entity parsing and optional debug overlays;
 - BOB sprite decoding and indexed contact sheets;
+- deterministic player simulation with provisional MAP collision masks;
 - synthetic unit tests for the format readers.
 
-Music and gameplay are intentionally deferred.
+Music and interactive gameplay are intentionally deferred; the simulation
+probe only exercises the current deterministic runtime core.
 
 Build and test from the repository root:
 
@@ -33,6 +35,7 @@ build/engine/quiky-inspect game/NESTLE.DAT info W1L1.MAP
 build/engine/quiky-render game/NESTLE.DAT W1L1.MAP /tmp/W1L1.bmp
 build/engine/quiky-render game/NESTLE.DAT W1L1.MAP /tmp/W1L1-entities.bmp --overlay-are
 build/engine/quiky-bob-sheet game/NESTLE.DAT QUIKYW1.BOB W1.PCC /tmp/QUIKYW1.bmp
+build/engine/quiky-simulate game/NESTLE.DAT W1L1.MAP 100 100 120 0x04
 ```
 
 The renderer output is an indexed BMP using the palette stored in the matching

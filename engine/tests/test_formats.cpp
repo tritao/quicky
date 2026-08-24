@@ -5,6 +5,7 @@
 #include "quiky/map.h"
 #include "quiky/palette.h"
 #include "quiky/renderer.h"
+#include "quiky/runtime.h"
 #include "quiky/tileset.h"
 
 #include <cassert>
@@ -188,6 +189,58 @@ void testBobParserDecoderAndSheet() {
     assert(sheet.at(2, 2) == 1 && sheet.at(3, 2) == 2);
 }
 
+quiky::Map makePhysicsMap() {
+    quiky::Bytes data = {'T', 'L', 'E', '1'};
+    appendU16BE(data, 8);
+    appendU16BE(data, 6);
+    appendU16BE(data, 9);
+    for (std::uint16_t y = 0; y < 6; ++y) {
+        for (std::uint16_t x = 0; x < 8; ++x) {
+            const std::uint16_t value = y == 4 ? static_cast<std::uint16_t>(0x20 << 9) : 0;
+            appendU16BE(data, value);
+        }
+    }
+    return quiky::Map::parse(data, "physics.MAP");
+}
+
+void testPlayerSimulation() {
+    const quiky::Map map = makePhysicsMap();
+    quiky::PlayerConfig config;
+    config.width = 12;
+    config.height = 12;
+    config.acceleration = quiky::Fixed16::kOne;
+    config.maxHorizontalSpeed = 2 * quiky::Fixed16::kOne;
+    config.friction = quiky::Fixed16::kOne;
+    config.gravity = quiky::Fixed16::kOne;
+    config.jumpVelocity = -4 * quiky::Fixed16::kOne;
+    quiky::PlayerSimulation simulation(config);
+    quiky::PlayerState player;
+    simulation.reset(player, 16, 16);
+
+    for (int frame = 0; frame < 60; ++frame) {
+        simulation.tick(player, map, quiky::InputState());
+    }
+    assert(player.grounded);
+    assert(player.y.floorPixels() == 52);
+
+    const std::int32_t startX = player.x.floorPixels();
+    quiky::InputState right;
+    right.right = true;
+    simulation.tick(player, map, right);
+    assert(player.x.floorPixels() > startX);
+    assert(player.facingRight);
+
+    quiky::InputState jump;
+    jump.jump = true;
+    simulation.tick(player, map, jump);
+    assert(!player.grounded);
+    assert(player.velocityY.raw < 0);
+    assert(player.y.floorPixels() < 52);
+
+    const quiky::InputState actionFlags = quiky::InputState::fromActionFlags(0x2c);
+    assert(actionFlags.left && actionFlags.right && actionFlags.jump);
+}
+
 } // namespace
 
 int main() {
@@ -197,6 +250,7 @@ int main() {
         testMapPaletteTilesetAndRenderer();
         testAreaAndOverlay();
         testBobParserDecoderAndSheet();
+        testPlayerSimulation();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;

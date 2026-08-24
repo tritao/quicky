@@ -14,6 +14,7 @@ add_library(quiky_core
     src/map.cpp
     src/palette.cpp
     src/renderer.cpp
+    src/runtime.cpp
     src/tileset.cpp
 )
 
@@ -34,6 +35,9 @@ target_link_libraries(quiky-render PRIVATE quiky_core)
 
 add_executable(quiky-bob-sheet apps/quiky-bob-sheet.cpp)
 target_link_libraries(quiky-bob-sheet PRIVATE quiky_core)
+
+add_executable(quiky-simulate apps/quiky-simulate.cpp)
+target_link_libraries(quiky-simulate PRIVATE quiky_core)
 
 enable_testing()
 
