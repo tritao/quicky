@@ -547,12 +547,13 @@ The callback trace was extended to record `10B5 -> 1693 -> 1186` for the
 short-lived objects. In a synthetic W5L1 state-4 probe, forcing the five MAP
 lookups to effect states 61-64 creates four objects with state fields 61-64;
 their live lookups select `FS=0x0357` offsets `0x3D00`, `0x3E00`, `0x3F00`, and
-`0x4000`, byte-identical to `W5.ICO` records 61-64. The first visibility run
-also showed the game camera had moved back to `(0,262)` before `1693`, which
+`0x4000`, byte-identical to `W5.ICO` records 61-64. Equivalent probes match
+W2 states 126-130 at `0x7E00`-`0x8200`, W3 states 400-404 at `0x9000`-`0x9400`,
+and W4 states 240-244 at `0xF000`-`0xF400`. The first visibility run also
+showed the game camera had moved back to `(0,262)` before `1693`, which
 returned carry set; reapplying the debugger-only camera at `10B5` makes the
 same objects pass `1693` and reach `1186`. This confirms both the visibility
-gate and the world-relative ICO table in W5. W2-W4 direct ICO block comparisons
-remain open.
+gate and the world-relative ICO table across W1-W5.
 
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries

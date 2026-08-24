@@ -1143,9 +1143,15 @@
         "effect_update_callback": "01F7:10B5",
         "effect_object_lifetime": 3,
         "effect_object_sprite_slot": 65535,
-        "effect_animation_asset": "W1.ICO raw tile data in W1L1; Wn.ICO in world context",
-        "effect_animation_selector": "FS = 0x0357; block offset = effect index * 0x100 in W1L1 runtime",
-        "effect_animation_probe": "effect index 121 block is byte-identical to raw W1.ICO tile 121",
+        "effect_animation_asset": "Wn.ICO raw tile data in the active world context; direct W1-W5 probes",
+        "effect_animation_selector": "FS = 0x0357; W1 block offset = effect index * 0x100, with the active-world table selecting Wn.ICO",
+        "effect_animation_probe": "effect index 121 is byte-identical to W1.ICO tile 121; W2/W3/W4/W5 live blocks also match their active-world ICO tiles",
+        "effect_animation_cross_world_traces": [
+          "research/build/traces/state-machine-w2l1-mapstrip120-v1.json",
+          "research/build/traces/state-machine-w3l1-mapstrip405-v1.json",
+          "research/build/traces/state-machine-w4l1-mapstrip160-v1.json",
+          "research/build/traces/state-machine-w5l1-mapstrip140-v13.json"
+        ],
         "effect_probe_world": [3072, 272],
         "effect_probe_camera_x": 2640,
         "effect_probe_position_override": [3072, 272],
@@ -1155,7 +1161,7 @@
         "factory_trace_ledger": "research/build/traces/entity-01-post.json",
         "experiment_manifest": "research/build/entity-1f-real-evidence/experiment.json",
         "factory_experiment_manifest": "research/build/entity-1f-probe/manifest.json",
-        "note": "The shared state machine reaches the five-cell DS:6986 tile-effect lookup and creates short-lived effect objects through 01F7:16CE. These objects use 01F7:10B5 and retain object+0x12 = 0xFFFF; the direct animation-table visual name remains unresolved."
+        "note": "The shared state machine reaches the five-cell DS:6986 tile-effect lookup and creates short-lived effect objects through 01F7:16CE. These objects use 01F7:10B5, pass the 01F7:1693 visibility gate when camera-centered, reach 01F7:1186, and retain object+0x12 = 0xFFFF. Direct W1-W5 probes match the active world's ICO blocks."
       }
     },
     {
@@ -1184,9 +1190,15 @@
         "effect_update_callback": "01F7:10B5",
         "effect_object_lifetime": 3,
         "effect_object_sprite_slot": 65535,
-        "effect_animation_asset": "W1.ICO raw tile data in W1L1; Wn.ICO in world context",
-        "effect_animation_selector": "FS = 0x0357; block offset = effect index * 0x100 in W1L1 runtime",
-        "effect_animation_probe": "effect index 121 block is byte-identical to raw W1.ICO tile 121",
+        "effect_animation_asset": "Wn.ICO raw tile data in the active world context; direct W1-W5 probes",
+        "effect_animation_selector": "FS = 0x0357; W1 block offset = effect index * 0x100, with the active-world table selecting Wn.ICO",
+        "effect_animation_probe": "effect index 121 is byte-identical to W1.ICO tile 121; W2/W3/W4/W5 live blocks also match their active-world ICO tiles",
+        "effect_animation_cross_world_traces": [
+          "research/build/traces/state-machine-w2l1-mapstrip120-v1.json",
+          "research/build/traces/state-machine-w3l1-mapstrip405-v1.json",
+          "research/build/traces/state-machine-w4l1-mapstrip160-v1.json",
+          "research/build/traces/state-machine-w5l1-mapstrip140-v13.json"
+        ],
         "effect_probe_world": [3072, 272],
         "effect_probe_camera_x": 2640,
         "effect_probe_position_override": [3072, 272],
@@ -1196,7 +1208,7 @@
         "factory_trace_ledger": "research/build/traces/entity-02-post.json",
         "experiment_manifest": "research/build/entity-20-real-evidence/experiment.json",
         "factory_experiment_manifest": "research/build/entity-20-probe/manifest.json",
-        "note": "The shared state machine reaches the five-cell DS:6986 tile-effect lookup and creates short-lived effect objects through 01F7:16CE. These objects use 01F7:10B5 and retain object+0x12 = 0xFFFF; the direct animation-table visual name remains unresolved."
+        "note": "The shared state machine reaches the five-cell DS:6986 tile-effect lookup and creates short-lived effect objects through 01F7:16CE. These objects use 01F7:10B5, pass the 01F7:1693 visibility gate when camera-centered, reach 01F7:1186, and retain object+0x12 = 0xFFFF. Direct W1-W5 probes match the active world's ICO blocks."
       }
     },
     {
@@ -1225,9 +1237,15 @@
         "effect_update_callback": "01F7:10B5",
         "effect_object_lifetime": 3,
         "effect_object_sprite_slot": 65535,
-        "effect_animation_asset": "W1.ICO raw tile data in W1L1; Wn.ICO in world context",
-        "effect_animation_selector": "FS = 0x0357; block offset = effect index * 0x100 in W1L1 runtime",
-        "effect_animation_probe": "effect index 121 block is byte-identical to raw W1.ICO tile 121",
+        "effect_animation_asset": "Wn.ICO raw tile data in the active world context; direct W1-W5 probes",
+        "effect_animation_selector": "FS = 0x0357; W1 block offset = effect index * 0x100, with the active-world table selecting Wn.ICO",
+        "effect_animation_probe": "effect index 121 is byte-identical to W1.ICO tile 121; W2/W3/W4/W5 live blocks also match their active-world ICO tiles",
+        "effect_animation_cross_world_traces": [
+          "research/build/traces/state-machine-w2l1-mapstrip120-v1.json",
+          "research/build/traces/state-machine-w3l1-mapstrip405-v1.json",
+          "research/build/traces/state-machine-w4l1-mapstrip160-v1.json",
+          "research/build/traces/state-machine-w5l1-mapstrip140-v13.json"
+        ],
         "effect_probe_world": [3072, 272],
         "effect_probe_camera_x": 2640,
         "effect_probe_position_override": [3072, 272],
@@ -1238,7 +1256,7 @@
         "experiment": "target_type_21_vs_inert_type_0",
         "experiment_manifest": "research/build/entity-21-evidence/experiment.json",
         "state_probe_manifest": "research/build/entity-21-w1l1-evidence3/manifest.json",
-        "note": "The shared state machine reaches the same five-cell DS:6986 tile-effect lookup as 0x1F/0x20 and creates short-lived effect objects through 01F7:16CE. These objects use 01F7:10B5 and retain object+0x12 = 0xFFFF; the direct animation-table visual name remains unresolved."
+        "note": "The shared state machine reaches the same five-cell DS:6986 tile-effect lookup as 0x1F/0x20 and creates short-lived effect objects through 01F7:16CE. These objects use 01F7:10B5, pass the 01F7:1693 visibility gate when camera-centered, reach 01F7:1186, and retain object+0x12 = 0xFFFF. Direct W1-W5 probes match the active world's ICO blocks."
       }
     },
     {

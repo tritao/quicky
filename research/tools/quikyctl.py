@@ -403,6 +403,56 @@ def extract_archive(
     return tuple(target for _, target in planned)
 
 
+def patch_archive_map_cells(
+    archive_path: Path,
+    output_path: Path,
+    map_name: str,
+    patches: tuple[tuple[int, int, int], ...],
+    overwrite: bool = False,
+) -> dict[str, Any]:
+    """Copy an archive while changing selected big-endian MAP tile cells."""
+    if archive_path.resolve() == output_path.resolve():
+        raise QuikyError("MAP patch output must not replace the source archive")
+    if output_path.exists() and not overwrite:
+        raise QuikyError(f"refusing to overwrite {output_path}")
+    if not patches:
+        raise QuikyError("at least one MAP cell patch is required")
+
+    source = archive_path.read_bytes()
+    info = parse_archive(archive_path)
+    wanted = map_name.upper()
+    matches = [entry for entry in info.entries if entry.name.upper() == wanted]
+    if len(matches) != 1:
+        raise QuikyError(f"archive does not contain exactly one {map_name}")
+    entry = matches[0]
+    map_data = source[entry.offset : entry.offset + entry.size]
+    map_info, _ = _parse_map_data_with_cells(map_data, entry.name)
+    patched = bytearray(source)
+    applied = []
+    for x, y, tile in patches:
+        if not (0 <= x < map_info.width and 0 <= y < map_info.height):
+            raise QuikyError(
+                f"MAP cell ({x},{y}) is outside {entry.name} "
+                f"({map_info.width}x{map_info.height})"
+            )
+        if not 0 <= tile <= 0x1FF:
+            raise QuikyError(f"MAP tile {tile} must be between 0 and 511")
+        cell_offset = entry.offset + 10 + 2 * (y * map_info.width + x)
+        struct.pack_into(">H", patched, cell_offset, tile)
+        applied.append({"x": x, "y": y, "tile": tile})
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_bytes(patched)
+    return {
+        "source": str(archive_path),
+        "output": str(output_path),
+        "map": entry.name,
+        "map_width": map_info.width,
+        "map_height": map_info.height,
+        "patches": applied,
+    }
+
+
 def index_archive(path: Path) -> ArchiveIndex:
     data = path.read_bytes()
     info = parse_archive(path)
@@ -1989,6 +2039,20 @@ def build_parser() -> argparse.ArgumentParser:
     archive_extract.add_argument("output_dir", type=Path)
     archive_extract.add_argument("--overwrite", action="store_true")
 
+    archive_map_patch = subparsers.add_parser(
+        "archive-map-patch", help="copy an archive with selected MAP cells changed"
+    )
+    archive_map_patch.add_argument("path", type=Path)
+    archive_map_patch.add_argument("output", type=Path)
+    archive_map_patch.add_argument("--map", required=True, dest="map_name")
+    archive_map_patch.add_argument(
+        "--cell", action="append", nargs=3, required=True, type=_parse_int,
+        metavar=("X", "Y", "TILE"),
+        help="replace one MAP cell's low-9-bit tile ID",
+    )
+    archive_map_patch.add_argument("--overwrite", action="store_true")
+    archive_map_patch.add_argument("--json", action="store_true")
+
     map_info = subparsers.add_parser("map-info", help="inspect a TLE1 MAP")
     map_info.add_argument("path", type=Path)
     map_info.add_argument("--json", action="store_true")
@@ -2126,6 +2190,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "archive-extract":
             extracted = extract_archive(args.path, args.output_dir, args.overwrite)
             print(f"extracted {len(extracted)} files to {args.output_dir}")
+        elif args.command == "archive-map-patch":
+            result = patch_archive_map_cells(
+                args.path, args.output, args.map_name,
+                tuple(tuple(cell) for cell in args.cell),
+                args.overwrite,
+            )
+            if args.json:
+                print(json.dumps(result, indent=2))
+            else:
+                print(f"patched {len(result['patches'])} cells in {result['map']}")
         elif args.command == "map-info":
             _print_map(parse_map(args.path), args.json)
         elif args.command == "bob-info":

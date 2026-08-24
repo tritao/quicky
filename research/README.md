@@ -82,12 +82,15 @@ the original source and would need the usual _unlink/header adjustments.
 
 `research/tools/quikyctl.py` is a dependency-free Python 3 inspector for the
 archive, MAP files, and MZ/NE executable header. It uses explicit little- and
-big-endian reads and is intentionally read-only:
+big-endian reads; its archive patch command always writes a separate output:
 
 ~~~sh
 python3 research/tools/quikyctl.py archive-list game/NESTLE.DAT
 python3 research/tools/quikyctl.py archive-index game/NESTLE.DAT
 python3 research/tools/quikyctl.py archive-extract game/NESTLE.DAT work/assets
+python3 research/tools/quikyctl.py archive-map-patch game/NESTLE.DAT \
+  build/variant/NESTLE.DAT --map W1L1.MAP \
+  --cell 27 21 120 --cell 28 21 121
 python3 research/tools/quikyctl.py map-info path/to/W1L1.MAP
 python3 research/tools/quikyctl.py are-info path/to/W1L1.ARE
 python3 research/tools/quikyctl.py level-render path/to/W1L1.MAP \
@@ -101,7 +104,9 @@ python3 -m unittest discover -s research/tests -p 'test_*.py'
 counts, byte totals, MAP dimensions, and ARE reference/entity counts.
 `archive-extract` refuses path traversal, duplicate names, and overwrites
 unless `--overwrite` is explicitly supplied. The archive and MAP commands
-expose the structures described below. The NE command is a static header
+expose the structures described below. `archive-map-patch` validates the
+selected MAP and changes only low-9-bit tile IDs in the separate output
+archive. The NE command is a static header
 survey; it does not assign semantic names to code segments or claim that the
 executable has been decompiled.
 
@@ -344,13 +349,14 @@ have no standard BOB slot. Static and runtime inspection of `10B5` shows that
 it first calls the `01F7:1693` camera-visibility test and, when that test
 passes, reaches `01F7:1186` for the ICO lookup. In the W1L1 runtime, effect
 index 121 selects `FS:0x0357` at offset `0x7900`, and that 256-byte block is
-byte-identical to raw tile 121 in `W1.ICO`. A camera-corrected W5L1 probe now
+byte-identical to raw tile 121 in `W1.ICO`. A camera-corrected W5L1 probe
 captures the same path for effect states 61-64: `FS:0x0357` offsets `0x3D00`,
-`0x3E00`, `0x3F00`, and `0x4000` match `W5.ICO` records 61-64 exactly. The
-world-relative ICO table is therefore directly confirmed in W1 and W5; W2-W4
-still need their own direct block comparisons. The position, camera, bounds,
-and transient-lifetime overrides are debugger-only and do not modify
-`QUIKY.EXE`, MAP files, or the archive.
+`0x3E00`, `0x3F00`, and `0x4000` match `W5.ICO` records 61-64 exactly.
+Equivalent synthetic probes match W2 states 126-130 at offsets `0x7E00`-
+`0x8200`, W3 states 400-404 at `0x9000`-`0x9400`, and W4 states 240-244 at
+`0xF000`-`0xF400`. The world-relative ICO table is now directly confirmed
+across W1-W5. The position, camera, bounds, and transient-lifetime overrides
+are debugger-only and do not modify `QUIKY.EXE`, MAP files, or the archive.
 
 ### Dedicated transient event types `0x65`-`0x67`
 

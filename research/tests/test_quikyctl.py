@@ -20,6 +20,7 @@ from quikyctl import (  # noqa: E402
     index_archive,
     parse_are,
     parse_archive,
+    patch_archive_map_cells,
     parse_bob,
     parse_map,
     parse_ne,
@@ -118,6 +119,45 @@ class QuikyCtlTests(unittest.TestCase):
             unsafe_path.write_bytes(unsafe_archive)
             with self.assertRaises(QuikyError):
                 extract_archive(unsafe_path, Path(temp_dir) / "unsafe-assets")
+
+    def test_archive_map_patch_preserves_archive_and_writes_big_endian_cells(self):
+        map_data = (
+            b"TLE1" + struct.pack(">HHH", 2, 2, 0)
+            + struct.pack(">4H", 1, 2, 3, 4)
+        )
+        payloads = [("TEST.MAP", map_data), ("OTHER.BOB", b"abc")]
+        data = b"".join(payload for _, payload in payloads)
+        directory_offset = len(data)
+        directory = bytearray()
+        offset = 0
+        for name, payload in payloads:
+            encoded = name.encode("ascii")
+            directory += struct.pack("<H", len(encoded)) + encoded
+            directory += struct.pack("<I", offset)
+            offset += len(payload)
+        archive = data + directory + struct.pack(
+            "<II", directory_offset, len(payloads) - 1
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            source = Path(temp_dir) / "source.dat"
+            output = Path(temp_dir) / "output.dat"
+            source.write_bytes(archive)
+            result = patch_archive_map_cells(
+                source, output, "test.map", ((1, 0, 120), (0, 1, 405))
+            )
+            self.assertEqual(result["map"], "TEST.MAP")
+            patched_info = parse_archive(output)
+            patched_entry = next(
+                entry for entry in patched_info.entries if entry.name == "TEST.MAP"
+            )
+            patched_map = output.read_bytes()[
+                patched_entry.offset : patched_entry.offset + patched_entry.size
+            ]
+            self.assertEqual(
+                struct.unpack_from(">4H", patched_map, 10), (1, 120, 405, 4)
+            )
+            self.assertEqual(source.read_bytes(), archive)
 
     def test_are_parser_decodes_references_and_entities(self):
         raw = bytearray(0x14E8)
