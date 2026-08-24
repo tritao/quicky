@@ -702,8 +702,8 @@ PAPIER all produce live descriptors whose dimensions and origins match the
 catalogued BOB records. The per-type trace paths and descriptor offsets are
 recorded in `research/entity-types.json`.
 Types `0x1F`-`0x21` converge on update callback `01F7:8E4B`
-but leave `object+0x12` unset; they remain explicitly unknown state-machine
-variants.
+but leave `object+0x12` unset; they are confirmed animated world-ICO
+state-machine variants rather than standard BOB-slot objects.
 
 The puzzle-letter family `0x79`-`0x7F` is also resolved. The seven normal
 dispatch entries use consecutive callbacks at `01F7:8C71`-`01F7:8D07`, all
@@ -718,6 +718,9 @@ The complete family is shown in
 mapping was checked with a controlled W1L1 record mutation to inert type 0;
 the screenshot diff is supporting evidence, while the callback, object slot,
 BOB record, and target-vs-inert runtime traces are the primary evidence.
+Native-context probes independently resolve map indices 80-86 and descriptor
+offsets 3520-3784 in `0x2C` strides; all seven live descriptors are `16x16`
+with origin `(0,0)`, matching PUZZLE.BOB records 0-6.
 
 Types `0x73` and `0x74` do not occur in any of the 21 archived ARE payloads.
 Controlled injections into the W1L1 anchor reach the common factory, but their

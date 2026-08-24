@@ -309,6 +309,13 @@ class QuikyCtlTests(unittest.TestCase):
             self.assertEqual(names[entity_type].name, name)
             self.assertEqual(names[entity_type].confidence, "confirmed")
         for entity_type, descriptor in (
+            (0x79, (80, 3520, (16, 16), (0, 0))),
+            (0x7A, (81, 3564, (16, 16), (0, 0))),
+            (0x7B, (82, 3608, (16, 16), (0, 0))),
+            (0x7C, (83, 3652, (16, 16), (0, 0))),
+            (0x7D, (84, 3696, (16, 16), (0, 0))),
+            (0x7E, (85, 3740, (16, 16), (0, 0))),
+            (0x7F, (86, 3784, (16, 16), (0, 0))),
             (0x01, (112, 4928, (52, 16), (26, 16))),
             (0x03, (124, 5456, (46, 36), (23, 36))),
             (0x05, (106, 4664, (40, 19), (20, 19))),

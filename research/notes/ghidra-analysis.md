@@ -532,3 +532,8 @@ occurrences in the bundled ARE archive. Controlled W1L1 injections reach the
 common factory, but both dispatch slots are `0000:0000` with class `0`, callback
 `0`, and sprite slot `0xFFFF`; they are confirmed unused/unimplemented types,
 not unresolved sprite families.
+
+Native-context renderer probes independently resolve map indices 80 through 86
+and descriptor offsets 3520, 3564, 3608, 3652, 3696, 3740, and 3784. Every
+live descriptor is `16x16` with origin `(0,0)`, matching PUZZLE.BOB records 0
+through 6 and confirming the slot-to-descriptor stride.
