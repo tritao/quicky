@@ -25,6 +25,10 @@
       "animation_table": {"status": "partial", "known": "WURM2.BOB records 1 and 0 resolve the two slots; frame timing/table ownership is unknown."},
       "death_removal": {"status": "partial", "known": "Target-vs-inert ARE mutation removes the object; in-game death, drops, and respawn semantics are unknown."},
       "cross_world_variants": {"status": "confirmed", "known": "W1 resource context selects WURM2.BOB; slot collisions are resolved by resource context."},
+      "verified_runs": [
+        {"type": "0x01", "fixture": "W1L1 anchor 0x177A", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "sprite_slot": 281, "position": [816, 272], "callback_samples": 1, "first_update": "clears object+0x18"},
+        {"type": "0x02", "fixture": "W1L1 anchor 0x177A with target-type mutation", "dispatch": "01F7:6DB1", "post_initializer": "01F7:6DC3", "object_callback": "01F7:6DC4", "sprite_slot": 231, "position": [816, 272], "callback_samples": 1, "first_update": "clears object+0x18"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement constants", "player/enemy collision", "animation timing", "death path"]
     },

@@ -38,6 +38,7 @@ class ObjectBehaviorConfig:
     selector_frames: int = 60
     camera_x: int | None = None
     camera_y: int | None = None
+    sprite_init_offset: int = 0
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -51,6 +52,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "selector_frames": config.selector_frames,
         "camera_x": config.camera_x,
         "camera_y": config.camera_y,
+        "sprite_init_offset": config.sprite_init_offset,
     }
 
 
@@ -150,6 +152,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--selector-frames", type=int, default=60)
     parser.add_argument("--camera-x", type=int)
     parser.add_argument("--camera-y", type=int)
+    parser.add_argument(
+        "--sprite-init-offset", type=lambda value: int(value, 0), default=0,
+        help="post-initializer breakpoint used to obtain the live object callback",
+    )
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -234,8 +240,9 @@ def main(argv: list[str] | None = None) -> int:
             poll_interval=args.poll_interval,
             select_level=args.select_level,
             selector_frames=args.selector_frames,
-            camera_x=args.camera_x,
-            camera_y=args.camera_y,
+        camera_x=args.camera_x,
+        camera_y=args.camera_y,
+        sprite_init_offset=args.sprite_init_offset,
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {

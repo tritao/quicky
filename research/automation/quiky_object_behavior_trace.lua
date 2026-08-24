@@ -11,6 +11,7 @@ local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local camera_x = trace_config.camera_x or -1
 local camera_y = trace_config.camera_y or -1
+local sprite_init_offset = trace_config.sprite_init_offset or 0
 local runtime_offset = record_offset - 0x160
 
 local function word(s, index)
@@ -171,6 +172,42 @@ local record = target_declaration.record
 local dispatch_offset = 0x81d2 + expected_type * 4
 local dispatch = dosbox.mem_read("ds", dispatch_offset, 4)
 local dispatch_callback_offset = word(dispatch, 1)
+if expected_type == 0 then
+    -- Inert records have no dispatch callback or object allocation. Stop at a
+    -- one-shot execution barrier after the declaration so paired experiments
+    -- can retain a machine-readable removal observation.
+    local current = dosbox.cpu_state()
+    dosbox.breakpoint_set(current.cs, current.eip, {once = true})
+    dosbox.debug_continue()
+    local capture = wait_hit("inert capture barrier")
+    dosbox.output.behavior_trace = {
+        trace_schema_version = 1,
+        trace_kind = "object-behavior",
+        type = expected_type,
+        record_offset = record_offset,
+        runtime_record = {selector = entry.registers.fs,
+                          offset = entry.registers.ebx & 0xffff},
+        record_hex = hex(record),
+        dispatch = {
+            segment = 0x01f7,
+            offset = 0,
+            raw_hex = hex(dispatch),
+            object_class = string.byte(dispatch, 3),
+            reserved = string.byte(dispatch, 4),
+        },
+        dispatch_callback = {segment = 0x01f7, offset = 0},
+        object = nil,
+        initial_object = nil,
+        initialized_object = nil,
+        initializer_breakpoint = nil,
+        removed = true,
+        capture = {segment = capture.segment, offset = capture.offset,
+                   registers = capture.registers},
+        samples = {},
+    }
+    dosbox.debug_continue()
+    return
+end
 assert(dispatch_callback_offset ~= 0, "target object has no update callback")
 
 dosbox.breakpoint_set(0x01f7, 0x1e8e, {once = true})
@@ -181,53 +218,52 @@ local object_offset = factory_return.registers.edi & 0xffff
 local initial_object = object_snapshot(object_selector, object_offset)
 if camera_x >= 0 then dosbox.mem_write("ds", 0x81c0, little_word(camera_x)) end
 if camera_y >= 0 then dosbox.mem_write("ds", 0x81c4, little_word(camera_y)) end
--- DS:81D2 contains the normal object update callback. The object word at
--- +0x18 is a separate per-object callback slot used by some sprite paths.
-local class_entry_offsets = {0x0ec7, 0x0eee, 0x0f14}
-local class_return_offsets = {[0] = 0x0ed3, [1] = 0x0efd, [2] = 0x0f26}
-local object_class = initial_object.object_class
-assert(class_return_offsets[object_class] ~= nil,
-       string.format("unsupported object scheduler class %s", tostring(object_class)))
-
+-- The dispatch callback in DS:81D2 is the initializer. The post-initializer
+-- installs the callback stored in object+0x18; break directly on that live
+-- callback instead of relying on scheduler entry offsets, which vary between
+-- runtime builds and can miss one-shot normal objects.
+local initialized_object = initial_object
+local initializer_breakpoint = nil
+if sprite_init_offset ~= 0 then
+    dosbox.breakpoint_set(0x01f7, sprite_init_offset, {once = true})
+    dosbox.debug_continue()
+    local initialized = wait_hit("object post-initializer")
+    assert(initialized.segment == 0x01f7 and initialized.offset == sprite_init_offset,
+           "unexpected object post-initializer breakpoint")
+    initialized_object = object_snapshot(object_selector, object_offset)
+    initializer_breakpoint = {
+        segment = initialized.segment,
+        offset = initialized.offset,
+        registers = initialized.registers,
+    }
+end
+local callback_offset = initialized_object.update_callback
+assert(callback_offset ~= 0,
+       "initialized object has no per-object callback")
 local samples = {}
 local attempts = 0
 while #samples < sample_count and attempts < sample_count * 128 do
     attempts = attempts + 1
-    for _, offset in ipairs(class_entry_offsets) do
-        dosbox.breakpoint_set(0x01f7, offset, {once = true})
-    end
+    dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
     dosbox.debug_continue()
-    local scheduler_hit = wait_hit("object scheduler entry")
-    local scheduler_entry = class_entry_offsets[object_class + 1]
-    local scheduler_match = scheduler_hit.offset == scheduler_entry and
-        scheduler_hit.registers.es == object_selector and
-        (scheduler_hit.registers.edi & 0xffff) == object_offset
-    if scheduler_match then
-        local before = object_snapshot(object_selector, object_offset)
-        local expected_return = class_return_offsets[object_class]
-        local callback_offset = scheduler_hit.registers.eax & 0xffff
-        assert(callback_offset ~= 0, "scheduler supplied no object callback")
+    local callback_entry = wait_hit("object callback entry")
+    local matches_object = callback_entry.segment == 0x01f7 and
+        callback_entry.offset == callback_offset and
+        callback_entry.registers.es == object_selector and
+        (callback_entry.registers.edi & 0xffff) == object_offset
+    if not matches_object then
         dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
-        dosbox.breakpoint_set(0x01f7, expected_return, {once = true})
         dosbox.debug_continue()
-        local callback_entry = wait_hit("object callback entry")
-        assert(callback_entry.registers.es == object_selector and
-               (callback_entry.registers.edi & 0xffff) == object_offset,
-               "object callback entry did not carry the target object")
+    else
+        local before = object_snapshot(object_selector, object_offset)
         local returned = stack_return(callback_entry)
         assert(returned ~= nil, "object callback has no near return address")
+        dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
         dosbox.debug_continue()
         local callback_return = wait_hit("object callback return")
         local after = object_snapshot(object_selector, object_offset)
         samples[#samples + 1] = {
             sequence = #samples + 1,
-            scheduler = {
-                segment = scheduler_hit.segment,
-                offset = scheduler_hit.offset,
-                registers = scheduler_hit.registers,
-                expected_return = expected_return,
-                callback_offset = callback_offset,
-            },
             callback = {
                 segment = callback_entry.segment,
                 offset = callback_entry.offset,
@@ -244,11 +280,13 @@ while #samples < sample_count and attempts < sample_count * 128 do
             object_after = after,
             changed_bytes = changed_bytes(before.raw_hex, after.raw_hex),
         }
+        callback_offset = after.update_callback
+        if callback_offset == 0 then break end
     end
 end
 
-assert(#samples == sample_count,
-       string.format("captured %d/%d object callbacks", #samples, sample_count))
+assert(#samples > 0,
+       "captured no callbacks for the initialized object")
 dosbox.output.behavior_trace = {
     trace_schema_version = 1,
     trace_kind = "object-behavior",
@@ -266,6 +304,8 @@ dosbox.output.behavior_trace = {
     dispatch_callback = {segment = 0x01f7, offset = dispatch_callback_offset},
     object = {selector = object_selector, offset = object_offset},
     initial_object = initial_object,
+    initialized_object = initialized_object,
+    initializer_breakpoint = initializer_breakpoint,
     camera_override = {x = camera_x, y = camera_y},
     samples = samples,
 }

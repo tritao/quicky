@@ -85,6 +85,16 @@ the object at a known camera position, then repeat with both pair variants.
 That is required before naming patrol, pursuit, gravity, collision, or death
 semantics.
 
+The first paired WURM2 run is now live-verified with the shared main-tree
+debugger build. A redirected W1L1 anchor produced type `0x01` through dispatch
+`01F7:6DA3`, post-initializer `01F7:6DB0`, slot 281, then object callback
+`01F7:6DC4`; its first callback sample cleared `object+0x18`. The same anchor
+mutated to type `0x02` produced dispatch `01F7:6DB1`, post-initializer
+`01F7:6DC3`, slot 231, the same `01F7:6DC4` callback, and the same first-update
+clear. Both paired type-0 fixtures reached the inert capture barrier without
+allocating an object. These are removal/deactivation observations, not proof of
+the gameplay death path; movement and collision remain open.
+
 The falling-leaf family is further along: `01F7:5D38` reads one of two PRNG
 selected tables (`DS:3312` delay 8 and `DS:3326` delay 10), uses slots 700-707,
 and switches to the bright 750-757 row when `object+0x28 == 0xFF`. The seeded
@@ -113,10 +123,11 @@ world; filename ordering alone remains partial evidence.
 The isolated object tracer now lives in
 [`object_behavior_trace.py`](../tools/object_behavior_trace.py) and
 [`quiky_object_behavior_trace.lua`](../automation/quiky_object_behavior_trace.lua).
-It captures the object bytes before and after each scheduled callback, the
-callback return site, changed offsets, camera globals, and the initial object
-record. It intentionally avoids the player callback and the generic resource
-tracer.
+It captures the object bytes before and after each live per-object callback,
+the callback return site, changed offsets, camera globals, and the initial and
+post-initializer object records. `--sprite-init-offset` identifies the
+post-initializer boundary; this direct callback mode avoids obsolete scheduler
+entry offsets and handles one-shot normal objects.
 
 Run a representative trace from the repository root after starting the
 debug-enabled automation build:
