@@ -336,6 +336,11 @@ cmake --build research/build/object-behavior-model -j16
 ctest --test-dir research/build/object-behavior-model --output-on-failure
 ~~~
 
+The frame-level contract comparator is
+[`tools/object_behavior_compare.py`](tools/object_behavior_compare.py), with
+coverage and current DOSBox results in
+[`notes/object-behavior-comparison.md`](notes/object-behavior-comparison.md).
+
 For real-input lifetime checks, use the isolated movement driver. It waits for
 the selected entity to initialize, injects a guest-key sequence, and captures
 the same pooled record at synchronized frame barriers:
