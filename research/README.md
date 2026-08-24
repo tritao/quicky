@@ -328,6 +328,25 @@ cover both W1 pairs and one pair in every later world family. Decoded sheets
 used to establish the resource names are kept in the ignored research build
 directory; the runtime traces and catalog are the durable evidence.
 
+### Shared tile-effect state machine `0x1F`-`0x21`
+
+Types `0x1F`, `0x20`, and `0x21` are now resolved as one confirmed state-machine
+family. Their initializers set `object+0x2E` to 1, 2, and 3 respectively, then
+converge on `01F7:8E4B`; the normal `object+0x12` sprite slot remains
+`0xFFFF`. In a controlled W1L1 probe at world `(3072,272)`, state 4 queries
+five nearby MAP cells through `01F7:3376`, returning tile IDs
+`201, 200, 202, 203, 204`. The `DS:6986` table maps those IDs to effect indices
+`121, 120, 122, 123, 124`, and `01F7:16CE` creates one transient object for
+each mapped value.
+
+The created objects have lifetime `3`, update callback `01F7:10B5`, and still
+have no standard BOB slot. Static inspection of `10B5` shows that it consumes
+the effect index through a separate animation-table path rather than the
+ordinary BOB-slot initializer. The three ARE types therefore have confirmed
+tile-effect behavior, while the human-facing visual/resource name remains
+open. The position/camera/bounds overrides are debugger-only and restored after
+the probe; they do not modify `QUIKY.EXE`, MAP files, or the archive.
+
 ### Dedicated transient event types `0x65`-`0x67`
 
 These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to

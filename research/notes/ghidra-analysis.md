@@ -468,8 +468,14 @@ lookup capture.
 
 The normal types `0x1F`-`0x21` initialize `object+0x2E` to 1, 2, and 3 and
 converge on update callback `01F7:8E4B`, but leave `object+0x12` at `0xFFFF`.
-They are recorded as unknown state-machine variants until that update path's
-side effects and resource use are traced.
+Controlled W1L1 probes redirect the traced object to world `(3072,272)`, where
+state 4 queries five nearby cells through `01F7:3376`. The returned tile IDs
+`201, 200, 202, 203, 204` become effect indices `121, 120, 122, 123, 124`
+through `DS:6986`; each nonzero entry reaches `01F7:16CE` and creates a
+three-tick object using update callback `01F7:10B5`, still with no standard BOB
+slot. The three ARE types produce the same sequence, so their behavior is now
+confirmed as a shared tile-effect state machine. The direct animation-table
+resource/visual name remains unresolved.
 
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries

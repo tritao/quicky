@@ -140,6 +140,12 @@ def trace_entity_lua(
     api: ApiClient, script_path: Path, record_offset: int, entity_type: int,
     timeout: float, poll_interval: float, startup_recording: Path,
     capture_delay_frames: int = 0, lifetime_samples: int = 0,
+    state_machine_samples: int = 0,
+    state_machine_camera_x: int | None = None,
+    state_machine_keep_camera: bool = False,
+    state_machine_position_x: int | None = None,
+    state_machine_position_y: int | None = None,
+    state_machine_force_emission: bool = False,
     sprite_init_offset: int = 0, capture_frames: int = 1,
     frame_step: int = 30, screenshot: Path | None = None,
     screenshot_mode: str = "rendered",
@@ -150,6 +156,12 @@ def trace_entity_lua(
         f"TRACE_ENTITY_TYPE={entity_type}\n"
         f"TRACE_CAPTURE_DELAY_FRAMES={capture_delay_frames}\n"
         f"TRACE_LIFETIME_SAMPLES={lifetime_samples}\n"
+        f"TRACE_STATE_MACHINE_SAMPLES={state_machine_samples}\n"
+        f"TRACE_STATE_MACHINE_CAMERA_X={state_machine_camera_x if state_machine_camera_x is not None else -1}\n"
+        f"TRACE_STATE_MACHINE_KEEP_CAMERA={'true' if state_machine_keep_camera else 'false'}\n"
+        f"TRACE_STATE_MACHINE_POSITION_X={state_machine_position_x if state_machine_position_x is not None else -1}\n"
+        f"TRACE_STATE_MACHINE_POSITION_Y={state_machine_position_y if state_machine_position_y is not None else -1}\n"
+        f"TRACE_STATE_MACHINE_FORCE_EMISSION={'true' if state_machine_force_emission else 'false'}\n"
         f"TRACE_SPRITE_INIT_OFFSET={sprite_init_offset}\n"
         f"TRACE_CAPTURE_FRAMES={capture_frames}\n"
         f"TRACE_FRAME_STEP={frame_step}\n"
@@ -348,6 +360,18 @@ def build_parser() -> argparse.ArgumentParser:
                         help="wait this many guest frames after the entity match")
     parser.add_argument("--lifetime-samples", type=int, default=0,
                         help="record this many matching leaf update calls")
+    parser.add_argument("--state-machine-samples", type=int, default=0,
+                        help="record this many update-entry samples for types 0x1f-0x21")
+    parser.add_argument("--state-machine-camera-x", type=int,
+                        help="temporarily override DS:81c0 while sampling 0x1f-0x21")
+    parser.add_argument("--state-machine-keep-camera", action="store_true",
+                        help="keep the overridden camera X through the final capture")
+    parser.add_argument("--state-machine-position-x", type=int,
+                        help="temporarily override the traced object's integer X position")
+    parser.add_argument("--state-machine-position-y", type=int,
+                        help="temporarily override the traced object's integer Y position")
+    parser.add_argument("--state-machine-force-emission", action="store_true",
+                        help="temporarily widen the bounds helper for a controlled 0x1f-0x21 emission probe")
     parser.add_argument("--sprite-init-offset", type=lambda value: int(value, 0),
                         default=0, help="break at a type-specific sprite initializer")
     parser.add_argument("--capture-frames", type=int, default=1,
@@ -365,6 +389,16 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--count must be positive")
     if args.lifetime_samples < 0:
         raise TraceError("--lifetime-samples cannot be negative")
+    if args.state_machine_samples < 0:
+        raise TraceError("--state-machine-samples cannot be negative")
+    if args.state_machine_camera_x is not None and not 0 <= args.state_machine_camera_x <= 0xffff:
+        raise TraceError("--state-machine-camera-x must be between 0 and 65535")
+    if (args.state_machine_position_x is None) != (args.state_machine_position_y is None):
+        raise TraceError("--state-machine-position-x and --state-machine-position-y must be used together")
+    for name in ("state_machine_position_x", "state_machine_position_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
     if args.capture_frames < 1:
         raise TraceError("--capture-frames must be positive")
     if args.frame_step < 0:
@@ -449,7 +483,11 @@ def main(argv: list[str] | None = None) -> int:
                 api, entity_script_path, args.entity_record_offset,
                 args.entity_type, args.timeout, args.poll_interval,
                 startup_recording, args.screenshot_delay_frames,
-                args.lifetime_samples,
+                args.lifetime_samples, args.state_machine_samples,
+                args.state_machine_camera_x,
+                args.state_machine_keep_camera,
+                args.state_machine_position_x, args.state_machine_position_y,
+                args.state_machine_force_emission,
                 args.sprite_init_offset,
                 args.capture_frames, args.frame_step, args.screenshot,
                 args.screenshot_mode,
@@ -457,6 +495,14 @@ def main(argv: list[str] | None = None) -> int:
             entity["lifetime_samples"] = ordered_lua_array(
                 entity.get("lifetime_samples", [])
             )
+            state_machine_samples = ordered_lua_array(
+                entity.get("state_machine_samples", [])
+            )
+            for sample in state_machine_samples:
+                sample["nested_calls"] = ordered_lua_array(
+                    sample.get("nested_calls", [])
+                )
+            entity["state_machine_samples"] = state_machine_samples
             entity["frames"] = ordered_lua_array(entity.get("frames", []))
             events = [entity]
             script_path = entity_script_path

@@ -4,6 +4,12 @@ local record_offset = TRACE_RECORD_OFFSET or 0x1792
 local expected_type = TRACE_ENTITY_TYPE or 0x2b
 local capture_delay_frames = TRACE_CAPTURE_DELAY_FRAMES or 0
 local lifetime_sample_count = TRACE_LIFETIME_SAMPLES or 0
+local state_machine_sample_count = TRACE_STATE_MACHINE_SAMPLES or 0
+local state_machine_camera_x = TRACE_STATE_MACHINE_CAMERA_X or -1
+local state_machine_keep_camera = TRACE_STATE_MACHINE_KEEP_CAMERA or false
+local state_machine_position_x = TRACE_STATE_MACHINE_POSITION_X or -1
+local state_machine_position_y = TRACE_STATE_MACHINE_POSITION_Y or -1
+local state_machine_force_emission = TRACE_STATE_MACHINE_FORCE_EMISSION or false
 local sprite_init_offset = TRACE_SPRITE_INIT_OFFSET or 0
 local capture_frame_count = TRACE_CAPTURE_FRAMES or 1
 local capture_frame_step = TRACE_FRAME_STEP or 30
@@ -16,6 +22,10 @@ end
 
 local function dword(s, index)
     return word(s, index) | (word(s, index + 2) << 16)
+end
+
+local function little_word(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff)
 end
 
 local function hex(s)
@@ -70,6 +80,52 @@ local function stop_for_capture()
     local current = dosbox.cpu_state()
     dosbox.breakpoint_set(current.cs, current.eip, {once = true})
     return wait_hit("capture barrier")
+end
+
+local state_machine_targets = {0x16ce, 0x3376, 0x171c, 0x393c, 0x8eb5}
+local state_machine_exits = {0x8e78, 0x8e85, 0x9254, 0x9255}
+
+local function arm_state_machine_breakpoints(skip_offset)
+    local armed = {}
+    for _, offset in ipairs(state_machine_targets) do
+        if offset ~= skip_offset then
+            armed[string.format("%04x", offset)] = dosbox.breakpoint_set(
+                0x01f7, offset, {once = true})
+        end
+    end
+    for _, offset in ipairs(state_machine_exits) do
+        if offset ~= skip_offset then
+            armed[string.format("%04x", offset)] = dosbox.breakpoint_set(
+                0x01f7, offset, {once = true})
+        end
+    end
+    return armed
+end
+
+local function disarm_state_machine_breakpoints()
+    for _, offset in ipairs(state_machine_targets) do
+        dosbox.breakpoint_remove(0x01f7, offset)
+    end
+    for _, offset in ipairs(state_machine_exits) do
+        dosbox.breakpoint_remove(0x01f7, offset)
+    end
+end
+
+local function state_machine_tile_effects()
+    local raw = dosbox.mem_read("ds", 0x6986, 0x400) or ""
+    local nonzero = {}
+    for tile = 0, 0x1ff do
+        local value = word(raw, tile * 2 + 1)
+        if value ~= 0 then
+            nonzero[#nonzero + 1] = {tile = tile, value = value}
+        end
+    end
+    return {raw_hex = hex(raw), nonzero = nonzero}
+end
+
+local function matches_object(hit, selector, offset)
+    return hit.registers and hit.registers.es == selector and
+           (hit.registers.edi & 0xffff) == offset
 end
 
 local function capture_timeline(entity, object_selector, object_offset, first_capture)
@@ -352,6 +408,319 @@ for attempt = 1, 4096 do
             }
             dosbox.debug_continue()
         end
+        local state_machine_samples = {}
+        if entity_type >= 0x1f and entity_type <= 0x21 and
+                state_machine_sample_count > 0 then
+            local saved_camera_x = nil
+            local saved_bounds_bytes = nil
+            local saved_position_bytes = nil
+            local bounds_object_offset = dosbox.mem_read_word("ds", 0x881a)
+            local initial_state = dosbox.mem_read_selector(
+                object_selector, object_offset, 64)
+            local probe_position_x = dword(initial_state, 3) >> 16
+            local probe_position_y = dword(initial_state, 7) >> 16
+            if state_machine_position_x >= 0 then
+                saved_position_bytes = dosbox.mem_read_selector(
+                    object_selector, object_offset + 0x02, 8)
+                dosbox.mem_write_selector(
+                    object_selector, object_offset + 0x02,
+                    little_word(0) .. little_word(state_machine_position_x))
+                dosbox.mem_write_selector(
+                    object_selector, object_offset + 0x06,
+                    little_word(0) .. little_word(state_machine_position_y))
+                probe_position_x = state_machine_position_x
+                probe_position_y = state_machine_position_y
+            end
+            for sequence = 1, state_machine_sample_count do
+                dosbox.breakpoint_set(0x01f7, 0x8e4b, {once = true})
+                dosbox.debug_continue()
+                local update_entry = nil
+                while true do
+                    local candidate = wait_hit("state-machine update entry")
+                    if candidate.segment == 0x01f7 and
+                            candidate.offset == 0x8e4b and
+                            matches_object(candidate, object_selector, object_offset) then
+                        update_entry = candidate
+                        break
+                    end
+                    dosbox.breakpoint_set(0x01f7, 0x8e4b, {once = true})
+                    dosbox.debug_continue()
+                end
+                local state = dosbox.mem_read_selector(
+                    object_selector, object_offset, 64)
+                local bounds_object_state = dosbox.mem_read_selector(
+                    object_selector, bounds_object_offset, 128)
+                local tile_effect_table = state_machine_tile_effects()
+                local sample = {
+                    sequence = sequence,
+                    breakpoint = {segment = update_entry.segment,
+                                  offset = update_entry.offset},
+                    update_entry_registers = update_entry.registers,
+                    object_state_hex = hex(state),
+                    state_field = word(state, 0x2e + 1),
+                    update_state = word(state, 0x32 + 1),
+                    sprite_slot = word(state, 0x12 + 1),
+                    position = {x = dword(state, 3) >> 16,
+                                y = dword(state, 7) >> 16},
+                    globals = {
+                        action_word = dosbox.mem_read_word("ds", 0x612e),
+                        tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
+                        camera_x = dosbox.mem_read_word("ds", 0x81c0),
+                        camera_y = dosbox.mem_read_word("ds", 0x81c4),
+                        scratch_x = dosbox.mem_read_word("ds", 0x8828),
+                        scratch_y = dosbox.mem_read_word("ds", 0x882a),
+                        bounds_object_offset = bounds_object_offset,
+                        bounds_object_state_hex = hex(bounds_object_state),
+                        animation_table_offset = dosbox.mem_read_word("ds", 0x6574),
+                        animation_segment_stride = dosbox.mem_read_word("ds", 0x6570),
+                        animation_selector_base = dosbox.mem_read_word("ds", 0x6576),
+                        position_override = (state_machine_position_x >= 0 and {
+                            x = state_machine_position_x,
+                            y = state_machine_position_y,
+                        } or nil),
+                    },
+                    tile_effect_table = tile_effect_table,
+                    nested_calls = {},
+                }
+                if state_machine_camera_x >= 0 then
+                    if saved_camera_x == nil then
+                        saved_camera_x = dosbox.mem_read_word("ds", 0x81c0)
+                    end
+                    sample.globals.camera_x_override = state_machine_camera_x
+                    dosbox.mem_write("ds", 0x81c0,
+                                     little_word(state_machine_camera_x))
+                end
+                if state_machine_force_emission then
+                    if saved_bounds_bytes == nil then
+                        saved_bounds_bytes = dosbox.mem_read_selector(
+                            object_selector, bounds_object_offset + 0x2c, 8)
+                    end
+                    local bounds_x = dword(bounds_object_state, 3) >> 16
+                    local bounds_y = dword(bounds_object_state, 7) >> 16
+                    local left = probe_position_x - bounds_x - 200
+                    local bottom = probe_position_y - bounds_y - 100
+                    local right = probe_position_x - bounds_x + 400
+                    local top = probe_position_y - bounds_y + 100
+                    -- Widen the bounds helper's synthetic rectangle so the
+                    -- callback's grid-emission path can be sampled even when
+                    -- the opening replay has not moved the player there yet.
+                    dosbox.mem_write_selector(
+                        object_selector, bounds_object_offset + 0x2c,
+                        little_word(left))
+                    dosbox.mem_write_selector(
+                        object_selector, bounds_object_offset + 0x2e,
+                        little_word(bottom))
+                    dosbox.mem_write_selector(
+                        object_selector, bounds_object_offset + 0x30,
+                        little_word(right))
+                    dosbox.mem_write_selector(
+                        object_selector, bounds_object_offset + 0x32,
+                        little_word(top))
+                    sample.globals.bounds_override = {
+                        left = left,
+                        bottom = bottom,
+                        right = right,
+                        top = top,
+                    }
+                end
+                sample.armed_breakpoints = arm_state_machine_breakpoints()
+                dosbox.debug_continue()
+                local update_exit = nil
+                while true do
+                    local nested = wait_hit("state-machine update event")
+                    if nested.offset == 0x8e78 or nested.offset == 0x8e85 or
+                            nested.offset == 0x9254 or nested.offset == 0x9255 then
+                        if not matches_object(nested, object_selector, object_offset) then
+                            dosbox.breakpoint_set(0x01f7, nested.offset, {once = true})
+                            dosbox.debug_continue()
+                        else
+                            update_exit = nested
+                            -- 0x9254 is the final `pop bx` on the state-4/6/8/10
+                            -- paths and 0x9255 is the common return.  Keep both
+                            -- as exits because either boundary can be reported
+                            -- depending on the debugger's instruction timing.
+                            break
+                        end
+                    elseif nested.offset == 0x16ce or nested.offset == 0x3376 or
+                            nested.offset == 0x171c or nested.offset == 0x393c or
+                            nested.offset == 0x8eb5 then
+                        if nested.offset ~= 0x171c and
+                                not matches_object(nested, object_selector, object_offset) then
+                            dosbox.breakpoint_set(0x01f7, nested.offset, {once = true})
+                            dosbox.debug_continue()
+                        elseif nested.offset == 0x8eb5 then
+                            sample.state_write = {
+                                segment = nested.segment,
+                                offset = nested.offset,
+                                registers = nested.registers,
+                                object_state_hex = hex(dosbox.mem_read_selector(
+                                    object_selector, object_offset, 64)),
+                            }
+                            -- The write instruction jumps directly to the
+                            -- common return path; leave the other breakpoints
+                            -- armed and let the exit handler observe it.
+                            dosbox.debug_continue()
+                        else
+                            local nested_stack = dosbox.mem_read(
+                                "ss", nested.registers.esp & 0xffff, 16) or ""
+                            local call = {
+                                target = {segment = nested.segment, offset = nested.offset},
+                                registers = nested.registers,
+                                stack_hex = hex(nested_stack),
+                                return_offset = (#nested_stack >= 2 and word(nested_stack, 1) or nil),
+                                return_segment = (#nested_stack >= 4 and word(nested_stack, 3) or nil),
+                                arguments = {
+                                    ax = nested.registers.eax & 0xffff,
+                                    bx = nested.registers.ebx & 0xffff,
+                                    cx = nested.registers.ecx & 0xffff,
+                                    dx = nested.registers.edx & 0xffff,
+                                },
+                            }
+                            if nested.offset == 0x171c then
+                                local nested_selector = nested.registers.es
+                                local nested_offset = nested.registers.edi & 0xffff
+                                local nested_state = dosbox.mem_read_selector(
+                                    nested_selector, nested_offset, 64)
+                                call.object = {
+                                    selector = nested_selector,
+                                    offset = nested_offset,
+                                    state_hex = hex(nested_state),
+                                    sprite_slot = word(nested_state, 0x12 + 1),
+                                    update_callback = word(nested_state, 0x18 + 1),
+                                    state_field = word(nested_state, 0x2e + 1),
+                                }
+                            end
+                            sample.nested_calls[#sample.nested_calls + 1] = call
+                            assert(call.return_offset and call.return_segment,
+                                   "state-machine nested call has no far return address")
+                            dosbox.breakpoint_set(call.return_segment, call.return_offset,
+                                                  {once = true})
+                            dosbox.debug_continue()
+                            local nested_return = nil
+                            local internal_creator_call = nil
+                            while true do
+                                local candidate_return = wait_hit(
+                                    "state-machine nested return")
+                                if candidate_return.segment == call.return_segment and
+                                        candidate_return.offset == call.return_offset then
+                                    nested_return = candidate_return
+                                    break
+                                end
+                                if nested.offset == 0x16ce and
+                                        candidate_return.offset == 0x171c then
+                                    -- 0x16CE calls the common creator at 0x10B5;
+                                    -- 0x171C is the creator's internal continuation.
+                                    -- Capture the object there, then continue
+                                    -- waiting for the outer 0x16CE return. It is
+                                    -- not itself a far-call entry, so its stack
+                                    -- words are not a return address to decode.
+                                    local creator_call = {
+                                        target = {segment = candidate_return.segment,
+                                                  offset = candidate_return.offset},
+                                        registers = candidate_return.registers,
+                                        arguments = {
+                                            ax = candidate_return.registers.eax & 0xffff,
+                                            bx = candidate_return.registers.ebx & 0xffff,
+                                            cx = candidate_return.registers.ecx & 0xffff,
+                                            dx = candidate_return.registers.edx & 0xffff,
+                                        },
+                                    }
+                                    local creator_selector = candidate_return.registers.es
+                                    local creator_offset = candidate_return.registers.edi & 0xffff
+                                    local creator_state = dosbox.mem_read_selector(
+                                        creator_selector, creator_offset, 64)
+                                    creator_call.object = {
+                                        selector = creator_selector,
+                                        offset = creator_offset,
+                                        state_hex = hex(creator_state),
+                                        sprite_slot = word(creator_state, 0x12 + 1),
+                                        update_callback = word(creator_state, 0x18 + 1),
+                                        state_field = word(creator_state, 0x2e + 1),
+                                        position = {
+                                            x = dword(creator_state, 3) >> 16,
+                                            y = dword(creator_state, 7) >> 16,
+                                        },
+                                        internal_continuation = true,
+                                    }
+                                    sample.nested_calls[#sample.nested_calls + 1] = creator_call
+                                    internal_creator_call = creator_call
+                                    arm_state_machine_breakpoints(0x171c)
+                                    dosbox.debug_continue()
+                                else
+                                    error("unexpected state-machine nested return")
+                                end
+                            end
+                            call.return_registers = nested_return.registers
+                            if internal_creator_call ~= nil then
+                                local final_creator_state = dosbox.mem_read_selector(
+                                    internal_creator_call.object.selector,
+                                    internal_creator_call.object.offset, 64)
+                                internal_creator_call.object.post_state_hex = hex(
+                                    final_creator_state)
+                                internal_creator_call.object.post_sprite_slot = word(
+                                    final_creator_state, 0x12 + 1)
+                                internal_creator_call.object.post_update_callback = word(
+                                    final_creator_state, 0x18 + 1)
+                                internal_creator_call.object.post_state_field = word(
+                                    final_creator_state, 0x2e + 1)
+                                internal_creator_call.object.post_lifetime = word(
+                                    final_creator_state, 0x2c + 1)
+                                internal_creator_call.object.post_position = {
+                                    x = dword(final_creator_state, 3) >> 16,
+                                    y = dword(final_creator_state, 7) >> 16,
+                                }
+                                internal_creator_call.object.animation_lookup = {
+                                    selector = internal_creator_call.registers.fs,
+                                    table_offset = dosbox.mem_read_word("ds", 0x6574),
+                                    segment_stride = dosbox.mem_read_word("ds", 0x6570),
+                                    selector_base = dosbox.mem_read_word("ds", 0x6576),
+                                }
+                            end
+                            arm_state_machine_breakpoints()
+                            dosbox.debug_continue()
+                        end
+                    else
+                        error("unexpected state-machine nested call")
+                    end
+                end
+                disarm_state_machine_breakpoints()
+                local post_state = dosbox.mem_read_selector(
+                    object_selector, object_offset, 64)
+                sample.update_exit = {
+                    segment = update_exit.segment, offset = update_exit.offset,
+                }
+                sample.update_exit_registers = update_exit.registers
+                sample.post_object_state_hex = hex(post_state)
+                sample.post_state_field = word(post_state, 0x2e + 1)
+                sample.post_update_state = word(post_state, 0x32 + 1)
+                sample.post_sprite_slot = word(post_state, 0x12 + 1)
+                sample.post_globals = {
+                    action_word = dosbox.mem_read_word("ds", 0x612e),
+                    tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
+                    camera_x = dosbox.mem_read_word("ds", 0x81c0),
+                    camera_y = dosbox.mem_read_word("ds", 0x81c4),
+                    scratch_x = dosbox.mem_read_word("ds", 0x8828),
+                    scratch_y = dosbox.mem_read_word("ds", 0x882a),
+                }
+                if update_exit.offset == 0x9254 or update_exit.offset == 0x9255 then
+                    dosbox.debug_continue()
+                end
+                state_machine_samples[#state_machine_samples + 1] = sample
+            end
+            if saved_camera_x ~= nil and not state_machine_keep_camera then
+                dosbox.mem_write("ds", 0x81c0, little_word(saved_camera_x))
+            end
+            if saved_bounds_bytes ~= nil then
+                dosbox.mem_write_selector(
+                    object_selector, bounds_object_offset + 0x2c,
+                    saved_bounds_bytes)
+            end
+            if saved_position_bytes ~= nil then
+                dosbox.mem_write_selector(
+                    object_selector, object_offset + 0x02,
+                    saved_position_bytes)
+            end
+        end
         dosbox.wait_frames(1 + capture_delay_frames)
         local capture = stop_for_capture()
         local object_state = dosbox.mem_read_selector(
@@ -379,6 +748,7 @@ for attempt = 1, 4096 do
             sprite_initialization = sprite_initialization,
             sprite_animation_tables = sprite_animation_tables,
             lifetime_samples = lifetime_samples,
+            state_machine_samples = state_machine_samples,
             sprite_slot = sprite_slot,
             sprite_slot_field_offset = 0x12,
             initialized_position = {

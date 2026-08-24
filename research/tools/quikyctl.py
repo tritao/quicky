@@ -887,7 +887,9 @@ def create_entity_variant(
             cell_y * are_info.layout_width + cell_x
         ) * 2
         previous_reference = _u16be(are_data, layout_offset)
-        relocated = bytearray(are_data)
+        # Preserve any target-type mutation already applied to the selected
+        # declaration before relocating its reference into the streamed cell.
+        relocated = bytearray(baseline_are)
         struct.pack_into(">H", relocated, layout_offset, reference.reference)
         baseline_are = bytes(relocated)
         stream_redirect = {

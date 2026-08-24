@@ -276,9 +276,12 @@ class QuikyCtlTests(unittest.TestCase):
             self.assertEqual(names[entity_type].name, name)
             self.assertEqual(names[entity_type].confidence, "probable")
         self.assertEqual(names[0x28].name, "cloud")
-        self.assertEqual(names[0x1F].confidence, "unknown")
-        self.assertEqual(names[0x20].confidence, "unknown")
-        self.assertEqual(names[0x21].confidence, "unknown")
+        for entity_type in (0x1F, 0x20, 0x21):
+            self.assertEqual(
+                names[entity_type].name,
+                f"tile_effect_state_machine_variant_{entity_type:02d}",
+            )
+            self.assertEqual(names[entity_type].confidence, "confirmed")
         for entity_type, name, slot, asset, dimensions in (
             (0x2C, "paper_effect", 710, "PAPIER.BOB", (18, 15)),
             (0x34, "bump_effect", 400, "BUMP_W1.BOB", (32, 23)),
@@ -384,11 +387,22 @@ class QuikyCtlTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = create_entity_variant(
                 archive, Path(temp_dir), "W1L1.ARE", selected.record_offset,
-                stream_cell=(12, 3),
+                stream_cell=(12, 3), target_type=0x29,
             )
             redirect = manifest["stream_redirect"]
             self.assertEqual(redirect["selected_reference"], selected.reference)
             self.assertEqual(redirect["runtime_region_origin"], [768, 192])
+            target_archive = Path(manifest["variants"][0]["archive"])
+            target_info = parse_archive(target_archive)
+            target_entry = next(
+                item for item in target_info.entries if item.name == "W1L1.ARE"
+            )
+            target_bytes = target_archive.read_bytes()
+            self.assertEqual(
+                struct.unpack_from(">H", target_bytes,
+                                   target_entry.offset + selected.record_offset)[0],
+                0x29,
+            )
 
     def test_dispatch_ledger_validates_and_decodes_entries(self):
         ledger = {
