@@ -19,15 +19,15 @@
       "role": "enemy",
       "worlds": ["W1"],
       "initializer_fields": {"status": "partial", "known": "Common factory 01F7:0E06, class 1; variants install slots 281 and 231 in object+0x12. Other movement/state writes are not decoded."},
-      "update_callback_state_machine": {"status": "partial", "known": "Variant callbacks 01F7:6DA3 and 01F7:6DB1 return at 6DB0/6DC3; per-tick transitions are not yet traced."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory or player-response trace is retained."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "Sprite dimensions are 52x16 with origin 26,16; gameplay collision is not established."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:6DA3/6DB1 converge on live callback 01F7:6DC4. A 32-sample run stayed in update state 0; camera removal and shared movement/collision helper structure are known, but later transitions are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x01 moving left (x 240->226) and type 0x02 moving right (x 240->253), with y fixed at 400; the countdown at +0x20 and phase byte +0x2A advance each tick. Pursuit and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "The callback reaches the shared bounds/map collision helpers and sets the object collision flag. Render geometry is 52x16, origin 26,16; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "WURM2.BOB records 1 and 0 resolve the two slots; frame timing/table ownership is unknown."},
       "death_removal": {"status": "partial", "known": "Target-vs-inert ARE mutation removes the object; in-game death, drops, and respawn semantics are unknown."},
       "cross_world_variants": {"status": "confirmed", "known": "W1 resource context selects WURM2.BOB; slot collisions are resolved by resource context."},
       "verified_runs": [
-        {"type": "0x01", "fixture": "W1L1 anchor 0x177A", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "sprite_slot": 281, "position": [816, 272], "callback_samples": 1, "first_update": "clears object+0x18"},
-        {"type": "0x02", "fixture": "W1L1 anchor 0x177A with target-type mutation", "dispatch": "01F7:6DB1", "post_initializer": "01F7:6DC3", "object_callback": "01F7:6DC4", "sprite_slot": 231, "position": [816, 272], "callback_samples": 1, "first_update": "clears object+0x18"}
+        {"type": "0x01", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6DA3", "post_initializer": "01F7:6DB0", "object_callback": "01F7:6DC4", "sprite_slot": 281, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->226, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 WURM2 descriptor 52x16 origin 26,16"},
+        {"type": "0x02", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6DB1", "post_initializer": "01F7:6DC3", "object_callback": "01F7:6DC4", "sprite_slot": 231, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->253, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 WURM2 descriptor 52x16 origin 26,16"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement constants", "player/enemy collision", "animation timing", "death path"]
@@ -38,12 +38,16 @@
       "role": "enemy",
       "worlds": ["W1"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; variants install slots 276 and 226 in object+0x12."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:689F and 68AD return at 68AC/68BF; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "Sprite geometry is 46x36, origin 23,36; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:689F/68AD converge on live callback 01F7:68C0. A 32-sample W1L2 run stayed in update state 0; the camera gate and shared movement/collision helper calls are decoded, but later state transitions are not."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x03 moving left (x 240->198) and type 0x04 moving right (x 240->282), with y fixed at 400; +0x20 is a 14-to-0 countdown and +0x2A advances the movement phase. Player pursuit and long-term patrol bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:68C0 calls the shared bounds/map helpers with horizontal constants around +/-20 and +/-5 and sets object+0x2F on a blocking result. Render geometry is 46x36, origin 23,36; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "BIENE.BOB records 1 and 0 identify the sprite variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W1 resource context selects BIENE.BOB."},
+      "verified_runs": [
+        {"type": "0x03", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:689F", "post_initializer": "01F7:68AC", "object_callback": "01F7:68C0", "sprite_slot": 276, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->198, y 400", "state_observed": [0], "timer_observed": "+0x20 cycles 14->0", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 BIENE descriptor 46x36 origin 23,36"},
+        {"type": "0x04", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:68AD", "post_initializer": "01F7:68BF", "object_callback": "01F7:68C0", "sprite_slot": 226, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->282, y 400", "state_observed": [0], "timer_observed": "+0x20 cycles 14->0", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W1 BIENE descriptor 46x36 origin 23,36"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -53,15 +57,15 @@
       "role": "enemy",
       "worlds": ["W2"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; variants install slots 254 and 204."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:7B50 and 7B5E return at 7B5D/7B70; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "FISCH.BOB geometry is 40x19, origin 20,19; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:7B50/7B5E converge on live callback 01F7:7B71. Near-camera sampling observes update states 1, 2, and 3 after state 0; the complete transition/terminal path is not yet decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x05 moving left (x 240->226) and type 0x06 moving right (x 240->254), while y oscillates 384->387. The callback advances a phase-driven vertical component and enters states 1-3; pursuit and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:7B71 reaches the shared bounds/map collision helpers and gates movement with object+0x2F. Render geometry is 40x19, origin 20,19; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "FISCH.BOB records 3 and 2 identify the variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W2 resource context selects FISCH.BOB."},
       "verified_runs": [
-        {"type": "0x05", "fixture": "W1L1 anchor 0x1792 from main-tree fixture", "dispatch": "01F7:7B50", "post_initializer": "01F7:7B5D", "object_callback": "01F7:7B71", "sprite_slot": 254, "position": [768, 240], "callback_samples": 1, "first_update": "clears object+0x18", "native_world": "W2L1 FISCH descriptor 40x19 origin 20,19"},
-        {"type": "0x06", "fixture": "W1L1 anchor 0x1792 target-type mutation from main-tree fixture", "dispatch": "01F7:7B5E", "post_initializer": "01F7:7B70", "object_callback": "01F7:7B71", "sprite_slot": 204, "position": [768, 240], "callback_samples": 1, "first_update": "clears object+0x18", "native_world": "W2L1 FISCH family slot 204"}
+        {"type": "0x05", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7B50", "post_initializer": "01F7:7B5D", "object_callback": "01F7:7B71", "sprite_slot": 254, "position": [240, 384], "callback_samples": 32, "movement": "left with y 384->387", "state_observed": [1, 2, 3], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2L1 FISCH descriptor 40x19 origin 20,19"},
+        {"type": "0x06", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7B5E", "post_initializer": "01F7:7B70", "object_callback": "01F7:7B71", "sprite_slot": 204, "position": [240, 384], "callback_samples": 32, "movement": "right with y 384->387", "state_observed": [1, 2, 3], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2L1 FISCH descriptor 40x19 origin 20,19"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
@@ -72,12 +76,16 @@
       "role": "enemy",
       "worlds": ["W2"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; variants install slots 200 and 250."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:776B and 7779 return at 7778/778B; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "KRABBE.BOB geometry is 41x21, origin 20,21; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:776B/7779 converge on live callback 01F7:778C; 32 samples remain in state 0 and exercise the shared movement/collision path, but later transitions are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x07 drifting left (x 240->237) and type 0x08 drifting right (x 240->242), with y fixed at 400; countdown/phase bytes advance. Pursuit and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:778C reaches the shared bounds/map collision helpers and sets the object collision flag. Render geometry is 41x21, origin 20,21; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "KRABBE.BOB records 0 and 1 identify the variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W2 resource context selects KRABBE.BOB."},
+      "verified_runs": [
+        {"type": "0x07", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:776B", "post_initializer": "01F7:7778", "object_callback": "01F7:778C", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->237, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2 KRABBE descriptor 41x21 origin 20,21"},
+        {"type": "0x08", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7779", "post_initializer": "01F7:778B", "object_callback": "01F7:778C", "sprite_slot": 200, "native_sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->242, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W2 KRABBE descriptor 41x21 origin 20,21; native W2 slot 250"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -87,12 +95,16 @@
       "role": "enemy",
       "worlds": ["W3"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; variants install slots 250 and 200."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:713D and 714B return at 714A/715D; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "PENGO.BOB geometry is 36x35, origin 18,35; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:713D/714B converge on live callback 01F7:715E; the sampled animation/state cursor advances each tick while the movement state remains at zero, but transition guards are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show no horizontal displacement in 32 callbacks and only y 400->401; the +0x32 cursor advances in 0x100-byte steps and animation slots change. Pursuit, gravity, and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:715E reaches the shared bounds/map collision helpers. Render geometry is 36x35, origin 18,35; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "PENGO.BOB records 1 and 0 identify the variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W3 resource context selects PENGO.BOB."},
+      "verified_runs": [
+        {"type": "0x09", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:713D", "post_initializer": "01F7:714A", "object_callback": "01F7:715E", "sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "no x displacement; y 400->401", "state_cursor": "object+0x32 advances 0..0x1F00 in 0x100 steps", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 PENGO descriptor 36x35 origin 18,35"},
+        {"type": "0x0A", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:714B", "post_initializer": "01F7:715D", "object_callback": "01F7:715E", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "no x displacement; y 400->401", "state_cursor": "object+0x32 advances 0..0x1F00 in 0x100 steps", "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 PENGO descriptor 36x35 origin 18,35"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -102,12 +114,16 @@
       "role": "enemy",
       "worlds": ["W3"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; both variants install slot 209."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:6651 and 6699 return at 6698/66E0; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "SCHNEE.BOB geometry is 34x26, origin 17,26; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:6651/6699 enter 01F7:66E1 and then shared callback 01F7:6757 in the sampled run; update state remains zero while the vertical path is entered, but full guards are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x0B moving left (x 240->197) and type 0x0C moving right (x 240->281); both fall from y 400 to 420 over 32 callbacks. Pursuit and reset behavior remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "The 66E1/6757 path reaches shared bounds/map collision helpers and uses the shared collision flag. Render geometry is 34x26, origin 17,26; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "SCHNEE.BOB record 0 and live slot 209 are confirmed; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W3 resource ordering resolves slot 209 to SCHNEE.BOB rather than colliding assets."},
+      "verified_runs": [
+        {"type": "0x0B", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6651", "post_initializer": "01F7:6698", "object_callback": "01F7:66E1 -> 01F7:6757", "sprite_slot": 209, "position": [240, 400], "callback_samples": 32, "movement": "left and falling; x 240->197, y 400->420", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 SCHNEE descriptor 34x26 origin 17,26"},
+        {"type": "0x0C", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:6699", "post_initializer": "01F7:66E0", "object_callback": "01F7:66E1 -> 01F7:6757", "sprite_slot": 209, "position": [240, 400], "callback_samples": 32, "movement": "right and falling; x 240->281, y 400->420", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W3 SCHNEE descriptor 34x26 origin 17,26"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -117,12 +133,16 @@
       "role": "enemy",
       "worlds": ["W4"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; both variants install slot 208."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:7ED7 and 7EE5 return at 7EE4/7EF7; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "FLIEGE.BOB geometry is 37x30, origin 18,30; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:7ED7/7EE5 converge on live callback 01F7:7EF8; sampled updates remain in state 0 and exercise the shared movement/collision path, but later transitions are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x15 moving left (x 240->194) and type 0x16 moving right (x 240->286), with y fixed at 400; the countdown and phase bytes advance. Pursuit and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:7EF8 reaches the shared bounds/map collision helpers and sets the object collision flag. Render geometry is 37x30, origin 18,30; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "FLIEGE.BOB record 0 identifies the sprite; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W4 resource context selects FLIEGE.BOB."},
+      "verified_runs": [
+        {"type": "0x15", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7ED7", "post_initializer": "01F7:7EE4", "object_callback": "01F7:7EF8", "sprite_slot": 208, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->194, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 FLIEGE descriptor 37x30 origin 18,30"},
+        {"type": "0x16", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:7EE5", "post_initializer": "01F7:7EF7", "object_callback": "01F7:7EF8", "sprite_slot": 208, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->286, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 FLIEGE descriptor 37x30 origin 18,30"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -132,12 +152,16 @@
       "role": "enemy",
       "worlds": ["W4"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; variants install slots 250 and 200."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:8451 and 845F return at 845E/8471; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "SPINNE.BOB geometry is 36x29, origin 18,29; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:8451/845F converge on live callback 01F7:8472; sampled updates remain in state 0 and exercise the shared movement/collision path, but later transitions are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x17 moving left (x 240->230) and type 0x18 moving right (x 240->249), with y fixed at 400; countdown/phase bytes advance. Pursuit and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:8472 reaches the shared bounds/map collision helpers and sets the object collision flag. Render geometry is 36x29, origin 18,29; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "SPINNE.BOB records 1 and 0 identify the variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W4 resource context selects SPINNE.BOB."},
+      "verified_runs": [
+        {"type": "0x17", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:8451", "post_initializer": "01F7:845E", "object_callback": "01F7:8472", "sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->230, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 SPINNE descriptor 36x29 origin 18,29"},
+        {"type": "0x18", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:845F", "post_initializer": "01F7:8471", "object_callback": "01F7:8472", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->249, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W4 SPINNE descriptor 36x29 origin 18,29"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -147,12 +171,16 @@
       "role": "enemy",
       "worlds": ["W5"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; variants install slots 250 and 200."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:5050 and 505E return at 505D/5070; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "BUGGY.BOB geometry is 33x27, origin 16,27; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:5050/505E converge on live callback 01F7:5071; sampled updates remain in state 0 and exercise the shared movement/collision path, but later transitions are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x19 moving left (x 240->226) and type 0x1A moving right (x 240->253), with y fixed at 400; countdown/phase bytes advance. Pursuit and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:5071 reaches the shared bounds/map collision helpers and sets the object collision flag. Render geometry is 33x27, origin 16,27; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "BUGGY.BOB records 1 and 0 identify the variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W5 resource context selects BUGGY.BOB."},
+      "verified_runs": [
+        {"type": "0x19", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:5050", "post_initializer": "01F7:505D", "object_callback": "01F7:5071", "sprite_slot": 250, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->226, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 BUGGY descriptor 33x27 origin 16,27"},
+        {"type": "0x1A", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:505E", "post_initializer": "01F7:5070", "object_callback": "01F7:5071", "sprite_slot": 200, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->253, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 BUGGY descriptor 33x27 origin 16,27"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -162,12 +190,16 @@
       "role": "enemy",
       "worlds": ["W5"],
       "initializer_fields": {"status": "partial", "known": "Common factory class 1; variants install slots 264 and 214."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callbacks 01F7:5F07 and 5F15 return at 5F14/5F27; state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No controlled trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "UFO.BOB representative geometry is 31x31, origin 15,31; gameplay shape is unknown."},
+      "update_callback_state_machine": {"status": "partial", "known": "Initializers 01F7:5F07/5F15 converge on live callback 01F7:5F28; sampled updates remain in state 0 and exercise the shared movement/collision path, but later transitions are not decoded."},
+      "movement_ai": {"status": "partial", "known": "Near-camera W1L2 traces show type 0x1B moving left (x 240->198) and type 0x1C moving right (x 240->282), with y fixed at 400; countdown/phase bytes advance. Pursuit and long-term bounds remain open."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:5F28 reaches the shared bounds/map collision helpers and sets the object collision flag. Render geometry is 31x31, origin 15,31; exact gameplay shape and response are not isolated."},
       "animation_table": {"status": "partial", "known": "UFO.BOB records 1 and 0 identify the variants; timing table is unknown."},
       "death_removal": {"status": "partial", "known": "Inert replacement removes the object; actual death behavior is unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "W5 resource context selects UFO.BOB; slots 214/264 collide with other families outside W5."},
+      "verified_runs": [
+        {"type": "0x1B", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:5F07", "post_initializer": "01F7:5F14", "object_callback": "01F7:5F28", "sprite_slot": 264, "position": [240, 400], "callback_samples": 32, "movement": "left; x 240->198, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 UFO descriptor 31x31 origin 15,31"},
+        {"type": "0x1C", "fixture": "W1L2 near-camera type mutation from main-tree fixture", "dispatch": "01F7:5F15", "post_initializer": "01F7:5F27", "object_callback": "01F7:5F28", "sprite_slot": 214, "position": [240, 400], "callback_samples": 32, "movement": "right; x 240->282, y 400", "state_observed": [0], "inert_control": "W1L1 anchor type0 allocates no object", "native_world": "W5 UFO descriptor 31x31 origin 15,31"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
       "open_questions": ["movement/AI", "collision", "death and animation timing"]
     },
@@ -191,15 +223,18 @@
       "types": ["0x28"],
       "role": "ambient_visual",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
-      "initializer_fields": {"status": "partial", "known": "Normal dispatch entry 01F7:9256, class 0; standard object+0x12 slot remains unused."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callback/dispatch identity is known, but its per-tick state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "No cloud trajectory or camera-relative movement trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "Visual classification is established, but a definitive no-collision runtime check is still needed."},
+      "initializer_fields": {"status": "confirmed", "known": "01F7:9256 installs callback 01F7:9269, leaves object+0x12 at 0xFFFF, and clears object+0x2A; object class is 0."},
+      "update_callback_state_machine": {"status": "confirmed", "known": "01F7:9269 applies the visibility gate, checks overlap against the persistent player bounds object, and updates the cloud-related global flag; no normal sprite state machine is present."},
+      "movement_ai": {"status": "confirmed", "known": "The callback contains no x/y integration. Three separated W1L1 captures keep the cloud at (368,304), so it is a stationary/camera-gated ambient object rather than a pursuing actor."},
+      "collision_shape_interaction": {"status": "partial", "known": "The callback performs a player-bounds proximity check and writes DS:89E6, but the cloud has no standard sprite slot and a definitive gameplay collision response is not isolated."},
       "animation_table": {"status": "confirmed", "known": "Special renderer maps WOLKE.BOB frames to slots 413-416, each 32x16."},
       "death_removal": {"status": "partial", "known": "Target-vs-inert mutation removes the cloud; off-camera and level-reset behavior are not isolated."},
       "cross_world_variants": {"status": "partial", "known": "Cloud is used in all five world resource contexts; per-world asset/variant selection is not cataloged."},
+      "verified_runs": [
+        {"type": "0x28", "fixture": "W1L1 redirected cloud anchor", "dispatch": "01F7:9256", "post_initializer": "01F7:9269", "object_callback": "01F7:9269", "sprite_slot": 65535, "position": [368, 304], "callback_samples": 3, "movement": "stationary", "inert_control": "paired type0 has no object", "native_world": "WOLKE.BOB slots 413-416, 32x16 origin 0,0"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-28-wolke-sheet.png"],
-      "open_questions": ["movement", "collision", "per-world WOLKE resource resolution"]
+      "open_questions": ["collision response", "per-world WOLKE resource resolution"]
     },
     {
       "id": "falling_leaves",
@@ -209,87 +244,109 @@
       "initializer_fields": {"status": "partial", "known": "Types 0x29-0x2B converge on 01F7:4727/class 1; type-specific movement/orientation setup is only partially decoded."},
       "update_callback_state_machine": {"status": "partial", "known": "Shared callback reaches 01F7:474D and 5D38; PRNG selects one of two animation tables and pooled child leaves update through the shared leaf path."},
       "movement_ai": {"status": "partial", "known": "Runtime proves pooled child objects and two PRNG-selected sequences; continuous falling trajectory and spawn cadence are not fully reconstructed."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "Leaf geometry is 14x12, origin 7,12; player interaction is not established."},
+      "collision_shape_interaction": {"status": "partial", "known": "The shared leaf callback reaches the normal MAP/bounds helper path; player interaction is not established. Leaf geometry is 14x12, origin 7,12."},
       "animation_table": {"status": "confirmed", "known": "BLATT.BOB slots 700-707 and bright 750-757; tables at DS:3312/3326 use delays 8/10 and loop marker -8."},
       "death_removal": {"status": "partial", "known": "ARE target-vs-inert mutation removes the seeded effect; pooled child lifetime/recycling is only sampled, not fully specified."},
-      "cross_world_variants": {"status": "unresolved", "known": "Durable evidence covers W1; other-world leaf resources/variants are not established."},
+      "cross_world_variants": {"status": "not_applicable", "known": "The archive uses types 0x29-0x2B only in W1; no cross-world leaf type/resource variant is present to compare."},
+      "verified_runs": [
+        {"type": "0x2B", "fixture": "W1L1 falling-leaf anchor", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "sprite_slot": 700, "callback_samples": 6, "movement": "pooled child leaves; trajectory/cadence not fully reconstructed", "animation_tables": "DS:3312 / DS:3326", "native_world": "BLATT.BOB slots 700-707 and 750-757"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-2b-falling-leaves-sheet.png"],
-      "open_questions": ["trajectory constants", "collision", "child pool removal", "world variants"]
+      "open_questions": ["trajectory constants", "collision", "child pool removal"]
     },
     {
       "id": "paper",
       "types": ["0x2C"],
       "role": "effect",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
-      "initializer_fields": {"status": "partial", "known": "Initializer 01F7:8C4E and post boundary 8C70 are known; field writes beyond sprite slot 710 are not decoded."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callback identity and slot 710 are confirmed; update transitions are not traced."},
-      "movement_ai": {"status": "unresolved", "known": "No trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "PAPIER.BOB record 0 is 18x15; gameplay interaction is unknown."},
+      "initializer_fields": {"status": "confirmed", "known": "01F7:8C4E installs shared callback 01F7:8D20, slot 710, offsets +0x04/+0x08 adjustments, lifetime/subtype byte +0x2C=5, and bit field +0x2A=0."},
+      "update_callback_state_machine": {"status": "confirmed", "known": "Shared 01F7:8D20 gates visibility, tests a 16-pixel-aligned overlap against the player bounds, dispatches subtype cases, applies the corresponding global effect, then clears object+0x18."},
+      "movement_ai": {"status": "confirmed", "known": "The 8D20 callback never integrates x/y; paper is a fixed ARE placement whose only transition is the overlap-triggered global-effect branch."},
+      "collision_shape_interaction": {"status": "partial", "known": "The exact overlap gate is decoded (object x range +16, y aligned to 16 with +16 extension); subtype 5 takes the paper branch, but the complete gameplay meaning of its global updates is not assigned."},
       "animation_table": {"status": "partial", "known": "Slot 710 resolves to PAPIER.BOB record 0; timing/table ownership is unknown."},
-      "death_removal": {"status": "unresolved", "known": "No isolated removal/deactivation trace."},
+      "death_removal": {"status": "partial", "known": "Shared 8D20 clears object+0x18 after the subtype interaction branch; persistence/respawn and off-camera removal remain unverified."},
       "cross_world_variants": {"status": "partial", "known": "Types occur in W1-W5 levels, but the world-specific resource selection has not been traced."},
+      "verified_runs": [
+        {"type": "0x2C", "fixture": "W1L1 anchor from main-tree entity trace", "dispatch": "01F7:8C4E", "post_initializer": "01F7:8C70", "object_callback": "01F7:8D20", "sprite_slot": 710, "position": [771, 231], "callback_samples": 1, "movement": "stationary placement", "subtype": 5, "native_world": "W2L2 PAPIER descriptor 18x15"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-2c-papier-sheet.png"],
-      "open_questions": ["movement", "collision", "animation timing", "removal", "world asset variants"]
+      "open_questions": ["collision/global effect meaning", "animation timing", "removal/persistence", "world asset variants"]
     },
     {
       "id": "wind",
       "types": ["0x33"],
       "role": "effect",
       "worlds": ["W4"],
-      "initializer_fields": {"status": "partial", "known": "Initializer 01F7:87D1 writes slot 214; remaining object fields are not decoded."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callback/slot boundary is known; state machine is not traced."},
-      "movement_ai": {"status": "unresolved", "known": "No trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "WIND.BOB slot 214 geometry is 33x29, origin 16,29; gameplay interaction is unknown."},
+      "initializer_fields": {"status": "confirmed", "known": "01F7:87D1 loads animation table DS:3504, installs callback 01F7:882F, writes slot 214, offsets y by 0x20, seeds direction/orientation, velocity -0xB000, timer +0x2D=0x14, and collision flag +0x2F=FF."},
+      "update_callback_state_machine": {"status": "partial", "known": "01F7:882F follows the shared visibility, MAP collision, velocity-clamp, direction-flip, and player-range structure; the complete later state path is not decoded."},
+      "movement_ai": {"status": "partial", "known": "Static code seeds a horizontal fixed-point velocity and reverses direction after a timer or map block; a controlled multi-tick trajectory is still needed for exact patrol semantics."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:882F uses directional MAP checks with constants around +/-20 and +/-25 and records blocking in +0x2F. Render geometry is 33x29, origin 16,29; exact gameplay response remains open."},
       "animation_table": {"status": "partial", "known": "Slot 214 resolves to WIND.BOB in W4 context; timing/table ownership is unknown."},
-      "death_removal": {"status": "unresolved", "known": "No isolated removal/deactivation trace."},
+      "death_removal": {"status": "partial", "known": "Callback 01F7:882F takes the off-camera path 01F7:1DCA -> 01F7:1DEE, which clears object+0x18; wind-specific death/reset behavior is not established."},
       "cross_world_variants": {"status": "confirmed", "known": "W4 resource context disambiguates slot 214 as WIND.BOB."},
+      "verified_runs": [
+        {"type": "0x33", "fixture": "W4L1 native selector trace", "dispatch": "01F7:87D1", "post_initializer": "01F7:882E", "object_callback": "01F7:882F", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "y+0x20, direction/orientation, velocity -0xB000, timer 0x14", "native_world": "W4 WIND descriptor 33x29 origin 16,29"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-33-schnee-sheet.png"],
-      "open_questions": ["movement", "collision", "animation timing", "removal"]
+      "open_questions": ["exact trajectory/state names", "collision response", "animation timing", "death/reset"]
     },
     {
       "id": "bump",
       "types": ["0x34"],
       "role": "hazard_effect",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
-      "initializer_fields": {"status": "partial", "known": "Initializer 01F7:9BEE writes slot 400; remaining object fields are not decoded."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callback/slot boundary is known; state machine is not traced."},
-      "movement_ai": {"status": "unresolved", "known": "No trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "partial", "known": "Engine classifies type 0x34 as a hazard; live BUMP_W1 geometry is 32x23, origin 16,23. Original collision path still needs confirmation."},
+      "initializer_fields": {"status": "confirmed", "known": "01F7:9BEE installs callback 01F7:9C0C, adds 0x10 to x and 0x20 to y, loads animation table DS:3568, and writes slot 400."},
+      "update_callback_state_machine": {"status": "confirmed", "known": "01F7:9C0C gates on level state, calls the player-range helper, and on overlap triggers the hazard effect through DS:612E=4; it has no multi-state movement loop."},
+      "movement_ai": {"status": "confirmed", "known": "The callback contains no x/y integration after initialization; BUMP is a stationary hazard at its shifted ARE placement."},
+      "collision_shape_interaction": {"status": "partial", "known": "The callback performs a directional player-range test and triggers the hazard state, but the exact original response/damage helper is not named. Render geometry is 32x23, origin 16,23."},
       "animation_table": {"status": "partial", "known": "Slot 400 resolves to world-specific BUMP_Wn.BOB; timing/table ownership is unknown."},
-      "death_removal": {"status": "unresolved", "known": "No isolated removal/deactivation trace."},
+      "death_removal": {"status": "partial", "known": "Callback 01F7:9C0C uses the shared 01F7:1DCA -> 01F7:1DEE off-camera deactivation path; hazard reset semantics remain open."},
       "cross_world_variants": {"status": "confirmed", "known": "Resource trace captures BUMP_W1.BOB and the resource naming establishes BUMP_W1 through BUMP_W5 variants."},
+      "verified_runs": [
+        {"type": "0x34", "fixture": "W1L2 native selector trace", "dispatch": "01F7:9BEE", "post_initializer": "01F7:9C0B", "object_callback": "01F7:9C0C", "sprite_slot": 400, "callback_samples": 1, "movement": "stationary after x+0x10/y+0x20 initializer shift", "native_world": "W1 BUMP descriptor 32x23 origin 16,23"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-34-bump-sheet.png"],
-      "open_questions": ["movement", "collision response", "animation timing", "removal"]
+      "open_questions": ["collision response", "animation timing", "hazard reset"]
     },
     {
       "id": "ufo_effect",
       "types": ["0x35", "0x36"],
       "role": "effect",
       "worlds": ["W5"],
-      "initializer_fields": {"status": "partial", "known": "Initializers 01F7:544C and 545A install slots 264 and 214; remaining fields are not decoded."},
-      "update_callback_state_machine": {"status": "partial", "known": "Callback identity and slots are confirmed; state transitions are not traced."},
-      "movement_ai": {"status": "unresolved", "known": "No trajectory/AI trace."},
-      "collision_shape_interaction": {"status": "unresolved", "known": "UFO.BOB records resolve to 31x31, origin 15,31; gameplay interaction is unknown."},
+      "initializer_fields": {"status": "confirmed", "known": "01F7:544C/545A set direction/orientation, call common setup 01F7:53F7, install callback 01F7:546D, and negate the seeded velocity for type 0x36; slots are 264/214."},
+      "update_callback_state_machine": {"status": "partial", "known": "01F7:546D follows the shared visibility, MAP collision, velocity-clamp, direction-flip, and player-range structure; the complete later state path is not decoded."},
+      "movement_ai": {"status": "partial", "known": "Static code seeds horizontal fixed-point motion and reverses direction after timer/map events; exact long-term trajectory is not yet sampled."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:546D uses directional MAP checks and the shared player-range gate, recording blocking in +0x2F. Render geometry is 31x31, origin 15,31; exact response remains open."},
       "animation_table": {"status": "partial", "known": "W5 context resolves slots 264/214 to UFO.BOB records 1/0; timing/table ownership is unknown."},
-      "death_removal": {"status": "unresolved", "known": "No isolated removal/deactivation trace."},
+      "death_removal": {"status": "partial", "known": "Callback 01F7:546D follows the shared visibility/deactivation path; effect-specific death/reset behavior is not established."},
       "cross_world_variants": {"status": "confirmed", "known": "W5 resource context resolves archive-wide slot collisions to UFO.BOB."},
+      "verified_runs": [
+        {"type": "0x35", "fixture": "W5L1 native selector trace", "dispatch": "01F7:544C", "post_initializer": "01F7:5459", "object_callback": "01F7:546D", "sprite_slot": 264, "callback_samples": 1, "initializer_fields": "direction/orientation and common setup 53F7", "native_world": "W5 UFO descriptor 31x31 origin 15,31"},
+        {"type": "0x36", "fixture": "W5L1 native selector trace", "dispatch": "01F7:545A", "post_initializer": "01F7:546C", "object_callback": "01F7:546D", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "opposite direction with negated velocity", "native_world": "W5 UFO descriptor 31x31 origin 15,31"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md"],
-      "open_questions": ["movement", "collision", "animation timing", "removal"]
+      "open_questions": ["exact trajectory/state names", "collision response", "animation timing", "death/reset"]
     },
     {
       "id": "moving_platform",
       "types": ["0x3D", "0x3E", "0x3F", "0x40"],
       "role": "moving_platform",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
-      "initializer_fields": {"status": "partial", "known": "Distinct initializers converge on update callback 01F7:9DC7; slots are 301,300,301,300."},
-      "update_callback_state_machine": {"status": "partial", "known": "Shared update callback is confirmed; motion-table state transitions are not decoded."},
-      "movement_ai": {"status": "unresolved", "known": "The motion tables and trajectory constants remain explicitly open in the notes."},
-      "collision_shape_interaction": {"status": "partial", "known": "Engine treats the active footprint as one-way floor; native geometry is 32x14 or 48x16 with origin 0,0. Original collision semantics need runtime confirmation."},
+      "initializer_fields": {"status": "confirmed", "known": "Distinct initializers 01F7:9CF5/9D19/9D5E/9D82 converge on callback 01F7:9DC7 and seed x/y velocities, grid flags, timer fields, and slots 301/300/301/300."},
+      "update_callback_state_machine": {"status": "partial", "known": "01F7:9DC7 gates on camera and bounds, maintains horizontal/vertical velocity branches, snaps to 16-pixel grid on MAP collision, and routes player-carry state through helper 01F7:A0B2; the terminal/reset table is not fully named."},
+      "movement_ai": {"status": "confirmed", "known": "The callback directly integrates x or y fixed-point velocity, reverses at MAP boundaries, uses timer +0x54/+0x52 phases, and snaps to grid after blocked motion. It is a deterministic motion-table platform, not pursuit AI."},
+      "collision_shape_interaction": {"status": "partial", "known": "01F7:9DC7 performs repeated MAP collision checks and computes player-relative carry offsets; native geometry is 32x14 or 48x16 with origin 0,0. One-way floor response is an engine-side compatibility hypothesis, not yet an original-runtime proof."},
       "animation_table": {"status": "partial", "known": "PLATFW world resources resolve slots 300/301; frame/timing tables are not decoded."},
-      "death_removal": {"status": "unresolved", "known": "No platform deactivation or reset trace."},
+      "death_removal": {"status": "partial", "known": "The offscreen branch at 01F7:A06F calls 01F7:1DEE and clears the platform callback; level-reset and respawn behavior remain open."},
       "cross_world_variants": {"status": "confirmed", "known": "Resource traces cover PLATFW1, PLATFW2, PLATFW3, and PLATFW4; W5 usage is cataloged but not independently traced."},
+      "verified_runs": [
+        {"type": "0x3D", "fixture": "W4L1 native selector trace", "dispatch": "01F7:9CF5", "post_initializer": "01F7:9D18", "object_callback": "01F7:9DC7", "sprite_slot": 301, "callback_samples": 1, "motion_fields": "x/y velocity, grid phase, timer, carry flags", "native_world": "PLATFW4 descriptor 32x14 origin 0,0"},
+        {"type": "0x3E", "fixture": "W3L2 native selector trace", "dispatch": "01F7:9D19", "post_initializer": "01F7:9D38", "object_callback": "01F7:9DC7", "sprite_slot": 300, "callback_samples": 1, "native_world": "PLATFW3 descriptor 48x16 origin 0,0"},
+        {"type": "0x3F", "fixture": "W1L3 native selector trace", "dispatch": "01F7:9D5E", "post_initializer": "01F7:9D81", "object_callback": "01F7:9DC7", "sprite_slot": 301, "callback_samples": 1, "native_world": "PLATFW1 descriptor 32x14 origin 0,0"},
+        {"type": "0x40", "fixture": "W2L1 native selector trace", "dispatch": "01F7:9D82", "post_initializer": "01F7:9DA1", "object_callback": "01F7:9DC7", "sprite_slot": 300, "callback_samples": 1, "native_world": "PLATFW2 descriptor 48x16 origin 0,0"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "engine/src/level.cpp"],
-      "open_questions": ["motion tables", "world W5 resource confirmation", "animation timing", "removal"]
+      "open_questions": ["terminal/reset table", "player-carry collision response", "world W5 resource confirmation", "animation timing", "removal"]
     },
     {
       "id": "dedicated_event",
@@ -311,15 +368,21 @@
       "types": ["0x6F", "0x70", "0x71", "0x72"],
       "role": "collectible",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
-      "initializer_fields": {"status": "partial", "known": "Callbacks install slots 607-610 in object+0x12; common update callback 01F7:8D20 and remaining fields are not decoded."},
-      "update_callback_state_machine": {"status": "partial", "known": "Shared update callback is confirmed; idle/collected transitions are not traced in the original executable."},
-      "movement_ai": {"status": "partial", "known": "ARE placements are fixed and no movement is observed in the existing evidence; a bounded idle trace is still needed."},
-      "collision_shape_interaction": {"status": "partial", "known": "Engine classifies these as collectible and applies a radius; original player overlap, inventory, and score paths need runtime confirmation."},
+      "initializer_fields": {"status": "confirmed", "known": "Initializers 01F7:8BC2/8BE5/8C08/8C2B install slots 607-610, shared callback 01F7:8D20, and subtype bytes +0x2C=1/2/3/4 with bit field +0x2A=0."},
+      "update_callback_state_machine": {"status": "confirmed", "known": "Shared 01F7:8D20 gates visibility, checks a 16-pixel-aligned player overlap, dispatches subtype cases, applies global inventory/score effects, and clears object+0x18 on the interaction path."},
+      "movement_ai": {"status": "confirmed", "known": "The callback contains no x/y integration; pickups are fixed ARE placements and remain idle until the overlap branch."},
+      "collision_shape_interaction": {"status": "partial", "known": "The exact overlap gate is decoded (x range +16 and y range aligned to 16 with +16 extension); subtype branches are present, but the complete inventory/score semantics are not assigned."},
       "animation_table": {"status": "partial", "known": "WERBE.BOB records 0-3 resolve slots 607-610 with dimensions 26x34, 21x22, 22x22, and 15x25; timing tables are unknown."},
       "death_removal": {"status": "partial", "known": "Target-vs-inert mutations remove the objects and the engine marks collected entities inactive; persistence/respawn semantics are unverified."},
       "cross_world_variants": {"status": "confirmed", "known": "Native W1/W2 probes resolve the same WERBE.BOB family; all-world usage is cataloged but later-world resource traces are missing."},
+      "verified_runs": [
+        {"type": "0x6F", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8BC2", "post_initializer": "01F7:8BCE", "object_callback": "01F7:8D20", "sprite_slot": 607, "position": [801, 238], "callback_samples": 1, "subtype": 1, "native_world": "WERBE.BOB record 0, 26x34 origin 0,0"},
+        {"type": "0x70", "fixture": "W1L2 native selector trace", "dispatch": "01F7:8BE5", "post_initializer": "01F7:8BF1", "object_callback": "01F7:8D20", "sprite_slot": 608, "callback_samples": 1, "subtype": 2, "native_world": "WERBE.BOB record 1, 21x22 origin 0,0"},
+        {"type": "0x71", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C08", "post_initializer": "01F7:8C14", "object_callback": "01F7:8D20", "sprite_slot": 609, "callback_samples": 1, "subtype": 3, "native_world": "WERBE.BOB record 2, 22x22 origin 0,0"},
+        {"type": "0x72", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C2B", "post_initializer": "01F7:8C37", "object_callback": "01F7:8D20", "sprite_slot": 610, "callback_samples": 1, "subtype": 4, "native_world": "WERBE.BOB record 3, 15x25 origin 0,0"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "engine/src/level.cpp"],
-      "open_questions": ["original collection callback", "inventory effects", "respawn", "animation timing"]
+      "open_questions": ["collision response", "inventory effects", "respawn", "animation timing"]
     },
     {
       "id": "puzzle_letter",
@@ -327,14 +390,23 @@
       "role": "collectible",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
       "initializer_fields": {"status": "confirmed", "known": "Initializers install consecutive slots 600-606 in object+0x12; all use object class 1 and common setup."},
-      "update_callback_state_machine": {"status": "partial", "known": "Type callbacks 01F7:8C71 through 8D07 converge on update callback 01F7:8D20; per-state behavior is not decoded."},
-      "movement_ai": {"status": "partial", "known": "Fixed ARE placements are known; no movement trace is retained."},
-      "collision_shape_interaction": {"status": "partial", "known": "Engine classifies letters as collectible, but original overlap and puzzle-state mutation are not confirmed."},
+      "update_callback_state_machine": {"status": "confirmed", "known": "Type callbacks 01F7:8C71 through 8D07 set +0x2A bit values 1,2,4,8,0x10,0x20,0x40 and converge on 01F7:8D20; overlap applies the bit to DS:60D8 and clears object+0x18."},
+      "movement_ai": {"status": "confirmed", "known": "The shared callback contains no x/y integration; letters are fixed ARE placements and remain idle until collected."},
+      "collision_shape_interaction": {"status": "confirmed", "known": "01F7:8D20 performs the original player-overlap gate (x range +16, 16-aligned y range +16); letter collection ORs the initializer bitmask into DS:60D8."},
       "animation_table": {"status": "confirmed", "known": "PUZZLE.BOB records 0-6 are 16x16 and render N,E,S,Q,U,I,K in slot order."},
-      "death_removal": {"status": "partial", "known": "Collection/removal and puzzle completion behavior require a targeted runtime experiment."},
+      "death_removal": {"status": "partial", "known": "Shared 8D20 clears object+0x18 after letter collection and records the bit in DS:60D8; level completion, persistence, and respawn semantics remain open."},
       "cross_world_variants": {"status": "confirmed", "known": "All five worlds use the same slot sequence/resource family in the catalog; world-specific asset substitutions are not indicated."},
+      "verified_runs": [
+        {"type": "0x79", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C71", "post_initializer": "01F7:8C7D", "object_callback": "01F7:8D20", "sprite_slot": 600, "position": [768, 224], "callback_samples": 1, "collection_bit": 1, "native_world": "PUZZLE.BOB record 0, N 16x16 origin 0,0"},
+        {"type": "0x7A", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8C8A", "post_initializer": "01F7:8C96", "object_callback": "01F7:8D20", "sprite_slot": 601, "callback_samples": 1, "collection_bit": 2, "native_world": "PUZZLE.BOB record 1, E 16x16 origin 0,0"},
+        {"type": "0x7B", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8CA3", "post_initializer": "01F7:8CAF", "object_callback": "01F7:8D20", "sprite_slot": 602, "callback_samples": 1, "collection_bit": 4, "native_world": "PUZZLE.BOB record 2, S 16x16 origin 0,0"},
+        {"type": "0x7C", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8CBC", "post_initializer": "01F7:8CC8", "object_callback": "01F7:8D20", "sprite_slot": 603, "callback_samples": 1, "collection_bit": 8, "native_world": "PUZZLE.BOB record 3, Q 16x16 origin 0,0"},
+        {"type": "0x7D", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8CD5", "post_initializer": "01F7:8CE1", "object_callback": "01F7:8D20", "sprite_slot": 604, "callback_samples": 1, "collection_bit": 16, "native_world": "PUZZLE.BOB record 4, U 16x16 origin 0,0"},
+        {"type": "0x7E", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8CEE", "post_initializer": "01F7:8CFA", "object_callback": "01F7:8D20", "sprite_slot": 605, "callback_samples": 1, "collection_bit": 32, "native_world": "PUZZLE.BOB record 5, I 16x16 origin 0,0"},
+        {"type": "0x7F", "fixture": "W1L1 native selector trace", "dispatch": "01F7:8D07", "post_initializer": "01F7:8D13", "object_callback": "01F7:8D20", "sprite_slot": 606, "callback_samples": 1, "collection_bit": 64, "native_world": "PUZZLE.BOB record 6, K 16x16 origin 0,0"}
+      ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/notes/type-7a-puzzle-sheet.png", "engine/src/level.cpp"],
-      "open_questions": ["collection callback", "puzzle state mutation", "removal/respawn"]
+      "open_questions": ["level completion", "persistence/removal", "respawn"]
     }
   ]
 }

@@ -133,14 +133,23 @@ local function choose_level(level)
                      string.char(selector_index & 0xff, selector_index >> 8))
     dosbox.breakpoint_set(0x01d7, 0x4b18, {once = true})
     dosbox.mem_write("ds", 0x88bc, "\x20\x00")
+    -- The first ARE declaration can execute in the same resumed slice as the
+    -- selector dispatch, so arm it before leaving the selector breakpoint.
+    dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
     dosbox.debug_continue()
     dosbox.output.checkpoints.launch = wait_hit("selector Space dispatch")
+    -- Leave the launch breakpoint and let the polling loop consume the first
+    -- declaration hit, mirroring the resource tracer lifecycle.
+    dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+    dosbox.debug_continue()
+    return true
 end
 
 dosbox.output.awaiting_startup_replay = true
 dosbox.wait_frames(350)
+local first_declaration = false
 if select_level ~= "" then
-    choose_level(select_level)
+    first_declaration = choose_level(select_level)
 else
     dosbox.key("KBD_space", true)
     dosbox.wait_frames(4)
@@ -152,7 +161,11 @@ end
 -- requested by its type/record, which is outside this tracer's intended use.
 local target_declaration = nil
 for attempt = 1, 4096 do
-    dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+    if first_declaration then
+        first_declaration = false
+    else
+        dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+    end
     local entry = wait_hit("ARE declaration")
     local record = dosbox.mem_read("fs", entry.registers.ebx & 0xffff, 6)
     local entity_type = word(record, 1) & 0xff
@@ -164,6 +177,7 @@ for attempt = 1, 4096 do
         break
     end
     dosbox.debug_continue()
+    dosbox.wait_frames(1)
 end
 assert(target_declaration ~= nil, "target ARE declaration was not found")
 

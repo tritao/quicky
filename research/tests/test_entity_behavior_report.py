@@ -63,10 +63,10 @@ class EntityBehaviorReportTests(unittest.TestCase):
         self.assertEqual(summary["type_count"], 50)
         self.assertEqual(
             summary["dimension_status_counts"]["update_callback_state_machine"]["confirmed"],
-            2,
+            7,
         )
         self.assertGreater(
-            summary["dimension_status_counts"]["movement_ai"]["unresolved"], 0
+            summary["dimension_status_counts"]["movement_ai"]["partial"], 0
         )
 
     def test_validator_rejects_missing_dimension(self):

@@ -51,6 +51,18 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertIn("initialized_object.update_callback", source)
         self.assertIn("if expected_type == 0 then", source)
 
+    def test_selector_declaration_breakpoint_is_armed_before_resume(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("local first_declaration = false", source)
+        self.assertIn("first_declaration = choose_level(select_level)", source)
+        self.assertIn("if first_declaration then", source)
+        self.assertIn("dosbox.wait_frames(1)", source)
+        self.assertGreaterEqual(
+            source.count("dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})"),
+            2,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
