@@ -364,6 +364,24 @@ in [`effect-mappings.json`](effect-mappings.json). In that comparison, types
 (`1`, `2`, and `3`); their sampled state progression, MAP queries, emitted
 effect sequence, and ICO lookups are identical.
 
+The static decode of `01F7:8E4B` explains that progression. The callback
+increments `object+0x32`; after the zero-state eligibility gate, it emits five
+MAP-derived effects at each of states `4`, `6`, `8`, and `10`. The state-4
+coordinates are `(Y, X) = (object+0x08, object+0x04 +
+0x10/0x00/0x20/0x30/0x40)`. States 6, 8, and 10 use Y offsets `0x10`, `0x20`,
+and `0x30`, respectively, and X offsets `0x10/0x20/0x30/0x40/0x50`.
+Each tile ID returned by `01F7:3376` indexes `DS:6986`; zero entries are
+skipped, while nonzero entries call `01F7:16CE` with the queried coordinates
+and effect value. At state 10 the callback clears `object+0x18` and publishes
+the terminal coordinates at `DS:8828/DS:882A`.
+
+The helper's exact address calculation is
+`DS:657A + (AX >> 4) * DS:657E + (BX >> 4) * 2`, followed by a word read in
+the segment selected by `DS:657C` and `& 0x01FF`. Here `AX` is Y, `BX` is X,
+and `DS:657E` is the MAP row's byte stride. The static details and the
+relocation-backed call sites are recorded in
+[`notes/ghidra-analysis.md`](notes/ghidra-analysis.md).
+
 ### Dedicated transient event types `0x65`-`0x67`
 
 These three types do not use `DS:81D2`. Their wrappers set `DS:36EE` to

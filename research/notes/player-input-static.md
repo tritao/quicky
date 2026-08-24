@@ -74,11 +74,13 @@ target bounds in `DS:36FC/36FE/3700/3702`. It publishes the integer camera at
 values to stream 64-pixel ARE regions.
 
 `01F7:3376` converts the supplied coordinates to a MAP cell using four-bit
-shifts, the loaded MAP width (`DS:657E`), and the MAP base (`DS:657A`), then
-masks the result to the low nine-bit tile ID. It therefore proves the
-16-pixel addressing used by the state-machine traces, while also showing that
-this helper intentionally discards the high MAP property bits; collision and
-hazard semantics still need a separate path.
+shifts and the far MAP buffer. Its exact expression is
+`DS:657A + (AX >> 4) * DS:657E + (BX >> 4) * 2`, where `AX` is Y, `BX` is X,
+and `DS:657E` is the byte stride of one MAP row. It reads the word through
+the segment in `DS:657C` and masks the result to the low nine-bit tile ID. It
+therefore proves the 16-pixel addressing used by the state-machine traces,
+while also showing that this helper intentionally discards the high MAP
+property bits; collision and hazard semantics still need a separate path.
 
 The targeted MAP-user survey adds a useful negative result. `01F7:20C8` and
 `01F7:2CB2` are renderer paths: they read a MAP word, mask it with `0x01ff`,

@@ -561,6 +561,58 @@ matched W2L1 run of types `0x1F`, `0x20`, and `0x21`, are recorded in
 all produce update states `0,1,2,3` and effect sequence `127,126,128,129,130`;
 only the initial `object+0x2E` field changes from `1` to `2` to `3`.
 
+### Static decode of `01F7:8E4B` and `01F7:3376`
+
+The raw-segment disassembly and NE relocation records resolve the state-machine
+control flow more precisely than the runtime summary alone. `01F7:8E4B`
+increments `object+0x32` on every nonzero-state callback. Its zero-state path
+calls `01F7:1DCA`; on carry it calls `01F7:1DEE` and returns, otherwise it
+calls `01F7:393C` and applies the object/camera eligibility checks. An eligible
+object is initialized to state 1. The subsequent exact state values are 4, 6,
+8, and 10; values between those checkpoints simply return after the increment.
+
+Each checkpoint performs five copies of the same sequence:
+
+1. call `01F7:3376` with `AX = object+0x08 + y_offset` and
+   `BX = object+0x04 + x_offset`;
+2. use the returned low-nine-bit tile ID as an index into
+   `DS:6986[tile_id]` (`word` stride 2);
+3. if that effect entry is nonzero, call `01F7:16CE` with the queried X/Y
+   coordinates and the effect value in both `CX` and `DX`.
+
+The statically decoded lookup grid is:
+
+| `object+0x32` | Y argument | X offsets, in call order |
+| ---: | --- | --- |
+| 4 | `object+0x08` | `+0x10, +0x00, +0x20, +0x30, +0x40` |
+| 6 | `object+0x08 + 0x10` | `+0x10, +0x20, +0x30, +0x40, +0x50` |
+| 8 | `object+0x08 + 0x20` | `+0x10, +0x20, +0x30, +0x40, +0x50` |
+| 10 | `object+0x08 + 0x30` | `+0x10, +0x20, +0x30, +0x40, +0x50` |
+
+At state 10 the callback clears `object+0x18`, ending the state-machine
+object, and publishes `object+0x04 + 0x19` and `object+0x08 + 0x46` at
+`DS:8828` and `DS:882A`. The purpose of those two published coordinates is
+not assigned beyond this executable-level fact.
+
+The MAP helper at `01F7:3376` is correspondingly:
+
+```c
+uint16_t map_tile_id_lookup_16px(uint16_t y, uint16_t x) {
+    uint8_t *cell = DS_657A
+        + (y >> 4) * DS_657E       /* byte stride of one MAP row */
+        + (x >> 4) * 2;             /* two bytes per big-endian cell */
+    return read_u16(ES, cell) & 0x01ff;
+}
+```
+
+Ghidra's equivalent expression is
+`*(uint16_t *)(DS:657A + (AX >> 4) * DS:657E + (BX >> 4) * 2) & 0x01ff`.
+The helper loads `ES` from `DS:657C` before reading, so `DS:657A/DS:657C`
+are the far MAP buffer and `DS:657E` is the loaded row-byte stride. The W2L1
+trace's state-4 calls `(AX,BX) = (336,448), (336,432), (336,464),
+(336,480), (336,496)` match the first table row exactly; the post-state
+effects `127,126,128,129,130` match the `DS:6986` and ICO evidence above.
+
 The neighboring normal dispatch range `0x79`-`0x7F` is a seven-piece puzzle
 letter family. Static disassembly of `QUIKY_SEG03.bin` shows dispatch entries
 at `DS:81D2+0x1E4` through `+0x1FC`: each initializer writes one consecutive

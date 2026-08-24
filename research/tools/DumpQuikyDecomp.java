@@ -119,6 +119,7 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"33bf", "seg3_target_33bf"},
                 {"3376", "map_tile_id_lookup_16px"},
                 {"342f", "seg3_target_342f"},
+                {"8e4b", "update_tile_effect_state_machine"},
                 {"f17f", "keyboard_irq1_handler"},
                 {"f1a8", "poll_keyboard_ring_to_input_flags"},
                 {"f21b", "read_normalized_input_flags"},

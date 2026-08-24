@@ -162,6 +162,8 @@ public class AnnotateQuiky extends GhidraScript {
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
         function(0x3376, "map_tile_id_lookup_16px",
             "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E and returns only the low 9-bit tile ID.");
+        function(0x8e4b, "update_tile_effect_state_machine",
+            "Dispatches the shared tile-effect object state machine through object +0x32; state branches call the MAP lookup and create transient effects.");
         function(0x20c8, "render_map_column",
             "Reads MAP cells, masks each to the low 9-bit tile ID, and writes column-interleaved VGA tile pixels.");
         function(0x2cb2, "render_map_strip",
