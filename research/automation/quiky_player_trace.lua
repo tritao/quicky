@@ -47,7 +47,11 @@ local function arm_effect_table_lifecycle()
     if not effect_table_focus then return end
     for index, offset in ipairs(effect_table_offsets) do
         if index ~= 1 and offset ~= 0x0e06 then
+            -- Indirect pooled callbacks are dispatched through the runtime
+            -- code selector stored in DS:7566 (0x1997), while direct calls
+            -- from the player segment use 0x01f7.
             dosbox.breakpoint_set(0x01f7, offset, {once = true})
+            dosbox.breakpoint_set(0x1997, offset, {once = true})
         end
     end
 end
@@ -174,6 +178,48 @@ local function pool_snapshot()
         kind_0x64_count = #kind_0x64,
         objects = objects,
         kind_0x64 = kind_0x64,
+    }
+end
+
+-- The ordinary pool ledger omits free records.  The producer probe needs the
+-- complete callback-word view because 01F7:0E06 allocates the first record
+-- whose +0x18 callback word is zero.
+local function pool_callback_summary()
+    local pointer_raw = dosbox.mem_read("ds", 0x755e, 4) or ""
+    if #pointer_raw < 4 then return {error = "object pool pointer is truncated"} end
+    local pointer = dword(pointer_raw, 1)
+    local pool_offset = pointer & 0xffff
+    local pool_selector = (pointer >> 16) & 0xffff
+    local stride = dosbox.mem_read_word("ds", 0x30ce)
+    local callbacks = {}
+    local occupied = 0
+    if pool_selector == 0 or stride == 0 then
+        return {selector = pool_selector, offset = pool_offset,
+                stride = stride, callbacks = callbacks}
+    end
+    for index = 0, 63 do
+        local offset = pool_offset + index * stride
+        local ok, raw_or_error = pcall(
+            dosbox.mem_read_selector, pool_selector, offset, 0x40
+        )
+        if ok and raw_or_error and #raw_or_error >= 0x40 then
+            local object = object_snapshot(raw_or_error, pool_selector, offset, index)
+            if object.callback ~= 0 then occupied = occupied + 1 end
+            callbacks[#callbacks + 1] = {
+                index = index,
+                offset = offset,
+                callback = object.callback,
+                action_word = object.action_word,
+                sprite_slot = object.sprite_slot,
+            }
+        end
+    end
+    return {
+        selector = pool_selector,
+        offset = pool_offset,
+        stride = stride,
+        occupied = occupied,
+        callbacks = callbacks,
     }
 end
 
@@ -625,6 +671,9 @@ local function record_effect_table(sample, hit)
     }
     sample.effect_table_events = sample.effect_table_events or {}
     sample.effect_table_events[#sample.effect_table_events + 1] = event
+    if hit.offset == 0x0e06 then
+        event.factory_pool_before = pool_callback_summary()
+    end
 end
 
 local function force_player_action(sample, hit)
@@ -824,6 +873,7 @@ for sequence = 1, sample_count do
             local collision_return = nil
             local effect_table_tail_seen = false
             local factory_breakpoint_armed = false
+            local factory_seen = false
             while returned == nil do
                 dosbox.breakpoint_set(return_segment, return_offset, {once = true})
                 if property_return ~= nil then
@@ -874,6 +924,9 @@ for sequence = 1, sample_count do
                         collision_return = far_return_location(candidate)
                     elseif is_effect_table_target(candidate.offset) then
                         record_effect_table(sample, candidate)
+                        if candidate.offset == 0x0e06 then
+                            factory_seen = true
+                        end
                         if candidate.offset == effect_table_offsets[1] then
                             effect_table_tail_seen = true
                             force_player_action(sample, candidate)
@@ -895,6 +948,9 @@ for sequence = 1, sample_count do
             else
                 sample.player_callback.post_object_read_error =
                     ok and "short object state" or tostring(raw_or_error)
+            end
+            if factory_seen then
+                sample.factory_pool_after = pool_callback_summary()
             end
         end
         if map_focus and sample.map_lookup == nil then

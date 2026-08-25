@@ -88,21 +88,24 @@
       "interpretation": "The ordinary input path does not raise the producer's 0x10 flag in this fixture; the trigger is likely a collision/death or other gameplay-state transition rather than directional input."
     },
     "forced_trigger_probe": {
-      "trace": "research/build/player-effect-table-force-action-w1l1-v4.json",
-      "trace_sha256": "504911cd749d5f79cf1443e17b04bab4702e2120740a777b2aafb16d596bc0b7",
-      "trace_script_sha256": "fa4c736e8ff259c381193a30841e3cb57ab893b846035dfbe0db6852cdd7bf02",
+      "trace": "research/build/player-effect-table-force-action-w1l1-v7.json",
+      "trace_sha256": "6e7e000288aaa5701d2989e53ccd4f4f8ad3d7200adfda5c81865ad5047cb107",
+      "trace_script_sha256": "88a59f2eb0f05b5e9c463011601a058c9849833192a5d12c1b769f27196b3bcc",
       "fixture": "W1L1 main-tree native selector",
       "samples": 1,
       "mutation": "At 01F7:38EC, write player action word 0x0010 before the producer condition is evaluated.",
       "observed": [
         "The producer branch writes object byte +0x3C from 0x00 to 0xFF.",
         "The relocated factory 01F7:0E06 is reached with AX=0x4519.",
-        "The player callback returns with action word 0x0010; no 01F7:4519 callback entry is observed before the player-callback barrier ends."
+        "The factory pool ledger shows occupancy 8 -> 9 and slot 1 carrying callback 0x4519 after the factory returns.",
+        "One guest frame later occupancy is back to 8; no 01F7:4519, 01F7:45AB, or 01F7:470C breakpoint is observed.",
+        "The player callback returns with action word 0x0010."
       ],
-      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied. This closes the player-state-to-factory edge but does not yet identify the gameplay transition that authors the bit or the later pooled-object callback scheduling."
+      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The callback's scheduler/list handoff or immediate removal occurs within the next guest frame and remains unresolved; the authored gameplay transition that sets bit 0x10 also remains open."
     },
   "remaining": [
     "Which gameplay state sets player object flags bit 0x10 and therefore triggers 01F7:38EC in normal play.",
+    "How the newly allocated callback-4519 record is inserted into the scheduler/list or removed within the next guest frame.",
     "Whether Wind/UFO authored declarations use this player-state producer or another producer path.",
     "The semantic names and level/reload triggers of the two reset callsites."
   ]

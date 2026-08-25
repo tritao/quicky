@@ -362,8 +362,12 @@ The same pass closes the branch-level behavior for the remaining effects:
   actual `01F7:38EC` entry (rather than its earlier `4384` prelude) writes
   action word `0x0010`, observes byte `+0x3C: 0 -> FF`, and reaches the
   relocation-backed factory `01F7:0E06` with `AX=0x4519`. This closes the
-  player-state-to-factory edge; the authored gameplay transition that sets the
-  bit and the later pooled-object callback scheduling remain open. See
+  player-state-to-factory edge. The same ledger shows pool occupancy `8 -> 9`
+  with slot 1 carrying callback `4519` after the factory, then occupancy `9 -> 8`
+  one guest frame later without a captured `4519/45AB/470C` entry. The
+  scheduler/list handoff or immediate removal is therefore the next precise
+  boundary; the authored gameplay transition that sets the bit also remains
+  open. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
