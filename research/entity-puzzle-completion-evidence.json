@@ -142,7 +142,35 @@
       "final_ds_88ae": 0,
       "completion_flag_after_probe": 0,
       "interpretation": "Within this bounded current-script diagnostic, the forced outer cloud gate reaches the completion consumer and PIT wait helper but none of the known END stage writers fire; DS:88AE remains zero. This is a negative timing boundary, not evidence that the fully authored boss/end transition never advances the stage."
+    },
+    "transition_release_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-transition-release.json",
+      "trace_sha256": "57b3177a669384443daa289add64bb33265f5316280d10cde691f70240ef4372",
+      "trace_script_sha256": "03c536db7e5836dca7960b669e08ec915ca689bbd41da27db899aaa85b0acd41",
+      "fixture": "W1L1 type-0x7F synthetic final-letter archive variant from the main-tree QUIKY.EXE/NESTLE.DAT",
+      "controls": [
+        "force DS:89E6=0xFFFF to enter the real outer completion consumer",
+        "release the segment-4 PIT compare at 0207:10D3/10EE/1107 in debugger memory",
+        "clear the post-bonus 01E7:0CAA input-wait predicate",
+        "release the post-bonus audio/UI loops at 01D7:01D6/01F0",
+        "force DS:89E0=0 at 01D7:4FAF and patch the diagnostic copy of 01D7:5010 to fall through"
+      ],
+      "native_hits_through_handoff": [
+        "01D7:4EA0", "01D7:4EAA", "01D7:4F0D", "01D7:14E1", "01D7:1670",
+        "01D7:16C6", "01D7:16DE", "01D7:16F0", "01D7:1704", "01D7:4F10", "01D7:4FAF"
+      ],
+      "presentation_and_ack_hits": [
+        "0207:10CB", "0207:10D3", "0207:10D7", "0207:1113",
+        "01E7:0D18", "01E7:0F41", "01E7:0CAA", "0207:022A", "0207:02A2",
+        "01F7:0002", "01D7:1732"
+      ],
+      "completion_flag_after_probe": 1,
+      "selector_index_after_probe": 16,
+      "selector_state_after_probe": 0,
+      "score_after_probe": {"low_word": 2100, "high_word": 0},
+      "transition_setup_hits": [],
+      "interpretation": "Controlled release of the authored presentation/audio/input waits now proves the native DS:85DB handoff through 01D7:4F10-4FAF and the selector advance to 0x10. The downstream 01D7:5017/5038/5047 resource/object calls remain statically resolved but did not fire in this synthetic fixture even after the DS:89E0 gate was forced; this is a runtime-boundary result, not evidence that the retail reload branch is absent."
     }
   },
-  "conclusion": "The final-letter probe successfully reaches mask 0x7F and performs the normal letter effect/removal. The ungated synthetic run misses the authored consumer because 01D7:4EA0-4EAA requires DS:89E6 != 0. Static disassembly and the gated diagnostic close the presentation trigger: 01D7:14E1 reaches 01D7:1670, 01D7:16C6-1704 presents the completion/bonus text, adds 2000 points, and sets DS:85DB=1. The post-message continuation uses the segment-4 PIT wait helper at 0207:10A9; the bounded diagnostic ended in that helper without reaching 01D7:4FAF-5047, so exact transition timing remains open."
+  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The new controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. Exact retail timing and the downstream resource/object reload calls at 01D7:5017/5038/5047 still need a non-synthetic completion or a more faithful transition fixture."
 }

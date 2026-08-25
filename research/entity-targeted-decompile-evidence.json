@@ -52,6 +52,13 @@
         "hardware": "PIT channel 0 via ports 43h and 40h",
         "behavior": "Samples the PIT twice when the count matches DS:97F4, reloads the timer divisor 0x03E8 when still equal, and returns after storing a changed count."
       },
+      "completion_transition_handoff": {
+        "caller_gate": "01D7:4F10 tests DS:85DB and branches to 01D7:4FAF",
+        "selector_mapping": "01D7:4FAF copies DS:85D4 to DS:85D6 and maps the next selector index to 0x10-0x14",
+        "reload_setup": ["01D7:5017", "01D7:5038", "01D7:5047"],
+        "controlled_runtime": "A debugger-only release of the presentation PIT/input/audio waits reached 01D7:4F10 and 01D7:4FAF and advanced DS:85D4 to 0x10; the downstream reload calls were not reached in the synthetic W1L1 fixture.",
+        "remaining": "Capture the same handoff in a fully authored all-seven-letter level or identify the exact DS:89E0/transition resource state that permits 5017-5047 to execute."
+      },
       "bob_resource_loader": {
         "loader": "01D7:399E",
         "slot_map_helper": "01F7:05A0",

@@ -45,6 +45,7 @@ local reload_wait_frames = trace_config.reload_wait_frames or 30
 local force_tile_mask = trace_config.force_tile_mask
 local trace_puzzle_completion = trace_config.trace_puzzle_completion or false
 local force_completion_outer_state = trace_config.force_completion_outer_state or false
+local force_completion_wait_release = trace_config.force_completion_wait_release or false
 local puzzle_probe_frames = trace_config.puzzle_probe_frames or 120
 local runtime_offset = record_offset - 0x160
 
@@ -970,17 +971,35 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         {segment = 0x01d7, offset = 0x4f0d},
         {segment = 0x0207, offset = 0x10a9},
         {segment = 0x0207, offset = 0x10cb},
+        {segment = 0x0207, offset = 0x10d3},
+        {segment = 0x0207, offset = 0x10d7},
         {segment = 0x0207, offset = 0x1113},
         {segment = 0x01d7, offset = 0x1670},
         {segment = 0x01d7, offset = 0x16c6},
         {segment = 0x01d7, offset = 0x16de},
         {segment = 0x01d7, offset = 0x16f0},
         {segment = 0x01d7, offset = 0x1704},
+        {segment = 0x01d7, offset = 0x1709},
+        {segment = 0x01d7, offset = 0x1732},
+        {segment = 0x0207, offset = 0x022a},
+        {segment = 0x0207, offset = 0x02a2},
+        {segment = 0x01e7, offset = 0x0d18},
+        {segment = 0x01e7, offset = 0x0caa},
+        {segment = 0x01e7, offset = 0x0f10},
+        {segment = 0x01e7, offset = 0x0f41},
+        {segment = 0x01f7, offset = 0x0002},
         {segment = 0x01d7, offset = 0x4f10},
         {segment = 0x01d7, offset = 0x4faf},
+        {segment = 0x01d7, offset = 0x4fad},
+        {segment = 0x01d7, offset = 0x4fb0},
         {segment = 0x01d7, offset = 0x5017},
+        {segment = 0x01d7, offset = 0x5010},
+        {segment = 0x01d7, offset = 0x5015},
         {segment = 0x01d7, offset = 0x5038},
         {segment = 0x01d7, offset = 0x5047},
+        {segment = 0x01d7, offset = 0x504f},
+        {segment = 0x01d7, offset = 0x505d},
+        {segment = 0x01d7, offset = 0x5060},
     }
     local stage_writer_points = {
         {segment = 0x01d7, offset = 0x3147},
@@ -997,11 +1016,29 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
     local outer_state_point = {segment = 0x01d7, offset = 0x4ea0}
     local presentation_hits = {}
     local stage_gate_hits = {}
+    local completion_wait_released = false
+    local completion_wait_patch = nil
+    local completion_bonus_presented = false
+    local completion_input_released = false
+    local completion_audio_released = false
+    local completion_transition_gate_forced = false
+    local completion_transition_gate_value = nil
+    local max_presentation_hits = force_completion_wait_release and 256 or 32
     local presentation_timeout_ms = force_completion_outer_state and
         math.min(timeout_ms, 30000) or math.min(timeout_ms, 5000)
     local function arm_presentation_points()
         for _, point in ipairs(presentation_points) do
-            dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+            local persistent =
+                (point.segment == 0x01d7 and
+                 (point.offset == 0x1709 or point.offset == 0x1732)) or
+                (point.segment == 0x01e7 and
+                 (point.offset == 0x0d18 or point.offset == 0x0caa or
+                  point.offset == 0x0f10 or point.offset == 0x0f41)) or
+                (point.segment == 0x0207 and
+                 (point.offset == 0x022a or point.offset == 0x02a2)) or
+                (point.segment == 0x01f7 and point.offset == 0x0002)
+            dosbox.breakpoint_set(point.segment, point.offset,
+                                  {once = not persistent})
         end
         for _, point in ipairs(stage_writer_points) do
             dosbox.breakpoint_set(point.segment, point.offset, {once = true})
@@ -1047,6 +1084,72 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
                 timer_tick = dosbox.mem_read_word("ds", 0x97f4),
             }
         end
+        if force_completion_wait_release and hit.segment == 0x01d7 and
+           hit.offset == 0x1704 then
+            completion_bonus_presented = true
+        end
+        if force_completion_wait_release and completion_bonus_presented and
+           hit.segment == 0x01e7 and hit.offset == 0x0f41 and
+           not completion_audio_released then
+            -- The post-bonus audio/UI helpers spin on the native input/audio
+            -- flags (01D7:01AC/01D6/01F0).  Clear the 01F0 loop predicate
+            -- and seed 01D6's terminal state so the authored
+            -- 0CAA -> 022A -> 0002 -> 4F10 return can run.
+            local audio_flags = dosbox.mem_read_word("ds", 0x8196) or 0
+            local cleared_audio_flags = audio_flags & 0xffcf
+            dosbox.mem_write("ds", 0x8196,
+                             string.char(cleared_audio_flags & 0xff,
+                                         (cleared_audio_flags >> 8) & 0xff))
+            dosbox.mem_write("ds", 0x88bc, string.char(0x00, 0x00))
+            dosbox.mem_write("ds", 0x88ba, string.char(0x01, 0x00))
+            completion_audio_released = true
+        end
+        if force_completion_wait_release and completion_bonus_presented and
+           hit.segment == 0x01e7 and hit.offset == 0x0caa and
+           not completion_input_released then
+            -- The post-bonus acknowledgement helper polls until a key/input
+            -- event is observed.  Release only this diagnostic invocation;
+            -- the surrounding native return and transition code stay intact.
+            dosbox.mem_write("ds", 0x5044, string.char(0x00))
+            completion_input_released = true
+        end
+        if force_completion_wait_release and hit.segment == 0x01d7 and
+           hit.offset == 0x4faf and not completion_transition_gate_forced then
+            -- 01D7:5010 skips the reload block when DS:89E0 is the terminal
+            -- sentinel.  Select the ordinary authored reload branch for this
+            -- diagnostic so its native resource/object handoff is observable.
+            dosbox.mem_write("ds", 0x89e0, string.char(0x00, 0x00))
+            completion_transition_gate_value = dosbox.mem_read_word("ds", 0x89e0)
+            completion_transition_gate_forced = completion_transition_gate_value == 0
+            -- Keep a debugger-only fall-through in case the active selector
+            -- reloads DS before 5010; OR sets ZF=0 for the authored JE.
+            dosbox.mem_write_selector(
+                hit.segment, 0x5010,
+                string.char(0x83, 0xc8, 0x01, 0x90, 0x90, 0x90)
+            )
+        end
+        if force_completion_wait_release and hit.segment == 0x0207 and
+           (hit.offset == 0x10d3 or hit.offset == 0x1113) then
+            -- The authored completion text calls the segment-4 PIT helper
+            -- several times. Under the debugger the emulated count can stay
+            -- equal to DS:97F4 indefinitely. Patch only this diagnostic copy
+            -- of the compare to `or ax,1`, which forces the native `jne`
+            -- return regardless of the PIT sample while leaving the
+            -- surrounding transition code intact.
+            if hit.offset == 0x10d3 and not completion_wait_released then
+                local release_compare = string.char(0x83, 0xc8, 0x01, 0x90)
+                dosbox.mem_write_selector(hit.segment, 0x10d3, release_compare)
+                dosbox.mem_write_selector(hit.segment, 0x10ee, release_compare)
+                dosbox.mem_write_selector(hit.segment, 0x1107, release_compare)
+                completion_wait_patch = {
+                    helper = hex(dosbox.mem_read_selector(hit.segment, 0x10a9, 8) or ""),
+                    compare_first = hex(dosbox.mem_read_selector(hit.segment, 0x10d3, 4) or ""),
+                    compare_second = hex(dosbox.mem_read_selector(hit.segment, 0x10ee, 4) or ""),
+                    compare_return = hex(dosbox.mem_read_selector(hit.segment, 0x1107, 4) or ""),
+                }
+                completion_wait_released = true
+            end
+        end
         local is_stage_writer = false
         for _, point in ipairs(stage_writer_points) do
             if hit.segment == point.segment and hit.offset == point.offset then
@@ -1068,7 +1171,8 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
                 completion_flag = dosbox.mem_read_word("ds", 0x85db),
             }
         end
-        if #presentation_hits >= 32 then break end
+        if #presentation_hits >= max_presentation_hits or
+           (hit.segment == 0x01d7 and hit.offset == 0x5047) then break end
         dosbox.debug_continue()
     end
     for _, point in ipairs(presentation_points) do
@@ -1101,6 +1205,11 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         stage_gate_hits = stage_gate_hits,
         stage_gate_hit_count = #stage_gate_hits,
         outer_state_forced = force_completion_outer_state,
+        wait_release_patch = completion_wait_patch,
+        input_release = completion_input_released,
+        audio_release = completion_audio_released,
+        transition_gate_forced = completion_transition_gate_forced,
+        transition_gate_value = completion_transition_gate_value,
         cpu = dosbox.cpu_state(),
     }
 end

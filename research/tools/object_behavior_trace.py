@@ -70,6 +70,7 @@ class ObjectBehaviorConfig:
     force_tile_mask: int | None = None
     trace_puzzle_completion: bool = False
     force_completion_outer_state: bool = False
+    force_completion_wait_release: bool = False
     puzzle_probe_frames: int = 120
 
 
@@ -116,6 +117,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "force_tile_mask": config.force_tile_mask,
         "trace_puzzle_completion": config.trace_puzzle_completion,
         "force_completion_outer_state": config.force_completion_outer_state,
+        "force_completion_wait_release": config.force_completion_wait_release,
         "puzzle_probe_frames": config.puzzle_probe_frames,
     }
 
@@ -356,6 +358,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="debugger-only: seed DS:89E6 so the outer cloud-state consumer invokes the completion/effect consumer",
     )
     parser.add_argument(
+        "--force-completion-wait-release", action="store_true",
+        help="debugger-only: release the PIT presentation waits so the DS:85DB transition handoff can be traced",
+    )
+    parser.add_argument(
         "--puzzle-probe-frames", type=int, default=120,
         help="frames to run after the final-letter callback before sampling transition state",
     )
@@ -501,6 +507,7 @@ def main(argv: list[str] | None = None) -> int:
         force_tile_mask=args.force_tile_mask,
         trace_puzzle_completion=args.trace_puzzle_completion,
         force_completion_outer_state=args.force_completion_outer_state,
+        force_completion_wait_release=args.force_completion_wait_release,
         puzzle_probe_frames=args.puzzle_probe_frames,
         )
         trace = trace_object_behavior(api, script_path, config)

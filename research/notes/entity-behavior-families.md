@@ -276,10 +276,11 @@ nearby-cloud callback `01F7:9269` normally writes `0xFFFF` there. A refined
 negative probe armed only the authored addresses and recorded zero hits. A
 separate diagnostic seed of that real gate then captured
 `4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 -> 1704`,
-observed `DS:85DB=1`, and measured the 2000-point bonus. The post-message delay
-is the segment-4 PIT helper `0207:10A9` polling `DS:97F4`; the bounded trace
-ended inside its second `0207:10CB` poll before any `4FAF-5047` breakpoint. The
-exact transition timing remains open. See
+observed `DS:85DB=1`, and measured the 2000-point bonus. A controlled release
+of the PIT, post-bonus input, and audio/UI waits then reached
+`4F10 -> 4FAF` and advanced `DS:85D4` to `0x10`; the downstream
+`5017/5038/5047` resource calls still need a fully authored transition fixture.
+See
 [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
 and [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 

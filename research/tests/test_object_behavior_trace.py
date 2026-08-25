@@ -56,12 +56,14 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             force_tile_mask=0x3F,
             trace_puzzle_completion=True,
             force_completion_outer_state=True,
+            force_completion_wait_release=True,
             puzzle_probe_frames=24,
         )
         payload = lua_config(config)
         self.assertEqual(payload["force_tile_mask"], 0x3F)
         self.assertTrue(payload["trace_puzzle_completion"])
         self.assertTrue(payload["force_completion_outer_state"])
+        self.assertTrue(payload["force_completion_wait_release"])
         self.assertEqual(payload["puzzle_probe_frames"], 24)
 
     def test_interaction_probe_flags_are_serialized(self):
@@ -176,6 +178,7 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertIn("puzzle_completion_probe", source)
         self.assertIn("puzzle_probe_frames", source)
         self.assertIn("force_completion_outer_state", source)
+        self.assertIn("force_completion_wait_release", source)
         self.assertIn("0x10cb", source)
         self.assertIn("stage_writer_points", source)
         self.assertIn("stage_gate_hit_count", source)

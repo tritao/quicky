@@ -192,7 +192,7 @@
   },
   "remaining": [
     "Capture the authored damage/completion producer that feeds DS:87DE rows or invokes the world-boss damage callbacks; the native callback state machine is now controlled-verified.",
-    "Trace the completion handoff that changes DS:85DB/DS:85D4 and maps the end-stage selector into the world transition.",
+    "Capture the authored completion producer and downstream reload/resource handoff after the controlled DS:85DB -> 01D7:4F10-4FAF selector advance; 01D7:5017/5038/5047 remains unobserved dynamically.",
     "Correlate DS:880C pending-effect increments with Wind/UFO row producers and the player 01F7:38EC trigger.",
     "Resolve WOLKE-specific rendering/descriptor selection after the 01D7:4EA0 consumer."
   ],

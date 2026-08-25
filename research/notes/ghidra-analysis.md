@@ -859,6 +859,8 @@ set `DS:85DB=1`, and added 2000 points. The post-message delay is a segment-4
 PIT helper at `0207:10A9`: it samples channel 0 through ports `43h/40h`,
 compares against `DS:97F4`, retries while equal, and returns at `0207:1113`
 after storing a changed sample. The bounded diagnostic reached this helper
-before the messages and ended in its second `0207:10CB` poll after `1704`, so
-the unforced fully authored continuation through `01D7:4FAF-5047` remains to
-be timed.
+before the messages and ended in its second `0207:10CB` poll after `1704`. A
+controlled release of the presentation, input, and audio/UI waits then reached
+`01D7:4F10-4FAF` and advanced the selector to `0x10`; the downstream
+`01D7:5017-5047` reload/resource calls still need a fully authored transition
+fixture.
