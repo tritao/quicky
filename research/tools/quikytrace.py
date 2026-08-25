@@ -97,6 +97,8 @@ class PlayerTraceConfig:
     map_width: int = 270
     map_height: int = 30
     input_key: str | None = None
+    input_key_switch: str | None = None
+    input_switch_sample: int = 0
     input_key_secondary: str | None = None
     secondary_pulse_frames: int = 0
     secondary_start_sample: int = 1
@@ -104,6 +106,8 @@ class PlayerTraceConfig:
     input_frames: int = 0
     input_samples: int = 0
     capture_player_record: bool = False
+    collision_event_limit: int = 96
+    collision_repeat_limit: int = 3
     select_level: str | None = None
     selector_frames: int = 60
     screenshot: Path | None = None
@@ -186,6 +190,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "map_width": config.map_width,
         "map_height": config.map_height,
         "input_key": config.input_key or "",
+        "input_key_switch": config.input_key_switch or "",
+        "input_switch_sample": config.input_switch_sample,
         "input_key_secondary": config.input_key_secondary or "",
         "secondary_pulse_frames": config.secondary_pulse_frames,
         "secondary_start_sample": config.secondary_start_sample,
@@ -193,6 +199,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
         "capture_player_record": config.capture_player_record,
+        "collision_event_limit": config.collision_event_limit,
+        "collision_repeat_limit": config.collision_repeat_limit,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
     }
@@ -695,6 +703,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="loaded MAP height for descriptor census (default 30)")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
+    parser.add_argument("--player-input-key-switch",
+                        help="replace --player-input-key at the selected sample, e.g. KBD_left")
+    parser.add_argument("--player-input-switch-sample", type=int, default=0,
+                        help="first post-baseline sample using --player-input-key-switch")
     parser.add_argument("--player-input-key-2",
                         help="hold a second key alongside --player-input-key, e.g. KBD_up")
     parser.add_argument("--player-secondary-pulse-frames", type=int, default=0,
@@ -709,6 +721,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="number of post-baseline samples that receive the input hold (0 means all)")
     parser.add_argument("--player-capture-record", action="store_true",
                         help="capture the complete 0x78-byte player record before/after each callback")
+    parser.add_argument("--player-collision-event-limit", type=int, default=96,
+                        help="maximum nested helper breakpoints per callback")
+    parser.add_argument("--player-collision-repeat-limit", type=int, default=3,
+                        help="same-breakpoint repeats tolerated before helper tracing is abandoned")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -758,6 +774,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-samples cannot be negative")
     if args.player_input_key_2 and not args.player_input_key:
         raise TraceError("--player-input-key-2 requires --player-input-key")
+    if args.player_input_key_switch and not args.player_input_key:
+        raise TraceError("--player-input-key-switch requires --player-input-key")
+    if args.player_input_key_switch and args.player_input_switch_sample < 2:
+        raise TraceError("--player-input-switch-sample must be at least 2")
+    if args.player_input_switch_sample and not args.player_input_key_switch:
+        raise TraceError("--player-input-switch-sample requires --player-input-key-switch")
     if args.player_secondary_pulse_frames < 0:
         raise TraceError("--player-secondary-pulse-frames cannot be negative")
     if args.player_secondary_start_sample < 1:
@@ -771,6 +793,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-frames requires --player-input-key")
     if args.player_capture_record and not args.player_focus_callback:
         raise TraceError("--player-capture-record requires --player-focus-callback")
+    if args.player_collision_event_limit < 1:
+        raise TraceError("--player-collision-event-limit must be positive")
+    if args.player_collision_repeat_limit < 1:
+        raise TraceError("--player-collision-repeat-limit must be positive")
     if args.player_property_focus and args.player_map_focus:
         raise TraceError("--player-property-focus cannot be combined with --player-map-focus")
     if args.player_branch_focus and (args.player_map_focus or args.player_collision_focus or
@@ -922,6 +948,8 @@ def main(argv: list[str] | None = None) -> int:
                 map_width=args.player_map_width,
                 map_height=args.player_map_height,
                 input_key=args.player_input_key,
+                input_key_switch=args.player_input_key_switch,
+                input_switch_sample=args.player_input_switch_sample,
                 input_key_secondary=args.player_input_key_2,
                 secondary_pulse_frames=args.player_secondary_pulse_frames,
                 secondary_start_sample=args.player_secondary_start_sample,
@@ -929,6 +957,8 @@ def main(argv: list[str] | None = None) -> int:
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
                 capture_player_record=args.player_capture_record,
+                collision_event_limit=args.player_collision_event_limit,
+                collision_repeat_limit=args.player_collision_repeat_limit,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,

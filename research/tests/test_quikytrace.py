@@ -266,6 +266,17 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(payload["secondary_start_sample"], 2)
         self.assertEqual(payload["secondary_end_sample"], 4)
 
+    def test_player_input_switch_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            input_key="KBD_right", input_key_switch="KBD_left",
+            input_switch_sample=4,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["input_key_switch"], "KBD_left")
+        self.assertEqual(payload["input_switch_sample"], 4)
+
     def test_player_branch_focus_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
         config = PlayerTraceConfig(
@@ -319,6 +330,23 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("collision_patch_tile=args.player_collision_patch_tile", host_source)
         self.assertIn("collision-patch-tile requires --player-focus-callback", host_source)
         self.assertIn("collision_patch_side=args.player_collision_patch_side", host_source)
+
+    def test_player_collision_trace_has_bounded_return_guard(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("local function validate_return_address", source)
+        self.assertIn("local function arm_validated_return", source)
+        self.assertIn("collision_event_limit", source)
+        self.assertIn("collision_repeat_limit", source)
+        self.assertIn("sample.collision_trace_guard", source)
+        self.assertIn("sample.branch_trace_guard", source)
+        self.assertIn("sample.unresolved_returns", source)
+        self.assertIn("while returned == nil and callback_return_valid", source)
+        host_source = (Path(__file__).resolve().parents[1] / "tools/quikytrace.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("--player-collision-event-limit", host_source)
+        self.assertIn("--player-collision-repeat-limit", host_source)
 
     def test_player_record_capture_has_full_state_delta_path(self):
         script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"

@@ -20,6 +20,8 @@ local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
 local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
+local input_key_switch = trace_config.input_key_switch or ""
+local input_switch_sample = trace_config.input_switch_sample or 0
 local input_key_secondary = trace_config.input_key_secondary or ""
 local secondary_pulse_frames = trace_config.secondary_pulse_frames or 0
 local secondary_start_sample = trace_config.secondary_start_sample or 1
@@ -27,8 +29,16 @@ local secondary_end_sample = trace_config.secondary_end_sample or 0
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
 local capture_player_record = trace_config.capture_player_record or false
+-- Full pool snapshots are useful for discovery, but they are expensive: each
+-- sample walks 64 records and decodes every field.  Once the callback has
+-- been focused and the 0x78-byte player record is requested, the callback
+-- itself is the authoritative target and the repeated pool walk only burns
+-- the automation Lua instruction budget.
+local lean_player_capture = focus_callback and capture_player_record
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
+local collision_event_limit = trace_config.collision_event_limit or 96
+local collision_repeat_limit = trace_config.collision_repeat_limit or 3
 local trace_event_counter = 0
 local descriptor_census_done = false
 
@@ -123,6 +133,67 @@ local function wait_hit(label)
     local hit, err = dosbox.wait_for_breakpoint(timeout_ms)
     if not hit then error(label .. ": " .. (err or "timeout")) end
     return hit
+end
+
+local function address_key(address)
+    if address == nil then return "<nil>" end
+    return string.format("0x%04x:0x%08x", address.segment or 0,
+                         address.offset or 0)
+end
+
+-- A return address is data read from the guest stack, not trusted tracer
+-- input.  Reading one byte through the selector both checks that the
+-- selector exists and that the offset is inside its mapped range before a
+-- breakpoint is armed.  This is especially important after a helper entry:
+-- a malformed far/near interpretation otherwise leaves the script waiting
+-- on an address that can never execute.
+local function validate_return_address(address)
+    if type(address) ~= "table" or type(address.segment) ~= "number" or
+       type(address.offset) ~= "number" or address.segment < 0 or
+       address.segment > 0xffff or address.offset < 0 or
+       address.offset > 0xffffffff then
+        return false, "return address is not a bounded segment:offset"
+    end
+    local ok, raw_or_error = pcall(
+        dosbox.mem_read_selector, address.segment, address.offset, 1
+    )
+    if not ok then return false, tostring(raw_or_error) end
+    if not raw_or_error or #raw_or_error ~= 1 then
+        return false, "return address selector read was truncated"
+    end
+    return true
+end
+
+local function remember_unresolved_return(sample, helper_offset, address, reason)
+    sample.unresolved_returns = sample.unresolved_returns or {}
+    sample.unresolved_returns[#sample.unresolved_returns + 1] = {
+        event_index = next_trace_event(),
+        helper_offset = helper_offset,
+        address = address,
+        reason = reason,
+    }
+end
+
+local function arm_validated_return(sample, address, helper_offset, label)
+    local valid, reason = validate_return_address(address)
+    if not valid then
+        remember_unresolved_return(sample, helper_offset, address,
+                                   label .. ": " .. reason)
+        return false
+    end
+    local ok, added_or_error = pcall(
+        dosbox.breakpoint_set, address.segment, address.offset, {once = true}
+    )
+    -- false is the debugger's "already armed" result, which is still safe:
+    -- the validated address remains covered by that existing breakpoint.
+    if not ok then
+        remember_unresolved_return(
+            sample, helper_offset, address,
+            label .. ": breakpoint was not armed: " .. tostring(added_or_error)
+        )
+        return false
+    end
+    return true
 end
 
 local function object_snapshot(raw, selector, offset, index)
@@ -321,6 +392,18 @@ local function static_globals()
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
+        player_transition_word = dosbox.mem_read_word("ds", 0x89e6),
+        player_vertical_adjust = dosbox.mem_read_word("ds", 0x8812),
+        player_reset_state = dosbox.mem_read_word("ds", 0x8810),
+        horizontal_limit = dosbox.mem_read_word("ds", 0x4fe2),
+        horizontal_aux = dosbox.mem_read_word("ds", 0x4fe6),
+        horizontal_accumulator = dosbox.mem_read_word("ds", 0x4fe8),
+        horizontal_branch_counter = dosbox.mem_read_word("ds", 0x4fec),
+        horizontal_timer = dosbox.mem_read_word("ds", 0x4fee),
+        horizontal_result_byte = string.byte(
+            dosbox.mem_read("ds", 0x4ff0, 1) or "\0", 1
+        ),
+        transition_flags = dosbox.mem_read_word("ds", 0x8822),
     }
 end
 
@@ -425,12 +508,20 @@ local function arm_callback_targets()
     end
 end
 
-local function arm_property_targets()
+local function arm_property_targets(blocked)
     if property_helper_offset == 0x5c27 or property_helper_offset == 0x5cc3 then
-        dosbox.breakpoint_set(0x01f7, property_helper_offset, {once = true})
+        local key = address_key({segment = 0x01f7,
+                                 offset = property_helper_offset})
+        if not blocked or not blocked[key] then
+            dosbox.breakpoint_set(0x01f7, property_helper_offset,
+                                  {once = true})
+        end
     else
         for _, offset in ipairs({0x5c27, 0x5cc3}) do
-            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+            local key = address_key({segment = 0x01f7, offset = offset})
+            if not blocked or not blocked[key] then
+                dosbox.breakpoint_set(0x01f7, offset, {once = true})
+            end
         end
     end
 end
@@ -637,9 +728,12 @@ local function restore_map_patch(lookup)
     )
 end
 
-local function arm_map_target()
+local function arm_map_target(blocked)
     if map_focus then
-        dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+        local key = address_key({segment = 0x01f7, offset = 0x3376})
+        if not blocked or not blocked[key] then
+            dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+        end
     end
 end
 
@@ -736,7 +830,9 @@ end
 local function capture_branch_sequence(sample, initial_hit)
     local patch = patch_branch_probe_cell(sample, initial_hit)
     local hit = initial_hit
-    local guard = 0
+    local event_count = 0
+    local last_breakpoint = nil
+    local repeated_breakpoint_count = 0
     while true do
         if not is_branch_target(hit.offset) then
             error(string.format("unexpected collision branch breakpoint 0x%04x", hit.offset))
@@ -754,8 +850,29 @@ local function capture_branch_sequence(sample, initial_hit)
             restore_branch_probe_cell(patch)
             return hit
         end
-        guard = guard + 1
-        if guard > 32 then error("collision branch sequence exceeded 32 events") end
+        event_count = event_count + 1
+        local key = address_key({segment = hit.segment, offset = hit.offset})
+        if key == last_breakpoint then
+            repeated_breakpoint_count = repeated_breakpoint_count + 1
+        else
+            last_breakpoint = key
+            repeated_breakpoint_count = 1
+        end
+        if repeated_breakpoint_count > collision_repeat_limit or
+           event_count >= collision_event_limit then
+            sample.branch_trace_guard = {
+                event_count = event_count,
+                repeated_breakpoint = {
+                    segment = hit.segment, offset = hit.offset,
+                },
+                repeat_count = repeated_breakpoint_count,
+                reason = repeated_breakpoint_count > collision_repeat_limit and
+                    "repeated breakpoint" or "event-count limit",
+            }
+            clear_branch_targets()
+            restore_branch_probe_cell(patch)
+            return hit
+        end
         arm_branch_targets(hit.offset)
         dosbox.debug_continue()
         hit = wait_hit("collision branch sequence")
@@ -767,7 +884,7 @@ local function far_return_location(hit)
     local raw = dosbox.mem_read(
         "ss", (registers.esp or 0) & 0xffff, 4
     ) or ""
-    if #raw < 4 then return nil end
+    if #raw < 4 then return nil, "far return stack read was truncated" end
     return {offset = word(raw, 1), segment = word(raw, 3)}
 end
 
@@ -782,8 +899,25 @@ local function collision_return_location(hit)
     local raw = dosbox.mem_read(
         "ss", (registers.esp or 0) & 0xffff, 2
     ) or ""
-    if #raw < 2 then return nil end
+    if #raw < 2 then return nil, "near return stack read was truncated" end
     return {offset = word(raw, 1), segment = hit.segment}
+end
+
+local function validated_collision_return(sample, hit)
+    local address, reason = collision_return_location(hit)
+    if address == nil then
+        remember_unresolved_return(sample, hit.offset, address,
+                                   reason or "collision return was not readable")
+        return nil
+    end
+    local valid, validation_reason = validate_return_address(address)
+    if not valid then
+        remember_unresolved_return(sample, hit.offset, address,
+                                   validation_reason or
+                                   "collision return failed validation")
+        return nil
+    end
+    return address
 end
 
 local function record_collision(sample, hit)
@@ -953,12 +1087,17 @@ for sequence = 1, sample_count do
     if sequence > 1 then
         local held_input = input_key ~= "" and input_frames > 0 and
             (input_samples == 0 or sequence <= input_samples + 1)
+        local active_input_key = input_key
+        if input_key_switch ~= "" and input_switch_sample > 0 and
+           sequence >= input_switch_sample then
+            active_input_key = input_key_switch
+        end
         local held_secondary = held_input and input_key_secondary ~= "" and
             sequence >= secondary_start_sample and
             (secondary_end_sample == 0 or sequence <= secondary_end_sample)
         local secondary_pressed = false
         if held_input then
-            dosbox.key(input_key, true)
+            dosbox.key(active_input_key, true)
             if held_secondary then
                 dosbox.key(input_key_secondary, true)
                 secondary_pressed = true
@@ -980,7 +1119,7 @@ for sequence = 1, sample_count do
             if held_secondary and secondary_pressed then
                 dosbox.key(input_key_secondary, false)
             end
-            dosbox.key(input_key, false)
+            dosbox.key(active_input_key, false)
             experiment_frame = experiment_frame + input_frames
         end
         dosbox.wait_frames(frames_between)
@@ -995,22 +1134,27 @@ for sequence = 1, sample_count do
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
         globals = static_globals(),
-        pool = pool_snapshot(),
-        scheduler = scheduler_snapshot(),
         related_breakpoints = {},
     }
+    if not lean_player_capture or sequence == 1 then
+        sample.pool = pool_snapshot()
+        sample.scheduler = scheduler_snapshot()
+    end
     local initial_hit = hit
     local descriptor_census_result = nil
     if descriptor_census and initial_hit.offset == 0x5cc3 then
         descriptor_census_result = descriptor_census_snapshot()
         descriptor_census_done = true
         sample.descriptor_census = descriptor_census_result
-        local census_return = far_return_location(initial_hit)
-        if census_return ~= nil then
-            dosbox.breakpoint_set(census_return.segment, census_return.offset,
-                                  {once = true})
+        local census_return, census_reason = far_return_location(initial_hit)
+        if census_return ~= nil and arm_validated_return(
+            sample, census_return, initial_hit.offset, "descriptor census return") then
             dosbox.debug_continue()
             hit = wait_hit("descriptor census helper return")
+        else
+            remember_unresolved_return(
+                sample, initial_hit.offset, census_return,
+                census_reason or "descriptor census return failed validation")
         end
     elseif property_focus and (initial_hit.offset == 0x5c27 or
                            initial_hit.offset == 0x5cc3) then
@@ -1043,8 +1187,10 @@ for sequence = 1, sample_count do
         sample.breakpoint = {segment = hit.segment, offset = hit.offset}
         sample.registers = hit.registers
         sample.globals = static_globals()
-        sample.pool = pool_snapshot()
-        sample.scheduler = scheduler_snapshot()
+        if not lean_player_capture then
+            sample.pool = pool_snapshot()
+            sample.scheduler = scheduler_snapshot()
+        end
     end
     if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
         local callback_object = callback_object_snapshot(hit)
@@ -1078,40 +1224,117 @@ for sequence = 1, sample_count do
             local collision_return_event = nil
             local map_return = nil
             local map_return_event = nil
-            while returned == nil do
-                dosbox.breakpoint_set(return_segment, return_offset, {once = true})
-                if property_return ~= nil then
-                    dosbox.breakpoint_set(property_return.segment,
-                                          property_return.offset, {once = true})
-                elseif collision_return ~= nil then
-                    dosbox.breakpoint_set(collision_return.segment,
-                                          collision_return.offset, {once = true})
-                elseif map_return ~= nil then
-                    dosbox.breakpoint_set(map_return.segment,
-                                          map_return.offset, {once = true})
-                else
-                    if property_focus then arm_property_targets() end
-                    if collision_focus then
+            local unresolved_targets = {}
+            local event_count = 0
+            local last_breakpoint = nil
+            local repeated_breakpoint_count = 0
+            local helper_tracing_aborted = false
+
+            local function mark_unresolved_target(candidate, reason)
+                local key = address_key(candidate)
+                unresolved_targets[key] = true
+                remember_unresolved_return(sample, candidate.offset, candidate,
+                                           reason)
+            end
+
+            -- The callback return is a near return in the callback's current
+            -- code segment.  It is validated too, so the guard below can
+            -- always fall back to a known-safe callback barrier.
+            local callback_return = {
+                segment = return_segment, offset = return_offset,
+            }
+            local callback_return_valid, callback_return_reason =
+                validate_return_address(callback_return)
+            if not callback_return_valid then
+                remember_unresolved_return(sample, 0x3f27, callback_return,
+                                           "callback return: " ..
+                                           callback_return_reason)
+                sample.player_callback.return_unresolved = true
+                helper_tracing_aborted = true
+            end
+
+            while returned == nil and callback_return_valid and
+                  event_count < collision_event_limit do
+                if callback_return_valid then
+                    arm_validated_return(sample, callback_return, 0x3f27,
+                                         "callback return")
+                end
+                if not helper_tracing_aborted then
+                    if property_return ~= nil then
+                        arm_validated_return(sample, property_return,
+                                             0x5c27, "property return")
+                    end
+                    if collision_return ~= nil then
+                        arm_validated_return(sample, collision_return,
+                                             0x3df2, "collision return")
+                    end
+                    if map_return ~= nil then
+                        arm_validated_return(sample, map_return,
+                                             0x3376, "MAP return")
+                    end
+                    if property_return == nil and property_focus then
+                        arm_property_targets(unresolved_targets)
+                    end
+                    if collision_return == nil and collision_focus then
                         for _, offset in ipairs(collision_offsets) do
-                            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                            if not unresolved_targets[address_key({
+                                segment = 0x01f7, offset = offset
+                            })] then
+                                dosbox.breakpoint_set(0x01f7, offset,
+                                                      {once = true})
+                            end
                         end
                     end
-                    arm_map_target()
+                    if map_return == nil then arm_map_target(unresolved_targets) end
                 end
-                -- MAP calls are nested inside 3DF2, so keep their entry
-                -- breakpoint armed while waiting for the collision leaf's
-                -- near return.
-                if collision_return ~= nil and map_return == nil then
-                    arm_map_target()
-                end
-                if collision_return ~= nil and property_return == nil then
-                    arm_property_targets()
-                end
+
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
-                if property_return ~= nil and
-                   candidate.segment == property_return.segment and
-                   candidate.offset == property_return.offset then
+                event_count = event_count + 1
+                local candidate_key = address_key(candidate)
+                if candidate_key == last_breakpoint then
+                    repeated_breakpoint_count = repeated_breakpoint_count + 1
+                else
+                    last_breakpoint = candidate_key
+                    repeated_breakpoint_count = 1
+                end
+
+                if candidate.segment == return_segment and
+                   candidate.offset == return_offset then
+                    returned = candidate
+                elseif helper_tracing_aborted then
+                    sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+                        segment = candidate.segment, offset = candidate.offset,
+                    }
+                elseif repeated_breakpoint_count > collision_repeat_limit then
+                    -- A breakpoint that repeats without reaching any pending
+                    -- return is the failure mode that used to consume Lua's
+                    -- instruction budget.  Stop tracing helpers for this
+                    -- callback, preserve the evidence, and let the ordinary
+                    -- callback return finish the sample.
+                    sample.collision_trace_guard = {
+                        event_count = event_count,
+                        repeated_breakpoint = {
+                            segment = candidate.segment,
+                            offset = candidate.offset,
+                        },
+                        repeat_count = repeated_breakpoint_count,
+                        reason = "repeated breakpoint",
+                    }
+                    mark_unresolved_target(candidate,
+                                           "repeated breakpoint guard")
+                    helper_tracing_aborted = true
+                elseif event_count >= collision_event_limit then
+                    sample.collision_trace_guard = {
+                        event_count = event_count,
+                        reason = "event-count limit",
+                    }
+                    mark_unresolved_target(candidate,
+                                           "event-count guard")
+                    helper_tracing_aborted = true
+                elseif property_return ~= nil and
+                       candidate.segment == property_return.segment and
+                       candidate.offset == property_return.offset then
                     if property_return_event ~= nil then
                         property_return_event.return_breakpoint = {
                             segment = candidate.segment,
@@ -1148,8 +1371,6 @@ for sequence = 1, sample_count do
                     end
                     map_return = nil
                     map_return_event = nil
-                elseif candidate.segment == return_segment and candidate.offset == return_offset then
-                    returned = candidate
                 else
                     sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                         segment = candidate.segment, offset = candidate.offset,
@@ -1157,17 +1378,69 @@ for sequence = 1, sample_count do
                     if is_property_target(candidate.offset) then
                         property_return_event = record_property(sample, candidate)
                         property_return = far_return_location(candidate)
+                        if property_return == nil then
+                            mark_unresolved_target(candidate,
+                                                   "property return was not readable")
+                            property_return_event = nil
+                        elseif not arm_validated_return(
+                            sample, property_return, candidate.offset,
+                            "property return") then
+                            mark_unresolved_target(candidate,
+                                                   "property return failed validation")
+                            property_return = nil
+                            property_return_event = nil
+                        end
                     elseif candidate.offset == 0x3376 and map_focus then
                         map_return_event = record_map_lookup(sample, candidate)
                         map_return = far_return_location(candidate)
+                        if map_return == nil then
+                            mark_unresolved_target(candidate,
+                                                   "MAP return was not readable")
+                            map_return_event = nil
+                        elseif not arm_validated_return(
+                            sample, map_return, candidate.offset, "MAP return") then
+                            mark_unresolved_target(candidate,
+                                                   "MAP return failed validation")
+                            map_return = nil
+                            map_return_event = nil
+                        end
                     elseif is_collision_target(candidate.offset) then
                         collision_return_event = record_collision(sample, candidate)
-                        collision_return = collision_return_location(candidate)
+                        collision_return = validated_collision_return(sample,
+                                                                      candidate)
+                        if collision_return == nil then
+                            collision_return_event = nil
+                            unresolved_targets[candidate_key] = true
+                        end
+                    end
+                end
+            end
+
+            if returned == nil then
+                -- The event cap is deliberately fail-soft.  Do not leave
+                -- the script in the helper loop; return the sample with an
+                -- explicit guard record and continue to the next barrier.
+                if sample.collision_trace_guard == nil then
+                    sample.collision_trace_guard = {
+                        event_count = event_count,
+                        reason = "event-count limit",
+                    }
+                end
+                helper_tracing_aborted = true
+                if callback_return_valid then
+                    arm_validated_return(sample, callback_return, 0x3f27,
+                                         "callback return after guard")
+                    dosbox.debug_continue()
+                    local guard_return = wait_hit("callback return after guard")
+                    if guard_return.segment == return_segment and
+                       guard_return.offset == return_offset then
+                        returned = guard_return
                     end
                 end
             end
             sample.player_callback.return_actual = {
-                segment = returned.segment, offset = returned.offset,
+                segment = returned and returned.segment or nil,
+                offset = returned and returned.offset or nil,
             }
             local read_size = capture_player_record and player_record_size or 0x40
             local ok, raw_or_error = pcall(

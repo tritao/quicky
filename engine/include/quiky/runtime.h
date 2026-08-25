@@ -29,9 +29,11 @@ struct InputState {
     bool up;
     bool down;
     bool jump;
+    bool alternate;
 
     InputState()
-        : left(false), right(false), up(false), down(false), jump(false) {}
+        : left(false), right(false), up(false), down(false), jump(false),
+          alternate(false) {}
 
     static InputState fromActionFlags(std::uint16_t flags);
 };
@@ -112,6 +114,21 @@ private:
     const PlayerDescriptorTable &_descriptors;
 };
 
+// The executable's leaf collision helpers consume pixel probes and descriptor
+// flags, not only tile coordinates. This optional interface preserves that
+// distinction while keeping the older synthetic CollisionQuery useful for
+// engine tests and tools.
+class PlayerProbeQuery {
+public:
+    virtual ~PlayerProbeQuery() {}
+
+    virtual bool blocksProbeAt(std::int32_t x, std::int32_t y) const = 0;
+    virtual bool hasVerticalResponseAt(std::int32_t x,
+                                       std::int32_t y) const = 0;
+    virtual bool alignsEightPixelsAt(std::int32_t x,
+                                     std::int32_t y) const = 0;
+};
+
 // The player callback asks directional collision helpers about the current
 // object rather than consuming a MAP object directly. Keeping that boundary
 // explicit lets refined tile semantics replace the current masks without
@@ -126,6 +143,29 @@ public:
                              std::int32_t tileY) const = 0;
     virtual bool blocksCeiling(std::int32_t tileX,
                                std::int32_t tileY) const = 0;
+};
+
+class MapDescriptorCollisionQuery : public CollisionQuery,
+                                     public PlayerProbeQuery {
+public:
+    MapDescriptorCollisionQuery(const Map &map,
+                                const PlayerDescriptorTable &descriptors);
+
+    bool blocksHorizontal(std::int32_t tileX,
+                          std::int32_t tileY) const override;
+    bool blocksFloor(std::int32_t tileX,
+                     std::int32_t tileY) const override;
+    bool blocksCeiling(std::int32_t tileX,
+                       std::int32_t tileY) const override;
+
+    bool blocksProbeAt(std::int32_t x, std::int32_t y) const override;
+    bool hasVerticalResponseAt(std::int32_t x,
+                               std::int32_t y) const override;
+    bool alignsEightPixelsAt(std::int32_t x,
+                             std::int32_t y) const override;
+
+private:
+    MapDescriptorQuery _query;
 };
 
 class MapCollisionQuery : public CollisionQuery {
@@ -155,6 +195,16 @@ struct PlayerState {
     bool grounded;
     bool facingRight;
 
+    // Callback-record state retained by the faithful movement core. The
+    // names mirror recovered record offsets; grounded/facingRight remain
+    // compatibility projections for the engine frontend.
+    std::int8_t callbackMode;
+    std::uint8_t callbackGate;
+    std::uint8_t transition;
+    std::uint8_t verticalResponse;
+    std::uint8_t sideResponse;
+    std::uint16_t deathTimer;
+
     PlayerState();
 };
 
@@ -175,6 +225,9 @@ public:
     void tick(PlayerState &player, const CollisionQuery &collision,
               const InputState &input) const;
     void tick(PlayerState &player, const Map &map, const InputState &input) const;
+    void tick(PlayerState &player, const Map &map,
+              const PlayerDescriptorTable &descriptors,
+              const InputState &input) const;
 
     const PlayerConfig &config() const { return _config; }
     const CollisionRules &collisionRules() const { return _collision; }

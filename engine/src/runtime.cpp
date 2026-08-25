@@ -38,17 +38,22 @@ InputState InputState::fromActionFlags(std::uint16_t flags) {
     input.up = (flags & 0x02) != 0;
     input.down = (flags & 0x01) != 0;
     input.jump = (flags & 0x20) != 0;
+    input.alternate = (flags & 0x10) != 0;
     return input;
 }
 
 PlayerConfig::PlayerConfig()
     : width(16),
       height(32),
-      acceleration(Fixed16::kOne / 2),
-      maxHorizontalSpeed(3 * Fixed16::kOne),
-      friction(Fixed16::kOne / 2),
-      gravity(Fixed16::kOne / 2),
-      jumpVelocity(-8 * Fixed16::kOne) {
+      // Recovered callback steps: the normal horizontal ramp advances in
+      // 0x0800 units, release/reversal uses the 0x2000 path, and the object
+      // speed cap is +0x5c = 0x18000.
+      acceleration(0x0800),
+      maxHorizontalSpeed(0x18000),
+      friction(0x2000),
+      // The ascent path adds +0x2000 and clamps at -0x20000.
+      gravity(0x2000),
+      jumpVelocity(-0x20000) {
 }
 
 CollisionRules::CollisionRules()
@@ -152,8 +157,47 @@ bool MapDescriptorQuery::alignsEightPixelsAt(std::int32_t x,
     return PlayerDescriptorRules::alignsEightPixels(descriptorAtPixel(x, y));
 }
 
+MapDescriptorCollisionQuery::MapDescriptorCollisionQuery(
+    const Map &map, const PlayerDescriptorTable &descriptors)
+    : _query(map, descriptors) {
+}
+
+bool MapDescriptorCollisionQuery::blocksHorizontal(
+    std::int32_t tileX, std::int32_t tileY) const {
+    // The coarse adapter uses the tile centre. PlayerSimulation uses the
+    // exact pixel probes when this query is available.
+    return blocksProbeAt(tileX * 16 + 8, tileY * 16 + 8);
+}
+
+bool MapDescriptorCollisionQuery::blocksFloor(
+    std::int32_t tileX, std::int32_t tileY) const {
+    return hasVerticalResponseAt(tileX * 16 + 8, tileY * 16 + 8);
+}
+
+bool MapDescriptorCollisionQuery::blocksCeiling(
+    std::int32_t tileX, std::int32_t tileY) const {
+    return hasVerticalResponseAt(tileX * 16 + 8, tileY * 16 + 8);
+}
+
+bool MapDescriptorCollisionQuery::blocksProbeAt(std::int32_t x,
+                                                std::int32_t y) const {
+    return _query.blocksProbeAt(x, y);
+}
+
+bool MapDescriptorCollisionQuery::hasVerticalResponseAt(
+    std::int32_t x, std::int32_t y) const {
+    return _query.hasVerticalResponseAt(x, y);
+}
+
+bool MapDescriptorCollisionQuery::alignsEightPixelsAt(
+    std::int32_t x, std::int32_t y) const {
+    return _query.alignsEightPixelsAt(x, y);
+}
+
 PlayerState::PlayerState()
-    : x(), y(), velocityX(), velocityY(), grounded(false), facingRight(true) {
+    : x(), y(), velocityX(), velocityY(), grounded(false), facingRight(true),
+      callbackMode(0), callbackGate(0), transition(0), verticalResponse(0),
+      sideResponse(1), deathTimer(0) {
 }
 
 MapCollisionQuery::MapCollisionQuery(const Map &map, const CollisionRules &rules)
@@ -195,6 +239,12 @@ void PlayerSimulation::reset(PlayerState &player, std::int32_t x, std::int32_t y
     player.velocityY = Fixed16();
     player.grounded = false;
     player.facingRight = true;
+    player.callbackMode = 0;
+    player.callbackGate = 0;
+    player.transition = 0;
+    player.verticalResponse = 0;
+    player.sideResponse = 1;
+    player.deathTimer = 0;
 }
 
 bool PlayerSimulation::collidesHorizontal(const CollisionQuery &collision,
@@ -204,6 +254,14 @@ bool PlayerSimulation::collidesHorizontal(const CollisionQuery &collision,
     const std::int32_t top = player.y.floorPixels();
     const std::int32_t bottom = floorFixed(player.y.raw + _config.height * Fixed16::kOne - 1);
     const std::int32_t edge = player.velocityX.raw > 0 ? right : left;
+    const PlayerProbeQuery *probes =
+        dynamic_cast<const PlayerProbeQuery *>(&collision);
+    if (probes != 0) {
+        const std::int32_t middle = top + _config.height / 2;
+        return probes->blocksProbeAt(edge, top) ||
+               probes->blocksProbeAt(edge, middle) ||
+               probes->blocksProbeAt(edge, bottom);
+    }
     const std::int32_t tileX = floorTile(edge);
     const std::int32_t firstTileY = floorTile(top);
     const std::int32_t lastTileY = floorTile(bottom);
@@ -257,7 +315,8 @@ void PlayerSimulation::moveHorizontal(PlayerState &player,
         return;
     }
 
-    if (player.velocityX.raw > 0) {
+    const bool movingRight = player.velocityX.raw > 0;
+    if (movingRight) {
         const std::int32_t right = floorFixed(player.x.raw + _config.width * Fixed16::kOne - 1);
         const std::int32_t tileX = floorTile(right);
         player.x.raw = (tileX * 16 - _config.width) * Fixed16::kOne;
@@ -266,7 +325,19 @@ void PlayerSimulation::moveHorizontal(PlayerState &player,
         const std::int32_t tileX = floorTile(left);
         player.x.raw = (tileX + 1) * 16 * Fixed16::kOne;
     }
+    const PlayerProbeQuery *probes =
+        dynamic_cast<const PlayerProbeQuery *>(&collision);
+    if (probes != 0) {
+        const std::int32_t probeX = movingRight
+                                         ? player.x.floorPixels() + _config.width
+                                         : player.x.floorPixels();
+        if (probes->alignsEightPixelsAt(probeX, player.y.floorPixels())) {
+            const std::int32_t quantum = 8 * Fixed16::kOne;
+            player.x.raw = (player.x.raw / quantum) * quantum;
+        }
+    }
     player.velocityX.raw = 0;
+    player.sideResponse = 0;
 }
 
 void PlayerSimulation::moveVertical(PlayerState &player,
@@ -282,6 +353,8 @@ void PlayerSimulation::moveVertical(PlayerState &player,
         player.y.raw = (tileY * 16 - _config.height) * Fixed16::kOne;
         player.velocityY.raw = 0;
         player.grounded = true;
+        player.callbackMode = 1;
+        player.verticalResponse = 1;
     } else if (player.velocityY.raw < 0) {
         if (!collidesCeiling(collision, player)) {
             return;
@@ -290,42 +363,81 @@ void PlayerSimulation::moveVertical(PlayerState &player,
         const std::int32_t tileY = floorTile(top);
         player.y.raw = (tileY + 1) * 16 * Fixed16::kOne;
         player.velocityY.raw = 0;
+        player.callbackMode = 1;
+        player.verticalResponse = 1;
     }
 }
 
 void PlayerSimulation::tick(PlayerState &player, const CollisionQuery &collision,
                              const InputState &input) const {
-    if (input.left == input.right) {
+    const bool launch = (input.jump || input.up) && player.grounded;
+
+    if (input.left && input.right) {
+        // The simultaneous-input capture follows the right branch.
+        player.velocityX.raw = std::min(
+            _config.maxHorizontalSpeed,
+            player.velocityX.raw + _config.acceleration);
+        player.facingRight = true;
+    } else if (input.left) {
+        if (player.velocityX.raw > 0) {
+            // Reversal clears the old direction; the next frame starts the
+            // negative acceleration ramp.
+            player.velocityX.raw = 0;
+        } else {
+            player.velocityX.raw = clampVelocity(
+                player.velocityX.raw - _config.acceleration,
+                _config.maxHorizontalSpeed);
+        }
+        player.facingRight = false;
+    } else if (input.right) {
+        if (player.velocityX.raw < 0) {
+            player.velocityX.raw = 0;
+        } else {
+            player.velocityX.raw = clampVelocity(
+                player.velocityX.raw + _config.acceleration,
+                _config.maxHorizontalSpeed);
+        }
+        player.facingRight = true;
+    } else {
         if (player.velocityX.raw > 0) {
             player.velocityX.raw = std::max(0, player.velocityX.raw - _config.friction);
         } else if (player.velocityX.raw < 0) {
             player.velocityX.raw = std::min(0, player.velocityX.raw + _config.friction);
         }
-    } else if (input.left) {
-        player.velocityX.raw = clampVelocity(
-            player.velocityX.raw - _config.acceleration, _config.maxHorizontalSpeed);
-        player.facingRight = false;
-    } else {
-        player.velocityX.raw = clampVelocity(
-            player.velocityX.raw + _config.acceleration, _config.maxHorizontalSpeed);
-        player.facingRight = true;
     }
 
-    if ((input.jump || input.up) && player.grounded) {
+    if (launch) {
         player.velocityY.raw = _config.jumpVelocity;
         player.grounded = false;
+        player.callbackMode = -1;
+        player.verticalResponse = 0;
+    } else if (player.velocityY.raw < 0) {
+        player.velocityY.raw = std::min(0, player.velocityY.raw + _config.gravity);
+    } else if (player.velocityY.raw > 0) {
+        player.velocityY.raw = std::min(
+            0x20000, player.velocityY.raw + _config.gravity);
+    } else if (!player.grounded) {
+        // A reset starts airborne in the compatibility model; the callback's
+        // positive path supplies the first downward step before probing the
+        // floor.
+        player.velocityY.raw = std::min(
+            0x20000, player.velocityY.raw + _config.gravity);
     }
 
     moveHorizontal(player, collision);
-    if (!player.grounded || player.velocityY.raw != 0) {
-        player.velocityY.raw += _config.gravity;
-    }
     moveVertical(player, collision);
 }
 
 void PlayerSimulation::tick(PlayerState &player, const Map &map,
-                             const InputState &input) const {
+                            const InputState &input) const {
     const MapCollisionQuery collision(map, _collision);
+    tick(player, collision, input);
+}
+
+void PlayerSimulation::tick(PlayerState &player, const Map &map,
+                            const PlayerDescriptorTable &descriptors,
+                            const InputState &input) const {
+    const MapDescriptorCollisionQuery collision(map, descriptors);
     tick(player, collision, input);
 }
 
