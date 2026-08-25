@@ -124,7 +124,6 @@ LevelGameplayState::LevelGameplayState()
 
 LevelSessionConfig::LevelSessionConfig()
     : streamRadiusRegions(1),
-      collectibleRadius(12),
       hazardRadius(12),
       edgeExitMargin(24),
       enableEdgeExit(true),
@@ -744,6 +743,31 @@ bool LevelSession::overlaps(const PlayerRecord &player,
     return entity.x >= left && entity.x <= right && entity.y >= top && entity.y <= bottom;
 }
 
+bool LevelSession::collectibleOverlaps(const PlayerRecord &player,
+                                       const LevelEntity &entity) const {
+    // 01F7:393C returns zero bounds while DS:89EA is nonzero.  01F7:8D31
+    // consumes the returned AX/CX/BX/DX values with signed strict compares;
+    // this is deliberately not the broad radius predicate used by hazards.
+    if (_gameplayState.transitionGate89ea != 0) {
+        return false;
+    }
+
+    const std::int32_t playerX = player.positionX.floorPixels();
+    const std::int32_t playerY = player.positionY.floorPixels();
+    const std::int32_t left = playerX + player.state2C;
+    const std::int32_t right = playerX + player.state30;
+    const std::int32_t top = playerY +
+        static_cast<std::int16_t>(player.callbackState32);
+    const std::int32_t bottom = playerY + player.verticalStepOrDirection2E;
+
+    // 8D31 reads the object's integer X/Y words.  Its Y path clears the low
+    // four bits of the signed 16-bit integer word before adding 0x10.
+    const std::int32_t objectX = static_cast<std::int16_t>(entity.x);
+    const std::int32_t objectY = static_cast<std::int16_t>(entity.y) & ~0x0f;
+    return objectX < right && objectX + 0x10 > left &&
+           objectY < top && objectY + 0x10 > bottom;
+}
+
 bool LevelSession::cloudOverlaps(const PlayerRecord &player,
                                  const LevelEntity &entity) const {
     // 01F7:9269 compares the cloud's 16x16 box against the normalized
@@ -957,11 +981,9 @@ void LevelSession::dispatchCollectibleCallbacks(Simulation *simulation,
             }
         }
 
-        // The static 8D31 -> 393C bounds contract is represented at this
-        // boundary by the existing player/entity overlap predicate. The
-        // predicate is intentionally kept in one place until the exact DOS
-        // fixed-point bounds trace is promoted from research evidence.
-        if (!overlaps(player, entity, _config.collectibleRadius)) {
+        // 01F7:8D31 -> 393C uses the live player's four signed bounds and
+        // strict comparisons against the pickup's 16x16 aligned box.
+        if (!collectibleOverlaps(player, entity)) {
             continue;
         }
 

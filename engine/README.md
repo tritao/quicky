@@ -83,12 +83,15 @@ collected event and clears the scheduled object. The invulnerability path also
 writes the recovered player-record timer at `+0x34`; subsequent countdown and
 gate clearing remain owned by the player callback.
 
-This slice is statically closed for callback identity and state effects and is
-covered by native contract tests. The overlap predicate remains the explicit
-`8D31 -> 393C` boundary until its exact fixed-point geometry is promoted from
-the DOS trace evidence. Natural puzzle completion/transition behavior,
-the remaining enemy vertical/PRNG branches, and script-created platforms are
-not implemented by this slice.
+This slice is statically closed for callback identity, overlap geometry, and
+state effects and is covered by native contract tests. The native
+`collectibleOverlaps` predicate now mirrors `8D31 -> 393C`: it gates on
+`DS:89EA`, uses the signed player bounds at `+0x2C/+0x30/+0x2E/+0x32`, aligns
+the object Y word down to 16 pixels, and preserves the original strict edge
+comparisons. The tests include both accepted subtype writes and held-out
+equality-boundary cases. Natural puzzle completion/transition behavior, the
+remaining enemy vertical/PRNG branches, and script-created platforms are not
+implemented by this slice.
 
 ## Focused 5010 reload boundary
 

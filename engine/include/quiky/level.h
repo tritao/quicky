@@ -103,7 +103,6 @@ struct LevelGameplayState {
 struct LevelSessionConfig {
     // ARE origins are aligned to 64-pixel regions.
     std::int32_t streamRadiusRegions;
-    std::int32_t collectibleRadius;
     std::int32_t hazardRadius;
     std::int32_t edgeExitMargin;
     bool enableEdgeExit;
@@ -349,6 +348,8 @@ private:
     static bool isPooledInteractionType(std::uint16_t type);
     bool overlaps(const PlayerRecord &player, const LevelEntity &entity,
                   std::int32_t radius) const;
+    bool collectibleOverlaps(const PlayerRecord &player,
+                             const LevelEntity &entity) const;
     bool cloudOverlaps(const PlayerRecord &player,
                        const LevelEntity &entity) const;
     bool pooledInteractionOverlaps(const PlayerRecord &player,

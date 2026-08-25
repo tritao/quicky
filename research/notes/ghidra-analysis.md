@@ -673,6 +673,34 @@ Native W1/W2 renderer probes resolve slots 607-610 through map indices
 geometries are `26x34`, `21x22`, `22x22`, and `15x25`, all with origin `(0,0)`,
 matching WERBE.BOB records 0-3.
 
+The focused static decompilation of the shared callback's interaction path is
+now complete. `01F7:8D31` calls `01F7:393C`, which returns zero bounds when
+`DS:89EA` is nonzero; otherwise it reads the player record selected by
+`DS:881A` and returns:
+
+```text
+AX = player+0x04 + signed(player+0x2C)
+CX = player+0x04 + signed(player+0x30)
+BX = player+0x08 + signed(player+0x2E)
+DX = player+0x08 + signed(player+0x32)
+```
+
+The callback then reads the collectible integer X/Y words, clears the low
+four bits of Y, and accepts only strict overlap:
+
+```text
+object_x < CX && object_x + 0x10 > AX
+    && aligned_object_y < DX && aligned_object_y + 0x10 > BX
+```
+
+The branch reaches the subtype-specific writes and joins at `01F7:8E42`,
+which clears `object+0x18`. The controlled W1L2/W1L1 probes recorded in
+`research/entity-interaction-overlap-evidence.json` and
+`research/entity-pickup-subtype-overlap-evidence.json` exercise the accepted
+path; the native `quiky-tests` suite additionally checks strict equality
+rejection at the horizontal and aligned-Y edges. This closes the collectible
+geometry boundary without changing the separate `8E4B` state-machine gate.
+
 Normal type `0x28` uses dispatch entry `01F7:9256`, object class `0`, and
 reserved byte `0`. Its initializer leaves `object+0x12` at `0xFFFF`; paired
 W1L1 captures remove a large white cloud when the record is changed to inert

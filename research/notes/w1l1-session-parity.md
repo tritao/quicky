@@ -63,3 +63,10 @@ capture suppresses later pool/scheduler snapshots and does not publish the
 player probe/effect arrays on those samples. The old unseeded fixture remains
 diagnostic only for leaf bytes because `DS:646C` is process-generated and is
 not present in that archived capture.
+
+The W1L1 collectible callback boundary is now implemented from the focused
+`8D31 -> 393C` decompilation. Native tests use the recovered signed player
+intervals, 16-pixel object-Y alignment, `DS:89EA` gate, and strict edge
+comparisons; subtype fixtures cover ammo, health, invulnerability, and puzzle
+letter writes. These are static/controlled-contract checks, not a claim of
+full natural-DOS frame parity for collectible presentation effects.

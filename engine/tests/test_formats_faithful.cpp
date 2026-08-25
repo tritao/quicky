@@ -100,6 +100,18 @@ quiky::Area makeSingleArea(std::uint16_t type) {
     return quiky::Area::parse(data, "W1L1.ARE");
 }
 
+void forceCollectiblePlayerBounds(quiky::Simulation &simulation) {
+    // The controlled DOS overlap fixtures publish these exact callback
+    // bounds before entering 8D20. Keep the native fixture independent of
+    // the ordinary movement setup while exercising the recovered predicate.
+    quiky::PlayerRecord &player = simulation.stateForSetup().player;
+    player.state2C = -10;
+    player.verticalStepOrDirection2E = -40;
+    player.state30 = 10;
+    player.callbackState32 = 0;
+    player.syncToRaw();
+}
+
 void testReader() {
     const quiky::Bytes data = {0x12, 0x34, 0x56, 0x78, 0x9a, 0xbc};
     quiky::BinaryReader reader(data, "reader test");
@@ -260,7 +272,7 @@ void testLevelSessionUsesSimulationBoundary() {
     quiky::LevelSessionConfig config;
     config.hasSpawn = true;
     config.spawnX = 16;
-    config.spawnY = 16;
+    config.spawnY = 32;
     config.streamRadiusRegions = 0;
     config.enableEdgeExit = false;
     quiky::LevelSession session("W1L1.MAP", map, makeArea(0x6f, 0x79), config);
@@ -269,6 +281,7 @@ void testLevelSessionUsesSimulationBoundary() {
     simulation.setExperimentalPlayerUpdater(&updater);
     quiky::SimulationOutput output;
     session.reset(simulation);
+    forceCollectiblePlayerBounds(simulation);
     session.updateStreaming(simulation,
                             simulation.state().player.positionX.floorPixels(),
                             simulation.state().player.positionY.floorPixels());
@@ -327,7 +340,7 @@ void testRecoveredCollectibleStateContracts() {
     quiky::LevelSessionConfig config;
     config.hasSpawn = true;
     config.spawnX = 16;
-    config.spawnY = 16;
+    config.spawnY = 32;
     config.streamRadiusRegions = 0;
     config.enableEdgeExit = false;
 
@@ -340,6 +353,7 @@ void testRecoveredCollectibleStateContracts() {
     assert(healthMax.entities()[0].x == 21);
     assert(healthMax.entities()[0].y == 26);
     healthMax.reset(simulation);
+    forceCollectiblePlayerBounds(simulation);
     healthMax.gameplayStateForSetup().currentHealth8822 = 3;
     healthMax.gameplayStateForSetup().maximumHealth8824 = 3;
     healthMax.updateStreaming(simulation, 16, 16);
@@ -354,6 +368,7 @@ void testRecoveredCollectibleStateContracts() {
     assert(health.entities()[0].x == 21);
     assert(health.entities()[0].y == 26);
     health.reset(simulation);
+    forceCollectiblePlayerBounds(simulation);
     health.gameplayStateForSetup().currentHealth8822 = 3;
     health.gameplayStateForSetup().maximumHealth8824 = 5;
     health.updateStreaming(simulation, 16, 16);
@@ -369,6 +384,7 @@ void testRecoveredCollectibleStateContracts() {
     assert(invulnerability.entities()[0].x == 19);
     assert(invulnerability.entities()[0].y == 23);
     invulnerability.reset(simulation);
+    forceCollectiblePlayerBounds(simulation);
     invulnerability.updateStreaming(simulation, 16, 16);
     invulnerability.tick(simulation, world, quiky::InputState(), output);
     event = invulnerability.consumeEvent();
@@ -381,12 +397,51 @@ void testRecoveredCollectibleStateContracts() {
 
     quiky::LevelSession letter("W1L1.MAP", map, makeSingleArea(0x79), config);
     letter.reset(simulation);
+    forceCollectiblePlayerBounds(simulation);
     letter.updateStreaming(simulation, 16, 16);
     letter.tick(simulation, world, quiky::InputState(), output);
     event = letter.consumeEvent();
     assert(event.type == quiky::LevelEventType::Collected);
     assert(letter.gameplayState().puzzleMask60d8 == 1);
     assert(letter.score() == 100);
+}
+
+void testRecoveredCollectibleStrictBounds() {
+    const quiky::Map map = makeMap(16, 8);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 32;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    auto run = [&](std::int32_t objectX, std::int32_t objectY,
+                   std::uint16_t transitionGate = 0) {
+        quiky::Simulation simulation;
+        quiky::TraceClosedPlayerUpdate updater;
+        simulation.setExperimentalPlayerUpdater(&updater);
+        quiky::SimulationOutput output;
+        quiky::LevelSession session("W1L1.MAP", map,
+                                    makeSingleArea(0x6f), config);
+        session.reset(simulation);
+        forceCollectiblePlayerBounds(simulation);
+        session.gameplayStateForSetup().transitionGate89ea = transitionGate;
+        session.updateStreaming(simulation, 16, 16);
+        session.entitiesForSetup()[0].x = objectX;
+        session.entitiesForSetup()[0].y = objectY;
+        session.tick(simulation, world, quiky::InputState(), output);
+        return session.consumeEvent();
+    };
+
+    // 8D31 uses JGE/JLE rejection, so equality at either horizontal edge
+    // is not a hit. The player bounds are x=(6,26), y=(-8,32).
+    assert(run(26, 14).type == quiky::LevelEventType::None);
+    // 8D31 aligns the object Y down to a 16-pixel boundary and also rejects
+    // equality at the upper edge of the returned player interval.
+    assert(run(17, 32).type == quiky::LevelEventType::None);
+    assert(run(17, 14, 0xffff).type == quiky::LevelEventType::None);
+    assert(run(17, 14).type == quiky::LevelEventType::Collected);
 }
 
 void testRecoveredW1L1EnemyFamilies() {
@@ -725,6 +780,7 @@ int main() {
         testLevelSessionUsesSimulationBoundary();
         testW1L1NativeDefaultSpawn();
         testRecoveredCollectibleStateContracts();
+        testRecoveredCollectibleStrictBounds();
         testRecoveredW1L1EnemyFamilies();
         testRecoveredAnimatedTileEffectStateMachine();
         testRecoveredW1L1AmbientAndDedicatedContracts();
