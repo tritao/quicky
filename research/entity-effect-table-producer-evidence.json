@@ -224,6 +224,20 @@
     ],
     "interpretation": "Unlike W1L1 (DS:88AE=0), authored W1L4 naturally passes the stage gate and reaches the live 45AB update object under the normal left-alt action. The trace does not break on 4519 itself, so factory-entry provenance remains an open dynamic detail."
   },
+  "authored_w1l4_forced_action_probe": {
+    "trace": "research/build/player-w1l4-forced-action-factory-scheduler-current.json",
+    "trace_sha256": "1a4019a9704546a1494eb37ee62d3ba1adf01601916f625feadb68f58a5f06fe",
+    "trace_script_sha256": "d4b7a81063a15e2d21282c7dc98ee11e087c0967503e9fffdab6a0aff71143c3",
+    "fixture": "Native main-tree W1L4 selected through the level selector with DS:88AE=1 and DS:880C=0",
+    "mutation": "At 01F7:38EC, write the player action word 0x0010 before the producer condition is evaluated.",
+    "observed": [
+      "Sample 1 reaches 01F7:38EC and then the relocated factory 01F7:0E06; the factory pool grows to six occupied entries and includes callback 01F7:4519.",
+      "Sample 2 first enters 01F7:45AB with DS:8806=1, then reaches 01F7:38EC -> 01F7:0E06 again; the pool grows to seven occupied entries.",
+      "Sample 3 repeats 01F7:45AB -> 38EC -> 0E06 with DS:8806=2 and eight occupied entries.",
+      "The shared active count therefore advances 0 -> 1 -> 2 while DS:88AE remains 1 and DS:880C remains 0."
+    ],
+    "interpretation": "This controlled pass closes the authored-gate factory -> callback-4519 -> scheduler-45AB chain without directly writing a row or active counter. It is chain proof under a debugger-forced action word; it does not prove that the unmutated natural W1L4 keyboard path independently reaches 01F7:0E06."
+  },
   "remaining": [
     "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
     "Which authored completion/boss transition advances DS:88AE and which end-stage callback consumes each stage value.",
