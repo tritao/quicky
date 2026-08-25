@@ -390,6 +390,25 @@ trace should follow the same pool record from `B84D` entry through the first
 `B87B` return and confirm whether the linked `+0x2A/+0x36` records are cleared
 at the same boundary or one scheduler pass later.
 
+### Natural B33B linked-child teardown
+
+The phase-2 boundary is now runtime-confirmed at the callback-word level. At
+the initial B33B entry, the owner record is at pool offset `0x78`; its `+0x2A`
+child is at `0xF0` with initializer callback `B1F0`, and its `+0x36` child is
+at `0x168` with initializer callback `B20B`. Forcing the global phase to `2`
+while stopped at B33B reaches the static `B5FD` store, which clears the
+`0x168` callback (`B20B -> 0`). The protected memory watch stops immediately
+after the store at `B603`.
+
+The following allocator activity is also visible without guessing from pool
+counts: the `0xF0` record changes `B1F0 -> B226` at `B1FE`, and the cleared
+`0x168` record changes `0 -> B25D` at `B219`. Thus the owner’s `+0x36` child is
+explicitly retired by B33B and subsequently reused for a new B25D record;
+B25D itself contains no callback-clear store. The remaining lifecycle work is
+to capture the corresponding phase-3/4/5 transitions and the B84D/B87B path,
+then identify whether any external scheduler cleanup changes these records in
+addition to the direct B33B clear.
+
 ### Late-owner self-clear versus scheduler reachability
 
 The exact `489C` tail is now decoded from the segment image. At `492D` it
@@ -430,15 +449,14 @@ single `0E96` entry breakpoint.
 ## What remains before changing the recreation
 
 1. Associate the natural B226/B25D sequence-table entries with gameplay
-   frames, and trace the terminal callback-clear ordering at the coupled B33B
-   teardown boundary.
+   frames, and capture the corresponding phase-3/4/5 linked-child ordering.
 2. Trace the natural `B33B` action/context path (`1B77 -> 393C/19E6`) and
    deliberately capture a run in which one of the `1C6E` probes returns raw
    bit `0x4000`; the frame-445 sample shows that this bit is not the direct
    cause of the timer-driven handoff.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
-   and `0x487F`, plus the general deactivation/scheduler sites, so the coupled
-   teardown and any later object reactivation are not guessed.
+   and `0x487F`, plus the general deactivation/scheduler sites, so the B84D
+   transition and any later object reactivation are not guessed.
 4. Resolve the remaining full-frame palette/timing residuals after the
    queue-owned records are reproduced.
 5. Once those pass, implement a queue-owned render pass in C++ and compare

@@ -100,7 +100,7 @@ local function hex(s)
     local result = s:gsub(".", function(c)
         return string.format("%02x", string.byte(c))
     end)
-    return result
+    return "0x" .. result
 end
 
 local function wait_hit(label)
@@ -264,6 +264,24 @@ local function callback_write_probe()
     local watches = {}
     local control_watches = {}
     local linked_watched = false
+    local watched_offsets = {}
+    local function add_watch(object, index, linked)
+        if object == nil or watched_offsets[object.offset] then return end
+        local watch_offset = object.offset + 0x18
+        local added = dosbox.memory_breakpoint_set(
+            before.selector, watch_offset, {protected = true})
+        if added then
+            watched_offsets[object.offset] = true
+            linked_watched = linked_watched or linked or false
+            watches[#watches + 1] = {
+                index = index,
+                offset = object.offset,
+                initial_callback = object.callback,
+                callback = object.callback,
+                watch_offset = watch_offset,
+            }
+        end
+    end
     for _, object in ipairs(before.objects or {}) do
         local selected = object.callback == 0xb33b or object.callback == 0xb25d
         if teardown_watch_all_callbacks or
@@ -271,18 +289,19 @@ local function callback_write_probe()
             selected = true
         end
         if selected then
-            local watch_offset = object.offset + 0x18
-            local added = dosbox.memory_breakpoint_set(
-                before.selector, watch_offset, {protected = true})
-            if added then
-                linked_watched = linked_watched or object.index == 4
-                watches[#watches + 1] = {
-                    index = object.index,
-                    offset = object.offset,
-                    initial_callback = object.callback,
-                    callback = object.callback,
-                    watch_offset = watch_offset,
-                }
+            add_watch(object, object.index, object.index == 4)
+        end
+        if teardown_watch_linked_records and object.callback == 0xb33b then
+            -- B33B owns two separately scheduled children.  The +0x36 child
+            -- is commonly still at its initializer callback (B20B) when
+            -- B33B enters, so selecting only callback B25D misses its clear.
+            for _, linked_offset in ipairs({object.linked_offset,
+                                            object.linked_child}) do
+                if linked_offset ~= 0 and linked_offset ~= 0xffff then
+                    local ok, linked = pcall(object_snapshot, before.selector,
+                                             linked_offset, -1)
+                    if ok then add_watch(linked, -1, true) end
+                end
             end
         end
     end
@@ -432,11 +451,9 @@ local function callback_write_probe()
             hit.offset == 0x49eb or hit.offset == 0xb33b or
             hit.offset == 0xb25d
         local pool_after = nil
-        local scheduler_after = nil
         if capture_pool then
             after = pool_snapshot()
             pool_after = after
-            scheduler_after = scheduler_snapshot()
         end
         write_hits[#write_hits + 1] = {
             hit = hit,
@@ -457,7 +474,6 @@ local function callback_write_probe()
                 (hit.segment == 0x01f7 and hit.offset == 0x106a and
                     "scheduler_cleanup" or nil)))))) ,
             pool_after = pool_after,
-            scheduler = scheduler_after,
             globals = globals_snapshot(),
         }
         if teardown_watch_self_test then break end
@@ -686,12 +702,14 @@ local owner_hit = wait_hit("B33B phase probe")
 local owner_before = object_snapshot(owner_hit.registers.es,
                                      owner_hit.registers.edi & 0xffff, -1)
 local owner_forced = force_owner_phase(owner_hit)
-dosbox.breakpoint_clear()
-dosbox.debug_continue()
-if warmup_frames > 0 then dosbox.wait_frames(warmup_frames) end
-
 local samples = {}
 local teardown = teardown_probe_hits()
+if not teardown_probe or teardown_watch_self_test then
+    dosbox.breakpoint_clear()
+    dosbox.debug_continue()
+end
+if warmup_frames > 0 then dosbox.wait_frames(warmup_frames) end
+
 for sequence = 1, sample_count do
     dosbox.wait_frames(sample_interval)
     samples[#samples + 1] = {
