@@ -86,6 +86,12 @@ bool WorldCollisionView::alignsEightPixelsConfirmed(std::int32_t x,
                descriptor.descriptorWord);
 }
 
+bool WorldCollisionView::mapRawBit4000Confirmed(std::int32_t x,
+                                                std::int32_t y) const {
+    const MapCell cell = cellAt(floorTile(x), floorTile(y));
+    return cell.inBounds && (cell.rawWord & 0x4000U) != 0;
+}
+
 std::int32_t WorldCollisionView::floorTile(std::int32_t pixels) {
     if (pixels >= 0) {
         return pixels / 16;

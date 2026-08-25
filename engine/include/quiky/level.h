@@ -137,6 +137,12 @@ struct LevelEntity {
     std::uint16_t regionY;
     std::int32_t x;
     std::int32_t y;
+    std::int32_t initialX;
+    std::int32_t initialY;
+    Fixed16 positionX;
+    Fixed16 positionY;
+    Fixed16 velocityX;
+    Fixed16 velocityY;
     EntityKind kind;
     EntityPhase phase;
     std::uint16_t spriteSlot;
@@ -147,6 +153,15 @@ struct LevelEntity {
     SchedulerHandle schedulerHandle;
     std::uint8_t contactSubtype;
     std::uint8_t collectionBit;
+    std::uint16_t enemyPhaseTimer;
+    std::uint16_t enemyTimer;
+    std::int16_t enemyState;
+    std::uint8_t mapBlocked;
+    std::uint16_t enemyAnimationDelay;
+    bool streamSuppressed;
+    bool enemyContactPending;
+    CallbackIdentity contactCallback;
+    std::uint16_t responseTimer;
     std::uint16_t collisionWidth;
     std::uint16_t collisionHeight;
     std::uint16_t animationFrame;
@@ -157,9 +172,13 @@ struct LevelEntity {
 
     LevelEntity()
         : id(0), recordOffset(0), type(0), regionX(0), regionY(0), x(0), y(0),
+          initialX(0), initialY(0), positionX(), positionY(), velocityX(), velocityY(),
           kind(EntityKind::Unknown), phase(EntityPhase::Dormant),
           spriteSlot(0xffff), spriteResource(), effectSlot(0xffff), effectResource(),
           updateCallback(), schedulerHandle(), contactSubtype(0), collectionBit(0),
+          enemyPhaseTimer(0), enemyTimer(0), enemyState(0), mapBlocked(0),
+          enemyAnimationDelay(0), streamSuppressed(false),
+          enemyContactPending(false), contactCallback(), responseTimer(0),
           collisionWidth(0), collisionHeight(0),
           animationFrame(0), activeFrames(0),
           active(false), collected(false), pooledInteractionTriggered(false) {}
@@ -194,6 +213,9 @@ public:
 
 private:
     static EntityKind classify(std::uint16_t type);
+    static bool isNormalEnemyType(std::uint16_t type);
+    static bool isWurm2Type(std::uint16_t type);
+    static bool isBieneType(std::uint16_t type);
     static CallbackIdentity callbackFor(std::uint16_t type);
     static std::uint8_t collectibleSubtypeFor(std::uint16_t type);
     static std::uint8_t collectionBitFor(std::uint16_t type);
@@ -211,6 +233,16 @@ private:
                              std::int32_t playerX, std::int32_t playerY);
     void dispatchCollectibleCallbacks(Simulation *simulation,
                                       PlayerRecord &player);
+    void dispatchEnemyCallbacks(Simulation *simulation,
+                                const WorldCollisionView &world,
+                                const PlayerRecord &player);
+    void initializeEnemy(LevelEntity &entity);
+    void updateWurm2(LevelEntity &entity, const WorldCollisionView &world);
+    void updateBiene(LevelEntity &entity, const WorldCollisionView &world);
+    bool enemyMapBlocked(const LevelEntity &entity,
+                         const WorldCollisionView &world) const;
+    void beginEnemyContact(LevelEntity &entity);
+    void advanceEnemyResponse(Simulation *simulation, LevelEntity &entity);
     void applyCollectibleCallback(LevelEntity &entity, PlayerRecord &player,
                                   std::vector<LevelStateWrite> &writes);
     void releaseScheduledEntity(ObjectScheduler *scheduler,

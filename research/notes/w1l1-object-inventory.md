@@ -57,7 +57,8 @@ object release:
 
 1. `8D20` with subtype tables for pickups and puzzle letters — implemented.
 2. `6DC4`/`68C0` normal enemy callbacks and their existing `4AB3` contact
-   boundary.
+   boundary — state-zero WURM2/BIENE patrol and lifecycle are implemented;
+   `1C4D` polarity and vertical/PRNG phases remain address-qualified.
 3. `8E4B` environmental state machine, keeping `1AAA` as an explicit
    transition contract.
 4. `9269` cloud gate and `DS:89E6` transition publication.

@@ -21,9 +21,10 @@ The current iteration supports:
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - a shared SDL audio mixer that combines gameplay music with confirmed pickup SFX;
 - ARE-backed level streaming with the scoped W1L1 object-family inventory;
-  the shared collectible callback `01F7:8D20` is now executed through the
-  scheduler, while enemy, environmental, and transition contracts remain
-  explicit at their recovered boundaries;
+  the shared collectible callback `01F7:8D20` and W1 normal-enemy callbacks
+  `01F7:6DC4/68C0` are now executed through the scheduler, while other
+  environmental and transition contracts remain explicit at their recovered
+  boundaries;
 - source-less high-effect rendering from the recovered `4B70 -> 4C74` chain:
   world-specific `PUFF.BOB`/`PUFFW2.BOB`, slots `611/612/613`, and the
   31-update terminal lifecycle;
@@ -81,8 +82,16 @@ This slice is statically closed for callback identity and state effects and is
 covered by native contract tests. The overlap predicate remains the explicit
 `8D31 -> 393C` boundary until its exact fixed-point geometry is promoted from
 the DOS trace evidence. Natural puzzle completion/transition behavior,
-ordinary enemy callbacks, and script-created platforms are not implemented by
-this slice.
+the remaining enemy vertical/PRNG branches, and script-created platforms are
+not implemented by this slice.
+
+The W1 normal-enemy slice now executes the closed initialization and state-zero
+patrol behavior for WURM2 (`6DC4`) and BIENE (`68C0`): fixed-point direction,
+the `+0x20` Y initializer offset, raw MAP `0x4000` probing through the
+`1C6E` contract, animation-delay countdown, and shared off-camera removal.
+Their `1C4D` object-helper polarity and vertical/PRNG phases remain
+address-qualified. Player contact records the timed `4AB3/4C5D` response and
+does not invoke the provisional player-death path.
 
 ## Unified player callback status
 

@@ -131,9 +131,19 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.type = placement.type;
         entity.regionX = placement.regionX;
         entity.regionY = placement.regionY;
-        entity.x = static_cast<std::int32_t>(placement.worldX);
-        entity.y = static_cast<std::int32_t>(placement.worldY);
+        entity.initialX = static_cast<std::int32_t>(placement.worldX);
+        entity.initialY = static_cast<std::int32_t>(placement.worldY);
+        entity.x = entity.initialX;
+        entity.y = entity.initialY;
         entity.kind = classify(entity.type);
+        if (isNormalEnemyType(entity.type)) {
+            // 6D5F/684A place the enemy object 0x20 pixels below the ARE
+            // declaration. Keep the declaration anchor separately so reset
+            // can reproduce the initializer rather than the last position.
+            entity.y += 0x20;
+        }
+        entity.positionX = Fixed16::fromPixels(entity.x);
+        entity.positionY = Fixed16::fromPixels(entity.y);
         entity.spriteSlot = spriteSlotFor(entity.type);
         entity.spriteResource = spriteResourceFor(entity.type);
         entity.effectSlot = effectSlotFor(entity.type);
@@ -143,6 +153,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.collectionBit = collectionBitFor(entity.type);
         entity.collisionWidth = collisionWidthFor(entity.type);
         entity.collisionHeight = collisionHeightFor(entity.type);
+        initializeEnemy(entity);
         _entities.push_back(entity);
     }
 }
@@ -171,6 +182,10 @@ void LevelSession::reset(Simulation &simulation) {
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         entity.phase = EntityPhase::Dormant;
+        entity.x = entity.initialX;
+        entity.y = entity.initialY + (isNormalEnemyType(entity.type) ? 0x20 : 0);
+        entity.positionX = Fixed16::fromPixels(entity.x);
+        entity.positionY = Fixed16::fromPixels(entity.y);
         entity.animationFrame = 0;
         entity.activeFrames = 0;
         entity.active = false;
@@ -180,6 +195,11 @@ void LevelSession::reset(Simulation &simulation) {
         entity.updateCallback = callbackFor(entity.type);
         entity.contactSubtype = collectibleSubtypeFor(entity.type);
         entity.collectionBit = collectionBitFor(entity.type);
+        entity.streamSuppressed = false;
+        entity.enemyContactPending = false;
+        entity.contactCallback = CallbackIdentity();
+        entity.responseTimer = 0;
+        initializeEnemy(entity);
     }
     _effects.clear();
     resetPlayer(simulation);
@@ -235,10 +255,48 @@ EntityKind LevelSession::classify(std::uint16_t type) {
     return EntityKind::Unknown;
 }
 
+bool LevelSession::isNormalEnemyType(std::uint16_t type) {
+    return isWurm2Type(type) || isBieneType(type);
+}
+
+bool LevelSession::isWurm2Type(std::uint16_t type) {
+    return type == 0x01 || type == 0x02;
+}
+
+bool LevelSession::isBieneType(std::uint16_t type) {
+    return type == 0x03 || type == 0x04;
+}
+
+void LevelSession::initializeEnemy(LevelEntity &entity) {
+    if (!isNormalEnemyType(entity.type)) {
+        entity.velocityX = Fixed16();
+        entity.velocityY = Fixed16();
+        entity.enemyPhaseTimer = 0;
+        entity.enemyTimer = 0;
+        entity.enemyState = 0;
+        entity.mapBlocked = 0;
+        entity.enemyAnimationDelay = 0;
+        return;
+    }
+
+    const bool rightVariant = entity.type == 0x02 || entity.type == 0x04;
+    entity.velocityX = Fixed16(rightVariant ? 0x15000 : -0x15000);
+    entity.velocityY = Fixed16();
+    entity.enemyPhaseTimer = 0;
+    entity.enemyTimer = 0x14;
+    entity.enemyState = 0;
+    entity.mapBlocked = 0;
+    entity.enemyAnimationDelay = 0x0e;
+    entity.enemyContactPending = false;
+    entity.contactCallback = CallbackIdentity();
+    entity.responseTimer = 0;
+}
+
 CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
-    // These identities are the recovered ARE callback targets. Only the
-    // collectible family is executed by this slice; the other identities are
-    // published for scheduler order and remain external contracts.
+    // These identities are the recovered ARE callback targets. Collectibles
+    // and the two W1 normal-enemy families are executed by this slice; the
+    // other identities are published for scheduler order and remain external
+    // contracts.
     if (type == 0x6f || type == 0x70 || type == 0x71 || type == 0x72 ||
         type == 0x2c || (type >= 0x79 && type <= 0x7f)) {
         return CallbackIdentity(0x01f7, 0x8d20, "collectible_8d20");
@@ -249,7 +307,7 @@ CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
     if (type == 0x34) {
         return CallbackIdentity(0x01f7, 0x9c0c, "bump_9c0c");
     }
-    if (type == 0x01) {
+    if (type == 0x01 || type == 0x02) {
         return CallbackIdentity(0x01f7, 0x6dc4, "entity_wurm2_6dc4");
     }
     if (type == 0x03 || type == 0x04) {
@@ -549,6 +607,15 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
         const std::int32_t distanceY = std::abs(static_cast<std::int32_t>(entity.regionY) - regionY);
         const bool visible = distanceX <= _config.streamRadiusRegions &&
                              distanceY <= _config.streamRadiusRegions;
+        if (visible && isNormalEnemyType(entity.type) &&
+            entity.streamSuppressed && !wasActive) {
+            // 01F7:1DEE clears the object and the ARE claim. A loaded-region
+            // sweep does not revisit that declaration; reconstruction belongs
+            // to the level reload path, not to this visibility pass.
+            entity.phase = EntityPhase::Dormant;
+            entity.active = false;
+            continue;
+        }
         entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
         entity.active = visible;
         if (visible && !wasActive) {
@@ -558,6 +625,9 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
             }
             spawnedTransient = spawnTransientEffect(entity) || spawnedTransient;
         } else if (!visible) {
+            if (isNormalEnemyType(entity.type) && wasActive) {
+                entity.streamSuppressed = true;
+            }
             releaseScheduledEntity(scheduler, entity);
             entity.pooledInteractionTriggered = false;
             removeTransientEffectsFor(entity.id);
@@ -719,6 +789,143 @@ void LevelSession::syncPlayerTimer(const PlayerRecord &player) {
     }
 }
 
+void LevelSession::dispatchEnemyCallbacks(
+    Simulation *simulation, const WorldCollisionView &world,
+    const PlayerRecord &player) {
+    ObjectScheduler *scheduler = simulation == 0
+        ? 0 : &simulation->stateForSetup().scheduler;
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        if (!entity.active || !isNormalEnemyType(entity.type) ||
+            entity.updateCallback.offset == 0) {
+            continue;
+        }
+        if (scheduler != 0 &&
+            (!entity.schedulerHandle.valid() ||
+             entity.schedulerHandle.slot >= scheduler->objects().size() ||
+             !scheduler->objects()[entity.schedulerHandle.slot].active)) {
+            continue;
+        }
+
+        if (entity.enemyContactPending) {
+            advanceEnemyResponse(simulation, entity);
+            continue;
+        }
+
+        if (isWurm2Type(entity.type)) {
+            updateWurm2(entity, world);
+        } else {
+            updateBiene(entity, world);
+        }
+
+        // The family callbacks publish the same animation delay field as the
+        // initializers. The BOB cursor tables remain renderer-owned; this
+        // counter is retained here so the callback-visible timing is not
+        // replaced with a generic frame counter.
+        if (entity.enemyAnimationDelay != 0) {
+            --entity.enemyAnimationDelay;
+        } else {
+            entity.enemyAnimationDelay = 0x0e;
+            entity.animationFrame = static_cast<std::uint16_t>(
+                (entity.animationFrame + 1) & 0x00ff);
+        }
+
+        // The native contact tail is a separate 4AB3/4C5D object response.
+        // Keep the overlap predicate explicit until the persistent-player
+        // coordinate source and family-specific bounds are moved into the
+        // level trace contract. It must not be treated as player death.
+        if (overlaps(player, entity, _config.hazardRadius)) {
+            beginEnemyContact(entity);
+        }
+    }
+}
+
+void LevelSession::updateWurm2(LevelEntity &entity,
+                               const WorldCollisionView &world) {
+    const bool blocked = enemyMapBlocked(entity, world);
+    entity.mapBlocked = blocked ? 1 : 0;
+    if (blocked) {
+        entity.velocityX.raw = Fixed16::wrapNegRaw(entity.velocityX.raw);
+    }
+    entity.positionX.raw = Fixed16::wrapAddRaw(entity.positionX.raw,
+                                                entity.velocityX.raw);
+    entity.x = entity.positionX.floorPixels();
+
+    // 6DC4 uses +0x2A as a 0..0x96 patrol phase before the PRNG/state branch.
+    // The branch's random vertical target is outside this W1L1 implementation
+    // until its selected runtime value is captured; do not invent one here.
+    if (entity.enemyPhaseTimer < 0x96) {
+        ++entity.enemyPhaseTimer;
+    } else {
+        entity.enemyPhaseTimer = 0;
+    }
+}
+
+void LevelSession::updateBiene(LevelEntity &entity,
+                               const WorldCollisionView &world) {
+    const bool blocked = enemyMapBlocked(entity, world);
+    entity.mapBlocked = blocked ? 1 : 0;
+    if (blocked) {
+        entity.velocityX.raw = Fixed16::wrapNegRaw(entity.velocityX.raw);
+    }
+    entity.positionX.raw = Fixed16::wrapAddRaw(entity.positionX.raw,
+                                                entity.velocityX.raw);
+    entity.x = entity.positionX.floorPixels();
+
+    // 68C0's state-1 sine/exit phases are identified in the static closure,
+    // but their selected phase data is not part of the W1L1 runtime fixture.
+    // State zero's horizontal path is closed and remains exact here.
+}
+
+bool LevelSession::enemyMapBlocked(const LevelEntity &entity,
+                                   const WorldCollisionView &world) const {
+    const std::int32_t direction = entity.velocityX.raw < 0 ? -1 : 1;
+    const std::int32_t probeX = entity.x + direction * 0x26;
+    if (isWurm2Type(entity.type)) {
+        // 6DC4's outer checks use the -10/-10 WURM2 offsets and the
+        // direction-dependent +/-0x26 x probes. 1C6E's raw 0x4000 test is
+        // closed; the neighboring 1C4D return polarity remains address-
+        // qualified and is not substituted with a player descriptor test.
+        return world.mapRawBit4000Confirmed(probeX, entity.y - 10) ||
+               world.mapRawBit4000Confirmed(probeX, entity.y + 10);
+    }
+
+    // 68C0 uses the BIENE -20/-10 outer y offsets with the same directional
+    // x probe pair.
+    return world.mapRawBit4000Confirmed(probeX, entity.y - 20) ||
+           world.mapRawBit4000Confirmed(probeX, entity.y - 10);
+}
+
+void LevelSession::beginEnemyContact(LevelEntity &entity) {
+    entity.enemyContactPending = true;
+    entity.contactCallback = CallbackIdentity(
+        0x01f7, 0x4ab3, "enemy_contact_4ab3");
+    entity.responseTimer = 0x28;
+    enqueueEvent(LevelEventType::EntityCollisionImpact, entity.id,
+                 entity.type);
+}
+
+void LevelSession::advanceEnemyResponse(Simulation *simulation,
+                                        LevelEntity &entity) {
+    if (entity.responseTimer != 0) {
+        --entity.responseTimer;
+    }
+    if (entity.responseTimer != 0) {
+        return;
+    }
+
+    // 4C5D clears only the response object's callback/object-active word;
+    // it is not the normal enemy death/drop path. Suppress this streamed
+    // declaration until a level reload reconstructs it.
+    entity.enemyContactPending = false;
+    entity.active = false;
+    entity.phase = EntityPhase::Dormant;
+    entity.streamSuppressed = true;
+    releaseScheduledEntity(
+        simulation == 0 ? 0 : &simulation->stateForSetup().scheduler,
+        entity);
+}
+
 void LevelSession::emitHighEffect(std::int32_t sourceX, std::int32_t sourceY) {
     LevelEffect effect;
     // The DOS object has +0x1A=FFFF and is not tied to an ARE declaration.
@@ -741,8 +948,10 @@ void LevelSession::advanceActiveEntities() {
             continue;
         }
         ++entity.activeFrames;
-        entity.animationFrame = static_cast<std::uint16_t>(
-            (entity.animationFrame + 1) & 0x00ff);
+        if (!isNormalEnemyType(entity.type)) {
+            entity.animationFrame = static_cast<std::uint16_t>(
+                (entity.animationFrame + 1) & 0x00ff);
+        }
     }
 }
 
@@ -903,11 +1112,18 @@ void LevelSession::tick(Simulation &simulation,
         enqueueEvent(LevelEventType::AlternateActionObject);
     }
 
+    dispatchEnemyCallbacks(&simulation, world, player);
     dispatchCollectibleCallbacks(&simulation, player);
 
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         if (!entity.active || entity.collected) {
+            continue;
+        }
+        if (isNormalEnemyType(entity.type)) {
+            // Normal WURM2/BIENE contact is handled by the recovered
+            // 4AB3/4C5D response boundary above, not by the provisional
+            // player-death hazard path.
             continue;
         }
         if (entity.kind == EntityKind::Hazard &&

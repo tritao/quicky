@@ -237,6 +237,10 @@ void testFaithfulRecordWorldAndAnimation() {
     assert(world.hasVerticalResponseConfirmed(3, 3));
     assert(world.alignsEightPixelsConfirmed(3, 3));
 
+    const quiky::Map rawMap = makeMap(1, 1, 0x4000);
+    const quiky::WorldCollisionView rawWorld(rawMap);
+    assert(rawWorld.mapRawBit4000Confirmed(3, 3));
+
     quiky::PlayerRecord player;
     player.mode37 = 0;
     player.motionDirectionByte29 = 1;
@@ -366,6 +370,64 @@ void testRecoveredCollectibleStateContracts() {
     assert(letter.score() == 100);
 }
 
+void testRecoveredW1L1EnemyFamilies() {
+    const quiky::Map map = makeMap(16, 8);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 1;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L1.MAP", map, makeArea(0x01, 0x03), config);
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 16);
+
+    assert(session.entities()[0].updateCallback.offset == 0x6dc4);
+    assert(session.entities()[1].updateCallback.offset == 0x68c0);
+    assert(session.entities()[0].y == 48);
+    assert(session.entities()[1].y == 48);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(output.schedulerCallbacks.size() == 2);
+    assert(output.schedulerCallbacks[0].callback.offset == 0x6dc4);
+    assert(output.schedulerCallbacks[1].callback.offset == 0x68c0);
+    assert(session.entities()[0].x == 14);
+    assert(session.entities()[1].x == 78);
+    assert(session.deaths() == 0);
+    assert(session.entities()[0].enemyContactPending);
+    assert(session.entities()[0].contactCallback.offset == 0x4ab3);
+    assert(session.entities()[0].responseTimer == 0x28);
+    assert(!session.entities()[1].enemyContactPending);
+    assert(session.consumeEvent().type == quiky::LevelEventType::EntityCollisionImpact);
+
+    for (int frame = 0; frame < 40; ++frame) {
+        session.tick(simulation, world, quiky::InputState(), output);
+    }
+    assert(!session.entities()[0].active);
+    assert(session.entities()[1].active);
+    assert(session.entities()[0].streamSuppressed);
+    assert(!session.entities()[1].streamSuppressed);
+
+    session.updateStreaming(simulation, 400, 400);
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(output.schedulerCallbacks.empty());
+    assert(!session.entities()[0].active);
+    assert(!session.entities()[1].active);
+    assert(session.entities()[1].streamSuppressed);
+
+    session.updateStreaming(simulation, 16, 16);
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(output.schedulerCallbacks.empty());
+    assert(!session.entities()[0].active);
+    assert(!session.entities()[1].active);
+}
+
 } // namespace
 
 int main() {
@@ -378,6 +440,7 @@ int main() {
         testFaithfulRecordWorldAndAnimation();
         testLevelSessionUsesSimulationBoundary();
         testRecoveredCollectibleStateContracts();
+        testRecoveredW1L1EnemyFamilies();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;

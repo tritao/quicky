@@ -47,6 +47,9 @@ public:
                                       std::int32_t y) const;
     bool alignsEightPixelsConfirmed(std::int32_t x,
                                     std::int32_t y) const;
+    // Exact raw MAP contract of 01F7:1C6E: test word bit 0x4000 at the
+    // 16-pixel cell selected by (x,y), independent of player descriptors.
+    bool mapRawBit4000Confirmed(std::int32_t x, std::int32_t y) const;
 
 private:
     static std::int32_t floorTile(std::int32_t pixels);
