@@ -103,8 +103,18 @@
       ],
       "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The callback's scheduler/list handoff or immediate removal occurs within the next guest frame and remains unresolved; the authored gameplay transition that sets bit 0x10 also remains open."
     },
+    "natural_input_trigger_probe": {
+      "trace": "research/build/player-effect-table-leftalt-natural-w1l1-v2.json",
+      "trace_sha256": "fa167b6268aaad95cfc10e03a4f54019e206ec19d18440948426cc2b9608caee",
+      "trace_script_sha256": "dff2fbc7f6ff2d40901eb1e471ec7546a6eaaa67db7d8df0cc5d07927031957c",
+      "fixture": "W1L1 main-tree native selector",
+      "samples": 5,
+      "input": "KBD_leftalt held for 30 frames and latched through each player callback",
+      "observed": "Samples 1-4 report scan code 0x38, DS:88BC=0x0010, player action word 0x0010, and object byte +0x3C changing from 0x00 at the producer entry to 0xFF after the callback.",
+      "interpretation": "The tested authored trigger is the alternate-action keyboard bit supplied by left Alt; no debugger action-word mutation is needed to reach the producer guard. The separate forced probe remains the direct factory-allocation proof because this natural run's factory breakpoint was not independently captured."
+    },
   "remaining": [
-    "Which gameplay state sets player object flags bit 0x10 and therefore triggers 01F7:38EC in normal play.",
+    "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
     "How the newly allocated callback-4519 record is inserted into the scheduler/list or removed within the next guest frame.",
     "Whether Wind/UFO authored declarations use this player-state producer or another producer path.",
     "The semantic names and level/reload triggers of the two reset callsites."

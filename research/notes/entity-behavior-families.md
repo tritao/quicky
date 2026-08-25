@@ -367,7 +367,10 @@ The same pass closes the branch-level behavior for the remaining effects:
   one guest frame later without a captured `4519/45AB/470C` entry. The
   scheduler/list handoff or immediate removal is therefore the next precise
   boundary; the authored gameplay transition that sets the bit also remains
-  open. See
+  open. The unmutated input ledger now identifies the tested source: holding
+  left Alt (scan `0x38`) produces `DS:88BC=0x0010`, player action `0x0010`,
+  and the same `+0x3C: 0 -> FF` guard transition. This closes the keyboard
+  trigger mapping; other non-keyboard gameplay producers remain open. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only

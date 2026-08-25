@@ -86,6 +86,7 @@ class PlayerTraceConfig:
     focus_callback: bool = False
     focus_callback_offset: int = 0x3FF8
     effect_table_focus: bool = False
+    effect_table_factory_focus: bool = False
     force_player_action_word: int | None = None
     map_focus: bool = False
     collision_focus: bool = False
@@ -100,6 +101,7 @@ class PlayerTraceConfig:
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
+    input_hold_until_callback: bool = False
     select_level: str | None = None
     selector_frames: int = 60
     screenshot: Path | None = None
@@ -171,6 +173,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "focus_callback": config.focus_callback,
         "focus_callback_offset": config.focus_callback_offset,
         "effect_table_focus": config.effect_table_focus,
+        "effect_table_factory_focus": config.effect_table_factory_focus,
         "force_player_action_word": config.force_player_action_word,
         "map_focus": config.map_focus,
         "collision_focus": config.collision_focus,
@@ -185,6 +188,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
+        "input_hold_until_callback": config.input_hold_until_callback,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
     }
@@ -653,6 +657,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="player callback offset for --player-focus-callback (default 0x3ff8)")
     parser.add_argument("--player-effect-table-focus", action="store_true",
                         help="record shared effect-table reset/spawn/update/remove hits during player callbacks")
+    parser.add_argument("--player-effect-table-factory-focus", action="store_true",
+                        help="debugger-only: capture the pooled-object factory call at 01F7:0E06")
     parser.add_argument("--player-force-action-word", type=lambda value: int(value, 0),
                         help="debugger-only: write this action word at the player producer-tail breakpoint")
     parser.add_argument("--player-map-focus", action="store_true",
@@ -682,6 +688,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-input-hold-until-callback", action="store_true",
+                        help="debugger-only: keep the input key pressed through the sampled player callback")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -873,6 +881,7 @@ def main(argv: list[str] | None = None) -> int:
                 focus_callback=args.player_focus_callback,
                 focus_callback_offset=args.player_callback_offset,
                 effect_table_focus=args.player_effect_table_focus,
+                effect_table_factory_focus=args.player_effect_table_factory_focus,
                 force_player_action_word=args.player_force_action_word,
                 map_focus=args.player_map_focus,
                 collision_focus=args.player_collision_focus,
@@ -887,6 +896,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
+                input_hold_until_callback=args.player_input_hold_until_callback,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,

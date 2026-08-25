@@ -26,7 +26,7 @@ scan 4B -> action 08   left
 scan 4D -> action 04   right
 scan 50 -> action 01   down
 scan 48 -> action 02   up
-scan 38 -> action 10   left shift/alternate action
+scan 38 -> action 10   left Alt/alternate action
 scan 39 -> action 20   space/confirm
 ```
 

@@ -8,6 +8,7 @@ local frames_between = trace_config.frames_between or 30
 local focus_callback = trace_config.focus_callback or false
 local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
 local effect_table_focus = trace_config.effect_table_focus or false
+local effect_table_factory_focus = trace_config.effect_table_factory_focus or false
 local force_player_action_word = trace_config.force_player_action_word
 local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
@@ -22,6 +23,7 @@ local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
+local input_hold_until_callback = trace_config.input_hold_until_callback or false
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local trace_event_counter = 0
@@ -776,12 +778,16 @@ end
 local samples = {}
 local experiment_frame = 0
 for sequence = 1, sample_count do
+    local held_input = false
     if sequence > 1 then
         if input_key ~= "" and input_frames > 0 and
            (input_samples == 0 or sequence <= input_samples + 1) then
             dosbox.key(input_key, true)
+            held_input = input_hold_until_callback
             dosbox.wait_frames(input_frames)
-            dosbox.key(input_key, false)
+            if not input_hold_until_callback then
+                dosbox.key(input_key, false)
+            end
             experiment_frame = experiment_frame + input_frames
         end
         dosbox.wait_frames(frames_between)
@@ -847,7 +853,7 @@ for sequence = 1, sample_count do
         sample.pool = pool_snapshot()
         sample.scheduler = scheduler_snapshot()
     end
-    if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
+        if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
         local callback_object = callback_object_snapshot(hit)
         sample.player_callback = {
             breakpoint = {segment = hit.segment, offset = hit.offset},
@@ -890,10 +896,6 @@ for sequence = 1, sample_count do
                     end
                 elseif effect_table_focus then
                     arm_effect_table_lifecycle()
-                    if force_player_action_word ~= nil and not factory_breakpoint_armed then
-                        dosbox.breakpoint_set(0x01f7, 0x0e06, {once = true})
-                        factory_breakpoint_armed = true
-                    end
                     if not effect_table_tail_seen then
                         arm_effect_table_tail_once()
                     end
@@ -929,6 +931,11 @@ for sequence = 1, sample_count do
                         end
                         if candidate.offset == effect_table_offsets[1] then
                             effect_table_tail_seen = true
+                            if (force_player_action_word ~= nil or effect_table_factory_focus) and
+                               not factory_breakpoint_armed then
+                                dosbox.breakpoint_set(0x01f7, 0x0e06, {once = true})
+                                factory_breakpoint_armed = true
+                            end
                             force_player_action(sample, candidate)
                         end
                     end
@@ -977,6 +984,9 @@ for sequence = 1, sample_count do
             cursor = dosbox.mem_read_word("ds", 0x36e0),
             target_kind = 0x64,
         }
+    end
+    if held_input then
+        dosbox.key(input_key, false)
     end
     samples[#samples + 1] = sample
 end

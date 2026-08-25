@@ -183,6 +183,7 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"393c", "compute_state_machine_bounds"},
                 {"3f27", "initialize_player_object"},
                 {"3ff8", "update_player_object"},
+                {"f21c", "player_action_input_helper_f21c"},
                 {"3a1f", "player_collision_probe_3a1f"},
                 {"3a62", "player_collision_probe_3a62"},
                 {"3a8a", "player_collision_helper_3a8a"},

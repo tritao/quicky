@@ -214,6 +214,8 @@ public class AnnotateQuiky extends GhidraScript {
             "Reads the persistent offset-zero player record while comparing another object position; higher-level role remains provisional.");
         function(0x38ec, "spawn_effect_table_from_player_state",
             "Player-update tail: when object flags include 0x10 and +0x3C is clear, calls 01F7:0E06 with AX=01F7:4519 to allocate the shared transient-effect entry.");
+        function(0xf21c, "player_action_input_helper_f21c",
+            "Relocation target reached immediately after the DS:656C player-action read; return value supplies the normalized action word used by the player callback.");
         function(0x44dc, "player_control_transition_44dc",
             "Decrements DS:89EA and handles the transitional vertical-motion control path.");
         function(0x44ff, "effect_table_reset",
