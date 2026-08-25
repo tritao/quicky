@@ -21,6 +21,7 @@ local stop_at_cursor = trace_config.stop_at_cursor
 local trace_render = trace_config.trace_render or false
 local render_trace_hits = trace_config.render_trace_hits or 64
 local capture_scheduled_pool = trace_config.capture_scheduled_pool ~= false
+local trace_spawned_callbacks = trace_config.trace_spawned_callbacks ~= false
 local owner_probe_callback = trace_config.owner_probe_callback
 local owner_probe_x = trace_config.owner_probe_x
 local owner_probe_y = trace_config.owner_probe_y
@@ -96,7 +97,7 @@ local function family_for_callback(callback)
 end
 
 local function object_snapshot(selector, offset, index)
-    local raw = dosbox.mem_read_selector(selector, offset, 0x40)
+    local raw = dosbox.mem_read_selector(selector, offset, 0x48)
     local x_fixed = dword(raw, 3)
     local y_fixed = dword(raw, 7)
     return {
@@ -122,6 +123,7 @@ local function object_snapshot(selector, offset, index)
         lifetime = word(raw, 0x2c + 1),
         state_field = word(raw, 0x2e + 1),
         update_state = word(raw, 0x32 + 1),
+        emission_counter = word(raw, 0x44 + 1),
     }
 end
 
@@ -141,8 +143,8 @@ local function pool_snapshot()
     end
     for index = 0, 63 do
         local offset = base + index * stride
-        local ok, raw = pcall(dosbox.mem_read_selector, selector, offset, 0x40)
-        if ok and raw and #raw >= 0x40 then
+        local ok, raw = pcall(dosbox.mem_read_selector, selector, offset, 0x48)
+        if ok and raw and #raw >= 0x48 then
             local object = object_snapshot(selector, offset, index)
             if object.callback ~= 0 then
                 object.family = family_for_callback(object.callback)
@@ -342,9 +344,11 @@ local function arm_callback_targets()
         end
     end
     for _, segment in ipairs(callback_segments) do
-        dosbox.breakpoint_set(segment, 0x4b70, {once = true})
-        for callback in pairs(watched_effect_callbacks) do
-            dosbox.breakpoint_set(segment, callback, {once = true})
+        if trace_spawned_callbacks then
+            dosbox.breakpoint_set(segment, 0x4b70, {once = true})
+            for callback in pairs(watched_effect_callbacks) do
+                dosbox.breakpoint_set(segment, callback, {once = true})
+            end
         end
         if trace_render then
             for _, callback in ipairs(pre_render_callback_offsets) do

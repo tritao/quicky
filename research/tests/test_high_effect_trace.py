@@ -30,6 +30,7 @@ class HighEffectTraceTests(unittest.TestCase):
             trace_render=True,
             render_trace_hits=12,
             capture_scheduled_pool=False,
+            trace_spawned_callbacks=False,
             owner_probe_callback=0xb226,
             owner_probe_x=353,
             owner_probe_y=530,
@@ -50,6 +51,7 @@ class HighEffectTraceTests(unittest.TestCase):
         self.assertTrue(payload["trace_render"])
         self.assertEqual(payload["render_trace_hits"], 12)
         self.assertFalse(payload["capture_scheduled_pool"])
+        self.assertFalse(payload["trace_spawned_callbacks"])
         self.assertEqual(payload["owner_probe_callback"], 0xb226)
         self.assertEqual(payload["owner_probe_x"], 353)
         self.assertEqual(payload["owner_probe_y"], 530)

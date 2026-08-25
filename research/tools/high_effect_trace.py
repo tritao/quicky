@@ -44,6 +44,7 @@ class HighEffectConfig:
     trace_render: bool = False
     render_trace_hits: int = 64
     capture_scheduled_pool: bool = True
+    trace_spawned_callbacks: bool = True
     owner_probe_callback: int | None = None
     owner_probe_x: int | None = None
     owner_probe_y: int | None = None
@@ -73,6 +74,7 @@ def lua_config(config: HighEffectConfig) -> dict[str, Any]:
         "trace_render": config.trace_render,
         "render_trace_hits": config.render_trace_hits,
         "capture_scheduled_pool": config.capture_scheduled_pool,
+        "trace_spawned_callbacks": config.trace_spawned_callbacks,
         "owner_probe_callback": config.owner_probe_callback,
         "owner_probe_x": config.owner_probe_x,
         "owner_probe_y": config.owner_probe_y,
@@ -214,6 +216,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="maximum render breakpoints to record")
     parser.add_argument("--no-scheduled-pool", action="store_true",
                         help="omit expensive 64-entry scheduler snapshots")
+    parser.add_argument("--no-spawned-callbacks", action="store_true",
+                        help="do not stop on traced 4B70/effect child callbacks")
     parser.add_argument("--probe-render-owner", type=lambda value: int(value, 0),
                         help="force one ordinary render-owner callback's position")
     parser.add_argument("--probe-render-owner-x", type=int,
@@ -352,6 +356,7 @@ def main(argv: list[str] | None = None) -> int:
             trace_render=args.trace_render,
             render_trace_hits=args.render_trace_hits,
             capture_scheduled_pool=not args.no_scheduled_pool,
+            trace_spawned_callbacks=not args.no_spawned_callbacks,
             owner_probe_callback=args.probe_render_owner,
             owner_probe_x=args.probe_render_owner_x,
             owner_probe_y=args.probe_render_owner_y,
