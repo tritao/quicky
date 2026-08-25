@@ -514,6 +514,60 @@ void testRecoveredAnimatedTileEffectStateMachine() {
     assert(session.effects().size() == 5);
 }
 
+void testRecoveredW1L1AmbientAndDedicatedContracts() {
+    const quiky::Map map = makeMap(16, 8);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+
+    quiky::LevelSession cloud("W1L1.MAP", map, makeSingleArea(0x28), config);
+    cloud.reset(simulation);
+    cloud.updateStreaming(simulation, 16, 16);
+    assert(cloud.entities()[0].kind == quiky::EntityKind::AmbientVisual);
+    assert(cloud.entities()[0].updateCallback.offset == 0x9269);
+    assert(cloud.entities()[0].spriteSlot == 0xffff);
+    assert(cloud.entities()[0].spriteResource == "WOLKE.BOB");
+    cloud.tick(simulation, world, quiky::InputState(), output);
+    assert(cloud.gameplayState().cloudSignal89e6 == 0xffff);
+
+    quiky::LevelSession leaves("W1L1.MAP", map, makeSingleArea(0x2a), config);
+    leaves.reset(simulation);
+    leaves.updateStreaming(simulation, 16, 16);
+    assert(leaves.entities()[0].kind == quiky::EntityKind::AmbientVisual);
+    assert(leaves.entities()[0].updateCallback.offset == 0x47e7);
+    assert(leaves.entities()[0].spriteSlot == 703);
+    assert(leaves.entities()[0].spriteResource == "BLATT.BOB");
+    assert(leaves.entities()[0].ambientVelocityY.raw == 0x13000);
+    assert(leaves.entities()[0].ambientOriginX == leaves.entities()[0].x);
+    assert(leaves.entities()[0].ambientOriginY == leaves.entities()[0].y);
+    assert(leaves.entities()[0].ambientTimer == 0x000c);
+    assert(leaves.entities()[0].ambientAnimationDelay == 10);
+    assert(leaves.entities()[0].ambientAnimationCursor == 0x3328);
+
+    quiky::LevelSession dedicated("W1L1.MAP", map, makeSingleArea(0x65), config);
+    dedicated.reset(simulation);
+    dedicated.updateStreaming(simulation, 16, 16);
+    assert(dedicated.effects().size() == 1);
+    assert(dedicated.effects()[0].sourceType == 0x65);
+    assert(dedicated.effects()[0].effectResource == "LOOP_W1.ICO");
+    assert(dedicated.effects()[0].effectSlot == 1);
+    assert(dedicated.effects()[0].spriteSlot == 0xffff);
+    assert(dedicated.effects()[0].updateCallback.offset == 0x10b5);
+    assert(dedicated.effects()[0].eventSubtype == 0x00);
+    assert(dedicated.effects()[0].eventAnimationState == 1);
+    dedicated.tick(simulation, world, quiky::InputState(), output);
+    assert(dedicated.effects().size() == 1);
+}
+
 } // namespace
 
 int main() {
@@ -528,6 +582,7 @@ int main() {
         testRecoveredCollectibleStateContracts();
         testRecoveredW1L1EnemyFamilies();
         testRecoveredAnimatedTileEffectStateMachine();
+        testRecoveredW1L1AmbientAndDedicatedContracts();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;

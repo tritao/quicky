@@ -18,6 +18,7 @@ enum class EntityKind {
     Collectible,
     MovingPlatform,
     EnvironmentalEffect,
+    AmbientVisual,
 };
 
 enum class EntityPhase {
@@ -85,6 +86,11 @@ struct LevelGameplayState {
     // external transition contract.
     std::int32_t terminalX8828;
     std::int32_t terminalY882a;
+    // 01F7:9269 latches DS:89E6 when the cloud/endpoint gate succeeds.
+    std::uint16_t cloudSignal89e6;
+    // Input/transition gate consumed by the same callback; its outer state
+    // machine remains outside this level closure.
+    std::uint16_t transitionGate89ea;
 
     LevelGameplayState();
 };
@@ -126,13 +132,21 @@ struct LevelEffect {
     std::uint16_t spriteSlot;
     std::string spriteResource;
     std::uint16_t animationFrame;
+    // 01F7:16CE/10B5 event-object metadata. effectSlot is the resolved
+    // LOOP_Wn.ICO record; callbackState remains 0xffff when the live child
+    // selector was not captured for this source event.
+    std::uint16_t callbackState;
+    std::uint8_t eventSubtype;
+    std::uint8_t eventAnimationState;
+    CallbackIdentity updateCallback;
     std::uint16_t lifetime;
     bool active;
 
     LevelEffect()
         : sourceEntityId(0), sourceType(0), x(0), y(0), effectSlot(0xffff),
           effectResource(), spriteSlot(0xffff), spriteResource(),
-          animationFrame(0), lifetime(0), active(false) {}
+          animationFrame(0), callbackState(0xffff), eventSubtype(0),
+          eventAnimationState(0), updateCallback(), lifetime(0), active(false) {}
 };
 
 struct LevelEntity {
@@ -167,6 +181,17 @@ struct LevelEntity {
     // 8E4B: object+0x2E variant selector and object+0x32 callback state.
     std::uint16_t environmentSelector;
     std::uint16_t environmentState;
+    // 01F7:474D/47E7 initializer-visible state for pooled BLATT children.
+    // The signed PRNG perturbation and source emission cadence remain
+    // address-qualified; these fields retain the confirmed fixed-point
+    // contract instead of a generic animation approximation.
+    Fixed16 ambientVelocityY;
+    std::int32_t ambientOriginX;
+    std::int32_t ambientOriginY;
+    std::uint16_t ambientTimer;
+    std::uint16_t ambientAnimationDelay;
+    std::uint16_t ambientAnimationCursor;
+    std::uint8_t ambientTable;
     bool streamSuppressed;
     bool enemyContactPending;
     CallbackIdentity contactCallback;
@@ -187,7 +212,9 @@ struct LevelEntity {
           updateCallback(), schedulerHandle(), contactSubtype(0), collectionBit(0),
           enemyPhaseTimer(0), enemyTimer(0), enemyState(0), mapBlocked(0),
           enemyAnimationDelay(0), environmentSelector(0),
-          environmentState(0), streamSuppressed(false),
+          environmentState(0), ambientVelocityY(), ambientOriginX(0),
+          ambientOriginY(0), ambientTimer(0), ambientAnimationDelay(0),
+          ambientAnimationCursor(0), ambientTable(0), streamSuppressed(false),
           enemyContactPending(false), contactCallback(), responseTimer(0),
           collisionWidth(0), collisionHeight(0),
           animationFrame(0), activeFrames(0),
@@ -226,6 +253,9 @@ private:
     static bool isNormalEnemyType(std::uint16_t type);
     static bool isWurm2Type(std::uint16_t type);
     static bool isBieneType(std::uint16_t type);
+    static bool isCloudType(std::uint16_t type);
+    static bool isLeafType(std::uint16_t type);
+    static bool isDedicatedEventType(std::uint16_t type);
     static CallbackIdentity callbackFor(std::uint16_t type);
     static std::uint8_t collectibleSubtypeFor(std::uint16_t type);
     static std::uint8_t collectionBitFor(std::uint16_t type);
@@ -246,9 +276,12 @@ private:
     void dispatchEnemyCallbacks(Simulation *simulation,
                                 const WorldCollisionView &world,
                                 const PlayerRecord &player);
+    void dispatchCloudCallbacks(Simulation *simulation,
+                                const PlayerRecord &player);
     bool dispatchWorldEffectCallbacks(Simulation *simulation);
     void initializeEnemy(LevelEntity &entity);
     void initializeWorldEffect(LevelEntity &entity);
+    void initializeAmbientVisual(LevelEntity &entity);
     bool updateWorldEffect(Simulation *simulation, LevelEntity &entity);
     void updateWurm2(LevelEntity &entity, const WorldCollisionView &world);
     void updateBiene(LevelEntity &entity, const WorldCollisionView &world);
@@ -273,6 +306,8 @@ private:
     static bool isPooledInteractionType(std::uint16_t type);
     bool overlaps(const PlayerRecord &player, const LevelEntity &entity,
                   std::int32_t radius) const;
+    bool cloudOverlaps(const PlayerRecord &player,
+                       const LevelEntity &entity) const;
     bool pooledInteractionOverlaps(const PlayerRecord &player,
                                    const LevelEntity &entity) const;
     bool atRightExit(const PlayerRecord &player) const;

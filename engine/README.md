@@ -102,6 +102,24 @@ parent and publishes the address-qualified terminal coordinates
 `DS:8828/DS:882A`; the indexed `01F7:1AAA` transition consumer and authored
 selector population remain explicit unresolved boundaries.
 
+The remaining W1L1 authored visual callbacks now publish their closed static
+contracts without being folded into generic gameplay behavior:
+
+- Cloud `01F7:9256 -> 9269` is classified as an ambient visual, keeps its
+  normal logical slot at `0xFFFF`, and latches `DS:89E6` only when the
+  normalized 16-pixel player gate, `DS:89EA == 0`, and player `+0x37 == 0`
+  all pass. The outer transition consumer and special `WOLKE.BOB` blitter are
+  still address-qualified.
+- Leaf types `0x29`-`0x2B` publish the `01F7:47E7` callback, `BLATT.BOB`
+  slot families, the `0x13000` fixed-point base velocity, source position,
+  timer `0x0C`, and the confirmed `DS:3312`/`DS:3326` animation-table
+  selectors. The signed PRNG perturbation and pooled-child emission cadence
+  remain unresolved rather than being replaced by guessed motion.
+- Dedicated types `0x65`-`0x67` publish subtype bytes `0x00/0x08/0x10`,
+  world-relative `LOOP_Wn.ICO` records, no normal BOB slot, and child callback
+  `01F7:10B5`. The event-ring seed, exact child selector/lifetime, and human
+  semantic names remain explicit external data.
+
 ## Unified player callback status
 
 The unified `TraceClosedPlayerUpdate` is the C++ implementation of the

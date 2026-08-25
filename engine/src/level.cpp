@@ -96,7 +96,9 @@ LevelGameplayState::LevelGameplayState()
       playerTimer0034(0),
       puzzleMask60d8(0),
       terminalX8828(0),
-      terminalY882a(0) {
+      terminalY882a(0),
+      cloudSignal89e6(0),
+      transitionGate89ea(0) {
 }
 
 LevelSessionConfig::LevelSessionConfig()
@@ -157,6 +159,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.collisionHeight = collisionHeightFor(entity.type);
         initializeEnemy(entity);
         initializeWorldEffect(entity);
+        initializeAmbientVisual(entity);
         _entities.push_back(entity);
     }
 }
@@ -204,6 +207,7 @@ void LevelSession::reset(Simulation &simulation) {
         entity.responseTimer = 0;
         initializeEnemy(entity);
         initializeWorldEffect(entity);
+        initializeAmbientVisual(entity);
     }
     _effects.clear();
     resetPlayer(simulation);
@@ -259,6 +263,10 @@ EntityKind LevelSession::classify(std::uint16_t type) {
     if (type >= 0x1f && type <= 0x21) {
         return EntityKind::EnvironmentalEffect;
     }
+    if (isCloudType(type) || isLeafType(type) ||
+        isDedicatedEventType(type)) {
+        return EntityKind::AmbientVisual;
+    }
     return EntityKind::Unknown;
 }
 
@@ -272,6 +280,18 @@ bool LevelSession::isWurm2Type(std::uint16_t type) {
 
 bool LevelSession::isBieneType(std::uint16_t type) {
     return type == 0x03 || type == 0x04;
+}
+
+bool LevelSession::isCloudType(std::uint16_t type) {
+    return type == 0x28;
+}
+
+bool LevelSession::isLeafType(std::uint16_t type) {
+    return type >= 0x29 && type <= 0x2b;
+}
+
+bool LevelSession::isDedicatedEventType(std::uint16_t type) {
+    return type >= 0x65 && type <= 0x67;
 }
 
 void LevelSession::initializeEnemy(LevelEntity &entity) {
@@ -310,6 +330,33 @@ void LevelSession::initializeWorldEffect(LevelEntity &entity) {
     // 01F7:8E4B. The separate +0x32 callback state starts at zero.
     entity.environmentSelector = static_cast<std::uint16_t>(
         entity.type - 0x1e);
+}
+
+void LevelSession::initializeAmbientVisual(LevelEntity &entity) {
+    entity.ambientVelocityY = Fixed16();
+    entity.ambientOriginX = entity.x;
+    entity.ambientOriginY = entity.y;
+    entity.ambientTimer = 0;
+    entity.ambientAnimationDelay = 0;
+    entity.ambientAnimationCursor = 0;
+    entity.ambientTable = 0;
+
+    if (!isLeafType(entity.type)) {
+        return;
+    }
+
+    // 01F7:474D stores 0x13000 minus a signed PRNG-byte perturbation in
+    // object+0x0E. The random byte is not part of the ARE contract, so the
+    // source declaration records the confirmed base until a replay supplies
+    // the exact PRNG state.
+    entity.ambientVelocityY = Fixed16(0x13000);
+    entity.ambientOriginX = entity.x;
+    entity.ambientOriginY = entity.y;
+    entity.ambientTimer = 0x000c;
+    entity.ambientTable = entity.type == 0x2a ? 1 : 0;
+    entity.ambientAnimationDelay = entity.ambientTable == 0 ? 8 : 10;
+    entity.ambientAnimationCursor = entity.ambientTable == 0
+        ? 0x3314 : 0x3328;
 }
 
 CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
@@ -385,10 +432,13 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
     case 0x1a: return 200;
     case 0x1b: return 264;
     case 0x1c: return 214;
-    case 0x28: return 413;
+    // 9256 leaves object+0x12 at FFFF. WOLKE slots 413-416 belong to the
+    // unresolved special renderer and must not be published as a normal
+    // scheduler slot.
+    case 0x28: return 0xffff;
     case 0x29:
-    case 0x2a:
     case 0x2b: return 700;
+    case 0x2a: return 703;
     case 0x34: return 400;
     case 0x3d: return 301;
     case 0x3e: return 300;
@@ -575,6 +625,19 @@ bool LevelSession::overlaps(const PlayerRecord &player,
     return entity.x >= left && entity.x <= right && entity.y >= top && entity.y <= bottom;
 }
 
+bool LevelSession::cloudOverlaps(const PlayerRecord &player,
+                                 const LevelEntity &entity) const {
+    // 01F7:9269 compares the cloud's 16x16 box against the normalized
+    // player bounds. This is intentionally separate from the broad overlap
+    // predicate used by provisional hazard families.
+    const std::int32_t playerX = (player.positionX.floorPixels() / 16) * 16;
+    const std::int32_t playerY = (player.positionY.floorPixels() / 16) * 16;
+    const std::int32_t cloudX = (entity.x / 16) * 16;
+    const std::int32_t cloudY = (entity.y / 16) * 16;
+    return cloudX < playerX + 16 && cloudX + 16 > playerX &&
+           cloudY < playerY + 16 && cloudY + 16 > playerY;
+}
+
 bool LevelSession::pooledInteractionOverlaps(const PlayerRecord &player,
                                              const LevelEntity &entity) const {
     const std::int32_t playerX = player.positionX.floorPixels();
@@ -629,7 +692,8 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
         const bool visible = distanceX <= _config.streamRadiusRegions &&
                              distanceY <= _config.streamRadiusRegions;
         if (visible && (isNormalEnemyType(entity.type) ||
-                        isWorldEffectType(entity.type)) &&
+                        isWorldEffectType(entity.type) ||
+                        isCloudType(entity.type)) &&
             entity.streamSuppressed && !wasActive) {
             // 01F7:1DEE and the state-10 8E4B path clear the object and its
             // active claim. A loaded-region sweep does not revisit that
@@ -649,7 +713,8 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
             spawnedTransient = spawnTransientEffect(entity) || spawnedTransient;
         } else if (!visible) {
             if ((isNormalEnemyType(entity.type) ||
-                 isWorldEffectType(entity.type)) && wasActive) {
+                 isWorldEffectType(entity.type) ||
+                 isCloudType(entity.type)) && wasActive) {
                 entity.streamSuppressed = true;
             }
             releaseScheduledEntity(scheduler, entity);
@@ -864,6 +929,33 @@ void LevelSession::dispatchEnemyCallbacks(
     }
 }
 
+void LevelSession::dispatchCloudCallbacks(Simulation *simulation,
+                                          const PlayerRecord &player) {
+    ObjectScheduler *scheduler = simulation == 0
+        ? 0 : &simulation->stateForSetup().scheduler;
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        if (!entity.active || !isCloudType(entity.type) ||
+            entity.updateCallback.offset != 0x9269) {
+            continue;
+        }
+        if (scheduler != 0 &&
+            (!entity.schedulerHandle.valid() ||
+             entity.schedulerHandle.slot >= scheduler->objects().size() ||
+             !scheduler->objects()[entity.schedulerHandle.slot].active)) {
+            continue;
+        }
+
+        // 01F7:92A9/92AF writes DS:89E6=-1 only on the accepted path. The
+        // signal is a latch consumed by the outer 01D7:4EA0 transition pass;
+        // rejected frames do not clear it here.
+        if (_gameplayState.transitionGate89ea == 0 &&
+            player.mode37 == 0 && cloudOverlaps(player, entity)) {
+            _gameplayState.cloudSignal89e6 = 0xffff;
+        }
+    }
+}
+
 bool LevelSession::dispatchWorldEffectCallbacks(Simulation *simulation) {
     ObjectScheduler *scheduler = simulation == 0
         ? 0 : &simulation->stateForSetup().scheduler;
@@ -1032,7 +1124,9 @@ void LevelSession::advanceActiveEntities() {
             continue;
         }
         ++entity.activeFrames;
-        if (!isNormalEnemyType(entity.type) && !isWorldEffectType(entity.type)) {
+        if (!isNormalEnemyType(entity.type) && !isWorldEffectType(entity.type) &&
+            !isCloudType(entity.type) && !isLeafType(entity.type) &&
+            !isDedicatedEventType(entity.type)) {
             entity.animationFrame = static_cast<std::uint16_t>(
                 (entity.animationFrame + 1) & 0x00ff);
         }
@@ -1051,6 +1145,17 @@ bool LevelSession::spawnTransientEffect(const LevelEntity &entity) {
     effect.effectSlot = entity.effectSlot;
     effect.effectResource = entity.effectResource;
     effect.animationFrame = 0;
+    effect.spriteSlot = 0xffff;
+    effect.updateCallback = CallbackIdentity(
+        0x01f7, 0x10b5, "dedicated_event_10b5");
+    effect.eventSubtype = entity.type == 0x65
+        ? 0x00 : (entity.type == 0x66 ? 0x08 : 0x10);
+    // 01F7:1749 stores the source event's animation byte from the PRNG
+    // helper. These are the confirmed first W1L1 values; other world seeds
+    // remain data-dependent and are intentionally not synthesized here.
+    if (worldForMap(_mapName) == "W1") {
+        effect.eventAnimationState = entity.type == 0x66 ? 4 : 1;
+    }
     // The event object is short-lived and advances its animation byte modulo
     // eight. Its exact removal timing is not yet fully mapped; eight ticks
     // preserves the observed event animation without turning the ARE seed
@@ -1165,6 +1270,7 @@ void LevelSession::tick(Simulation &simulation,
         spawnedTransient;
     advanceActiveEntities();
     advanceActiveEffects();
+    dispatchCloudCallbacks(&simulation, player);
     const bool emittedTileEffect = dispatchWorldEffectCallbacks(&simulation);
 
     if (spawnedTransient) {
