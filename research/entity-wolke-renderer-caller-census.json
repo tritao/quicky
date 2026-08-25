@@ -1,0 +1,37 @@
+{
+  "schema": "entity-wolke-renderer-caller-census-v1",
+  "purpose": "Bound direct callers of the segment-3 VGA/BOB entry used while investigating the special WOLKE renderer.",
+  "inputs": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "target": "01F7:0013",
+    "methods": [
+      "NE relocation census via research/tools/ne_relocs.py --json",
+      "bounded opcode scan for direct 16-bit near CALL targets across segments 1-6"
+    ]
+  },
+  "relocation_census": {
+    "target": "01F7:0013",
+    "matches": [
+      {
+        "source": "01F7:35B3",
+        "instruction": "01F7:35B3",
+        "return": "01F7:35B8",
+        "source_type": "near_call_relocation",
+        "target_selector": "0x01F7"
+      }
+    ],
+    "match_count": 1,
+    "interpretation": "The only relocation-backed call to the generic VGA/BOB entry is the normal render-queue call from 01F7:35B3."
+  },
+  "raw_near_call_scan": {
+    "segments": ["01D7", "01E7", "01F7", "0207", "0227", "0237"],
+    "opcode": "E8 rel16",
+    "target": "01F7:0013",
+    "matches": [],
+    "match_count": 0,
+    "interpretation": "No additional direct near-call encoding targets offset 0x0013 in the six file-backed segments. This is a bounded byte-level scan, not a proof against an indirect function-pointer call."
+  },
+  "conclusion": "The ordinary queue caller is statically unique among direct relocation-backed and direct near-call forms. A WOLKE-specific draw, if present, must use an indirect/constructed call path, a different primitive, or a runtime path not represented as a direct call to 01F7:0013."
+}

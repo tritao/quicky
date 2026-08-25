@@ -85,6 +85,13 @@
       },
       "interpretation": "The bounded hardware hook saw only an ordinary logical-slot draw (slot 276), not WOLKE slots 413-416. This is negative evidence against the special cloud draw being emitted by the normal per-frame queue in this fixture; it does not identify the low-level WOLKE caller."
     },
+    "direct_caller_census": {
+      "evidence": "research/entity-wolke-renderer-caller-census.json",
+      "relocation_target": "01F7:0013",
+      "direct_relocation_callers": ["01F7:35B3 (return 35B8)"],
+      "direct_near_call_callers": [],
+      "interpretation": "The normal queue caller is unique among the recovered direct forms. Any WOLKE-specific draw must be indirect, use another primitive, or be reached through runtime state not represented by a direct call to 0013."
+    },
     "conclusion": "The cloud callback contains no direct sprite/resource call. The normal object renderer is still explicitly bypassed (01F7:3529 sees the cloud object at ES:DI and object+0x12=FFFF), while the outer gameplay loop consumes DS:89E6 at 01D7:4EA0. This closes the special-state consumer; the exact WOLKE.BOB pixel-draw primitive remains outside the normal logical-slot queue."
   },
   "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. The player-state gate and the outer DS:89E6 consumer are directly evidenced; the normal logical-slot renderer is bypassed, leaving only the low-level WOLKE.BOB pixel-draw primitive to identify."
