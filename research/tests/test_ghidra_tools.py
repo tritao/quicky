@@ -41,7 +41,8 @@ class GhidraToolTests(unittest.TestCase):
             (ROOT / "research/ghidra/player-callback-closure.json").read_text()
         )
         script = generate(manifest)
-        self.assertIn('new DisassembleCommand(address(rangeStart), body, true)', script)
+        self.assertIn('new DisassembleCommand(cursor, body, false)', script)
+        self.assertIn('private void disassembleRange(AddressSet body, String name)', script)
         self.assertIn('{"3", "3FF8", "update_player"', script)
         self.assertIn('"3FF8", "44DC"', script)
         self.assertIn('"44DC", "44FF"', script)
@@ -56,8 +57,19 @@ class GhidraToolTests(unittest.TestCase):
         )
         names = {item["address"]: item["name"] for item in manifest["functions"]}
         edges = []
+        unresolved = []
         for source, site, target, _name in expected_call_edges(manifest):
-            if classify_expected_call(ROOT / "game/QUIKY.EXE", source, site, target) != "near":
+            kind = classify_expected_call(ROOT / "game/QUIKY.EXE", source, site, target)
+            if kind == "far":
+                unresolved.append({
+                    "source": f"{source[0]}:{source[1]:04X}",
+                    "source_name": names.get(f"{source[0]}:{source[1]:04X}", ""),
+                    "call_site": f"{source[0]}:{site:04X}",
+                    "classification": "far-or-indirect",
+                    "opcode": "9A",
+                })
+                continue
+            if kind != "near":
                 continue
             source_text = f"{source[0]}:{source[1]:04X}"
             target_text = f"{target[0]}:{target[1]:04X}"
@@ -73,7 +85,7 @@ class GhidraToolTests(unittest.TestCase):
             "program": "QUIKY_SEG03.bin",
             "segment": 3,
             "edges": edges,
-            "unresolved_calls": [],
+            "unresolved_calls": unresolved,
         }
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "ghidra-callgraph.json"

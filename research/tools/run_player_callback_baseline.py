@@ -51,10 +51,7 @@ def ghidra_default() -> Path:
     if home:
         return Path(home) / "support" / "analyzeHeadless"
     discovered = shutil.which("analyzeHeadless")
-    if discovered:
-        return Path(discovered)
-    packaged = Path("/home/joao/dev/ghidra-12.1.3/support/analyzeHeadless")
-    return packaged if packaged.is_file() else Path("analyzeHeadless")
+    return Path(discovered) if discovered else Path("analyzeHeadless")
 
 
 def check_input_hash() -> Path:

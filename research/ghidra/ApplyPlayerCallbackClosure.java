@@ -9,6 +9,7 @@ import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.listing.CodeUnit;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionManager;
+import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.util.exception.DuplicateNameException;
@@ -148,10 +149,7 @@ public class ApplyPlayerCallbackClosure extends GhidraScript {
                                int rangeStart, int rangeEnd) throws Exception {
         Address entry = address(offset);
         AddressSet body = new AddressSet(address(rangeStart), address(rangeEnd - 1));
-        DisassembleCommand command = new DisassembleCommand(address(rangeStart), body, true);
-        command.enableCodeAnalysis(false);
-        if (!command.applyTo(currentProgram, monitor))
-            println("Disassembly reported a problem for " + name + " at " + entry);
+        disassembleRange(body, name);
 
         FunctionManager manager = currentProgram.getFunctionManager();
         Function function = manager.getFunctionAt(entry);
@@ -176,6 +174,23 @@ public class ApplyPlayerCallbackClosure extends GhidraScript {
         }
         function.setBody(body);
         function.setComment(comment);
+    }
+
+    private void disassembleRange(AddressSet body, String name) throws Exception {
+        Address cursor = body.getMinAddress();
+        while (cursor != null && body.contains(cursor)) {
+            Instruction existing = currentProgram.getListing().getInstructionContaining(cursor);
+            if (existing != null) {
+                cursor = existing.getMaxAddress().add(1);
+                continue;
+            }
+            DisassembleCommand command = new DisassembleCommand(cursor, body, false);
+            command.enableCodeAnalysis(false);
+            if (!command.applyTo(currentProgram, monitor))
+                println("Disassembly reported a problem for " + name + " at " + cursor);
+            Instruction decoded = currentProgram.getListing().getInstructionContaining(cursor);
+            cursor = decoded == null ? cursor.add(1) : decoded.getMaxAddress().add(1);
+        }
     }
 
     private void applyContract(int offset, String name, String comment) throws Exception {

@@ -238,6 +238,7 @@ def check_independent_callgraph(payload: dict[str, Any], executable: Path,
 
     functions = {address(item["address"]): item for item in payload["functions"]}
     expected_near: set[tuple[tuple[int, int], tuple[int, int], tuple[int, int]]] = set()
+    expected_far_sites: set[tuple[tuple[int, int], tuple[int, int]]] = set()
     expected_far = 0
     expected_unresolved: list[str] = []
     for source, site, target, name in expected_call_edges(payload):
@@ -246,6 +247,7 @@ def check_independent_callgraph(payload: dict[str, Any], executable: Path,
             expected_near.add((source, (source[0], site), target))
         elif kind == "far":
             expected_far += 1
+            expected_far_sites.add((source, (source[0], site)))
         else:
             expected_unresolved.append(f"{source[0]}:{site:04X} -> {target[0]}:{target[1]:04X} ({name})")
     if expected_unresolved:
@@ -267,11 +269,22 @@ def check_independent_callgraph(payload: dict[str, Any], executable: Path,
         extra = sorted(actual_near - expected_near)
         raise ClosureError(f"Ghidra near-call drift; missing={missing[:3]} extra={extra[:3]}")
 
+    actual_far_sites: set[tuple[tuple[int, int], tuple[int, int]]] = set()
     for call in graph.get("unresolved_calls", []):
         if call.get("classification") not in {"far-or-indirect", "near"}:
             raise ClosureError("Ghidra unresolved call has invalid classification")
-        if address(call["source"]) not in functions:
+        source = address(call["source"])
+        call_site = address(call["call_site"])
+        if source not in functions:
             raise ClosureError(f"unresolved call source {call['source']} is outside closure")
+        if call.get("classification") == "far-or-indirect":
+            actual_far_sites.add((source, call_site))
+    if actual_far_sites != expected_far_sites:
+        missing = sorted(expected_far_sites - actual_far_sites)
+        extra = sorted(actual_far_sites - expected_far_sites)
+        raise ClosureError(
+            f"Ghidra far-call coverage drift; missing={missing[:3]} extra={extra[:3]}"
+        )
     print(f"OK: Ghidra near-call graph ({len(actual_near)} edges)")
     print(f"OK: NE relocation far-call contract ({expected_far} edges)")
 

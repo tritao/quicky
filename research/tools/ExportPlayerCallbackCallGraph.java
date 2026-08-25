@@ -61,7 +61,7 @@ public class ExportPlayerCallbackCallGraph extends GhidraScript {
                 continue;
             }
             for (Instruction instruction : listing.getInstructions(function.getBody(), true)) {
-                if (!instruction.getMnemonicString().equalsIgnoreCase("CALL"))
+                if (!instruction.getMnemonicString().toUpperCase().startsWith("CALL"))
                     continue;
                 byte[] bytes = instruction.getBytes();
                 int opcode = bytes.length == 0 ? -1 : bytes[0] & 0xff;

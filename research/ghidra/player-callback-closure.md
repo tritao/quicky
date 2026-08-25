@@ -27,7 +27,7 @@ dispatch state, descriptor backends, animation loaders, and the transition
 boundary without expanding unrelated game systems.
 
 Current closure: 39 classified functions — 30 inline, 8 contract, and 1
-unresolved — with 80 audited call-site edges. The closure includes the input
+unresolved — with 81 audited call-site edges. The closure includes the input
 normalization boundary, action counters, horizontal integration, ascent and
 falling paths, descriptor/side probes, jump initiation, landing/ceiling and
 side-contact responses, animation selection/advancement, effect/sound

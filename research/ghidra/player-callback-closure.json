@@ -291,7 +291,7 @@
     },
     {
       "address":"01F7:19E6","range":["19E6","1A95"],"name":"apply_transition_reset_19E6","old_symbol":"FUN_19E6","classification":"contract","convention":"far","signature":"void apply_transition_reset_19E6(void)",
-      "inputs":["persistent player through DS:881A","DS:8822 transition counter"],"outputs":["DS:89EA transition gate and player motion reset"],"player_reads":["0E","34","37","3B","3E","4C","50","5C","60"],"player_writes":["0E","37","3B","3E","4C","50","5C","60"],"global_reads":["DS:881A","DS:8822","DS:89EA"],"global_writes":["DS:612E","DS:880A","DS:8950","DS:89EA"],"callees":[{"site":"19FB","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:19E6-1A94","callsite:3AB3"]
+      "inputs":["persistent player through DS:881A","DS:8822 transition counter"],"outputs":["DS:89EA transition gate and player motion reset"],"player_reads":["0E","34","37","3B","3E","4C","50","5C","60"],"player_writes":["0E","37","3B","3E","4C","50","5C","60"],"global_reads":["DS:881A","DS:8822","DS:89EA"],"global_writes":["DS:612E","DS:880A","DS:8950","DS:89EA"],"callees":[{"site":"19FB","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"1A43","address":"01E7:0CE3","name":"dispatch_transition_effect_0CE3","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:19E6-1A94","callsite:3AB3"]
     },
     {
       "address":"01F7:0E06","range":null,"name":"object_pool_factory_0E06","old_symbol":"FUN_0E06","classification":"contract","convention":"far","signature":"ObjectRecord* object_pool_factory_0E06(uint16_t ax, uint16_t dx)",

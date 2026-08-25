@@ -3,9 +3,9 @@
 
 Manifest validation has no Ghidra dependency. ``audit-project`` starts the
 bundled PyGhidra JVM, opens the existing raw-segment project, verifies the
-canonical player-closure symbols, and decompiles its function entries. It is a
-read-only proof of concept; the Java annotation scripts remain authoritative
-until manifest application reaches output parity.
+canonical symbols, declared body ranges, semantic comments, and successful
+decompilation of its function entries. The generated Java preparation pass
+and this audit consume the same manifest.
 """
 
 from __future__ import annotations
