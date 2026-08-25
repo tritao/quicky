@@ -626,6 +626,16 @@ slot 413-416 argument reached the generic blitter in this fixture. The next
 renderer experiment therefore needs a different execution context or a
 different primitive, rather than more samples of the ordinary queue.
 
+The descriptor-map boundary is now measured in an isolated visible-cloud
+fixture as well. Before eight `01F7:0013` samples, the live `DS:6D8E` map reads
+for logical slots 413, 414, 415, and 416 all return `FFFF`, while the same hook
+sees an ordinary mapped draw (`logical_slot=700`, `map_index=153`). This rules
+out a merely missed WOLKE queue call in that context: the four WOLKE records
+are not materialized in the ordinary descriptor map at all. The remaining
+renderer work is specifically the alternate resource/descriptor handoff and
+the pixel primitive or frame-state it feeds; the result is recorded in
+[`entity-cloud-crossworld-evidence.json`](../entity-cloud-crossworld-evidence.json).
+
 ## Reproducible next experiments
 
 The isolated object tracer now lives in
@@ -770,16 +780,18 @@ and lifecycle boundary, and platform-carry boundaries. Remaining experiments
 are deliberately narrower:
 
 1. Capture the fully authored all-seven-letter run if exact transition timing is
-   needed. The outer-state prerequisite and authored presentation sequence are
-   now dynamically bounded; the remaining gap is the post-message timer
-   continuation and eventual `01D7:4FAF-5047` handoff in an unforced, fully
-   authored run.
+   needed. The outer-state prerequisite, presentation, and native `4F10 ->
+   4FAF` handoff are now dynamically bounded; an explicit transition census
+   still sees no `5010/5017/5038/503D/5042/5047` in the synthetic fixture. The
+   remaining gap is the authored transition/resource state that continues after
+   the post-message timer in a retail-equivalent run.
 2. If pixel-level renderer provenance is required, continue from the narrowed
    WOLKE boundary: identify the alternate descriptor/resource path (or a
    fixture that reaches it) after the outer `01D7:4EA0` state consumer. The
    generic `0013` VGA/BOB primitive, ordinary queue path, player-state gate,
    cross-world usage, removal path, and both player-side readers are confirmed;
-   the 64-sample queue probe ruled out an explicit ordinary-queue injection.
+   the queue and descriptor-map probes rule out an explicit ordinary-queue
+   injection in the current fixture.
 3. Capture the authored boss/end damage or completion producer (the controlled
    callback path already maps `DS:88AE` 1->5). Identify the non-keyboard player
    bit-`0x10` producer, then trace a WERBE or
