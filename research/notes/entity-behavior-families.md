@@ -636,6 +636,15 @@ renderer work is specifically the alternate resource/descriptor handoff and
 the pixel primitive or frame-state it feeds; the result is recorded in
 [`entity-cloud-crossworld-evidence.json`](../entity-cloud-crossworld-evidence.json).
 
+Single-target probes then isolated the scheduler/render callbacks that can be
+masked by the debugger's breakpoint capacity. `01F7:106A` and `17D4` reached
+with an empty ordinary queue/cleanup pass, while `01F7:1997` and `3529` each
+processed ordinary objects (logical slots 700/703, object offset 120). None
+received the cloud object or a WOLKE slot. These probes rule out the secondary
+render callback as the special path and leave the alternate pixel producer or
+an outer non-object renderer as the only remaining WOLKE branch. The traces
+and hashes are recorded in the cloud and targeted-decompile evidence files.
+
 ## Reproducible next experiments
 
 The isolated object tracer now lives in

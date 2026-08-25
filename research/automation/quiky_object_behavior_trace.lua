@@ -34,6 +34,7 @@ local trace_cloud_consumers = trace_config.trace_cloud_consumers or false
 local cloud_probe_frames = trace_config.cloud_probe_frames or 8
 local cloud_consumer_offset = trace_config.cloud_consumer_offset or 0
 local trace_cloud_outer_renderer = trace_config.trace_cloud_outer_renderer or false
+local cloud_outer_target = trace_config.cloud_outer_target or 0
 local trace_cloud_hardware_renderer = trace_config.trace_cloud_hardware_renderer or false
 local cloud_hardware_frames = trace_config.cloud_hardware_frames or 8
 local force_contact_gate = trace_config.force_contact_gate or false
@@ -1428,6 +1429,15 @@ if trace_cloud_outer_renderer and expected_type == 0x28 then
         {segment = 0x01f7, offset = 0x3587},
         {segment = 0x01f7, offset = 0x0013},
     }
+    if cloud_outer_target ~= 0 then
+        local target_segment = 0x01f7
+        if cloud_outer_target >= 0x4000 then target_segment = 0x01d7 end
+        offsets = {{segment = target_segment, offset = cloud_outer_target}}
+        cloud_outer_renderer_probe.target = {
+            segment = target_segment,
+            offset = cloud_outer_target,
+        }
+    end
     local function arm_all()
         for _, point in ipairs(offsets) do
             dosbox.breakpoint_set(point.segment, point.offset, {once = true})
@@ -1491,6 +1501,14 @@ if trace_cloud_outer_renderer and expected_type == 0x28 then
                 logical_slot = hit.registers.edx & 0xffff,
                 flags = hit.registers.ecx & 0xff,
             }
+        end
+        if hit.segment == 0x01f7 and
+           (hit.offset == 0x1024 or hit.offset == 0x1997 or
+            hit.offset == 0x3529) then
+            local selector = hit.registers.es
+            local offset = hit.registers.edi & 0xffff
+            local ok, object = pcall(object_snapshot, selector, offset)
+            if ok then sample.object = object end
         end
         cloud_outer_renderer_probe.samples[#cloud_outer_renderer_probe.samples + 1] = sample
         if #cloud_outer_renderer_probe.samples >= cloud_outer_renderer_probe.frames then break end

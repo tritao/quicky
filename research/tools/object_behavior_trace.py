@@ -60,6 +60,7 @@ class ObjectBehaviorConfig:
     trace_cloud_consumers: bool = False
     cloud_consumer_offset: int = 0
     trace_cloud_outer_renderer: bool = False
+    cloud_outer_target: int = 0
     trace_cloud_hardware_renderer: bool = False
     cloud_hardware_frames: int = 8
     force_contact_gate: bool = False
@@ -111,6 +112,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_cloud_consumers": config.trace_cloud_consumers,
         "cloud_consumer_offset": config.cloud_consumer_offset,
         "trace_cloud_outer_renderer": config.trace_cloud_outer_renderer,
+        "cloud_outer_target": config.cloud_outer_target,
         "trace_cloud_hardware_renderer": config.trace_cloud_hardware_renderer,
         "cloud_hardware_frames": config.cloud_hardware_frames,
         "force_contact_gate": config.force_contact_gate,
@@ -322,6 +324,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="capture the main-loop cloud state and render-queue consumers",
     )
     parser.add_argument(
+        "--cloud-outer-target", type=lambda value: int(value, 0), default=0,
+        help="debugger-only: limit the cloud outer trace to one code offset (e.g. 0x1997 or 0x3529)",
+    )
+    parser.add_argument(
         "--trace-cloud-hardware-renderer", action="store_true",
         help="capture the special cloud VGA/BOB blitter entry and its descriptor",
     )
@@ -523,6 +529,7 @@ def main(argv: list[str] | None = None) -> int:
         trace_cloud_consumers=args.trace_cloud_consumers,
         cloud_consumer_offset=args.cloud_consumer_offset,
         trace_cloud_outer_renderer=args.trace_cloud_outer_renderer,
+        cloud_outer_target=args.cloud_outer_target,
         trace_cloud_hardware_renderer=args.trace_cloud_hardware_renderer,
         cloud_hardware_frames=args.cloud_hardware_frames,
         force_contact_gate=args.force_contact_gate,
