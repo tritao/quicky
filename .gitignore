@@ -19,6 +19,8 @@ research/notes/*
 !research/notes/descriptor-construction-evidence.json
 !research/notes/cheat-trace.md
 !research/notes/ghidra-analysis.md
+!research/notes/rendering-behavior.md
+!research/notes/fidelity-audit.md
 !research/notes/type-2b-falling-leaf-slot-700.png
 !research/notes/type-2b-falling-leaves-sheet.png
 !research/notes/type-6f-slot-607.png

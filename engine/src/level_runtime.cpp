@@ -33,8 +33,10 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
     const std::string areaName = areaNameFor(mapName);
     const Map map = Map::parse(archive.read(mapName), mapName);
     const Area area = Area::parse(archive.read(areaName), areaName);
-    const Palette palette = Palette::parsePcx(
-        archive.read(worldName + ".PCC"), worldName + ".PCC").toVgaOutput();
+    const Palette palette = Palette::parsePcxDac(
+        archive.read(worldName + ".PCC"), worldName + ".PCC");
+    const PcxImage gamebar = PcxImage::parse(
+        archive.read("GAMEBAR.PCC"), "GAMEBAR.PCC");
     const Tileset tileset = Tileset::parseIco(
         archive.read(worldName + ".ICO"), worldName + ".ICO");
     const std::string loopName = "LOOP_" + worldName + ".ICO";
@@ -45,9 +47,8 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
 
     std::unique_ptr<LevelRuntime> result(new LevelRuntime(
         mapName, areaName, worldName, playerBobName, map, area, palette,
-        tileset, loopTileset, playerBob, config));
+        gamebar, tileset, loopTileset, playerBob, config));
     result->loadEntityBobs(archive);
-    result->loadEffectBobs(archive);
     return result;
 }
 
@@ -56,7 +57,8 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
                            const std::string &worldName,
                            const std::string &playerBobName,
                            const Map &map, const Area &area,
-                           const Palette &palette, const Tileset &tileset,
+                           const Palette &palette, const PcxImage &gamebar,
+                           const Tileset &tileset,
                            const Tileset &loopTileset, const Bob &playerBob,
                            const LevelSessionConfig &config)
     : _mapName(mapName),
@@ -66,12 +68,12 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
       _map(map),
       _area(area),
       _palette(palette),
+      _gamebar(gamebar),
       _tileset(tileset),
       _loopTileset(loopTileset),
       _playerBob(playerBob),
       _session(mapName, _map, _area, config),
-      _entityBobs(),
-      _effectBobs() {
+      _entityBobs() {
 }
 
 void LevelRuntime::loadEntityBobs(const Archive &archive) {
@@ -85,14 +87,6 @@ void LevelRuntime::loadEntityBobs(const Archive &archive) {
             archive.read(entity.spriteResource), entity.spriteResource);
         _entityBobs.insert(std::make_pair(entity.spriteResource, bob));
     }
-}
-
-void LevelRuntime::loadEffectBobs(const Archive &archive) {
-    const std::string resource = _worldName == "W2"
-                                     ? "PUFFW2.BOB"
-                                     : "PUFF.BOB";
-    _effectBobs.insert(std::make_pair(
-        resource, Bob::parse(archive.read(resource), resource)));
 }
 
 void LevelRuntime::reset(PlayerState &player,

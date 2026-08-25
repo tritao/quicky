@@ -40,6 +40,16 @@ byte IndexedSurface::at(std::uint32_t x, std::uint32_t y) const {
     return pixels[static_cast<std::size_t>(y) * width + x];
 }
 
+void compositeGamebar(IndexedSurface &screen, const IndexedSurface &gamebar) {
+    if (screen.width != 320 || screen.height != 200) {
+        throw FormatError("GAMEBAR destination must be a 320x200 logical screen");
+    }
+    if (gamebar.width != 320 || gamebar.height != 24) {
+        throw FormatError("GAMEBAR surface must be 320x24");
+    }
+    blitIndexedSurface(screen, gamebar, 0, 176, SurfaceBlitMode::Opaque);
+}
+
 IndexedSurface renderMap(const Map &map, const Tileset &tileset) {
     const std::uint32_t width = static_cast<std::uint32_t>(map.width) * 16;
     const std::uint32_t height = static_cast<std::uint32_t>(map.height) * 16;
@@ -67,6 +77,29 @@ IndexedSurface renderMap(const Map &map, const Tileset &tileset) {
         }
     }
     return surface;
+}
+
+void blitIndexedSurface(IndexedSurface &destination,
+                        const IndexedSurface &source,
+                        std::int32_t destinationX,
+                        std::int32_t destinationY,
+                        SurfaceBlitMode mode) {
+    for (std::uint32_t sourceY = 0; sourceY < source.height; ++sourceY) {
+        for (std::uint32_t sourceX = 0; sourceX < source.width; ++sourceX) {
+            const byte color = source.at(sourceX, sourceY);
+            if (mode == SurfaceBlitMode::TransparentZero && color == 0) {
+                continue;
+            }
+            const std::int32_t x = destinationX + static_cast<std::int32_t>(sourceX);
+            const std::int32_t y = destinationY + static_cast<std::int32_t>(sourceY);
+            if (x < 0 || y < 0 || static_cast<std::uint32_t>(x) >= destination.width ||
+                static_cast<std::uint32_t>(y) >= destination.height) {
+                continue;
+            }
+            destination.at(static_cast<std::uint32_t>(x),
+                           static_cast<std::uint32_t>(y)) = color;
+        }
+    }
 }
 
 void drawIcoTile(IndexedSurface &surface, const Tileset &tileset,

@@ -7,6 +7,7 @@
 #include "quiky/level.h"
 #include "quiky/map.h"
 #include "quiky/palette.h"
+#include "quiky/pcx.h"
 #include "quiky/tileset.h"
 
 #include <map>
@@ -37,6 +38,7 @@ public:
     const Map &map() const { return _map; }
     const Area &area() const { return _area; }
     const Palette &palette() const { return _palette; }
+    const PcxImage &gamebar() const { return _gamebar; }
     const Tileset &tileset() const { return _tileset; }
     const Tileset &loopTileset() const { return _loopTileset; }
     const Bob &playerBob() const { return _playerBob; }
@@ -54,7 +56,8 @@ private:
     LevelRuntime(const std::string &mapName, const std::string &areaName,
                  const std::string &worldName, const std::string &playerBobName,
                  const Map &map, const Area &area, const Palette &palette,
-                 const Tileset &tileset, const Tileset &loopTileset,
+                 const PcxImage &gamebar, const Tileset &tileset,
+                 const Tileset &loopTileset,
                  const Bob &playerBob,
                  const LevelSessionConfig &config);
 
@@ -68,6 +71,7 @@ private:
     Map _map;
     Area _area;
     Palette _palette;
+    PcxImage _gamebar;
     Tileset _tileset;
     Tileset _loopTileset;
     Bob _playerBob;
