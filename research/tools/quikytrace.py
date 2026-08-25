@@ -114,6 +114,7 @@ class PlayerTraceConfig:
     boss_stage_events: int = 64
     boss_input_warmup_frames: int = 0
     boss_input_warmup_secondary_key: str | None = None
+    boss_input_secondary_pulse_events: int = 0
     boss_damage_focus: bool = False
     boss_damage_hits: int = 5
     boss_damage_target_callback: int = 0xA234
@@ -211,6 +212,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "boss_stage_events": config.boss_stage_events,
         "boss_input_warmup_frames": config.boss_input_warmup_frames,
         "boss_input_warmup_secondary_key": config.boss_input_warmup_secondary_key or "",
+        "boss_input_secondary_pulse_events": config.boss_input_secondary_pulse_events,
         "boss_damage_focus": config.boss_damage_focus,
         "boss_damage_hits": config.boss_damage_hits,
         "boss_damage_target_callback": config.boss_damage_target_callback,
@@ -692,6 +694,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="second key held during boss-input warmup, then released before the action key",
     )
     parser.add_argument(
+        "--boss-input-secondary-pulse-events", type=int, default=0,
+        help="release/re-press the boss action key at this breakpoint interval (0 keeps it held)",
+    )
+    parser.add_argument(
         "--boss-damage-focus", action="store_true",
         help="prepare a live pooled END object for the native damage callback",
     )
@@ -802,6 +808,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--boss-input-warmup-frames cannot be negative")
     if args.boss_input_warmup_secondary_key and not args.player_input_key:
         raise TraceError("--boss-input-warmup-secondary-key requires --player-input-key")
+    if args.boss_input_secondary_pulse_events < 0:
+        raise TraceError("--boss-input-secondary-pulse-events cannot be negative")
+    if args.boss_input_secondary_pulse_events and not args.player_input_secondary_key:
+        raise TraceError("--boss-input-secondary-pulse-events requires --player-input-secondary-key")
     if args.boss_damage_hits < 1:
         raise TraceError("--boss-damage-hits must be positive")
     if (args.boss_stage_focus or args.boss_damage_focus) and not args.player_trace:
@@ -989,6 +999,7 @@ def main(argv: list[str] | None = None) -> int:
                 boss_stage_events=args.boss_stage_events,
                 boss_input_warmup_frames=args.boss_input_warmup_frames,
                 boss_input_warmup_secondary_key=args.boss_input_warmup_secondary_key,
+                boss_input_secondary_pulse_events=args.boss_input_secondary_pulse_events,
                 boss_damage_focus=args.boss_damage_focus,
                 boss_damage_hits=args.boss_damage_hits,
             )

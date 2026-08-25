@@ -34,6 +34,7 @@ local boss_stage_focus = trace_config.boss_stage_focus or false
 local boss_stage_events = trace_config.boss_stage_events or 64
 local boss_input_warmup_frames = trace_config.boss_input_warmup_frames or 0
 local boss_input_warmup_secondary_key = trace_config.boss_input_warmup_secondary_key or ""
+local boss_input_secondary_pulse_events = trace_config.boss_input_secondary_pulse_events or 0
 local boss_damage_focus = trace_config.boss_damage_focus or false
 local boss_damage_hits = trace_config.boss_damage_hits or 5
 local boss_damage_target_callback = trace_config.boss_damage_target_callback or 0xa234
@@ -1121,6 +1122,7 @@ if boss_stage_focus then
     -- stage callbacks are being traced so a real projectile/effect can reach
     -- the live END child instead of waiting until after the stage loop.
     local boss_input_held = false
+    local boss_input_secondary_released_until = 0
     if input_key ~= "" and input_frames > 0 then
         dosbox.key(input_key, true)
         if boss_input_warmup_secondary_key ~= "" then
@@ -1208,6 +1210,17 @@ if boss_stage_focus then
         end
         if sequence < boss_stage_events then
             arm_boss_targets(hit.segment, hit.offset)
+            if boss_input_held and input_secondary_key ~= "" and
+               boss_input_secondary_pulse_events > 0 then
+                if sequence % boss_input_secondary_pulse_events == 0 then
+                    dosbox.key(input_secondary_key, false)
+                    boss_input_secondary_released_until = sequence + 6
+                elseif boss_input_secondary_released_until > 0 and
+                       sequence >= boss_input_secondary_released_until then
+                    dosbox.key(input_secondary_key, true)
+                    boss_input_secondary_released_until = 0
+                end
+            end
             dosbox.debug_continue()
         else
             boss_stage_trace = {
