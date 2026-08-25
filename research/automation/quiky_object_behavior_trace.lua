@@ -1508,6 +1508,41 @@ if trace_cloud_hardware_renderer and expected_type == 0x28 then
         breakpoint = "01F7:0013",
         samples = {},
     }
+    local wolke_slots = {}
+    local descriptor_base_raw = dosbox.mem_read("ds", 0x6d8a, 4) or ""
+    local descriptor_base = (#descriptor_base_raw >= 4 and word(descriptor_base_raw, 1) or 0)
+    local descriptor_selector = (#descriptor_base_raw >= 4 and word(descriptor_base_raw, 3) or 0)
+    local descriptor_stride = dosbox.mem_read_word("ds", 0x30d2)
+    for logical_slot = 413, 416 do
+        local map_index = dosbox.mem_read_word("ds", 0x6d8e + logical_slot * 2)
+        local descriptor = nil
+        if descriptor_selector ~= 0 and descriptor_base ~= 0 and
+           map_index ~= 0xffff and descriptor_stride ~= 0 then
+            local offset = descriptor_base + map_index * descriptor_stride
+            local raw = dosbox.mem_read_selector(descriptor_selector, offset, 0x2c)
+            if raw ~= nil and #raw >= 0x2c then
+                descriptor = {
+                    selector = descriptor_selector,
+                    offset = offset,
+                    map_index = map_index,
+                    stride = descriptor_stride,
+                    raw_hex = hex(raw),
+                    width = word(raw, 1),
+                    height = word(raw, 3),
+                    origin_x = word(raw, 9),
+                    origin_y = word(raw, 11),
+                    blitter_offset = word(raw, 0x10 + 1),
+                    blitter_selector = word(raw, 0x12 + 1),
+                }
+            end
+        end
+        wolke_slots[#wolke_slots + 1] = {
+            logical_slot = logical_slot,
+            map_index = map_index,
+            descriptor = descriptor,
+        }
+    end
+    cloud_hardware_renderer_probe.wolke_slots = wolke_slots
     dosbox.breakpoint_set(0x01f7, 0x0013, {once = true})
     dosbox.debug_continue()
     for sequence = 1, cloud_hardware_frames do
