@@ -10,6 +10,8 @@
 
 namespace quiky {
 
+class PlayerTraceSink;
+
 enum class PlayerUpdateStage {
     CapturePreState,
     SampleInput,
@@ -18,8 +20,31 @@ enum class PlayerUpdateStage {
     UpdateHorizontalVelocity,
     ProbeSideDescriptors,
     ApplyConfirmedCorrection,
+    UpdateVerticalVelocity,
+    IntegrateNewVerticalVelocity,
+    TransitionVerticalApex,
     CapturePostState
 };
+
+enum class VerticalFreeSpaceStatus {
+    Applied,
+    OrdinaryModeRequiresContactResolution
+};
+
+struct VerticalFreeSpaceResult {
+    PlayerRawRecord preState;
+    PlayerRawRecord postState;
+    VerticalFreeSpaceStatus status;
+    bool crossedApex;
+};
+
+// Exact trace-closed portion of the original vertical callback. The caller
+// must already have established that the vertical probes are clear. Mode 0
+// deliberately returns without mutation because grounded/jump initiation is
+// inseparable from the unresolved contact path.
+VerticalFreeSpaceResult updatePlayerVerticalFreeSpace(
+    PlayerRecord &player,
+    PlayerTraceSink *trace = 0);
 
 class PlayerTraceSink {
 public:
@@ -84,17 +109,6 @@ public:
                               const InputState &input,
                               const WorldCollisionView &world,
                               PlayerUpdateTrace *trace) = 0;
-};
-
-class VerticalPlayerUpdatePendingResearch {
-public:
-    virtual ~VerticalPlayerUpdatePendingResearch() {}
-
-    virtual void updateVerticalPendingResearch(
-        PlayerRecord &player,
-        const InputState &input,
-        const WorldCollisionView &world,
-        PlayerTraceSink *trace) = 0;
 };
 
 class ExperimentalHorizontalPlayerUpdate : public PlayerUpdateCallback {

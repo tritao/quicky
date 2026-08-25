@@ -1,0 +1,17 @@
+# quiky-player-vertical-v1; trace-closed free-space rows from research/evidence/player-vertical/timelines.json
+# name mode action scratch y_before vy_before y_after vy_after mode_after
+jump-release-2-ascent	-1	0	0	25108480	-16384	25100288	-8192	-1
+jump-release-2-apex	-1	0	0	25100288	-8192	25100288	0	1
+jump-release-2-descent	1	0	0	25100288	0	25110528	10240	1
+jump-release-4-ascent	-1	0	0	24526848	-16384	24518656	-8192	-1
+jump-release-4-apex	-1	0	0	24518656	-8192	24518656	0	1
+jump-release-4-descent	1	0	0	24518656	0	24528896	10240	1
+jump-release-8-ascent	-1	0	0	23461888	-16384	23453696	-8192	-1
+jump-release-8-apex	-1	0	0	23453696	-8192	23453696	0	1
+jump-release-8-descent	1	0	0	23453696	0	23463936	10240	1
+jump-release-12-ascent	-1	0	0	22528000	-16384	22519808	-8192	-1
+jump-release-12-apex	-1	0	0	22519808	-8192	22519808	0	1
+jump-release-12-descent	1	0	0	22519808	0	22530048	10240	1
+jump-release-20-ascent	-1	0	0	21053440	-16384	21045248	-8192	-1
+jump-release-20-apex	-1	0	0	21045248	-8192	21045248	0	1
+jump-release-20-descent	1	0	0	21045248	0	21055488	10240	1

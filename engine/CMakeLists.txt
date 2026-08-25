@@ -148,6 +148,12 @@ add_test(NAME quiky-horizontal-tests
     COMMAND quiky-horizontal-tests
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player-horizontal-v1.tsv)
 
+add_executable(quiky-vertical-tests tests/test_vertical.cpp)
+target_link_libraries(quiky-vertical-tests PRIVATE quiky_core)
+add_test(NAME quiky-vertical-tests
+    COMMAND quiky-vertical-tests
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player-vertical-v1.tsv)
+
 add_executable(quiky-sfx-event-tests tests/test_sfx_events.cpp)
 target_link_libraries(quiky-sfx-event-tests PRIVATE quiky_core)
 add_test(NAME quiky-sfx-event-tests COMMAND quiky-sfx-event-tests)

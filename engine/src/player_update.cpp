@@ -176,6 +176,69 @@ PlayerUpdateResult updatePlayerHorizontal(PlayerRecord &player,
     return result;
 }
 
+VerticalFreeSpaceResult updatePlayerVerticalFreeSpace(
+    PlayerRecord &player,
+    PlayerTraceSink *trace) {
+    player.syncToRaw();
+    const PlayerRawRecord preState = player.toRaw();
+    if (trace != 0) {
+        trace->onPreState(preState);
+        trace->onInputFlags(player.actionWord);
+    }
+
+    VerticalFreeSpaceResult result;
+    result.preState = preState;
+    result.status = VerticalFreeSpaceStatus::Applied;
+    result.crossedApex = false;
+
+    if (player.mode37 == 0) {
+        result.status =
+            VerticalFreeSpaceStatus::OrdinaryModeRequiresContactResolution;
+    } else if (player.mode37 < 0) {
+        stage(trace, PlayerUpdateStage::UpdateVerticalVelocity);
+        std::int32_t nextVelocity = Fixed16::wrapAddRaw(
+            player.velocityY.raw, player.negativeYAcceleration58.raw);
+        const std::int32_t releaseFloor = -0x20000;
+        if (player.contactScratch2B == 0 &&
+            (player.actionWord & 0x0022) == 0 &&
+            nextVelocity < releaseFloor) {
+            nextVelocity = releaseFloor;
+        }
+
+        if (nextVelocity >= 0) {
+            // The original contact-response target establishes the falling
+            // state at the apex. Controlled traces show no Y movement here.
+            stage(trace, PlayerUpdateStage::TransitionVerticalApex);
+            player.velocityY.raw = 0;
+            player.mode37 = 1;
+            result.crossedApex = true;
+        } else {
+            player.velocityY.raw = nextVelocity;
+            stage(trace, PlayerUpdateStage::IntegrateNewVerticalVelocity);
+            player.positionY.raw = Fixed16::wrapAddRaw(
+                player.positionY.raw, player.velocityY.raw);
+        }
+    } else {
+        stage(trace, PlayerUpdateStage::UpdateVerticalVelocity);
+        player.velocityY.raw = Fixed16::wrapAddRaw(
+            player.velocityY.raw, player.positiveYAcceleration50.raw);
+        if (player.velocityY.raw > player.positiveYSpeedCap60.raw) {
+            player.velocityY.raw = player.positiveYSpeedCap60.raw;
+        }
+        stage(trace, PlayerUpdateStage::IntegrateNewVerticalVelocity);
+        player.positionY.raw = Fixed16::wrapAddRaw(
+            player.positionY.raw, player.velocityY.raw);
+    }
+
+    player.syncToRaw();
+    result.postState = player.toRaw();
+    captureWrites(preState, result.postState, trace);
+    if (trace != 0) {
+        trace->onPostState(result.postState);
+    }
+    return result;
+}
+
 void ExperimentalHorizontalPlayerUpdate::updatePlayer(
     PlayerRecord &player,
     const InputState &input,
