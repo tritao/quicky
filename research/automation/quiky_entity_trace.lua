@@ -355,8 +355,8 @@ if select_level ~= "" then
         W3L1 = 6, W3L2 = 7, W3L3 = 8,
         W4L1 = 9, W4L2 = 10, W4L3 = 11,
         W5L1 = 12, W5L2 = 13, W5L3 = 14,
-        W1L4 = 15, W2L4 = 16, W3L4 = 17,
-        W4L4 = 18, W5L4 = 19,
+        W1IN = 15, W1L4 = 16, W2L4 = 17,
+        W3L4 = 18, W4L4 = 19, W5L4 = 20,
     }
     local selector_index = selector_indices[select_level]
     assert(selector_index ~= nil, "unsupported level selector target")
