@@ -11,6 +11,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from ghidra_ne_segments import read_segments
+from ne_relocs import read_relocations
+
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "research/ghidra/player-callback-closure.json"
 DECOMP = ROOT / "research/notes/player-static-decomp.cpp"
@@ -171,13 +174,117 @@ def check_callgraph(payload: dict[str, Any], path: Path,
         raise ClosureError(f"call graph drift; missing={missing[:3]} extra={extra[:3]}")
 
 
+def segment_bytes(executable: Path, number: int) -> bytes:
+    blob = executable.read_bytes()
+    try:
+        segment = read_segments(executable)[number - 1]
+    except IndexError as exc:
+        raise ClosureError(f"executable has no segment {number}") from exc
+    start = int(segment["file_offset"])
+    length = int(segment["file_length"])
+    return blob[start:start + length]
+
+
+def expected_call_edges(payload: dict[str, Any]) -> list[tuple[tuple[int, int], int, tuple[int, int], str]]:
+    edges: list[tuple[tuple[int, int], int, tuple[int, int], str]] = []
+    for item in payload["functions"]:
+        source = address(item["address"])
+        if item.get("range") is None:
+            continue
+        for callee in item["callees"]:
+            target = address(callee["address"])
+            for raw_site in callee["site"].split(","):
+                edges.append((source, int(raw_site, 16), target, callee["name"]))
+    return edges
+
+
+def classify_expected_call(executable: Path,
+                           source: tuple[int, int], site: int,
+                           target: tuple[int, int]) -> str:
+    """Classify a ledger call from raw bytes and the independent NE ledger.
+
+    Historical ledger rows use three nearby conventions for far-call sites:
+    the opcode, its relocation operand, and one byte before the opcode.  The
+    relocation record remains the authority; the small window only normalizes
+    that representation and never supplies a target itself.
+    """
+    code = segment_bytes(executable, source[0])
+    relocations = read_relocations(executable)
+    for record in relocations:
+        if record["segment"] != source[0] or record["source_type"] != 0x03:
+            continue
+        if record["target_segment"] != target[0] or record["target_offset"] != target[1]:
+            continue
+        instruction = record["instruction"]
+        relocation_source = record["source"]
+        if instruction is None:
+            continue
+        if min(abs(instruction - site), abs(relocation_source - site)) <= 1:
+            return "far"
+
+    if source[0] == target[0] and 0 <= site + 2 < len(code) and code[site] == 0xE8:
+        displacement = int.from_bytes(code[site + 1:site + 3], "little", signed=True)
+        if ((site + 3 + displacement) & 0xFFFF) == target[1]:
+            return "near"
+    return "unresolved"
+
+
+def check_independent_callgraph(payload: dict[str, Any], executable: Path,
+                                path: Path) -> None:
+    """Check Ghidra near edges while recovering far edges from NE relocations."""
+    graph = json.loads(path.read_text(encoding="utf-8"))
+    if graph.get("schema") != "quiky.player-callback-ghidra-callgraph.v2":
+        raise ClosureError("unsupported Ghidra-derived call graph schema")
+
+    functions = {address(item["address"]): item for item in payload["functions"]}
+    expected_near: set[tuple[tuple[int, int], tuple[int, int], tuple[int, int]]] = set()
+    expected_far = 0
+    expected_unresolved: list[str] = []
+    for source, site, target, name in expected_call_edges(payload):
+        kind = classify_expected_call(executable, source, site, target)
+        if kind == "near":
+            expected_near.add((source, (source[0], site), target))
+        elif kind == "far":
+            expected_far += 1
+        else:
+            expected_unresolved.append(f"{source[0]}:{site:04X} -> {target[0]}:{target[1]:04X} ({name})")
+    if expected_unresolved:
+        raise ClosureError("ledger call is neither a direct near call nor an NE far relocation: " +
+                           ", ".join(expected_unresolved[:3]))
+
+    actual_near: set[tuple[tuple[int, int], tuple[int, int], tuple[int, int]]] = set()
+    for edge in graph.get("edges", []):
+        if edge.get("call_kind") != "near":
+            continue
+        source = address(edge["source"])
+        call_site = address(edge["call_site"])
+        target = address(edge["target"])
+        if source not in functions:
+            raise ClosureError(f"Ghidra call source {edge['source']} is outside closure")
+        actual_near.add((source, call_site, target))
+    if actual_near != expected_near:
+        missing = sorted(expected_near - actual_near)
+        extra = sorted(actual_near - expected_near)
+        raise ClosureError(f"Ghidra near-call drift; missing={missing[:3]} extra={extra[:3]}")
+
+    for call in graph.get("unresolved_calls", []):
+        if call.get("classification") not in {"far-or-indirect", "near"}:
+            raise ClosureError("Ghidra unresolved call has invalid classification")
+        if address(call["source"]) not in functions:
+            raise ClosureError(f"unresolved call source {call['source']} is outside closure")
+    print(f"OK: Ghidra near-call graph ({len(actual_near)} edges)")
+    print(f"OK: NE relocation far-call contract ({expected_far} edges)")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--manifest", type=Path, default=MANIFEST)
     parser.add_argument("--segment", type=Path,
-                        default=ROOT / "research/build/ghidra-segments/QUIKY_SEG03.bin")
+                        default=ROOT / "research/build/player-callback-baseline/segments/QUIKY_SEG03.bin")
     parser.add_argument("--decomp", type=Path, default=DECOMP)
+    parser.add_argument("--executable", type=Path, default=ROOT / "game/QUIKY.EXE")
     parser.add_argument("--callgraph", type=Path)
+    parser.add_argument("--ghidra-callgraph", type=Path)
     args = parser.parse_args()
     try:
         payload = load(args.manifest)
@@ -188,6 +295,8 @@ def main() -> int:
         check_c_source(fields, args.decomp)
         if args.callgraph:
             check_callgraph(payload, args.callgraph, functions)
+        if args.ghidra_callgraph:
+            check_independent_callgraph(payload, args.executable, args.ghidra_callgraph)
     except (ClosureError, OSError, json.JSONDecodeError) as exc:
         print(f"FAIL: {exc}")
         return 1

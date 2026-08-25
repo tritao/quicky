@@ -4,6 +4,8 @@ This is the focused follow-up for `01F7:3FF8` against
 `QUIKY.EXE` SHA-256 `c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1`.
 The machine-readable contract and evidence ledger is
 [`player-contact-followup.json`](player-contact-followup.json); the
+focused external-state closure is
+[`player-external-state-closure.json`](player-external-state-closure.json); the
 address-annotated C-like source remains
 [`player-static-decomp.cpp`](../notes/player-static-decomp.cpp).
 
@@ -76,15 +78,47 @@ unsuitable for naming the response as a natural ceiling hit.
 `object_y <= player_y < object_y+12`, then `A0B2` publishes fixed-point carry:
 
 ```text
-DS:8816 = platform horizontal delta
-DS:8812 = platform_y - player_y + 1   // fixed point
+DS:8816 = platform-to-tracked-X fixed-point correction/carry
+DS:8812 = platform_y - player_y + 1       // fixed point
 ```
 
 The player callback consumes and clears `DS:8812` on entry and consumes and
-clears `DS:8816` in the horizontal/contact path. This closes subpixel carry.
-It does not yet close platform-specific landing/jump detachment, crushing, or
-the exact scheduler order in a single combined trace. Off-camera removal is
+clears `DS:8816` in the horizontal/contact path. This closes the publication
+and consumption contract for subpixel carry. The static main-loop call-site
+pairs also establish `0E96` before `0FA2`, so a platform callback in the phase
+bank can publish carry before the later nonzero-state dispatch invokes the
+player callback. Player-list membership, landing/jump detachment, crushing,
+and the combined runtime frame remain open. Off-camera removal is
 `A06F -> 1DEE`; attached-player behavior after that removal is unresolved.
+
+## Focused external-state expansion
+
+The companion ledger records the additional static contracts without widening
+the decompilation to unrelated game code:
+
+- `0E96` walks pooled callbacks in phase order and calls its `0FDC` tail;
+  `0FA2` is a later nonzero-state pass. NE relocation records verify the three
+  `0E96`/`0FA2` call-site pairs used by the main loop.
+- `A075`, `39FE`, and `A0B2` close platform overlap, tracked-position reads,
+  and carry publication. `A06F -> 1DEE` closes object callback removal, but
+  not attached-player behavior after culling.
+- `1C6E`, `1C92`, `5C27`, `5CC3`, and `5DC3` have exact MAP addressing,
+  masks, return-flag, and descriptor-word contracts. Descriptor gameplay
+  classes remain address/data named; no one-way or floor/ceiling label is
+  inferred from a bit alone.
+- `5937 -> 386F -> 0442` closes the direct global writes and the temporary
+  view-state publication. The table-selected callback at `0442` remains an
+  explicitly unresolved indirect boundary because its target can only be
+  identified from runtime selector state.
+- `41C1 -> 41CF -> 3186`, the contact-effect path, and `5D38/5D60` close the
+  known player/effect and animation writes. Sound-only or presentation-only
+  continuations are retained as contracts and are not expanded further.
+
+The reproducible export command is
+`python3 research/tools/run_player_external_closure.py`; its verifier is
+`python3 research/tools/verify_player_external_closure.py`. These exports use
+Ghidra's raw-segment `x86:LE:16:Protected Mode` pipeline and NE relocation
+records, not a separate x86 disassembler.
 
 ## Held-out trace matrix
 

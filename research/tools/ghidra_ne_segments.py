@@ -16,6 +16,16 @@ import struct
 from pathlib import Path
 
 
+RUNTIME_SELECTORS = {
+    1: 0x01D7,
+    2: 0x01E7,
+    3: 0x01F7,
+    4: 0x0207,
+    5: 0x0227,
+    6: 0x0237,
+}
+
+
 def read_segments(executable: Path) -> list[dict[str, int | str]]:
     data = executable.read_bytes()
     if data[:2] != b"MZ":
@@ -26,7 +36,10 @@ def read_segments(executable: Path) -> list[dict[str, int | str]]:
 
     shift = struct.unpack_from("<H", data, ne_offset + 0x32)[0]
     count = struct.unpack_from("<H", data, ne_offset + 0x1C)[0]
-    table = ne_offset + 0x40
+    # The segment table offset is relative to the NE header.  QUIKY happens
+    # to store 0x40 here, but that is an executable-specific coincidence, not
+    # part of the NE format.
+    table = ne_offset + struct.unpack_from("<H", data, ne_offset + 0x22)[0]
     segments: list[dict[str, int | str]] = []
 
     for number in range(1, count + 1):
@@ -36,14 +49,6 @@ def read_segments(executable: Path) -> list[dict[str, int | str]]:
         memory_length = max(length, min_alloc) or 0x10000
         file_offset = offset << shift
         file_length = 0 if length == 0 else max(0, min(length, len(data) - file_offset))
-        runtime_selectors = {
-            1: 0x01D7,
-            2: 0x01E7,
-            3: 0x01F7,
-            4: 0x0207,
-            5: 0x0227,
-            6: 0x0237,
-        }
         segments.append(
             {
                 "number": number,
@@ -53,8 +58,8 @@ def read_segments(executable: Path) -> list[dict[str, int | str]]:
                 "flags": flags,
                 "min_alloc": min_alloc,
                 "runtime_selector": (
-                    f"{runtime_selectors[number]:04X}"
-                    if number in runtime_selectors
+                    f"{RUNTIME_SELECTORS[number]:04X}"
+                    if number in RUNTIME_SELECTORS
                     else None
                 ),
                 "filename": f"QUIKY_SEG{number:02d}.bin",
@@ -67,6 +72,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("executable", type=Path)
     parser.add_argument("output", type=Path)
+    parser.add_argument(
+        "--pad-to-memory",
+        action="store_true",
+        help="append zero-filled NE allocation space for raw Ghidra images",
+    )
     args = parser.parse_args()
 
     data = args.executable.read_bytes()
@@ -85,13 +95,24 @@ def main() -> int:
         start = int(segment["file_offset"])
         end = start + int(segment["file_length"])
         payload = data[start:end]
+        # Keep zero-length NE segments as metadata only.  Padding is useful for
+        # file-backed BSS tails (notably SEG06), but a pure allocation segment
+        # has no raw image to import.
+        if (args.pad_to_memory and int(segment["file_length"]) > 0 and
+                len(payload) < int(segment["memory_length"])):
+            payload += b"\0" * (int(segment["memory_length"]) - len(payload))
         path = args.output / str(segment["filename"])
         if payload:
             path.write_bytes(payload)
             path_value: str | None = str(path.resolve())
         else:
             path_value = None
-        manifest["segments"].append({**segment, "path": path_value})
+        manifest["segments"].append({
+            **segment,
+            "image_length": len(payload),
+            "zero_filled": len(payload) > int(segment["file_length"]),
+            "path": path_value,
+        })
 
     (args.output / "manifest.json").write_text(
         json.dumps(manifest, indent=2) + "\n", encoding="utf-8"

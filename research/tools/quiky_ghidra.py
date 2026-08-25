@@ -43,6 +43,20 @@ def load_manifest(path: Path, repository: Path) -> dict[str, Any]:
     symbols = manifest.get("symbols")
     if not isinstance(segments, dict) or not isinstance(symbols, list):
         raise AnalysisError("manifest segments/symbols have invalid types")
+    ranges = manifest.get("function_ranges", {})
+    if not isinstance(ranges, dict):
+        raise AnalysisError("manifest function_ranges has invalid type")
+    for identity, value in ranges.items():
+        if not isinstance(identity, str) or ":" not in identity:
+            raise AnalysisError(f"invalid function range key {identity}")
+        if not isinstance(value, list) or len(value) != 2:
+            raise AnalysisError(f"invalid function range for {identity}")
+        try:
+            start, end = (int(str(item), 16) for item in value)
+        except ValueError as exc:
+            raise AnalysisError(f"invalid function range for {identity}") from exc
+        if start >= end:
+            raise AnalysisError(f"empty function range for {identity}")
     identities: set[tuple[int, int]] = set()
     names: set[str] = set()
     for index, symbol in enumerate(symbols):
@@ -85,6 +99,7 @@ def audit_project(manifest: dict[str, Any], project_dir: Path,
     from ghidra.app.decompiler import DecompInterface
 
     segments = manifest["segments"]
+    ranges = manifest.get("function_ranges", {})
     with pyghidra.open_project(project_dir, project_name) as project:
         for segment_number, segment in segments.items():
             selected = [
@@ -121,6 +136,28 @@ def audit_project(manifest: dict[str, Any], project_dir: Path,
                                     f"{segment_number}:{symbol['offset']} has no function"
                                 )
                             actual = function.getName()
+                            range_spec = symbol.get("range") or ranges.get(
+                                f"{segment_number}:{int(symbol['offset'], 16):04X}"
+                            )
+                            if range_spec is not None:
+                                range_start, range_end = (
+                                    int(value, 16) for value in range_spec
+                                )
+                                body = function.getBody()
+                                body_min = body.getMinAddress().getOffset()
+                                body_max = body.getMaxAddress().getOffset()
+                                if (body_min != range_start or
+                                    body_max != range_end - 1 or
+                                    body.getNumAddresses() != range_end - range_start):
+                                    raise AnalysisError(
+                                        f"{symbol['name']} has body "
+                                        f"{body_min:04X}..{body_max:04X}, expected "
+                                        f"{range_start:04X}..{range_end - 1:04X}"
+                                    )
+                            if not function.getComment():
+                                raise AnalysisError(
+                                    f"{symbol['name']} has no semantic comment"
+                                )
                             result = decompiler.decompileFunction(
                                 function, 120, pyghidra.task_monitor(120)
                             )

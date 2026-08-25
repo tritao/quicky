@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Generate the Ghidra rename/annotation script from the player ledger.
+"""Generate the Ghidra preparation and annotation script from the player ledger.
 
-The JSON ledger is authoritative.  The generated Java is deliberately small:
-the existing AnnotateQuiky/AnnotatePlayerCollision passes establish the raw
-segment analysis and data type, while this pass applies only names and
-evidence comments that are mechanically checked against the ledger.
+The JSON ledger is authoritative.  Ranged entries are disassembled and given
+their declared function bodies before names/comments are applied.  Entries
+without ranges are external contracts and receive labels, never one-address
+function stubs.
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ def parse_address(value: str) -> tuple[int, int]:
 
 def generate(manifest: dict) -> str:
     functions = []
+    contracts = []
     seen: set[tuple[int, int]] = set()
     for item in manifest["functions"]:
         segment, offset = parse_address(item["address"])
@@ -46,12 +47,16 @@ def generate(manifest: dict) -> str:
         seen.add(identity)
         evidence = "; ".join(item.get("evidence", []))
         comment = f"closure={item['classification']}; evidence={evidence}"
-        functions.append(
-            "        {" + ", ".join(
-                [java_string(str(segment)), java_string(f"{offset:04X}"),
-                 java_string(item["name"]), java_string(comment)]
-            ) + "},"
-        )
+        row = [java_string(str(segment)), java_string(f"{offset:04X}"),
+               java_string(item["name"]), java_string(comment)]
+        if item.get("range") is None:
+            contracts.append("        {" + ", ".join(row) + "},")
+        else:
+            if len(item["range"]) != 2:
+                raise ValueError(f"invalid range for {item['name']}")
+            row.extend([java_string(item["range"][0].upper()),
+                        java_string(item["range"][1].upper())])
+            functions.append("        {" + ", ".join(row) + "},")
 
     labels = []
     for item in manifest.get("address_labels", []):
@@ -70,7 +75,9 @@ def generate(manifest: dict) -> str:
         if not address.startswith("DS:"):
             continue
         offset = int(address[3:], 16)
-        globals_by_offset[(3, offset)] = item["name"]
+        # DS is the data segment in the separate raw-segment model:
+        # selector 0237 / SEG06, not the SEG03 code image.
+        globals_by_offset[(6, offset)] = item["name"]
     globals_rows = []
     for (segment, offset), name in sorted(globals_by_offset.items()):
         globals_rows.append(
@@ -84,6 +91,7 @@ def generate(manifest: dict) -> str:
 // research/ghidra/player-callback-closure.json with
 // research/tools/generate_player_closure_ghidra.py.
 
+import ghidra.app.cmd.disassemble.DisassembleCommand;
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
 import ghidra.program.model.address.AddressSet;
@@ -99,6 +107,10 @@ public class ApplyPlayerCallbackClosure extends GhidraScript {{
 {chr(10).join(functions)}
     }};
 
+    private static final String[][] CONTRACTS = new String[][] {{
+{chr(10).join(contracts)}
+    }};
+
     private static final String[][] LABELS = new String[][] {{
 {chr(10).join(labels)}
     }};
@@ -112,7 +124,12 @@ public class ApplyPlayerCallbackClosure extends GhidraScript {{
         int segment = segmentNumber(currentProgram.getName());
         for (String[] row : FUNCTIONS) {{
             if (Integer.parseInt(row[0]) == segment)
-                applyFunction(Integer.parseInt(row[1], 16), row[2], row[3]);
+                applyFunction(Integer.parseInt(row[1], 16), row[2], row[3],
+                    Integer.parseInt(row[4], 16), Integer.parseInt(row[5], 16));
+        }}
+        for (String[] row : CONTRACTS) {{
+            if (Integer.parseInt(row[0]) == segment)
+                applyContract(Integer.parseInt(row[1], 16), row[2], row[3]);
         }}
         for (String[] row : LABELS) {{
             if (Integer.parseInt(row[0]) == segment)
@@ -135,13 +152,20 @@ public class ApplyPlayerCallbackClosure extends GhidraScript {{
         return currentProgram.getAddressFactory().getDefaultAddressSpace().getAddress(offset);
     }}
 
-    private void applyFunction(int offset, String name, String comment) throws Exception {{
+    private void applyFunction(int offset, String name, String comment,
+                               int rangeStart, int rangeEnd) throws Exception {{
         Address entry = address(offset);
+        AddressSet body = new AddressSet(address(rangeStart), address(rangeEnd - 1));
+        DisassembleCommand command = new DisassembleCommand(address(rangeStart), body, true);
+        command.enableCodeAnalysis(false);
+        if (!command.applyTo(currentProgram, monitor))
+            println("Disassembly reported a problem for " + name + " at " + entry);
+
         FunctionManager manager = currentProgram.getFunctionManager();
         Function function = manager.getFunctionAt(entry);
         if (function == null) {{
             try {{
-                function = manager.createFunction(name, entry, new AddressSet(entry),
+                function = manager.createFunction(name, entry, body,
                     SourceType.USER_DEFINED);
             }} catch (Exception failure) {{
                 println("Could not create " + name + " at " + entry + ": " +
@@ -149,12 +173,21 @@ public class ApplyPlayerCallbackClosure extends GhidraScript {{
                 return;
             }}
         }} else {{
+            if (!function.getEntryPoint().equals(entry)) {{
+                throw new Exception("requested entry " + entry +
+                    " is contained by " + function.getEntryPoint());
+            }}
             try {{ function.setName(name, SourceType.USER_DEFINED); }}
             catch (DuplicateNameException ignored) {{
                 println("Could not rename " + entry + " to " + name);
             }}
         }}
+        function.setBody(body);
         function.setComment(comment);
+    }}
+
+    private void applyContract(int offset, String name, String comment) throws Exception {{
+        applyLabel(offset, name, comment);
     }}
 
     private void applyLabel(int offset, String name, String comment) throws Exception {{

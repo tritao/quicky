@@ -20,8 +20,14 @@ with a short review narrative in
 records every write to `+0x37`, `+0x3A`, `+0x3B`, `+0x3E`, and `+0x40`, and
 makes the `3D02`/`3DF2` caller ordering explicit.
 
-Current closure: 37 classified functions — 28 inline, 8 contract, and 1
-unresolved — with 72 audited call-site edges. The closure includes the input
+The focused external-state extension is
+[`player-external-state-closure.json`](player-external-state-closure.json).
+It covers scheduler/carry publication, contact/effect callbacks, `5937`
+dispatch state, descriptor backends, animation loaders, and the transition
+boundary without expanding unrelated game systems.
+
+Current closure: 39 classified functions — 30 inline, 8 contract, and 1
+unresolved — with 80 audited call-site edges. The closure includes the input
 normalization boundary, action counters, horizontal integration, ascent and
 falling paths, descriptor/side probes, jump initiation, landing/ceiling and
 side-contact responses, animation selection/advancement, effect/sound
@@ -49,17 +55,19 @@ python3 research/tools/verify_player_callback_closure.py \
 ```
 
 The baseline runner extracts the exact NE segments, imports them with Ghidra
-12.1.3 using `x86:LE:16:Protected Mode:default`, reapplies the existing
-segment annotations and typed player record, applies generated ledger names,
-exports the selected decompilation and call graph, and repeats the import in
-an independent project. It fails if the two exports differ. The generated
-baseline lives under ignored `research/build/` output.
+12.1.3 using `x86:LE:16:Protected Mode:default`, disassembles and constructs
+the declared function ranges, applies generated ledger names/comments and
+the typed player record, exports decompilation/body inventories and call
+graphs, and repeats the import in two independent projects. It fails if the
+two exports differ. The generated baseline lives under ignored
+`research/build/` output.
 
 The Ghidra-native graph export is retained as
-`ghidra-callgraph-*.json`; raw BinaryLoader imports do not resolve the NE far
-relocations, so the authoritative `callgraph-*.json` is emitted from the
-ledger's raw-byte/relocation-backed call-site records. This distinction is
-intentional and prevents unresolved relocations from becoming guessed calls.
+`ghidra-callgraph-*.json`. It emits only direct near-call flow recovered from
+the disassembled segment and records far/indirect calls as unresolved. The
+verifier independently checks those near edges against raw bytes and checks
+far edges against the executable's NE relocation table; the ledger-backed
+`callgraph-*.json` remains the complete contract graph.
 
 ## Unresolved or partially resolved items
 

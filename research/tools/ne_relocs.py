@@ -34,7 +34,7 @@ def read_relocations(path: Path) -> list[dict[str, int | None]]:
         raise ValueError("MZ executable does not contain an NE header")
     shift = struct.unpack_from("<H", data, ne + 0x32)[0]
     count = struct.unpack_from("<H", data, ne + 0x1C)[0]
-    table = ne + 0x40
+    table = ne + struct.unpack_from("<H", data, ne + 0x22)[0]
     records: list[dict[str, int | None]] = []
 
     for segment in range(1, count + 1):

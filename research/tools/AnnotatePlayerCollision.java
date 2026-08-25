@@ -7,20 +7,15 @@
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
-import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.data.ByteDataType;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.IntegerDataType;
 import ghidra.program.model.data.ShortDataType;
 import ghidra.program.model.data.Structure;
 import ghidra.program.model.data.StructureDataType;
-import ghidra.program.model.data.PointerDataType;
 import ghidra.program.model.listing.CodeUnit;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionManager;
-import ghidra.program.model.listing.Parameter;
-import ghidra.program.model.listing.ParameterImpl;
-import ghidra.program.model.listing.Function.FunctionUpdateType;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 import ghidra.util.exception.DuplicateNameException;
@@ -29,16 +24,18 @@ public class AnnotatePlayerCollision extends GhidraScript {
 
     @Override
     public void run() throws Exception {
+        if (currentProgram.getName().contains("SEG06")) {
+            annotateGlobals();
+            println("Annotated DS globals in " + currentProgram.getName());
+            return;
+        }
         if (!currentProgram.getName().contains("SEG03")) {
-            println("Skipping " + currentProgram.getName() + "; collision kernel is in SEG03");
+            println("Skipping " + currentProgram.getName() + "; player kernel is in SEG03");
             return;
         }
 
         annotateFunctions();
-        annotateGlobals();
-        Structure playerRecord = createPlayerRecordType();
-        annotateQueryParameters();
-        annotatePlayerParameters(playerRecord);
+        createPlayerRecordType();
         println("Annotated player collision kernel in " + currentProgram.getName());
     }
 
@@ -129,49 +126,6 @@ public class AnnotatePlayerCollision extends GhidraScript {
         return (Structure) currentProgram.getDataTypeManager().addDataType(record, null);
     }
 
-    private void annotateQueryParameters() throws Exception {
-        queryParameters(0x3376, "map_tile_id_at_pixel");
-        queryParameters(0x5c27, "map_descriptor_quadrant_test");
-        queryParameters(0x5cc3, "map_descriptor_word_at_pixel");
-    }
-
-    private void queryParameters(int offset, String name) throws Exception {
-        Function function = currentProgram.getFunctionManager().getFunctionAt(toAddr(offset));
-        if (function == null) {
-            return;
-        }
-        Parameter[] old = function.getParameters();
-        Parameter[] parameters = new Parameter[2];
-        parameters[0] = new ParameterImpl("y_pixels_ax", new ShortDataType(), currentProgram);
-        parameters[1] = new ParameterImpl("x_pixels_bx", new ShortDataType(), currentProgram);
-        try {
-            function.replaceParameters(FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true,
-                SourceType.USER_DEFINED, parameters);
-        } catch (Exception failure) {
-            println("Could not apply register parameter names to " + name + ": " + failure.getClass().getSimpleName());
-        }
-    }
-
-    private void annotatePlayerParameters(Structure record) throws Exception {
-        PointerDataType pointer = new PointerDataType(record);
-        for (int offset : new int[] {0x3f27, 0x3ff8, 0x3a1f, 0x3df2, 0x3d02}) {
-            Function function = currentProgram.getFunctionManager().getFunctionAt(toAddr(offset));
-            if (function == null) {
-                continue;
-            }
-            Parameter[] parameters = new Parameter[] {
-                new ParameterImpl("player_es_di", pointer, currentProgram)
-            };
-            try {
-                function.replaceParameters(FunctionUpdateType.DYNAMIC_STORAGE_ALL_PARAMS, true,
-                    SourceType.USER_DEFINED, parameters);
-            } catch (Exception failure) {
-                println("Could not apply player parameter at " + String.format("%04x", offset) +
-                    ": " + failure.getClass().getSimpleName());
-            }
-        }
-    }
-
     private void field(Structure structure, int offset, DataType type,
                        String name, String comment) throws Exception {
         structure.insertAtOffset(offset, type, type.getLength(), name, comment);
@@ -201,8 +155,11 @@ public class AnnotatePlayerCollision extends GhidraScript {
         Function function = manager.getFunctionAt(address);
         if (function == null) {
             try {
-                function = manager.createFunction(name, address, new AddressSet(address),
-                    SourceType.USER_DEFINED);
+                // Recover a real body when this targeted script is used
+                // outside the manifest-driven preparation pass.  Never
+                // manufacture a one-address function merely to hold a name.
+                disassemble(address);
+                function = createFunction(address, name);
             } catch (Exception failure) {
                 println("Could not create function at " + address + ": " +
                     failure.getClass().getSimpleName());

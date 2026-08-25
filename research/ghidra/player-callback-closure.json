@@ -111,7 +111,7 @@
   },
   "functions": [
     {
-      "address":"01F7:3FF8","range":["3FF8","44FF"],"name":"update_player","old_symbol":"FUN_3FF8","classification":"inline","convention":"near","signature":"void update_player(PlayerRecord* es_di)",
+      "address":"01F7:3FF8","range":["3FF8","44DC"],"name":"update_player","old_symbol":"FUN_3FF8","classification":"inline","convention":"near","signature":"void update_player(PlayerRecord* es_di)",
       "inputs":["ES:DI player record","DS:5937 auxiliary state","DS:89EA transition gate","DS:656C action source","DS:8812 deferred Y"],"outputs":["near return 4415 or transition return 44FE","x86 flags consumed at each helper call"],
       "player_reads":["00","02","04","06","08","0A","0E","12","13","28","29","2A","2B","34","36","37","38","39","3A","3B","3E","40","44","48","50","58","60","64","72"],
       "player_writes":["00","02","06","08","0E","12","13","28","29","2A","2B","34","36","37","38","39","3A","3B","3E","40","44","48"],
@@ -135,10 +135,18 @@
         {"site":"438D,4434","address":"01F7:5D60","name":"advance_animation_descriptor","flags":"none","classification":"inline"},
         {"site":"4395","address":"01F7:3E41","name":"compute_view_delta","flags":"EAX/EBX view deltas","classification":"inline"},
         {"site":"4398,4445","address":"01F7:20AF","name":"publish_view_delta","flags":"none","classification":"inline"},
+        {"site":"4248,4286,42CC","address":"01F7:3D02","name":"apply_descriptor_vertical_correction","flags":"ZF/AL response","classification":"inline"},
+        {"site":"4278,42B4","address":"01F7:3A1F","name":"probe_player_side_clear","flags":"ZF side-clear","classification":"inline"},
+        {"site":"4289,42C9","address":"01F7:3DF2","name":"snap_player_y_on_side_contact","flags":"none","classification":"inline"},
+        {"site":"4392","address":"01F7:3A62","name":"apply_action_contact_side_effect","flags":"none","classification":"inline"},
         {"site":"43D0","address":"01F7:199D","name":"write_transition_gate_199D","flags":"none","classification":"inline"},
         {"site":"44C5","address":"01F7:1BD1","name":"probe_transition_descriptor","flags":"CF transition contact","classification":"contract"}
       ],
-      "confidence":"confirmed","evidence":["raw:3FF8-44FE instruction decode","reloc:segment-3 callback callsites","trace:callback-barrier","trace:branch-focus"]
+      "confidence":"confirmed","evidence":["raw:3FF8-44DB instruction decode","reloc:segment-3 callback callsites","trace:callback-barrier","trace:branch-focus"]
+    },
+    {
+      "address":"01F7:44DC","range":["44DC","44FF"],"name":"player_update_transition_motion","old_symbol":"FUN_44DC","classification":"inline","convention":"near","signature":"void player_update_transition_motion(void)",
+      "inputs":["DS:89EA transition gate"],"outputs":["DS:89EA decremented; DS:89EC transition state on threshold"],"player_reads":[],"player_writes":[],"global_reads":["DS:89EA"],"global_writes":["DS:89EA","DS:89EC"],"callees":[],"confidence":"confirmed","evidence":["raw:44DC-44FE","focused-audit:transition-gate-decrement"]
     },
     {
       "address":"01F7:3F27","range":["3F27","3FF8"],"name":"initialize_player","old_symbol":"FUN_3F27","classification":"inline","convention":"near","signature":"void initialize_player(PlayerRecord* es_di)",
@@ -153,7 +161,7 @@
       "inputs":["action bits +00","x/y/vx fields","DS:8816 platform X delta"],"outputs":["x/vx/direction/animation fields","saved-position reversal correction"],
       "player_reads":["00","02","04","06","08","0A","0C","13","28","29","36","37","3A","44","48","4C","54","5C"],"player_writes":["02","06","08","0A","13","28","29","36"],
       "global_reads":["DS:4FEE","DS:8816"],"global_writes":["DS:8816"],
-      "callees":[{"site":"3B10","address":"01F7:3998","name":"probe_forward_surface","flags":"ZF clear","classification":"inline"},{"site":"3A82","address":"01F7:3986","name":"probe_vertical_step","flags":"ZF clear","classification":"inline"},{"site":"3B3A,3BB6,3C00,3C22,3CAC,3CE6,3CFC","address":"01F7:5D38","name":"load_animation_descriptor","flags":"none","classification":"inline"}],
+      "callees":[{"site":"3B10","address":"01F7:3998","name":"probe_forward_surface","flags":"ZF clear","classification":"inline"},{"site":"3C82","address":"01F7:3986","name":"probe_vertical_step","flags":"ZF clear","classification":"inline"},{"site":"3B3A,3BB6,3C00,3C22,3CAC,3CE6,3CFC","address":"01F7:5D38","name":"load_animation_descriptor","flags":"none","classification":"inline"}],
       "confidence":"confirmed","evidence":["raw:3AB9-3D01","reloc:3AB9 animation calls","trace:horizontal-fixtures"]
     },
     {
@@ -172,13 +180,17 @@
     {
       "address":"01F7:3A1F","range":["3A1F","3A62"],"name":"probe_player_side_clear","old_symbol":"FUN_3A1F","classification":"inline","convention":"near","signature":"Flags probe_player_side_clear(PlayerRecord* es_di)",
       "inputs":["+38 gate","+37 mode","x/y integer words"],"outputs":["ZF clear/occupied; +3B=FF after two clear probes"],"player_reads":["04","08","37","38","3B"],"player_writes":["3B"],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],
-      "callees":[{"site":"3A3A,3A4C","address":"01F7:5C27","name":"probe_descriptor_quadrant","flags":"ZF occupancy","classification":"inline"}],
+      "callees":[{"site":"3A39,3A4B","address":"01F7:5C27","name":"probe_descriptor_quadrant","flags":"ZF occupancy","classification":"inline"}],
       "confidence":"confirmed","evidence":["raw:3A1F-3A61","trace:ordered-side-probe"]
+    },
+    {
+      "address":"01F7:3A62","range":["3A62","3A8A"],"name":"apply_action_contact_side_effect","old_symbol":"FUN_3A62","classification":"inline","convention":"near","signature":"void apply_action_contact_side_effect(PlayerRecord* es_di)",
+      "inputs":["player action and direction state"],"outputs":["contact-side animation/status writes"],"player_reads":["00","28","2A"],"player_writes":["12","2A"],"global_reads":[],"global_writes":[],"callees":[],"confidence":"mechanical","evidence":["raw:3A62-3A89","near-call:4392"]
     },
     {
       "address":"01F7:3998","range":["3998","39FE"],"name":"probe_forward_surface","old_symbol":"FUN_3998","classification":"inline","convention":"near","signature":"Flags probe_forward_surface(PlayerRecord* es_di)",
       "inputs":["+29 direction","+3A latch","+04/+08 coordinates","+72 step"],"outputs":["last descriptor occupancy flags"],"player_reads":["04","08","29","3A","72"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],
-      "callees":[{"site":"39C2,39D7,39F3","address":"01F7:5C27","name":"probe_descriptor_quadrant","flags":"ZF occupancy","classification":"inline"}],
+      "callees":[{"site":"39C2,39D7,39F3","address":"01F7:1C6E","name":"probe_map_word_bit_4000","flags":"ZF occupancy","classification":"inline"}],
       "confidence":"confirmed","evidence":["raw:3998-39FD","static:probe-order-and-step-gate"]
     },
     {
@@ -216,7 +228,7 @@
     {
       "address":"01F7:6370","range":["6370","6484"],"name":"probe_contact_tile_offset","old_symbol":"FUN_6370","classification":"inline","convention":"near","signature":"Flags probe_contact_tile_offset(PlayerRecord* es_di)",
       "inputs":["+37 mode","+04/+08 coordinates","DS:5003 offset","+72 step"],"outputs":["CF=1 only for matching negative-mode contact; contact record/object writes"],"player_reads":["02","04","06","08","2E","32","36","37","38","72"],"player_writes":["02","06","2E","32","36","38"],"global_reads":["DS:5003","DS:657A","DS:657C","DS:657E"],"global_writes":["DS:4FFE","DS:5000","DS:5001","DS:612E"],
-      "callees":[{"site":"638A,63CD","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6426","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"6431","address":"01F7:0E06","name":"object_pool_factory_0E06","flags":"ES:DI child/object","classification":"contract"}],
+      "callees":[{"site":"638A,63CD","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6426","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"6432","address":"01F7:0E06","name":"object_pool_factory_0E06","flags":"ES:DI child/object","classification":"contract"}],
       "confidence":"confirmed","evidence":["raw:6370-6483","trace:contact-tile-matrix"]
     },
     {
@@ -226,7 +238,7 @@
     {
       "address":"01F7:648E","range":["648E","659C"],"name":"probe_contact_right","old_symbol":"FUN_648E","classification":"inline","convention":"far","signature":"Flags probe_contact_right(PlayerRecord* es_di)",
       "inputs":["+37 mode","+04/+08 coordinates","+72 step"],"outputs":["CF=1 only for matching negative-mode contact; contact record/object writes"],"player_reads":["02","06","08","2E","32","36","37","38","72"],"player_writes":["02","06","08","2E","32","36","38"],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":["DS:4FFE","DS:5000","DS:5001","DS:5003","DS:612E"],
-      "callees":[{"site":"64A7,64E9","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6542","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"654D","address":"01F7:0E06","name":"object_pool_factory_0E06","flags":"ES:DI child/object","classification":"contract"}],
+      "callees":[{"site":"64A7,64E9","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6542","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"654E","address":"01F7:0E06","name":"object_pool_factory_0E06","flags":"ES:DI child/object","classification":"contract"}],
       "confidence":"confirmed","evidence":["raw:648E-659B","trace:contact-tile-matrix"]
     },
     {
@@ -241,7 +253,7 @@
     },
     {
       "address":"01F7:38EC","range":["38EC","393C"],"name":"player_action_effect_38EC","old_symbol":"FUN_38EC","classification":"inline","convention":"near","signature":"void player_action_effect_38EC(PlayerRecord* es_di)",
-      "inputs":["action bit 0x10","+3C effect-active gate","player position/direction"],"outputs":["effect child initialized; player +3C updated; child +17/+29/+02/+06 copied"],"player_reads":["00","02","06","28","3C"],"player_writes":["3C"],"child_writes":["02","06","17","29"],"global_reads":[],"global_writes":[],"callees":[{"site":"390E","address":"01F7:4519","name":"spawn_contact_effect_entry","flags":"ES:DI child returned during call","classification":"contract"}],"confidence":"confirmed","evidence":["raw:38EC-393B","static:action-bit-10-child-copy"]
+      "inputs":["action bit 0x10","+3C effect-active gate","player position/direction"],"outputs":["effect child initialized; player +3C updated; child +17/+29/+02/+06 copied"],"player_reads":["00","02","06","28","3C"],"player_writes":["3C"],"child_writes":["02","06","17","29"],"global_reads":[],"global_writes":[],"callees":[{"site":"390E","address":"01F7:0E06","name":"object_pool_factory_0E06","flags":"ES:DI child returned during call","classification":"contract"}],"confidence":"confirmed","evidence":["raw:38EC-393B","static:action-bit-10-child-copy"]
     },
     {
       "address":"01F7:4519","range":["4519","45AB"],"name":"spawn_contact_effect_entry","old_symbol":"FUN_4519","classification":"contract","convention":"near","signature":"PlayerRecord* spawn_contact_effect_entry(PlayerRecord* owner)",
@@ -267,7 +279,7 @@
     },
     {
       "address":"01F7:199D","range":["199D","19E6"],"name":"write_transition_gate_199D","old_symbol":"FUN_199D","classification":"inline","convention":"far","signature":"void write_transition_gate_199D(PlayerRecord* es_di)",
-      "inputs":["ES:DI player record"],"outputs":["DS:89EA=-1; reset motion constants/state"],"player_reads":["0E","4C","50","5C","60"],"player_writes":["0E","4C","50","5C","60"],"global_reads":[],"global_writes":["DS:8950","DS:89EA","DS:880A","DS:8822"],"callees":[{"site":"19AA","address":"01E7:0CE3","name":"dispatch_transition_effect_0CE3","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:199D-19E5","callsite:43D0"]
+      "inputs":["ES:DI player record"],"outputs":["DS:89EA=-1; reset motion constants/state"],"player_reads":["0E","4C","50","5C","60"],"player_writes":["0E","4C","50","5C","60"],"global_reads":[],"global_writes":["DS:8950","DS:89EA","DS:880A","DS:8822"],"callees":[{"site":"19A9","address":"01E7:0CE3","name":"dispatch_transition_effect_0CE3","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:199D-19E5","callsite:43D0"]
     },
     {
       "address":"01F7:1BD1","range":["1BD1","1C4D"],"name":"probe_transition_descriptor","old_symbol":"FUN_1BD1","classification":"contract","convention":"far","signature":"Flags probe_transition_descriptor(PlayerRecord* es_di, int16_t dx, int16_t cx)",
@@ -279,7 +291,7 @@
     },
     {
       "address":"01F7:19E6","range":["19E6","1A95"],"name":"apply_transition_reset_19E6","old_symbol":"FUN_19E6","classification":"contract","convention":"far","signature":"void apply_transition_reset_19E6(void)",
-      "inputs":["persistent player through DS:881A","DS:8822 transition counter"],"outputs":["DS:89EA transition gate and player motion reset"],"player_reads":["0E","34","37","3B","3E","4C","50","5C","60"],"player_writes":["0E","37","3B","3E","4C","50","5C","60"],"global_reads":["DS:881A","DS:8822","DS:89EA"],"global_writes":["DS:612E","DS:880A","DS:8950","DS:89EA"],"callees":[{"site":"19FC","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:19E6-1A94","callsite:3AB3"]
+      "inputs":["persistent player through DS:881A","DS:8822 transition counter"],"outputs":["DS:89EA transition gate and player motion reset"],"player_reads":["0E","34","37","3B","3E","4C","50","5C","60"],"player_writes":["0E","37","3B","3E","4C","50","5C","60"],"global_reads":["DS:881A","DS:8822","DS:89EA"],"global_writes":["DS:612E","DS:880A","DS:8950","DS:89EA"],"callees":[{"site":"19FB","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:19E6-1A94","callsite:3AB3"]
     },
     {
       "address":"01F7:0E06","range":null,"name":"object_pool_factory_0E06","old_symbol":"FUN_0E06","classification":"contract","convention":"far","signature":"ObjectRecord* object_pool_factory_0E06(uint16_t ax, uint16_t dx)",

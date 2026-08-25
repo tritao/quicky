@@ -6,7 +6,6 @@
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
-import ghidra.program.model.address.AddressSet;
 import ghidra.program.model.listing.CodeUnit;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionManager;
@@ -384,6 +383,10 @@ public class AnnotateQuiky extends GhidraScript {
             "Consumes the keyboard ring, handles make/break bytes, maps arrows/Space to DS:88BC, and stores the last scan code in DS:88BA.");
         function(0xf21b, "read_normalized_input_flags",
             "Returns DS:88BC OR DS:8196, the normalized action flags consumed by the game/menu loops.");
+    }
+
+    private void annotateSegment6() throws Exception {
+        // DS is selector 0237 / SEG06 in the separate raw-segment model.
         label(0x3714, "are_region_origin_x", "Runtime-confirmed 64-pixel-aligned X origin used while instantiating an ARE declaration.");
         label(0x3716, "are_region_origin_y", "Runtime-confirmed 64-pixel-aligned Y origin used while instantiating an ARE declaration.");
         label(0x81d2, "are_entity_dispatch_table", "Four-byte entries indexed by ARE entity type; normal types feed these values to the object factory.");
@@ -402,7 +405,7 @@ public class AnnotateQuiky extends GhidraScript {
         label(0x30d4, "tile_descriptor_stride", "Stride used to index a tile descriptor record.");
         label(0x657a, "map_buffer_offset", "Offset of the currently loaded MAP buffer.");
         label(0x657c, "map_buffer_segment", "Segment of the currently loaded MAP buffer.");
-        label(0x657e, "map_row_stride_bytes", "Byte stride between MAP rows.");
+        label(0x657e, "map_row_stride_bytes", "Byte stride between loaded MAP rows.");
         label(0x6582, "tile_descriptor_table_offset", "Offset of the tile descriptor table.");
         label(0x6584, "tile_descriptor_table_segment", "Segment of the tile descriptor table.");
         label(0x85da, "type34_activation_state", "State word checked by the type-0x34 callback against 0x32; broader role is provisional.");
@@ -455,7 +458,10 @@ public class AnnotateQuiky extends GhidraScript {
         Function function = manager.getFunctionAt(address);
         if (function == null) {
             try {
-                function = manager.createFunction(name, address, new AddressSet(address), SourceType.USER_DEFINED);
+                // Recover a body before naming the function.  A one-address
+                // function is not a useful substitute for disassembly.
+                disassemble(address);
+                function = createFunction(address, name);
             } catch (Exception overlap) {
                 // Auto-analysis may already have claimed a containing function.
                 // Keep the annotation pass useful for the remaining targets.
@@ -468,6 +474,10 @@ public class AnnotateQuiky extends GhidraScript {
             } catch (DuplicateNameException ignored) {
                 println("Could not rename existing function at " + address + " to " + name);
             }
+        }
+        if (function == null) {
+            println("No function body recovered at " + address + "; leaving address-qualified label only");
+            return;
         }
         function.setComment(comment);
     }

@@ -149,6 +149,9 @@ def check_source(source_path: Path) -> None:
 
 def verify(ledger_path: Path, root: Path, require_traces: bool) -> list[str]:
     ledger = load(ledger_path)
+    external = ledger.get("external_state_ledger")
+    if not isinstance(external, str) or not (root / external).is_file():
+        raise FollowupError("external_state_ledger link is missing or unreadable")
     check_source_hashes(ledger, root)
     check_contracts(ledger)
     check_contact_order(ledger)

@@ -1,6 +1,7 @@
 {
   "schema": "quiky.player-contact-followup.v1",
   "purpose": "Focused static and dynamic closure audit for player contact, helper 5937, factory 0E06, input dispatch, moving platforms, and held-out parity.",
+  "external_state_ledger": "research/ghidra/player-external-state-closure.json",
   "source": {
     "executable": "game/QUIKY.EXE",
     "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
@@ -11,10 +12,10 @@
   },
   "status": {
     "contact_semantics": "static_closed_with_runtime_polarity_gaps",
-    "helper_5937": "direct_contract_closed_indirect_dispatch_unresolved",
+    "helper_5937": "direct_contract_closed_dispatch_view_contract_closed_indirect_callback_unresolved",
     "factory_0E06": "allocator_contract_closed_family_selection_is_caller_owned",
     "input_dispatch": "normalized_word_closed_callback_precedence_closed",
-    "moving_platform": "carry_contract_closed_scheduler_and_crush_gaps",
+    "moving_platform": "carry_contract_and_static_scheduler_order_closed_combined_runtime_edge_cases_open",
     "full_cpp_parity": "gate_ready_but_runtime_callback_not_yet_implemented"
   },
   "contracts": [
