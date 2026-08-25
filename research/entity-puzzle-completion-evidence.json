@@ -1,0 +1,231 @@
+{
+  "schema": "entity-puzzle-completion-evidence-v1",
+  "purpose": "Test the final puzzle-letter bit and identify the native DS:60D8 completion/transition behavior.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "archive_sha256": "bfa647a83a44b7d0c7d08399d46ee526748b9d9104359694537d3284c34d60b4",
+    "trace": "research/build/entity-7f-puzzle-completion-1800.json",
+    "trace_sha256": "58e83e97b71e4e86ce1ac437e503319c8046c71a0eeab02560beb1084e11a4e9",
+    "trace_script_sha256": "644df8702a72cefa9bfad694268fcb33e208d7d4c8d9171530c76c7b4fa18af8",
+    "refined_presentation_trace": "research/build/entity-7f-puzzle-completion-presentation-v2.json",
+    "refined_presentation_trace_sha256": "c669215cd35350363b614f4ac97c4b16c2e75681a35c049d04f0edb616907c1c",
+    "refined_presentation_trace_script_sha256": "93e402a1e57258ef44c73160d8974927caa13aa95ce1db6e4d4e025494cda4ed",
+    "gated_presentation_trace": "research/build/entity-7f-puzzle-completion-gated-v8.json",
+    "gated_presentation_trace_sha256": "067e995cc568cd51c530aa2d59bfe811181e359d89cdd42cead017fe5fa0690f",
+    "gated_presentation_trace_script_sha256": "438e945437dfa09c3b6febfc57b651d91afe78722f7fb40c41072aac78c179ce",
+    "gated_wait_trace": "research/build/entity-7f-puzzle-completion-wait-v10.json",
+    "gated_wait_trace_sha256": "ccf076290e85d3bb88c638af55b705f02ecaad21d2aa71a99ec50a6b7160c2b6",
+    "gated_wait_trace_script_sha256": "8fc74b000ae3d80ae260e3e32335d225515ee96b386b87524d800552eb5d2fd1",
+    "current_stage_writer_trace": "research/build/entity-7f-puzzle-completion-boss-stage-current.json",
+    "current_stage_writer_trace_sha256": "1ea7ba6854c68a6e5f5a9501e9896d7ef3d5c6e447353fc265fa098a60e3a7ca",
+    "current_stage_writer_trace_script_sha256": "0a2bbc94aa3f1094bab7c86e6ac33d1654e31f041bcf142d63557696899b107",
+    "pooled_boss_stage_evidence": "research/entity-boss-stage-evidence.json"
+  },
+  "static_scan": {
+    "method": "16-bit disassembly of file-backed QUIKY.EXE segments 1-6; direct absolute DS:60D8 operands plus the selector/main-loop caller",
+    "writer": "01F7:8E33 OR word ptr [DS:60D8], AX",
+    "reader_entry": "01F7:5936",
+    "reader_mask_change": "01F7:5940 reads DS:60D8, compares prior DS:60DA, XORs the changed bits, and dispatches presentation updates through 01F7:386F",
+    "completion_routine": "01D7:14E1",
+    "all_seven_comparator": "01D7:1670 cmp word ptr [DS:60D8], 0x007F; JE 01D7:16C6",
+    "completion_presentation": [
+      "01D7:16C6 renders the NESQUIK: 2000 text",
+      "01D7:16D3 sets DS:612E=0x000C (completion sound)",
+      "01D7:16DE adds 0x07D0 to DS:881C/DS:881E",
+      "01D7:16F0 renders BONUS-LEVEL!",
+      "01D7:1704 sets DS:85DB=1"
+    ],
+    "level_transition_gate": "The caller at 01D7:4F10 tests DS:85DB and jumps to 01D7:4FAF; that branch copies DS:85D4 to DS:85D6, maps the selector state, and enters 01D7:5017 (relocated target 01F7:0908), 01D7:5038 (0227:0D5A copy), 01D7:503D (01F7:1AAA), 01D7:5042 (01F7:321F), and 01D7:5047 (local 01D7:313D rebuild/dispatch).",
+    "direct_reference_count": 3,
+    "direct_reference_count_scope": "semantic sites (writer, changed-bit reader, main-loop comparator), not every repeated operand inside the reader",
+    "direct_completion_comparator": true,
+    "direct_level_transition_call": true,
+    "interpretation": "The final-letter callback writes DS:60D8, the 01D7 main-loop completion routine owns the all-seven comparator and presentation, and DS:85DB is the explicit handoff into the level-transition state machine.",
+    "outer_state_gate": "01D7:4EA0 tests DS:89E6; its positive branch 01D7:4EAA calls the completion/effect consumer at 01D7:14E1. The normal cloud callback 01F7:9269 writes DS:89E6=0xFFFF when the player is in range.",
+    "presentation_wait_helper": "0207:10A9 samples PIT channel 0 through ports 43h/40h, compares the sample with DS:97F4, retries while equal, and stores the changed sample at 0207:1113."
+    ,"transition_gate_census": {
+      "global": "DS:89E0",
+      "terminal_writers": ["01D7:4E10", "01D7:4E8E", "01D7:4ECC"],
+      "zero_resets": ["01D7:1140", "01D7:4B82", "01D7:50E7", "01D7:517C"],
+      "gate_reads": ["01D7:5010", "01D7:5058", "01D7:5173", "01D7:5203"],
+      "interpretation": "The terminal value 0xFFFF is written only by the outer gameplay/completion branches; initialization and transition-loop paths clear the gate. The downstream resource path is therefore controlled by both the completion handoff and the transition-loop state, not by the final-letter callback alone."
+    },
+    "completion_flag_census": {
+      "global": "DS:85DB",
+      "clear_site": "01D7:16BF",
+      "set_sites": ["01D7:1704", "01D7:4B34"],
+      "interpretation": "01D7:1704 sets the flag after the all-seven presentation; 01D7:4B34 sets it for selector transition states 0x10-0x14; 01D7:16BF clears it on the non-final comparator path."
+    }
+  },
+  "runtime_probe": {
+    "fixture": "W1L1 entity-7f-native baseline; source ARE record 0x1792 mutated from type 0x2B to type 0x7F; runtime declaration offset 0x1632",
+    "initializer": "01F7:8D07 -> post-initializer 01F7:8D13",
+    "object_callback": "01F7:8D20",
+    "controls": ["align_object_to_player", "align_y_offset=-32", "force_active_player_bounds", "force_tile_mask=0x3F"],
+    "before": {
+      "DS:60D8": "0x003F",
+      "object_callback": "01F7:8D20"
+    },
+    "collection": {
+      "overlap_return": "01F7:8E42",
+      "DS:60D8": "0x007F",
+      "DS:612E": 11,
+      "DS:881C_delta": 100,
+      "callback_after": 0
+    },
+    "post_collection": {
+      "frames": 1800,
+      "DS:60D8": "0x007F",
+      "resource_span": {"start": 952944, "end": 957333, "size": 4389},
+      "selector_index": 0,
+      "level_loop_state": 0,
+      "cpu": "01D7:48BB",
+      "transition_observed": false,
+      "display_consumer_hits": []
+    },
+    "refined_presentation_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-presentation-v2.json",
+      "timeout_ms": 15000,
+      "frames": 300,
+      "breakpoints": [
+        "01D7:1670",
+        "01D7:16C6",
+        "01D7:16DE",
+        "01D7:16F0",
+        "01D7:1704",
+        "01D7:4F10",
+        "01D7:4FAF",
+        "01D7:5017",
+        "01D7:5038",
+        "01D7:5047"
+      ],
+      "hits": [],
+      "mask_after_probe": "0x007F",
+      "completion_flag_after_probe": 0,
+      "selector_index_after_probe": 0,
+      "level_loop_state_after_probe": 0,
+      "transition_observed": false,
+      "interpretation": "The refined probe arms only the authored comparator, presentation, and transition addresses; none fire in this synthetic W1L1 fixture despite DS:60D8 reaching 0x007F."
+    },
+    "gated_presentation_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-gated-v8.json",
+      "timeout_ms": 40000,
+      "outer_state_gate_forced": "DS:89E6=0xFFFF",
+      "frames_after_sequence": 120,
+      "hits": [
+        "01D7:4EA0",
+        "01D7:4EAA",
+        "01D7:4F0D",
+        "01D7:14E1",
+        "01D7:1670",
+        "01D7:16C6",
+        "01D7:16DE",
+        "01D7:16F0",
+        "01D7:1704"
+      ],
+      "mask_during_sequence": "0x007F",
+      "completion_flag_after_probe": 1,
+      "score_after_probe": {"low_word": 2100, "high_word": 0, "delta_from_precollect": 2000},
+      "action_word_at_first_hit": 11,
+      "action_word_at_bonus_text_hits": 12,
+      "transition_setup_hits": [],
+      "interpretation": "Forcing the real outer-state prerequisite reaches the authored comparator and both completion strings, sets DS:85DB=1, and adds 2000 points. The probe then remains in the presentation/effect continuation; 01D7:4FAF-5047 transition setup was not reached within the bounded post-sequence window."
+    },
+    "gated_wait_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-wait-v10.json",
+      "wait_helper": "0207:10A9",
+      "wait_loop": "0207:10CB-110D",
+      "wait_return": "0207:1113",
+      "observed_wait_hits": ["0207:10CB", "0207:1113"],
+      "first_wait_timer_sample": 1,
+      "first_wait_return_timer_sample": 5268,
+      "final_cpu": "0207:10CB",
+      "transition_setup_hits": [],
+      "interpretation": "The diagnostic reached and returned from one PIT wait before the completion strings, then ended its bounded post-message run inside the same timer helper at 0207:10CB; no 4FAF-5047 transition address fired."
+    },
+    "current_stage_writer_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-boss-stage-current.json",
+      "fixture": "main-tree QUIKY.EXE with an isolated W1L1 type-0x7F baseline archive variant at a near-camera anchor",
+      "outer_state_gate_forced": "DS:89E6=0xFFFF",
+      "frames_after_sequence": 180,
+      "presentation_hits": ["01D7:4EA0", "01D7:4EAA", "0207:10CB", "0207:1113"],
+      "stage_writer_points": ["01D7:3147", "01F7:A101", "01F7:B115", "01F7:C25E", "01F7:CC3B", "01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:D60B"],
+      "stage_writer_hit_count": 0,
+      "final_ds_88ae": 0,
+      "completion_flag_after_probe": 0,
+      "interpretation": "Within this bounded current-script diagnostic, the forced outer cloud gate reaches the completion consumer and PIT wait helper but none of the known END stage writers fire; DS:88AE remains zero. This is a negative timing boundary, not evidence that the fully authored boss/end transition never advances the stage."
+    },
+    "transition_release_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-transition-release.json",
+      "trace_sha256": "f61b52bcfae712f1b25355d942c63ec83f085b71f7ab2f72a9962b030227b3a3",
+      "trace_script_sha256": "03c536db7e5836dca7960b669e08ec915ca689bbd41da27db899aaa85b0acd41",
+      "fixture": "W1L1 type-0x7F synthetic final-letter archive variant from the main-tree QUIKY.EXE/NESTLE.DAT",
+      "controls": [
+        "force DS:89E6=0xFFFF to enter the real outer completion consumer",
+        "release the segment-4 PIT compare at 0207:10D3/10EE/1107 in debugger memory",
+        "clear the post-bonus 01E7:0CAA input-wait predicate",
+        "release the post-bonus audio/UI loops at 01D7:01D6/01F0",
+        "force DS:89E0=0 at 01D7:4FAF and patch the diagnostic copy of 01D7:5010 to fall through"
+      ],
+      "native_hits_through_handoff": [
+        "01D7:4EA0", "01D7:4EAA", "01D7:4F0D", "01D7:14E1", "01D7:1670",
+        "01D7:16C6", "01D7:16DE", "01D7:16F0", "01D7:1704", "01D7:4F10", "01D7:4FAF"
+      ],
+      "presentation_and_ack_hits": [
+        "0207:10CB", "0207:10D3", "0207:10D7", "0207:1113",
+        "01E7:0D18", "01E7:0F41", "01E7:0CAA", "0207:022A", "0207:02A2",
+        "01F7:0002", "01D7:1732"
+      ],
+      "completion_flag_after_probe": 1,
+      "selector_index_after_probe": 16,
+      "selector_state_after_probe": 0,
+      "score_after_probe": {"low_word": 2100, "high_word": 0},
+      "transition_setup_hits": [],
+      "interpretation": "Controlled release of the authored presentation/audio/input waits now proves the native DS:85DB handoff through 01D7:4F10-4FAF and the selector advance to 0x10. The downstream 01D7:5017/5038/5047 resource/object calls remain statically resolved but did not fire in this synthetic fixture even after the DS:89E0 gate was forced; this is a runtime-boundary result, not evidence that the retail reload branch is absent."
+    },
+    "transition_release_capacity_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-transition-release-1200-v6.json",
+      "trace_sha256": "1c965f197d0b119cd4a4e2834889f1a44c103ba578fb772aebd93cfd1168514a",
+      "trace_script_sha256": "4a3bb8341c261b92b72eb813403a0b083cfb25a0f5e6de1074a19e296dcf78ec",
+      "fixture": "Current synthetic W1L1 type-0x7F final-letter archive variant",
+      "controls": [
+        "force DS:89E6=0xFFFF",
+        "release PIT/input/audio waits",
+        "force DS:89E0=0 at 01D7:4FAF",
+        "clear the presentation/stage breakpoint set at 01D7:4FAF and arm only 01D7:5010/5017/5038/503D/5042/5047"
+      ],
+      "observed": {
+        "handoff_hits": ["01D7:4F10", "01D7:4FAF"],
+        "transition_gate_value": 0,
+        "downstream_hits": [],
+        "completion_flag": 1,
+        "selector_index": 16,
+        "selector_state": 0,
+        "post_probe_cpu": "01D7:48BB"
+      },
+      "interpretation": "Even after removing breakpoint-capacity pressure and forcing the non-terminal DS:89E0 value, the synthetic fixture returns to the main loop without executing 01D7:5010 or the downstream reload calls. The handoff and its gate are therefore confirmed, but the fixture still lacks the authored transition state needed to enter the resource/object rebuild branch."
+    },
+    "transition_census_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-transition-census-v4.json",
+      "trace_sha256": "36081724e418e0550582fa78ba023750ba13ff41015f0ca8a811851a1916e986",
+      "trace_script": "research/automation/quiky_object_behavior_trace.lua",
+      "trace_script_sha256": "a945b3ca9c3c00b59c0b94aa052feb174a093d031e588ddc922474e7f857f7e8",
+      "host_tool": "research/tools/object_behavior_trace.py",
+      "host_tool_sha256": "7b740253bca9430a311493f249d469007d719dbb0e9c2250836d5837f2188d8c",
+      "fixture": "Current synthetic W1L1 type-0x7F final-letter archive variant with the real outer DS:89E6 gate forced, presentation PIT/input/audio waits released, and transition watchers explicitly censused after 01D7:4FAF.",
+      "observed": {
+        "handoff_hits": ["01D7:4F10", "01D7:4FAF"],
+        "handoff_gate_89e0": 0,
+        "selector_index_after": 16,
+        "selector_state_after": 0,
+        "completion_flag_after": 1,
+        "transition_hits_after_4faf": [],
+        "stage_writer_hits": 0,
+        "level_loop_state_after": 0
+      },
+      "interpretation": "The explicit census confirms the synthetic fixture executes the completion handoff and selector mapping but still produces no dynamic hit at 01D7:5010, 5017, 5038, 503D, 5042, 5047, 504F, 505D, or 5060. This is a stronger negative runtime boundary than the earlier unrecorded downstream result; the missing prerequisite is an authored transition/resource state, not an unidentified completion comparator."
+    }
+  },
+  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. The explicit transition census still observes no 01D7:5010 or downstream reload hit in the synthetic fixture, so exact retail timing and the resource/object rebuild require a fully authored completion or more faithful transition fixture."
+}

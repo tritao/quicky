@@ -1,0 +1,33 @@
+{
+  "schema": "entity-collectible-persistence-evidence-v1",
+  "purpose": "Separate collectible interaction removal from the ARE re-stream lifecycle for pickups and puzzle letters.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "interaction_evidence_sha256": "745ab4af063d6bd774a2d2b55c0fad13d6b89f73d3cc71aae33bf1bc315dc259"
+  },
+  "shared_callback": {
+    "entry": "01F7:8D20",
+    "visibility_gate": {"check": "01F7:1DCA", "off_camera_remove": "01F7:1DEE"},
+    "interaction_gate": "01F7:8D31 -> 01F7:393C",
+    "interaction_clear": "01F7:8E42 writes object+0x18=0",
+    "stream_record_clear": "01F7:1DEE writes FS:[object+0x1A+1]=0"
+  },
+  "static_path": {
+    "accepted_subtype_branches": ["01F7:8D70", "01F7:8D89", "01F7:8DB8", "01F7:8DDF", "01F7:8E08", "01F7:8E29"],
+    "all_accepted_branches_join": "01F7:8E42",
+    "interaction_branches_call_1DEE": false,
+    "interaction_branches_call_action_dispatcher": true
+  },
+  "runtime_probes": [
+    {"type": "0x6F", "callback": "01F7:8D20", "callback_after": 0, "record_high_byte_observed": "not changed by interaction probe"},
+    {"type": "0x79", "callback": "01F7:8D20", "callback_after": 0, "record_high_byte_observed": "not changed by interaction probe"},
+    {"type": "0x2C", "callback": "01F7:8D20", "callback_after": 0, "record_high_byte_observed": "not changed by interaction probe"},
+    {"type": "0x6F", "callback": "01F7:8D20", "callback_after": 0, "reload_trace": "research/build/entity-6f-reload-after-collect.json", "reload_reconstructed": true, "reload_callback_after_initializer": "01F7:8D20"}
+  ],
+  "conclusions": [
+    "Collection consumes the live object immediately by clearing object+0x18.",
+    "Because the accepted interaction path does not call 1DEE, it does not clear the ARE record claim used by re-streaming; the collected object is not re-created by the normal off-camera scan in the same loaded ARE buffer.",
+    "Level selection is observed to reread the ARE resource, and the stateful W1L1 type-0x6F probe reconstructs the collected pickup with callback 01F7:8D20; pickup reload persistence is therefore reset/reconstruction behavior in the tested fixture."
+  ]
+}

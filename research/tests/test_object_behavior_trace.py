@@ -21,75 +21,124 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             startup_recording=Path("startup.json"),
             camera_x=700,
             camera_y=150,
-            reactivate_camera_x=816,
-            reactivate_camera_y=272,
-            capture_pool=False,
-            helper_trace=True,
-            probe_position_x=760,
-            probe_position_y=256,
-            probe_proximity_state=0x32,
-            probe_bounds_byte_37=1,
-            probe_descriptor_delay=10,
-            probe_descriptor_timer=0,
-            probe_descriptor_table=0x3506,
-            probe_descriptor_cursor=0x3508,
-            probe_descriptor_mode=0xff,
-            probe_type33_direction=1,
-            probe_type33_phase=-1,
-            probe_type33_phase_timer=2,
-            probe_type33_transition=0,
-            probe_type33_state=0,
-            probe_type33_state_counter=0,
-            probe_type33_velocity=0,
-            probe_type33_travel_counter=0,
-            probe_type33_animation_counter=0,
-            probe_type33_target_x=740,
-            probe_type33_target_y=380,
-            probe_type33_target_capacity=1,
-            probe_type33_target_cursor=0,
-            probe_target_x_delta=0,
-            probe_target_y_delta=-10,
-            probe_target_cursor_offset=0x2a,
-            movement_key="KBD_right",
+            sprite_init_offset=0x6DB0,
         )
         payload = lua_config(config)
         self.assertEqual(payload["record_offset"], 0x177A)
         self.assertEqual(payload["entity_type"], 0x01)
         self.assertEqual(payload["camera_x"], 700)
         self.assertEqual(payload["camera_y"], 150)
-        self.assertEqual(payload["reactivate_camera_x"], 816)
-        self.assertEqual(payload["reactivate_camera_y"], 272)
-        self.assertFalse(payload["capture_pool"])
-        self.assertTrue(payload["helper_trace"])
-        self.assertEqual(payload["probe_position_x"], 760)
-        self.assertEqual(payload["probe_position_y"], 256)
-        self.assertEqual(payload["probe_proximity_state"], 0x32)
-        self.assertEqual(payload["probe_bounds_byte_37"], 1)
-        self.assertEqual(payload["probe_descriptor_delay"], 10)
-        self.assertEqual(payload["probe_descriptor_timer"], 0)
-        self.assertEqual(payload["probe_descriptor_table"], 0x3506)
-        self.assertEqual(payload["probe_descriptor_cursor"], 0x3508)
-        self.assertEqual(payload["probe_descriptor_mode"], 0xff)
-        self.assertEqual(payload["probe_type33_direction"], 1)
-        self.assertEqual(payload["probe_type33_phase"], -1)
-        self.assertEqual(payload["probe_type33_velocity"], 0)
-        self.assertEqual(payload["probe_type33_target_x"], 740)
-        self.assertEqual(payload["probe_type33_target_y"], 380)
-        self.assertEqual(payload["probe_type33_target_capacity"], 1)
-        self.assertEqual(payload["probe_target_x_delta"], 0)
-        self.assertEqual(payload["probe_target_y_delta"], -10)
-        self.assertEqual(payload["probe_target_cursor_offset"], 0x2a)
-        self.assertEqual(payload["movement_key"], "KBD_right")
+        self.assertEqual(payload["sprite_init_offset"], 0x6DB0)
         self.assertNotIn("player_callback_offset", payload)
+
+    def test_authored_stream_controls_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1782,
+            entity_type=0x79,
+            samples=1,
+            startup_recording=Path("startup.json"),
+            initial_camera_x=576,
+            initial_camera_y=192,
+            prestream_input_key="KBD_right",
+            prestream_input_frames=300,
+        )
+        payload = lua_config(config)
+        self.assertEqual(payload["initial_camera_x"], 576)
+        self.assertEqual(payload["initial_camera_y"], 192)
+        self.assertEqual(payload["prestream_input_key"], "KBD_right")
+        self.assertEqual(payload["prestream_input_frames"], 300)
+
+    def test_reload_probe_options_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1838,
+            entity_type=0x6F,
+            samples=1,
+            startup_recording=Path("startup.json"),
+            select_level="W1L1",
+            reload_after_collect=True,
+            reload_level="W1L1",
+            reload_wait_frames=12,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["reload_after_collect"])
+        self.assertEqual(payload["reload_level"], "W1L1")
+        self.assertEqual(payload["reload_wait_frames"], 12)
+
+    def test_puzzle_completion_probe_options_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x17F2,
+            entity_type=0x7F,
+            samples=2,
+            startup_recording=Path("startup.json"),
+            force_tile_mask=0x3F,
+            trace_puzzle_completion=True,
+            force_completion_outer_state=True,
+            force_completion_wait_release=True,
+            puzzle_probe_frames=24,
+        )
+        payload = lua_config(config)
+        self.assertEqual(payload["force_tile_mask"], 0x3F)
+        self.assertTrue(payload["trace_puzzle_completion"])
+        self.assertTrue(payload["force_completion_outer_state"])
+        self.assertTrue(payload["force_completion_wait_release"])
+        self.assertEqual(payload["puzzle_probe_frames"], 24)
+
+    def test_interaction_probe_flags_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1606,
+            entity_type=0x3D,
+            samples=8,
+            startup_recording=Path("startup.json"),
+            trace_overlap=True,
+            trace_collision=True,
+            trace_platform=True,
+            force_active_player_bounds=True,
+            force_bump_player_state=True,
+            force_cloud_player_state=True,
+            trace_cloud_consumers=True,
+            cloud_consumer_offset=0x4087,
+            align_object_to_player=True,
+            align_y_offset=-32,
+            force_platform_ready=True,
+            trace_bump=True,
+            trace_contact=True,
+            force_contact_gate=True,
+            align_x_offset=-8,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["trace_overlap"])
+        self.assertTrue(payload["trace_collision"])
+        self.assertTrue(payload["trace_platform"])
+        self.assertTrue(payload["force_active_player_bounds"])
+        self.assertTrue(payload["force_bump_player_state"])
+        self.assertTrue(payload["force_cloud_player_state"])
+        self.assertTrue(payload["trace_cloud_consumers"])
+        self.assertEqual(payload["cloud_consumer_offset"], 0x4087)
+        self.assertEqual(payload["align_y_offset"], -32)
+        self.assertTrue(payload["force_platform_ready"])
+        self.assertTrue(payload["trace_bump"])
+        self.assertTrue(payload["trace_contact"])
+        self.assertTrue(payload["force_contact_gate"])
+        self.assertEqual(payload["align_x_offset"], -8)
+
+    def test_effect_table_probe_options_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1838,
+            entity_type=0x6F,
+            samples=1,
+            startup_recording=Path("startup.json"),
+            trace_effect_table=True,
+            effect_table_attempts=32,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["trace_effect_table"])
+        self.assertEqual(payload["effect_table_attempts"], 32)
 
     def test_normalizes_lua_numeric_tables(self):
         trace = normalize_behavior_trace({
             "samples": {
                 "2": {"sequence": 2, "changed_bytes": {
                     "2": {"offset": 4}, "1": {"offset": 1},
-                }, "callback": {
-                    "related_hits": {"2": {"offset": 0x1dee}},
-                    "helper_calls": {"1": {"offset": 0x5d38}},
                 }},
                 "1": {"sequence": 1, "changed_bytes": {}},
             },
@@ -97,71 +146,88 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual([sample["sequence"] for sample in trace["samples"]], [1, 2])
         self.assertEqual(trace["samples"][1]["changed_bytes"][0]["offset"], 1)
         self.assertEqual(trace["samples"][1]["changed_bytes"][1]["offset"], 4)
-        self.assertEqual(trace["samples"][1]["callback"]["related_hits"][0]["offset"], 0x1dee)
-        self.assertEqual(trace["samples"][1]["callback"]["helper_calls"][0]["offset"], 0x5d38)
 
-    def test_normalizes_descriptor_sequence_words(self):
+    def test_normalizes_effect_table_events(self):
         trace = normalize_behavior_trace({
-            "samples": [{
-                "object_before": {"descriptor": {
-                    "sequence_words": {"2": 0xfffc, "1": 0x00d6},
-                }},
-                "object_after": {"descriptor": {
-                    "sequence_words": {"1": 0x00d6},
-                }},
-                "changed_bytes": {},
-            }],
-        })
-        self.assertEqual(
-            trace["samples"][0]["object_before"]["descriptor"]["sequence_words"],
-            [0x00d6, 0xfffc],
-        )
-
-    def test_normalizes_followup_pool_tables(self):
-        trace = normalize_behavior_trace({
-            "samples": [{
-                "changed_bytes": {},
-                "pool_before": {"banks": {
-                    "1": {"entries": {"1": {"object_offset": 120}}},
-                }},
-            }],
-            "followup_passes": {
-                "1": {
-                    "entries": {"1": {"offset": 0x0eee}},
-                    "pool": {"banks": {
-                        "1": {"entries": {"1": {"object_offset": 120}}},
-                    }},
-                    "end_pool": {"banks": {}},
+            "samples": [],
+            "effect_table_probe": {
+                "events": {
+                    "2": {"sequence": 2},
+                    "1": {"sequence": 1},
                 },
             },
         })
-        self.assertEqual(len(trace["followup_passes"]), 1)
-        followup = trace["followup_passes"][0]
-        self.assertEqual(followup["entries"][0]["offset"], 0x0eee)
         self.assertEqual(
-            followup["pool"]["banks"][0]["entries"][0]["object_offset"],
-            120,
-        )
-        self.assertEqual(
-            trace["samples"][0]["pool_before"]["banks"][0]["entries"][0]["object_offset"],
-            120,
+            [event["sequence"] for event in trace["effect_table_probe"]["events"]],
+            [1, 2],
         )
 
-    def test_normalizes_reactivation_tables(self):
-        trace = normalize_behavior_trace({
-            "samples": [],
-            "reactivation": {
-                "stream_entries": {"1": {"offset": 0x1cda}},
-                "initialized_pool": {"banks": {
-                    "1": {"entries": {"1": {"object_offset": 120}}},
-                }},
-            },
-        })
-        self.assertEqual(trace["reactivation"]["stream_entries"][0]["offset"], 0x1cda)
-        self.assertEqual(
-            trace["reactivation"]["initialized_pool"]["banks"][0]["entries"][0]["object_offset"],
-            120,
+    def test_direct_callback_mode_and_inert_capture_are_present(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("sprite_init_offset", source)
+        self.assertIn("initialized_object.update_callback", source)
+        self.assertIn("if expected_type == 0 then", source)
+
+    def test_selector_declaration_breakpoint_is_armed_before_resume(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("local first_declaration = false", source)
+        self.assertIn("first_declaration = choose_level(select_level)", source)
+        self.assertIn("if first_declaration then", source)
+        self.assertIn("dosbox.wait_frames(1)", source)
+        self.assertGreaterEqual(
+            source.count("dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})"),
+            2,
         )
+
+    def test_reload_probe_has_reconstruction_capture(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("reload_after_collect", source)
+        self.assertIn("reload object factory return", source)
+        self.assertIn("reconstructed = false", source)
+
+    def test_puzzle_probe_captures_post_collection_state(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("force_tile_mask", source)
+        self.assertIn("puzzle_completion_probe", source)
+        self.assertIn("puzzle_probe_frames", source)
+        self.assertIn("force_completion_outer_state", source)
+        self.assertIn("force_completion_wait_release", source)
+        self.assertIn("0x10cb", source)
+        self.assertIn("stage_writer_points", source)
+        self.assertIn("stage_gate_hit_count", source)
+
+    def test_cloud_probe_has_player_state_control(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("force_cloud_player_state", source)
+        self.assertIn("apply_cloud_player_state", source)
+
+    def test_cloud_consumer_probe_has_reader_barrier(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("cloud_consumer_probe", source)
+        self.assertIn("0x4087", source)
+        self.assertIn("0x4406", source)
+        self.assertIn("cloud_consumer_offset", source)
+
+    def test_cloud_outer_renderer_probe_is_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x180A,
+            entity_type=0x28,
+            samples=2,
+            startup_recording=Path("startup.json"),
+            trace_cloud_outer_renderer=True,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["trace_cloud_outer_renderer"])
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("cloud_outer_renderer_probe", source)
+        self.assertIn("01D7:4EA0", source)
 
 
 if __name__ == "__main__":

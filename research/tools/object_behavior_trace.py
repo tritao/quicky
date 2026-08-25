@@ -36,39 +36,47 @@ class ObjectBehaviorConfig:
     poll_interval: float = 0.05
     select_level: str | None = None
     selector_frames: int = 60
+    initial_camera_x: int | None = None
+    initial_camera_y: int | None = None
+    prestream_input_key: str | None = None
+    prestream_input_frames: int = 0
     camera_x: int | None = None
     camera_y: int | None = None
-    followup_passes: int = 0
-    capture_pool: bool = True
-    helper_trace: bool = False
-    probe_position_x: int | None = None
-    probe_position_y: int | None = None
-    probe_proximity_state: int | None = None
-    probe_bounds_byte_37: int | None = None
-    probe_descriptor_delay: int | None = None
-    probe_descriptor_timer: int | None = None
-    probe_descriptor_table: int | None = None
-    probe_descriptor_cursor: int | None = None
-    probe_descriptor_mode: int | None = None
-    probe_type33_direction: int | None = None
-    probe_type33_phase: int | None = None
-    probe_type33_phase_timer: int | None = None
-    probe_type33_transition: int | None = None
-    probe_type33_state: int | None = None
-    probe_type33_state_counter: int | None = None
-    probe_type33_velocity: int | None = None
-    probe_type33_travel_counter: int | None = None
-    probe_type33_animation_counter: int | None = None
-    probe_type33_target_x: int | None = None
-    probe_type33_target_y: int | None = None
-    probe_type33_target_capacity: int | None = None
-    probe_type33_target_cursor: int | None = None
-    probe_target_x_delta: int | None = None
-    probe_target_y_delta: int | None = None
-    probe_target_cursor_offset: int = 0x30
-    reactivate_camera_x: int | None = None
-    reactivate_camera_y: int | None = None
-    movement_key: str = ""
+    sprite_init_offset: int = 0
+    align_object_to_player: bool = False
+    trace_overlap: bool = False
+    trace_collision: bool = False
+    trace_platform: bool = False
+    trace_bump: bool = False
+    trace_contact: bool = False
+    trace_effect_table: bool = False
+    effect_table_attempts: int = 64
+    trace_stream_lifecycle: bool = False
+    lifecycle_return_camera_x: int = 700
+    lifecycle_return_camera_y: int = 350
+    force_active_player_bounds: bool = False
+    force_bump_player_state: bool = False
+    force_cloud_player_state: bool = False
+    trace_cloud_consumers: bool = False
+    cloud_consumer_offset: int = 0
+    trace_cloud_outer_renderer: bool = False
+    cloud_outer_target: int = 0
+    trace_cloud_hardware_renderer: bool = False
+    cloud_hardware_frames: int = 8
+    force_contact_gate: bool = False
+    align_x_offset: int = 0
+    align_y_offset: int = 0
+    force_velocity_x: int | None = None
+    force_velocity_y: int | None = None
+    force_platform_ready: bool = False
+    reload_after_collect: bool = False
+    reload_level: str | None = None
+    reload_wait_frames: int = 30
+    force_tile_mask: int | None = None
+    trace_puzzle_completion: bool = False
+    force_completion_outer_state: bool = False
+    force_completion_wait_release: bool = False
+    puzzle_probe_frames: int = 120
 
 
 def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
@@ -80,39 +88,47 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "samples": config.samples,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "initial_camera_x": config.initial_camera_x,
+        "initial_camera_y": config.initial_camera_y,
+        "prestream_input_key": config.prestream_input_key or "",
+        "prestream_input_frames": config.prestream_input_frames,
         "camera_x": config.camera_x,
         "camera_y": config.camera_y,
-        "followup_passes": config.followup_passes,
-        "capture_pool": config.capture_pool,
-        "helper_trace": config.helper_trace,
-        "probe_position_x": config.probe_position_x,
-        "probe_position_y": config.probe_position_y,
-        "probe_proximity_state": config.probe_proximity_state,
-        "probe_bounds_byte_37": config.probe_bounds_byte_37,
-        "probe_descriptor_delay": config.probe_descriptor_delay,
-        "probe_descriptor_timer": config.probe_descriptor_timer,
-        "probe_descriptor_table": config.probe_descriptor_table,
-        "probe_descriptor_cursor": config.probe_descriptor_cursor,
-        "probe_descriptor_mode": config.probe_descriptor_mode,
-        "probe_type33_direction": config.probe_type33_direction,
-        "probe_type33_phase": config.probe_type33_phase,
-        "probe_type33_phase_timer": config.probe_type33_phase_timer,
-        "probe_type33_transition": config.probe_type33_transition,
-        "probe_type33_state": config.probe_type33_state,
-        "probe_type33_state_counter": config.probe_type33_state_counter,
-        "probe_type33_velocity": config.probe_type33_velocity,
-        "probe_type33_travel_counter": config.probe_type33_travel_counter,
-        "probe_type33_animation_counter": config.probe_type33_animation_counter,
-        "probe_type33_target_x": config.probe_type33_target_x,
-        "probe_type33_target_y": config.probe_type33_target_y,
-        "probe_type33_target_capacity": config.probe_type33_target_capacity,
-        "probe_type33_target_cursor": config.probe_type33_target_cursor,
-        "probe_target_x_delta": config.probe_target_x_delta,
-        "probe_target_y_delta": config.probe_target_y_delta,
-        "probe_target_cursor_offset": config.probe_target_cursor_offset,
-        "reactivate_camera_x": config.reactivate_camera_x,
-        "reactivate_camera_y": config.reactivate_camera_y,
-        "movement_key": config.movement_key,
+        "sprite_init_offset": config.sprite_init_offset,
+        "align_object_to_player": config.align_object_to_player,
+        "trace_overlap": config.trace_overlap,
+        "trace_collision": config.trace_collision,
+        "trace_platform": config.trace_platform,
+        "trace_bump": config.trace_bump,
+        "trace_contact": config.trace_contact,
+        "trace_effect_table": config.trace_effect_table,
+        "effect_table_attempts": config.effect_table_attempts,
+        "trace_stream_lifecycle": config.trace_stream_lifecycle,
+        "lifecycle_return_camera_x": config.lifecycle_return_camera_x,
+        "lifecycle_return_camera_y": config.lifecycle_return_camera_y,
+        "force_active_player_bounds": config.force_active_player_bounds,
+        "force_bump_player_state": config.force_bump_player_state,
+        "force_cloud_player_state": config.force_cloud_player_state,
+        "trace_cloud_consumers": config.trace_cloud_consumers,
+        "cloud_consumer_offset": config.cloud_consumer_offset,
+        "trace_cloud_outer_renderer": config.trace_cloud_outer_renderer,
+        "cloud_outer_target": config.cloud_outer_target,
+        "trace_cloud_hardware_renderer": config.trace_cloud_hardware_renderer,
+        "cloud_hardware_frames": config.cloud_hardware_frames,
+        "force_contact_gate": config.force_contact_gate,
+        "align_x_offset": config.align_x_offset,
+        "align_y_offset": config.align_y_offset,
+        "force_velocity_x": config.force_velocity_x,
+        "force_velocity_y": config.force_velocity_y,
+        "force_platform_ready": config.force_platform_ready,
+        "reload_after_collect": config.reload_after_collect,
+        "reload_level": config.reload_level or "",
+        "reload_wait_frames": config.reload_wait_frames,
+        "force_tile_mask": config.force_tile_mask,
+        "trace_puzzle_completion": config.trace_puzzle_completion,
+        "force_completion_outer_state": config.force_completion_outer_state,
+        "force_completion_wait_release": config.force_completion_wait_release,
+        "puzzle_probe_frames": config.puzzle_probe_frames,
     }
 
 
@@ -149,64 +165,29 @@ def ordered_lua_array(value: Any) -> list[Any]:
     return []
 
 
-def normalize_pool_tables(pool: Any) -> Any:
-    if not isinstance(pool, dict):
-        return pool
-    banks = ordered_lua_array(pool.get("banks", []))
-    for bank in banks:
-        if isinstance(bank, dict):
-            bank["entries"] = ordered_lua_array(bank.get("entries", []))
-    pool["banks"] = banks
-    return pool
-
-
 def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
     samples = ordered_lua_array(trace.get("samples", []))
     for sample in samples:
         if isinstance(sample, dict):
-            for object_name in ("object_before", "object_after"):
-                object_snapshot = sample.get(object_name)
-                if isinstance(object_snapshot, dict):
-                    descriptor = object_snapshot.get("descriptor")
-                    if isinstance(descriptor, dict):
-                        descriptor["sequence_words"] = ordered_lua_array(
-                            descriptor.get("sequence_words", [])
-                        )
             sample["changed_bytes"] = ordered_lua_array(
                 sample.get("changed_bytes", [])
             )
-            callback = sample.get("callback")
-            if isinstance(callback, dict):
-                for hit_name in ("related_hits", "helper_calls"):
-                    callback[hit_name] = ordered_lua_array(
-                        callback.get(hit_name, [])
-                    )
-            for pool_name in ("pool_before", "pool_after"):
-                normalize_pool_tables(sample.get(pool_name))
     trace["samples"] = samples
-
-    followup_passes = ordered_lua_array(trace.get("followup_passes", []))
-    for followup in followup_passes:
-        if not isinstance(followup, dict):
-            continue
-        followup["entries"] = ordered_lua_array(followup.get("entries", []))
-        for pool_name in ("pool", "end_pool"):
-            normalize_pool_tables(followup.get(pool_name))
-    trace["followup_passes"] = followup_passes
-
-    reactivation = trace.get("reactivation")
-    if isinstance(reactivation, dict):
-        reactivation["stream_entries"] = ordered_lua_array(
-            reactivation.get("stream_entries", [])
+    effect_probe = trace.get("effect_table_probe")
+    if isinstance(effect_probe, dict):
+        effect_probe["events"] = ordered_lua_array(
+            effect_probe.get("events", [])
         )
-        reactivation["declaration_call_sites"] = ordered_lua_array(
-            reactivation.get("declaration_call_sites", [])
+    cloud_probe = trace.get("cloud_consumer_probe")
+    if isinstance(cloud_probe, dict):
+        cloud_probe["reader_offsets"] = ordered_lua_array(
+            cloud_probe.get("reader_offsets", [])
         )
-        for snapshot_name in ("before", "after"):
-            snapshot = reactivation.get(snapshot_name)
-            if isinstance(snapshot, dict):
-                normalize_pool_tables(snapshot.get("pool"))
-        normalize_pool_tables(reactivation.get("initialized_pool"))
+        cloud_samples = ordered_lua_array(cloud_probe.get("samples", []))
+        for sample in cloud_samples:
+            if isinstance(sample, dict):
+                sample["hits"] = ordered_lua_array(sample.get("hits", []))
+        cloud_probe["samples"] = cloud_samples
     return trace
 
 
@@ -260,72 +241,152 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--poll-interval", type=float, default=0.05)
     parser.add_argument("--select-level")
     parser.add_argument("--selector-frames", type=int, default=60)
+    parser.add_argument("--initial-camera-x", type=int,
+                        help="debugger-only: set DS:81C0 before authored ARE streaming")
+    parser.add_argument("--initial-camera-y", type=int,
+                        help="debugger-only: set DS:81C4 before authored ARE streaming")
+    parser.add_argument("--prestream-input-key",
+                        help="debugger-only: hold a key while the authored ARE stream advances")
+    parser.add_argument("--prestream-input-frames", type=int, default=0,
+                        help="frames to hold --prestream-input-key before target declaration search")
     parser.add_argument("--camera-x", type=int)
     parser.add_argument("--camera-y", type=int)
-    parser.add_argument("--followup-passes", type=int, default=0,
-                        help="capture scheduler entries through this many later passes")
-    parser.add_argument("--no-pool-snapshots", dest="capture_pool",
-                        action="store_false",
-                        help="omit the expensive 64-entry pool snapshots")
-    parser.add_argument("--helper-trace", action="store_true",
-                        help="capture selected far-helper entries and returns inside callbacks")
-    parser.add_argument("--probe-position-x", type=lambda value: int(value, 0),
-                        help="override the target object's pixel X before each callback")
-    parser.add_argument("--probe-position-y", type=lambda value: int(value, 0),
-                        help="override the target object's pixel Y before each callback")
-    parser.add_argument("--probe-proximity-state", type=lambda value: int(value, 0),
-                        help="override DS:85DA before each callback (type 0x34 gate probe)")
-    parser.add_argument("--probe-bounds-byte-37", type=lambda value: int(value, 0),
-                        help="override bounds/player object byte +0x37 before each callback")
-    parser.add_argument("--probe-descriptor-delay", type=lambda value: int(value, 0),
-                        help="override object +0x1E before each callback")
-    parser.add_argument("--probe-descriptor-timer", type=lambda value: int(value, 0),
-                        help="override object +0x20 before each callback")
-    parser.add_argument("--probe-descriptor-table", type=lambda value: int(value, 0),
-                        help="override object +0x22 before each callback")
-    parser.add_argument("--probe-descriptor-cursor", type=lambda value: int(value, 0),
-                        help="override object +0x24 before each callback")
-    parser.add_argument("--probe-descriptor-mode", type=lambda value: int(value, 0),
-                        help="override object byte +0x28 before each callback")
-    parser.add_argument("--probe-type33-direction", type=lambda value: int(value, 0),
-                        help="override type-0x33 direction byte +0x29")
-    parser.add_argument("--probe-type33-phase", type=lambda value: int(value, 0),
-                        help="override type-0x33 acceleration sign byte +0x2C")
-    parser.add_argument("--probe-type33-phase-timer", type=lambda value: int(value, 0),
-                        help="override type-0x33 phase timer word +0x2D")
-    parser.add_argument("--probe-type33-transition", type=lambda value: int(value, 0),
-                        help="override type-0x33 MAP transition byte +0x2F")
-    parser.add_argument("--probe-type33-state", type=lambda value: int(value, 0),
-                        help="override type-0x33 motion state byte +0x32")
-    parser.add_argument("--probe-type33-state-counter", type=lambda value: int(value, 0),
-                        help="override type-0x33 state counter word +0x33")
-    parser.add_argument("--probe-type33-velocity", type=lambda value: int(value, 0),
-                        help="override type-0x33 fixed-point velocity dword +0x0A")
-    parser.add_argument("--probe-type33-travel-counter", type=lambda value: int(value, 0),
-                        help="override type-0x33 travel counter word +0x2A")
-    parser.add_argument("--probe-type33-animation-counter", type=lambda value: int(value, 0),
-                        help="override type-0x33 animation counter word +0x35")
-    parser.add_argument("--probe-type33-target-x", type=lambda value: int(value, 0),
-                        help="write one type-0x33 common-tail target X at DS:87DE")
-    parser.add_argument("--probe-type33-target-y", type=lambda value: int(value, 0),
-                        help="write one type-0x33 common-tail target Y at DS:87E0")
-    parser.add_argument("--probe-type33-target-capacity", type=lambda value: int(value, 0),
-                        help="override DS:8808 type-0x33 common-tail target capacity")
-    parser.add_argument("--probe-type33-target-cursor", type=lambda value: int(value, 0),
-                        help="override type-0x33 common-tail cursor word +0x30")
-    parser.add_argument("--probe-target-x-delta", type=lambda value: int(value, 0),
-                        help="write one generic target X relative to the object's pixel X")
-    parser.add_argument("--probe-target-y-delta", type=lambda value: int(value, 0),
-                        help="write one generic target Y relative to the object's pixel Y")
-    parser.add_argument("--probe-target-cursor-offset", type=lambda value: int(value, 0),
-                        default=0x30,
-                        help="object cursor offset for the generic target probe (default: 0x30)")
-    parser.add_argument("--reactivate-camera-x", type=int,
-                        help="write this camera X after a rejected object and trace its ARE reactivation")
-    parser.add_argument("--reactivate-camera-y", type=int,
-                        help="write this camera Y after a rejected object and trace its ARE reactivation")
-    parser.add_argument("--movement-key",
-                        help="hold a guest key while callback samples run")
+    parser.add_argument(
+        "--sprite-init-offset", type=lambda value: int(value, 0), default=0,
+        help="post-initializer breakpoint used to obtain the live object callback",
+    )
+    parser.add_argument(
+        "--align-object-to-player", action="store_true",
+        help="write the live player's fixed-point position into the traced object before its first callback",
+    )
+    parser.add_argument(
+        "--trace-overlap", action="store_true",
+        help="capture the shared collectible overlap helper and clear branch",
+    )
+    parser.add_argument(
+        "--trace-collision", action="store_true",
+        help="capture normal-object visibility, bounds, MAP, and offscreen helpers",
+    )
+    parser.add_argument(
+        "--trace-platform", action="store_true",
+        help="capture moving-platform MAP, offscreen, and player-carry helpers",
+    )
+    parser.add_argument(
+        "--trace-bump", action="store_true",
+        help="capture the BUMP player-range and sound-trigger branch",
+    )
+    parser.add_argument(
+        "--trace-contact", action="store_true",
+        help="capture normal-enemy player-contact response branches",
+    )
+    parser.add_argument(
+        "--trace-effect-table", action="store_true",
+        help="after the traced callback, watch pending-effect, player-producer, and 4519/45AB table events",
+    )
+    parser.add_argument(
+        "--effect-table-attempts", type=int, default=64,
+        help="maximum breakpoint events for --trace-effect-table (default 64)",
+    )
+    parser.add_argument(
+        "--trace-stream-lifecycle", action="store_true",
+        help="capture off-camera removal followed by re-stream of the same ARE record",
+    )
+    parser.add_argument(
+        "--lifecycle-return-camera-x", type=int, default=700,
+        help="camera X used for the lifecycle re-stream phase",
+    )
+    parser.add_argument(
+        "--lifecycle-return-camera-y", type=int, default=350,
+        help="camera Y used for the lifecycle re-stream phase",
+    )
+    parser.add_argument(
+        "--force-active-player-bounds", action="store_true",
+        help="use the original active-player vertical bound (-40..0) for the controlled overlap probe",
+    )
+    parser.add_argument(
+        "--force-bump-player-state", action="store_true",
+        help="debugger-only: enable the BUMP helper's player-state gate (DS:89EA=0, player+0x37 nonzero)",
+    )
+    parser.add_argument(
+        "--force-cloud-player-state", action="store_true",
+        help="debugger-only: point the cloud bounds gate at its object and enable the DS:89E6 write",
+    )
+    parser.add_argument(
+        "--trace-cloud-consumers", action="store_true",
+        help="trace player-side readers of the cloud DS:89E6 state",
+    )
+    parser.add_argument(
+        "--cloud-consumer-offset", type=lambda value: int(value, 0), default=0,
+        help="one player-side DS:89E6 reader to capture (0x4087 or 0x4406)",
+    )
+    parser.add_argument(
+        "--trace-cloud-outer-renderer", action="store_true",
+        help="capture the main-loop cloud state and render-queue consumers",
+    )
+    parser.add_argument(
+        "--cloud-outer-target", type=lambda value: int(value, 0), default=0,
+        help="debugger-only: limit the cloud outer trace to one code offset (e.g. 0x1997 or 0x3529)",
+    )
+    parser.add_argument(
+        "--trace-cloud-hardware-renderer", action="store_true",
+        help="capture the special cloud VGA/BOB blitter entry and its descriptor",
+    )
+    parser.add_argument(
+        "--cloud-hardware-frames", type=int, default=8,
+        help="number of special cloud blitter entries to capture",
+    )
+    parser.add_argument(
+        "--force-contact-gate", action="store_true",
+        help="debugger-only: enable the normal-enemy player-range gate and align its shared integer player coordinates",
+    )
+    parser.add_argument(
+        "--align-x-offset", type=int, default=0,
+        help="integer-pixel X offset from the live player when aligning the traced object",
+    )
+    parser.add_argument(
+        "--align-y-offset", type=int, default=0,
+        help="integer-pixel Y offset from the live player when aligning the traced object",
+    )
+    parser.add_argument("--force-velocity-x", type=lambda value: int(value, 0),
+                        help="debugger-only fixed-point X velocity written before the first callback")
+    parser.add_argument("--force-velocity-y", type=lambda value: int(value, 0),
+                        help="debugger-only fixed-point Y velocity written before the first callback")
+    parser.add_argument(
+        "--force-platform-ready", action="store_true",
+        help="debugger-only: clear the platform carry latch before its first callback",
+    )
+    parser.add_argument(
+        "--reload-after-collect", action="store_true",
+        help="after a pickup clears its callback, re-enter the native level selector and probe reconstruction",
+    )
+    parser.add_argument(
+        "--reload-level",
+        help="level selector to use for --reload-after-collect (defaults to --select-level)",
+    )
+    parser.add_argument(
+        "--reload-wait-frames", type=int, default=30,
+        help="frames to let gameplay run before the reload selector probe",
+    )
+    parser.add_argument(
+        "--force-tile-mask", type=lambda value: int(value, 0),
+        help="debugger-only: write DS:60D8 before each traced callback (for final-letter completion probes)",
+    )
+    parser.add_argument(
+        "--trace-puzzle-completion", action="store_true",
+        help="capture the DS:60D8 display consumer and post-collection gameplay state",
+    )
+    parser.add_argument(
+        "--force-completion-outer-state", action="store_true",
+        help="debugger-only: seed DS:89E6 so the outer cloud-state consumer invokes the completion/effect consumer",
+    )
+    parser.add_argument(
+        "--force-completion-wait-release", action="store_true",
+        help="debugger-only: release the PIT presentation waits so the DS:85DB transition handoff can be traced",
+    )
+    parser.add_argument(
+        "--puzzle-probe-frames", type=int, default=120,
+        help="frames to run after the final-letter callback before sampling transition state",
+    )
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -341,71 +402,47 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.samples < 1:
         raise TraceError("--samples must be positive")
-    if args.followup_passes < 0:
-        raise TraceError("--followup-passes must not be negative")
     if not 0 <= args.entity_type <= 0xff:
         raise TraceError("--entity-type must be between 0 and 255")
     if args.select_level is not None and len(args.select_level) != 4:
         raise TraceError("--select-level must look like W4L1")
+    if args.reload_level is not None and len(args.reload_level) != 4:
+        raise TraceError("--reload-level must look like W4L1")
+    if args.reload_after_collect and args.select_level is None and args.reload_level is None:
+        raise TraceError("--reload-after-collect requires --select-level or --reload-level")
+    if args.reload_wait_frames < 0:
+        raise TraceError("--reload-wait-frames must be non-negative")
+    if args.effect_table_attempts < 1:
+        raise TraceError("--effect-table-attempts must be positive")
+    if args.force_tile_mask is not None and not 0 <= args.force_tile_mask <= 0xffff:
+        raise TraceError("--force-tile-mask must be between 0 and 65535")
+    if args.puzzle_probe_frames < 0:
+        raise TraceError("--puzzle-probe-frames must be non-negative")
+    if args.prestream_input_frames < 0:
+        raise TraceError("--prestream-input-frames must be non-negative")
+    if args.prestream_input_frames and not args.prestream_input_key:
+        raise TraceError("--prestream-input-frames requires --prestream-input-key")
+    if args.trace_cloud_consumers and args.cloud_consumer_offset not in (0x4087, 0x4406):
+        raise TraceError("--cloud-consumer-offset must be 0x4087 or 0x4406")
+    if args.trace_cloud_outer_renderer and args.entity_type != 0x28:
+        raise TraceError("--trace-cloud-outer-renderer requires --entity-type 0x28")
+    if args.trace_cloud_hardware_renderer and args.entity_type != 0x28:
+        raise TraceError("--trace-cloud-hardware-renderer requires --entity-type 0x28")
+    if not 0 <= args.lifecycle_return_camera_x <= 0xffff:
+        raise TraceError("--lifecycle-return-camera-x must be between 0 and 65535")
+    if not 0 <= args.lifecycle_return_camera_y <= 0xffff:
+        raise TraceError("--lifecycle-return-camera-y must be between 0 and 65535")
+    if args.cloud_hardware_frames < 1:
+        raise TraceError("--cloud-hardware-frames must be positive")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
-    if (args.probe_position_x is None) != (args.probe_position_y is None):
-        raise TraceError("--probe-position-x and --probe-position-y must be used together")
-    if (args.reactivate_camera_x is None) != (args.reactivate_camera_y is None):
-        raise TraceError("--reactivate-camera-x and --reactivate-camera-y must be used together")
+    if (args.initial_camera_x is None) != (args.initial_camera_y is None):
+        raise TraceError("--initial-camera-x and --initial-camera-y must be used together")
     for name in ("camera_x", "camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
-    for name in ("probe_position_x", "probe_position_y"):
-        value = getattr(args, name)
-        if value is not None and not 0 <= value <= 0xffff:
-            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
-    if args.probe_proximity_state is not None and not 0 <= args.probe_proximity_state <= 0xffff:
-        raise TraceError("--probe-proximity-state must be between 0 and 65535")
-    if args.probe_bounds_byte_37 is not None and not 0 <= args.probe_bounds_byte_37 <= 0xff:
-        raise TraceError("--probe-bounds-byte-37 must be between 0 and 255")
-    for name in ("probe_descriptor_delay", "probe_descriptor_timer",
-                 "probe_descriptor_table", "probe_descriptor_cursor"):
-        value = getattr(args, name)
-        if value is not None and not 0 <= value <= 0xffff:
-            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
-    if args.probe_descriptor_mode is not None and not 0 <= args.probe_descriptor_mode <= 0xff:
-        raise TraceError("--probe-descriptor-mode must be between 0 and 255")
-    for name in ("probe_type33_direction", "probe_type33_phase",
-                 "probe_type33_transition", "probe_type33_state"):
-        value = getattr(args, name)
-        if value is not None and not -0x80 <= value <= 0xff:
-            raise TraceError(f"--{name.replace('_', '-')} must be between -128 and 255")
-    if args.probe_type33_phase_timer is not None and not 0 <= args.probe_type33_phase_timer <= 0xffff:
-        raise TraceError("--probe-type33-phase-timer must be between 0 and 65535")
-    if args.probe_type33_state_counter is not None and not 0 <= args.probe_type33_state_counter <= 0xffff:
-        raise TraceError("--probe-type33-state-counter must be between 0 and 65535")
-    if args.probe_type33_velocity is not None and not -0x80000000 <= args.probe_type33_velocity <= 0x7fffffff:
-        raise TraceError("--probe-type33-velocity must be a signed 32-bit value")
-    for name in ("probe_type33_travel_counter", "probe_type33_animation_counter"):
-        value = getattr(args, name)
-        if value is not None and not 0 <= value <= 0xffff:
-            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
-    if (args.probe_type33_target_x is None) != (args.probe_type33_target_y is None):
-        raise TraceError("--probe-type33-target-x and --probe-type33-target-y must be used together")
-    for name in ("probe_type33_target_x", "probe_type33_target_y"):
-        value = getattr(args, name)
-        if value is not None and not -0x8000 <= value <= 0x7fff:
-            raise TraceError(f"--{name.replace('_', '-')} must be a signed 16-bit value")
-    for name in ("probe_type33_target_capacity", "probe_type33_target_cursor"):
-        value = getattr(args, name)
-        if value is not None and not 0 <= value <= 0xffff:
-            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
-    if (args.probe_target_x_delta is None) != (args.probe_target_y_delta is None):
-        raise TraceError("--probe-target-x-delta and --probe-target-y-delta must be used together")
-    for name in ("probe_target_x_delta", "probe_target_y_delta"):
-        value = getattr(args, name)
-        if value is not None and not -0x8000 <= value <= 0x7fff:
-            raise TraceError(f"--{name.replace('_', '-')} must be a signed 16-bit value")
-    if not 0 <= args.probe_target_cursor_offset <= 0xffff:
-        raise TraceError("--probe-target-cursor-offset must be between 0 and 65535")
-    for name in ("reactivate_camera_x", "reactivate_camera_y"):
+    for name in ("initial_camera_x", "initial_camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
@@ -468,39 +505,47 @@ def main(argv: list[str] | None = None) -> int:
             poll_interval=args.poll_interval,
             select_level=args.select_level,
             selector_frames=args.selector_frames,
-            camera_x=args.camera_x,
-            camera_y=args.camera_y,
-            followup_passes=args.followup_passes,
-            capture_pool=args.capture_pool,
-            helper_trace=args.helper_trace,
-            probe_position_x=args.probe_position_x,
-            probe_position_y=args.probe_position_y,
-            probe_proximity_state=args.probe_proximity_state,
-            probe_bounds_byte_37=args.probe_bounds_byte_37,
-            probe_descriptor_delay=args.probe_descriptor_delay,
-            probe_descriptor_timer=args.probe_descriptor_timer,
-            probe_descriptor_table=args.probe_descriptor_table,
-            probe_descriptor_cursor=args.probe_descriptor_cursor,
-            probe_descriptor_mode=args.probe_descriptor_mode,
-            probe_type33_direction=args.probe_type33_direction,
-            probe_type33_phase=args.probe_type33_phase,
-            probe_type33_phase_timer=args.probe_type33_phase_timer,
-            probe_type33_transition=args.probe_type33_transition,
-            probe_type33_state=args.probe_type33_state,
-            probe_type33_state_counter=args.probe_type33_state_counter,
-            probe_type33_velocity=args.probe_type33_velocity,
-            probe_type33_travel_counter=args.probe_type33_travel_counter,
-            probe_type33_animation_counter=args.probe_type33_animation_counter,
-            probe_type33_target_x=args.probe_type33_target_x,
-            probe_type33_target_y=args.probe_type33_target_y,
-            probe_type33_target_capacity=args.probe_type33_target_capacity,
-            probe_type33_target_cursor=args.probe_type33_target_cursor,
-            probe_target_x_delta=args.probe_target_x_delta,
-            probe_target_y_delta=args.probe_target_y_delta,
-            probe_target_cursor_offset=args.probe_target_cursor_offset,
-            reactivate_camera_x=args.reactivate_camera_x,
-            reactivate_camera_y=args.reactivate_camera_y,
-            movement_key=args.movement_key or "",
+            initial_camera_x=args.initial_camera_x,
+            initial_camera_y=args.initial_camera_y,
+            prestream_input_key=args.prestream_input_key,
+            prestream_input_frames=args.prestream_input_frames,
+        camera_x=args.camera_x,
+        camera_y=args.camera_y,
+        sprite_init_offset=args.sprite_init_offset,
+        align_object_to_player=args.align_object_to_player,
+        trace_overlap=args.trace_overlap,
+        trace_collision=args.trace_collision,
+        trace_platform=args.trace_platform,
+        trace_bump=args.trace_bump,
+        trace_contact=args.trace_contact,
+        trace_effect_table=args.trace_effect_table,
+        effect_table_attempts=args.effect_table_attempts,
+        trace_stream_lifecycle=args.trace_stream_lifecycle,
+        lifecycle_return_camera_x=args.lifecycle_return_camera_x,
+        lifecycle_return_camera_y=args.lifecycle_return_camera_y,
+        force_active_player_bounds=args.force_active_player_bounds,
+        force_bump_player_state=args.force_bump_player_state,
+        force_cloud_player_state=args.force_cloud_player_state,
+        trace_cloud_consumers=args.trace_cloud_consumers,
+        cloud_consumer_offset=args.cloud_consumer_offset,
+        trace_cloud_outer_renderer=args.trace_cloud_outer_renderer,
+        cloud_outer_target=args.cloud_outer_target,
+        trace_cloud_hardware_renderer=args.trace_cloud_hardware_renderer,
+        cloud_hardware_frames=args.cloud_hardware_frames,
+        force_contact_gate=args.force_contact_gate,
+        align_x_offset=args.align_x_offset,
+        align_y_offset=args.align_y_offset,
+        force_velocity_x=args.force_velocity_x,
+        force_velocity_y=args.force_velocity_y,
+        force_platform_ready=args.force_platform_ready,
+        reload_after_collect=args.reload_after_collect,
+        reload_level=args.reload_level,
+        reload_wait_frames=args.reload_wait_frames,
+        force_tile_mask=args.force_tile_mask,
+        trace_puzzle_completion=args.trace_puzzle_completion,
+        force_completion_outer_state=args.force_completion_outer_state,
+        force_completion_wait_release=args.force_completion_wait_release,
+        puzzle_probe_frames=args.puzzle_probe_frames,
         )
         trace = trace_object_behavior(api, script_path, config)
         envelope = {

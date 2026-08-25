@@ -1,0 +1,49 @@
+{
+  "schema": "entity-leaf-state-evidence-v1",
+  "purpose": "Static state-machine and pooled-child motion evidence for falling leaves 0x29-0x2B.",
+  "inputs": {
+    "segment": "QUIKY_SEG03.bin",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "trace_script_sha256": "f3c37ffa421702cc3f6c29156a82135380d73532c3d86e1b7a6bcda1217c8e30"
+  },
+  "initializer": {
+    "dispatch": "01F7:4727",
+    "post_initializer": "01F7:474D",
+    "callback": "01F7:47E7",
+    "fields": {
+      "animation_table": ["DS:3312", "DS:3326"],
+      "velocity_y_fixed": "0x13000 - (signed_random_byte << 7) stored at object+0x0E",
+      "origin_x": "object+0x2A copies source x",
+      "origin_y": "object+0x2E copies source y",
+      "animation_timer": "object+0x32=0x000C"
+    }
+  },
+  "state_machine": {
+    "visibility": "01F7:47E7 calls the shared visibility gate; the false/off-camera branch calls shared removal 01F7:1DEE.",
+    "visible_motion": "The callback adds object+0x0E to object+0x06 each update after the MAP helper succeeds.",
+    "blocked_state": "On a blocked helper result it decrements object+0x32, toggles the sprite high bit, and returns until the timer expires.",
+    "respawn_state": "When object+0x32 reaches zero, it restores object+0x02/+0x06 from +0x2A/+0x2E, resets +0x32=0x000C, clears the slot high bit, and chooses a new table/random velocity."
+  },
+  "runtime_pool_trace": {
+    "fixture": "/home/joao/dev/quicky/research/build/entity-2b-complete/baseline/game",
+    "level": "W1L1.ARE",
+    "record_offset": 6034,
+    "samples": 256,
+    "pool_offsets": [120, 240, 360, 480, 720, 840, 960, 1080],
+    "recycled_offsets": [360, 480, 720, 840, 960, 1080],
+    "animation_slots": [700, 701, 702, 703, 704],
+    "delay_progression": {"slot_700": [8,7,6,5,4,3,2,1,0], "slot_703": [10,9,8,7,6,5,4,3,2,1]},
+    "evidence": "research/entity-leaf-pool-evidence.json",
+    "allocator": {
+      "routine": "01F7:0E06",
+      "pool_head": "DS:755E",
+      "capacity": 64,
+      "entry_stride": "DS:30CE",
+      "free_predicate": "object+0x18 == 0"
+    }
+  },
+  "conclusions": [
+    "The leaf family has a decoded initializer, fixed-point vertical motion, blocked/timer/reseed state machine, and shared off-camera removal path.",
+    "Leaves are visual pooled children; 01F7:0E06 identifies a free entry by object+0x18 == 0. No player collision response is present in the child callback."
+  ]
+}

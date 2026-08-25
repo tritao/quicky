@@ -1,0 +1,15 @@
+{
+  "schema": "entity-normal-enemy-family-removal-evidence-v1",
+  "purpose": "Representative off-camera deactivation probes across normal enemy callbacks.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace_script_sha256": "8369134fbe6cc99c36576fec02a3fd0333c16a234bb3e659b8b9dd0ce55dc57b"
+  },
+  "controls": {"camera_x": 0, "camera_y": 0, "samples": 1},
+  "probes": [
+    {"family": "wurm2", "type": "0x01", "level": "W1L1", "record_offset": 6034, "object_position": [880, 416], "callback_before": "01F7:6DC4", "callback_after": 0, "evidence": "research/entity-normal-enemy-removal-evidence.json"},
+    {"family": "biene", "type": "0x03", "level": "W1L1", "record_offset": 6034, "object_position": [768, 256], "callback_before": "01F7:68C0", "callback_after": 0, "changed_fields": ["object+0x18", "object+0x19"], "runtime": "/home/joao/dev/quicky/research/build/entity-03-evidence/baseline/game"}
+  ],
+  "static_rule": "Normal enemy callbacks enter shared visibility helper 01F7:1DCA and its rejection path 01F7:1DEE; the representative traces verify callback clearing for two distinct family callbacks. The shared removal routine also clears FS:[object+0x1A+1], the claimed bit in the source ARE record.",
+  "conclusion": "Off-camera deactivation is common across the normal-enemy family and resets the source declaration's claimed bit, allowing a later camera-region scan to respawn the object. Player contact uses the timed response path rather than this removal/reset path."
+}

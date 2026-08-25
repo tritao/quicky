@@ -1,0 +1,261 @@
+{
+  "schema": "entity-effect-table-producer-evidence-v1",
+  "purpose": "Static cross-segment recovery of the shared transient-effect table's authored producer and reset callsites.",
+  "inputs": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment1_sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf"
+  },
+  "method": {
+    "static_inputs": [
+      "NE relocation records from QUIKY.EXE",
+      "raw segment-word scan",
+      "Ghidra 12.1.3 decompile of segment-relative targets"
+    ],
+    "interpretation_rule": "A relocation targeting 01F7:0E06 is the pooled-object factory call; the caller's AX immediate is the initializer callback offset passed to that factory."
+  },
+  "effect_table": {
+                  "reset": {
+      "entry": "01F7:44FF",
+      "relocated_call_sites": [
+        {
+          "caller_segment": "01D7",
+          "call_offset": "0x3FC6",
+          "caller_label": "unclassified segment-1 level-state routine",
+          "evidence": "NE relocation source 01D7:3FC7 targets segment 3 offset 0x44FF"
+        },
+        {
+          "caller_segment": "01D7",
+          "call_offset": "0x44E9",
+          "caller_label": "01D7:44D0 effect_table_reset_callsite_44d0",
+          "evidence": "NE relocation source 01D7:44EA targets segment 3 offset 0x44FF"
+        }
+      ],
+                            "known_behavior": "Clears DS:87DE rows and resets DS:8806/DS:8808.",
+                            "callsite_semantics": [
+                              {
+                                "call": "01D7:3FC6",
+                                "context": "Level-state initialization after DS:88BA and DS:880C are cleared; the reset precedes selector/resource and object-state setup.",
+                                "interpretation": "This is a level/session table reset, not an individual Wind/UFO death callback."
+                              },
+                              {
+                                "call": "01D7:44E9",
+                                "context": "Reached from main-loop transition paths 01D7:4BCB and 01D7:4CC4 through 01D7:44D0; 44D0 first clamps DS:8822 to at least DS:8824.",
+                                "interpretation": "This is a transition/effect-lifecycle reset shared by the main loop after presentation or state changes."
+                              }
+                            ],
+                            "static_inputs": {
+                              "segment1_sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6",
+                              "relocation_targets": ["01D7:3FC6 -> 01F7:44FF", "01D7:44E9 -> 01F7:44FF"],
+                              "near_call_callers_of_44d0": ["01D7:4BCB", "01D7:4CC4"]
+                            }
+                  },
+    "spawn": {
+      "entry": "01F7:4519",
+      "factory": "01F7:0E06",
+  "producer": {
+        "routine": "01F7:38EC",
+        "label": "spawn_effect_table_from_player_state",
+      "condition": "The player-update tail takes this branch only when object flags at +0x00 include 0x10 and object byte +0x3C is zero.",
+      "factory_call": "01F7:390E relocated far call to 01F7:0E06",
+      "callback_argument": "AX=0x4519, DX=0x0000 immediately before the factory call",
+      "post_call": "The factory-created object is initialized by 01F7:4519, which installs 01F7:45AB and claims one DS:87DE row.",
+      "raw_instruction_contract": [
+        "01F7:38EC test word [ES:DI+0x00] against 0x0010",
+        "01F7:38FA compare byte [ES:DI+0x3C] against zero",
+        "01F7:3901 set byte [ES:DI+0x3C] to 0xFF",
+        "01F7:3908 load AX=0x4519 and DX=0 before the relocated factory call at 01F7:390E"
+      ],
+      "flag_setter_census": {
+        "method": "Bounded segment-3 scan for immediate object-field writes/ORs of 0x0010, cross-checked against the raw 01F7:38EC disassembly.",
+        "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+        "direct_test_sites": ["01F7:38EC"],
+        "immediate_object_field_setter_sites": [],
+        "interpretation": "The scan identifies the producer's direct test but no immediate OR/SET instruction that writes bit 0x10 into an object field in segment 3. This narrows the unresolved trigger to register/helper-derived writes or another segment; it does not prove that no setter exists."
+      }
+    },
+      "factory_callsite_census": {
+        "target": "01F7:0E06",
+        "segment": "01F7",
+        "relocation_callsite_count": 98,
+        "4519_argument_callsite": "01F7:390E (AX=0x4519)",
+        "other_callsite_families": [
+          "world-specific pooled constructors and END child callbacks",
+          "normal effect/pickup constructors",
+          "generic movement/projectile constructors"
+        ],
+    "interpretation": "The relocation census finds no second authored callsite that passes AX=0x4519; all shared-row spawn evidence therefore converges on the player-state tail at 01F7:38EC, while the gameplay condition that supplies player flag 0x10 remains unresolved."
+  },
+  "static_row_writer_scan": {
+    "source": "/tmp/quiky-decomp-final.0ccmjH/QUIKY_SEG03.bin.c",
+    "source_sha256": "52e13884f08693a941f500cf38e71aa734022f995b8e6239831d472928afbce4",
+    "writes": {
+      "01F7:4519": "claims a free row by setting the first row's active x word to 1; the initializer seeds the pooled effect",
+      "01F7:45AB": "updates the claimed row's x/y words from the live pooled effect position",
+      "01F7:470C": "clears both row words and decrements DS:8806",
+      "01F7:44FF": "clears all row words and resets DS:8806/DS:8808"
+    },
+    "consumers_without_row_writes": ["01F7:882F Wind", "01F7:546D UFO", "01F7:4AB3/4BA0 normal-effect responses", "01F7:B25D/BB0E/C328/CDA3/D55A boss damage callbacks"],
+    "interpretation": "The expanded segment decompile contains no second Wind/UFO-specific row producer: those callbacks only scan and clear DS:87DE entries. The authored row producer remains the player-state 01F7:38EC -> 01F7:0E06 -> 01F7:4519 path; the unresolved part is which gameplay state supplies player flag bit 0x10 and how pending DS:880C is consumed."
+  },
+  "pending_counter_consumption_static": {
+    "consumer": "01D7:14E1",
+    "source": "/tmp/quiky-decomp-final.0ccmjH/QUIKY_SEG01.bin.c",
+    "source_sha256": "8deeda7c5ccb4523c48817dffc5735564c1ce788c5ed23c9ec0d63ca9ab43716",
+    "behavior": "When entered from the completion/effect presentation path, loops while DS:880C != 0, advances score by 0x14 per pending unit, emits action 0x0C on the first unit of each eight-unit display cycle, refreshes the HUD counter, and decrements DS:880C once per loop.",
+    "other_writers_or_reads": [
+      "01F7:8D70 adds 0x000A for shared collectible subtype 1",
+      "01F7:1950 increments the bounded dedicated-effect queue counter",
+      "01F7:4519 decrements one unit only when DS:88AE is zero and a shared row is spawned",
+      "01F7:5B9A reads the value for HUD display"
+    ],
+    "interpretation": "DS:880C is not an unexplained row-spawn queue: its confirmed bulk consumer is the completion/effect presentation routine, while 4519 treats it as an independent one-unit spawn budget. The remaining runtime task is to capture authored ordering between a pending increment, completion presentation, and any later 4519 allocation."
+  },
+      "raw_word_occurrence": "The little-endian word 0x4519 occurs once in segment 3, at 01F7:3909, as the immediate AX operand."
+    },
+    "update_and_remove": {
+      "update": "01F7:45AB",
+      "remove": "01F7:470C",
+      "pointer_occurrences": "The raw segment contains 0x45AB at 01F7:4559 and 0x470C at 01F7:45BA/45E4; these are callback-pointer stores inside the table lifecycle, not additional authored producers."
+    },
+    "direct_reference_scan": {
+      "targets": ["01F7:44FF", "01F7:4519", "01F7:45AB", "01F7:470C"],
+      "result": "No direct same-program Ghidra incoming call references were emitted for these four entries.",
+      "explanation": "The authored spawn call is relocation-backed through the generic pooled-object factory with AX carrying the callback offset; update/remove are installed as object callback pointers, and reset has cross-segment NE relocations."
+    }
+  },
+  "runtime_reachability_probe": {
+    "trace": "research/build/player-effect-table-focus-w1l1.json",
+    "trace_sha256": "8a73b65733e362bdfbf7dc3bf4f3dc869653cebafb5bb9ba01a1b7064fd6e31b",
+    "trace_script_sha256": "a4333a286aac89ad621993a210e281d9aaae7a8ae289b5aef148df9af69410cc",
+    "runtime": "main-tree game/QUIKY.EXE",
+    "fixture": "W1L1 selected through the native cheat selector",
+    "samples": 8,
+    "focus": "player callback 01F7:3FF8 with effect-table breakpoints 38EC/44FF/4519/45AB/470C",
+    "hits": [],
+    "observed_player_flags": "The sampled player object action word remained 0x0000 and the shared effect-table breakpoints were not reached.",
+    "interpretation": "The producer is statically recovered but not reached in this ordinary W1L1 idle trace; a targeted player-state trigger or controlled flag probe is still needed.",
+    "input_variant": {
+      "trace": "research/build/player-effect-table-focus-w1l1-right.json",
+      "trace_sha256": "f80d1a3e6136dd7e21273a66c7932b73c2b2a2aa5220ca525112e2515cfe3854",
+      "input": "KBD_right for 30 frames before each of 8 samples",
+      "hits": [],
+      "observed_action_words": "0x0000 in all eight sampled player callbacks"
+    }
+  },
+  "pre_producer_tail_probe": {
+    "trace": "research/build/player-effect-table-tail-w1l1-right-v2.json",
+    "trace_sha256": "375f2c6562eabb1d07b47472cb88bcda5ff047ccfb8ec7bf5e4ab001191cf114",
+    "trace_script_sha256": "c1e31804a500b61453a1b5396e7c2c200f016e5c1cd976939832a0e61812df7e",
+    "breakpoint": "01F7:4384 immediately before the 38EC producer-tail helper",
+    "fixture": "W1L1 main-tree native selector with KBD_right held for 30 frames before each of six samples",
+    "samples": 6,
+    "observed": "All six tail snapshots had player action word 0x0000 and DS:656C source word 0x0000; no 44FF/4519/45AB/470C lifecycle hit followed.",
+      "interpretation": "The ordinary input path does not raise the producer's 0x10 flag in this fixture; the trigger is likely a collision/death or other gameplay-state transition rather than directional input."
+    },
+    "forced_trigger_probe": {
+      "trace": "research/build/player-effect-table-force-action-w1l1-v7.json",
+      "trace_sha256": "6e7e000288aaa5701d2989e53ccd4f4f8ad3d7200adfda5c81865ad5047cb107",
+      "trace_script_sha256": "88a59f2eb0f05b5e9c463011601a058c9849833192a5d12c1b769f27196b3bcc",
+      "fixture": "W1L1 main-tree native selector",
+      "samples": 1,
+      "mutation": "At 01F7:38EC, write player action word 0x0010 before the producer condition is evaluated.",
+      "observed": [
+        "The producer branch writes object byte +0x3C from 0x00 to 0xFF.",
+        "The relocated factory 01F7:0E06 is reached with AX=0x4519.",
+        "The factory pool ledger shows occupancy 8 -> 9 and slot 1 carrying callback 0x4519 after the factory returns.",
+        "One guest frame later occupancy is back to 8; no 01F7:4519, 01F7:45AB, or 01F7:470C breakpoint is observed.",
+        "The player callback returns with action word 0x0010."
+      ],
+      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The next-frame scheduler probe now shows the record inserted at DS:7566 and 01F7:4519 entered with DS:88AE=0 and DS:880C=0; the callback clears +0x18 at its own guard, so this fixture rejects the effect before claiming a row. Static disassembly and END archive-slot correlation bound DS:88AE to a boss/end-sequence stage machine, while separate static/runtime evidence shows DS:880C is an independent pending-effect budget. The remaining work is to correlate the authored completion/boss transition and pending-effect producers with the player 38EC factory path, rather than attributing either gate to a normal Wind/UFO initializer."
+    },
+    "natural_input_trigger_probe": {
+      "trace": "research/build/player-effect-table-leftalt-natural-w1l1-v2.json",
+      "trace_sha256": "fa167b6268aaad95cfc10e03a4f54019e206ec19d18440948426cc2b9608caee",
+      "trace_script_sha256": "dff2fbc7f6ff2d40901eb1e471ec7546a6eaaa67db7d8df0cc5d07927031957c",
+      "fixture": "W1L1 main-tree native selector",
+      "samples": 5,
+      "input": "KBD_leftalt held for 30 frames and latched through each player callback",
+      "observed": "Samples 1-4 report scan code 0x38, DS:88BC=0x0010, player action word 0x0010, and object byte +0x3C changing from 0x00 at the producer entry to 0xFF after the callback.",
+      "interpretation": "The tested authored trigger is the alternate-action keyboard bit supplied by left Alt; no debugger action-word mutation is needed to reach the producer guard. The separate forced probe remains the direct factory-allocation proof because this natural run's factory breakpoint was not independently captured."
+  },
+  "scheduler_lifecycle_probe": {
+    "trace": "research/build/player-effect-table-scheduler-focus-w1l1-v2.json",
+    "trace_sha256": "6b861963ecb0d7b54f5d8dcab26ead0bdaf07fce93090b4bb7f4170abddb9376",
+    "trace_script_sha256": "502dca34aeeface1ea0b185b67914051a58dbb2dc7d407049a9307c1d70db981",
+    "fixture": "W1L1 main-tree native selector with action word forced at 01F7:38EC",
+    "samples": 4,
+    "observed": [
+      "The factory-created slot at pool offset 0x78 appears in DS:7566 with far callback 0x1997:0x4519 on the next frame.",
+      "01F7:4519 is entered with DS:88AE=0, DS:880C=0, DS:8806=0, and DS:8808=4; it clears object callback +0x18 and does not claim a row.",
+      "The following sample has no callback-4519 object, establishing immediate guard rejection rather than an unobserved list-removal race."
+    ],
+    "interpretation": "The scheduler insertion is confirmed; the missing visible effect in the ordinary fixture is explained by the 4519 shared gate, not by an unresolved scheduler handoff."
+  },
+  "scheduler_lifecycle_force_gate_probe": {
+    "trace": "research/build/player-effect-table-scheduler-forcegate-w1l1-v2.json",
+    "trace_sha256": "cf531aaaa2471852fa4ebc69ae17ac6f953421f5545552adfd4aadb74a2c565d",
+    "trace_script_sha256": "5d8922ff38ce004aefef0e9ddcd85cb42e3da3176638663225e37baca2a6b52a",
+    "fixture": "W1L1 main-tree native selector with action word forced at 01F7:38EC",
+    "samples": 3,
+    "mutation": "At the 01F7:4519 entry, write DS:88AE=1 to pass only the shared stage gate; no row or counter is directly written.",
+    "observed": [
+      "01F7:4519 increments DS:8806 from 0 to 1, installs callback 01F7:45AB at pool offset 0x78, seeds x=128, y=385, and leaves the effect row active.",
+      "The next sample enters 01F7:45AB for the same object with DS:8806=1 and updates the row to x=132, y=383 while callback 01F7:45AB remains installed."
+    ],
+    "interpretation": "The controlled gate pass closes the spawn -> update callback chain. It is debugger-only evidence of the state machine, not evidence that DS:88AE is set by this W1L1 player path."
+  },
+  "werbe_pending_budget_probe": {
+    "trace": "research/build/entity-6f-pending-effect-chain-w1l1-v2.json",
+    "trace_sha256": "49e084c6c0aa9ddc06e62738bde610a0363498479ed55ed2c6ba41097a4dd0d5",
+    "trace_script_sha256": "6b2e2f69fd750ca3372e5f17ac8b901225ef3924b7d9f12ace785502afcbf44b",
+    "fixture": "W1L1 main-tree executable with an isolated baseline archive variant; native type 0x6F record 0x1838 stream-redirected to the near-camera anchor",
+    "samples": {
+      "overlap": 1,
+      "effect_table_watch_attempts": 128
+    },
+    "observed": [
+      "The native 01F7:8D20 -> 01F7:8D70 subtype-1 overlap raises DS:880C from 0 to 10 and writes action DS:612E=9; the pickup callback is then cleared.",
+      "The next 127 watched producer-tail hits at 01F7:38EC all see DS:880C=10, DS:88AE=0, DS:8806=0, action word 9, player action flags 0, and keyboard flags 0.",
+      "No 01F7:0E06, 01F7:4519, 01F7:45AB, 01F7:470C, 01D7:14E1, 01F7:8D70, or 01F7:1950 event occurs; DS:880C remains 10 and DS:87DE rows remain empty at the bounded barrier."
+    ],
+    "interpretation": "The WERBE pending increment is real and persists through a bounded player-loop window, but it does not itself produce a pooled 4519 row in this fixture. The missing condition remains the authored player action/state transition (bit 0x10) or another consumer path; this is bounded fixture evidence, not proof that 880C is never consumed during normal completion or boss play."
+  },
+  "authored_w1l4_natural_probe": {
+    "trace": "research/build/player-w1l4-leftalt-natural.json",
+    "trace_sha256": "9f06901d8610c951695654ff4eb91c18b0f87209132c66396e16eef5a14635b4",
+    "trace_script_sha256": "60aac6323dad8db8d005a5e1abb788f8d289ca64515ba0f129fcae16254b6614",
+    "fixture": "Native main-tree W1L4 selected through the level selector",
+    "samples": 8,
+    "input": "KBD_leftalt held for 30 frames and latched through each player callback",
+    "initial_state": {"DS:88AE": 1, "DS:880C": 0, "DS:8806": 0, "DS:8808": 4},
+    "observed": [
+      "Samples 2-7 show keyboard scan 0x38 / action flags 0x10 and player action word 0x0010.",
+      "Sample 2 has DS:8806=1 and a live pool object at offset 0x258 with callback 01F7:45AB, slot 0x276, and position (392,383).",
+      "The final sample has DS:8806=0 and no lasting 45AB object."
+    ],
+    "interpretation": "Unlike W1L1 (DS:88AE=0), authored W1L4 naturally passes the stage gate and reaches the live 45AB update object under the normal left-alt action. The trace does not break on 4519 itself, so factory-entry provenance remains an open dynamic detail."
+  },
+  "authored_w1l4_forced_action_probe": {
+    "trace": "research/build/player-w1l4-forced-action-factory-scheduler-current.json",
+    "trace_sha256": "1a4019a9704546a1494eb37ee62d3ba1adf01601916f625feadb68f58a5f06fe",
+    "trace_script_sha256": "d4b7a81063a15e2d21282c7dc98ee11e087c0967503e9fffdab6a0aff71143c3",
+    "fixture": "Native main-tree W1L4 selected through the level selector with DS:88AE=1 and DS:880C=0",
+    "mutation": "At 01F7:38EC, write the player action word 0x0010 before the producer condition is evaluated.",
+    "observed": [
+      "Sample 1 reaches 01F7:38EC and then the relocated factory 01F7:0E06; the factory pool grows to six occupied entries and includes callback 01F7:4519.",
+      "Sample 2 first enters 01F7:45AB with DS:8806=1, then reaches 01F7:38EC -> 01F7:0E06 again; the pool grows to seven occupied entries.",
+      "Sample 3 repeats 01F7:45AB -> 38EC -> 0E06 with DS:8806=2 and eight occupied entries.",
+      "The shared active count therefore advances 0 -> 1 -> 2 while DS:88AE remains 1 and DS:880C remains 0."
+    ],
+    "interpretation": "This controlled pass closes the authored-gate factory -> callback-4519 -> scheduler-45AB chain without directly writing a row or active counter. It is chain proof under a debugger-forced action word; it does not prove that the unmutated natural W1L4 keyboard path independently reaches 01F7:0E06."
+  },
+  "remaining": [
+    "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
+    "Which authored completion/boss transition advances DS:88AE and which end-stage callback consumes each stage value.",
+    "Which non-keyboard state transition sets player flags bit 0x10, whether DS:880C is consumed by 01D7:14E1 or another path after completion, and whether other pending-effect producers exist beyond WERBE subtype 1 at 01F7:8D70 and dedicated-effect processing at 01F7:1950.",
+    "How authored play orders pending DS:880C increments, completion presentation at 01D7:14E1, and any later shared-row spawn.",
+    "The semantic names and level/reload triggers of the two reset callsites."
+  ]
+}

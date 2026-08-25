@@ -1,0 +1,88 @@
+{
+  "schema": "quiky-entity-interaction-overlap-v1",
+  "purpose": "Controlled original-runtime overlap probes for the shared 8D20 collectible callback.",
+  "fixture": {
+    "level": "W1L2",
+    "record_offset": "0x1606",
+    "runtime_world_position": [240, 512],
+    "player_position": [240, 512],
+    "player_bounds_for_probe": [-10, -40, 10, 0],
+    "object_y_offset_from_player": -32,
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "tracer": "research/automation/quiky_object_behavior_trace.lua",
+    "tracer_sha256": "44b95e79b69d8b52d27da30f271284bc2e8f931a8982929e055847bcb04147d6",
+    "probe_controls": [
+      "align_object_to_player",
+      "force_active_player_bounds",
+      "trace_overlap"
+    ]
+  },
+  "callback": {
+    "visibility": "01F7:1DCA -> 01F7:1DEE",
+    "overlap_helper": "01F7:8D31 (calls 01F7:393C)",
+    "clear_offset": "01F7:8E42",
+    "callback_field": "object+0x18"
+  },
+  "probes": [
+    {
+      "type": "0x6F",
+      "dispatch": "01F7:8BC2",
+      "post_initializer": "01F7:8BCE",
+      "sprite_slot": 607,
+      "callback": "01F7:8D20",
+      "archive_sha256": "0968b875629add5df2fa445884ed37903c7a02296c5a832cc124e5850f12cef2",
+      "helper_hits": ["0x8D36", "0x8D4A", "0x8D60", "0x8E42"],
+      "callback_after": "0x0000",
+      "changed_object_bytes": [
+        {"offset": "0x18", "before": "0x20", "after": "0x00"},
+        {"offset": "0x19", "before": "0x8D", "after": "0x00"}
+      ],
+      "globals_after": {
+        "DS:0x612E_action_word": 9,
+        "DS:0x880C": 10,
+        "DS:0x881C": 50,
+        "DS:0x60D8_tile_flags": 0
+      }
+    },
+    {
+      "type": "0x79",
+      "dispatch": "01F7:8C71",
+      "post_initializer": "01F7:8C7D",
+      "sprite_slot": 600,
+      "callback": "01F7:8D20",
+      "archive_sha256": "f42e8d47354dff6d79e5e60d9c62e58a9744746b3939795c9be6dce12326a0d1",
+      "helper_hits": ["0x8D36", "0x8D4A", "0x8D60", "0x8E29", "0x8E42"],
+      "callback_after": "0x0000",
+      "changed_object_bytes": [
+        {"offset": "0x18", "before": "0x20", "after": "0x00"},
+        {"offset": "0x19", "before": "0x8D", "after": "0x00"}
+      ],
+      "globals_after": {
+        "DS:0x612E_action_word": 11,
+        "DS:0x880C": 0,
+        "DS:0x881C": 100,
+        "DS:0x60D8_tile_flags": 1
+      }
+    },
+    {
+      "type": "0x2C",
+      "dispatch": "01F7:8C4E",
+      "post_initializer": "01F7:8C70",
+      "sprite_slot": 710,
+      "callback": "01F7:8D20",
+      "archive_sha256": "38b7e332e63335c562de066408ac15c7803d26b456478fa8ee1686403f96c10b",
+      "helper_hits": ["0x8D36", "0x8D4A", "0x8D60", "0x8E08", "0x8E42"],
+      "callback_after": "0x0000",
+      "changed_object_bytes": [
+        {"offset": "0x18", "before": "0x20", "after": "0x00"},
+        {"offset": "0x19", "before": "0x8D", "after": "0x00"}
+      ],
+      "globals_after": {
+        "DS:0x612E_action_word": 12,
+        "DS:0x880C": 0,
+        "DS:0x881C": 500,
+        "DS:0x60D8_tile_flags": 0
+      }
+    }
+  ]
+}

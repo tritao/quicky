@@ -1,0 +1,71 @@
+{
+  "schema": "entity-effect-motion-evidence-v1",
+  "purpose": "Current-build direct callback trajectories for wind and UFO effects.",
+  "controls": {
+    "level": "W1L2 synthetic stream cell",
+    "runtime_position": [240, 512],
+    "callback_samples_each": 64,
+    "camera_or_velocity_override": false
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace_script_sha256": "54b50fbe4cac7e8cec81c326fc6f180f91a53a0f612f1fda700a6d677ad177c6"
+  },
+  "static_state_rules": {
+    "wind_0x33": {
+      "initializer": "01F7:87D1 -> callback 01F7:882F, table DS:3504, velocity -0xB000, timer +0x2D=0x14",
+      "states": "+0x32=0 integrates horizontal motion; MAP block sets +0x2F and enters state 1; states 2/3 run bounded vertical phases and return to state 0",
+      "map_probes": "882F uses +/-20 and +/-25 directional probes and clamps velocity to -0xA000..0x6000 or -0xB000..0x5000 by phase",
+      "player_gate": "8AFD-8B2D checks persistent player bounds x-10..x+10 and y-35..y+5 before clearing the player-bound x field"
+    },
+    "ufo_effect_0x35_0x36": {
+      "initializer": "01F7:544C/545A -> common setup 01F7:53F7 -> callback 01F7:546D, table DS:3518, velocity +/-0x15000, y+0x20",
+      "states": "+0x32=0 horizontal patrol, 1/2 player-range transition and vertical phase, 3/4 rising/falling phase, 5/6 exit phase; state 6 clears callback after the camera gate",
+      "map_probes": "546D tests +/-20 and +/-16 directional cells and stores collision in +0x2F; velocity bounds are -0x15000..0x15000",
+      "player_gate": "5637-5697 checks direction-dependent x range (roughly 40..50 pixels) and a 120-pixel y window before entering effect states"
+    }
+  },
+  "runs": [
+    {
+      "type": "0x33",
+      "archive_sha256": "61ac12fe9a0f8744372dd697642aad1d942dc01f6ae4bb3b92b7b7c2cc533723",
+      "dispatch": "01F7:87D1",
+      "post_initializer": "01F7:882E",
+      "object_callback": "01F7:882F",
+      "position_first": [240, 544],
+      "position_last": [225, 544],
+      "x_range": [225, 240],
+      "y_constant": 544,
+      "callback_active_all_samples": true
+    },
+    {
+      "type": "0x35",
+      "archive_sha256": "e05f0a7575a9207babb068a047e64dfc7ba3c0a99d9a8d4d8d95b40e858fb4dd",
+      "dispatch": "01F7:544C",
+      "post_initializer": "01F7:5459",
+      "object_callback": "01F7:546D",
+      "position_first": [240, 544],
+      "position_last": [157, 544],
+      "x_range": [157, 240],
+      "y_constant": 544,
+      "callback_active_all_samples": true
+    },
+    {
+      "type": "0x36",
+      "archive_sha256": "b71cadddd036326de5bf3c38bc4740bfa3c9b4d465672632b859ac6435f26671",
+      "dispatch": "01F7:545A",
+      "post_initializer": "01F7:546C",
+      "object_callback": "01F7:546D",
+      "position_first": [240, 544],
+      "position_last": [322, 544],
+      "x_range": [240, 322],
+      "y_constant": 544,
+      "callback_active_all_samples": true
+    }
+  ],
+  "conclusions": [
+    "Wind type 0x33 and UFO-effect types 0x35/0x36 perform live horizontal fixed-point motion with constant Y in this fixture.",
+    "The paired UFO effects share callback 01F7:546D but start with opposite horizontal directions; none of the 64-sample runs reached callback removal.",
+    "This is a near-camera trajectory probe, not a MAP-block reversal or player-contact proof; those response branches remain separate matrix questions."
+  ]
+}

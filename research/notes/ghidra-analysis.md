@@ -561,6 +561,13 @@ the same selector (observed offsets include `0168`, `01E0`, `02D0`, and
 `03C0`). `quikytrace --lifetime-samples N` records object identity, slot,
 delay, animation cursor, and the `+28` variant flag at each shared leaf update.
 
+The pooled-object allocator is the shared factory at `01F7:0E06`. It starts at
+`DS:755E`, advances by the runtime object stride `DS:30CE`, and scans exactly
+`0x40` entries. Its free test is `ES:[DI+0x18] == 0`; the first entry with no
+update callback receives the requested callback and default object fields
+before the type-specific initializer runs. This makes the leaf recycle rule
+explicit rather than inferred only from repeated offsets.
+
 ### Early normal enemy families
 
 The remaining early normal dispatch entries were traced at their
@@ -625,6 +632,20 @@ type 0. The corresponding four-frame `WOLKE.BOB` family is slots 413-416,
 each 32x16 with origin `(0,0)`. Because the standard logical-slot field is
 unused, the asset correlation is recorded as a special-renderer mapping, not
 as a direct slot write.
+
+The callback's relocated calls are only the shared camera gate `01F7:1DCA`,
+removal `01F7:1DEE`, bounds helper `01F7:393C`, animation helper `01F7:5D38`,
+and MAP helpers `01F7:1C4D`/`01F7:5C27`; it does not call the normal renderer.
+The standard renderer at `01F7:3529` returns immediately when
+`object+0x12 == 0xFFFF`. A controlled W1L1 probe with `DS:89EA=0`, a
+synthetic 16x16 bounds rectangle, and player byte `+0x37=0` reaches the
+accepted `01F7:9269` branch and records `DS:89E6: 0 -> FFFF` while the cloud
+callback remains active. One-shot reader probes then hit both player-side
+consumers `01F7:4087` and `01F7:4406` with `DS:89E6=FFFF`; the player-state
+consumer path is therefore resolved. A controlled outer-state run also hits
+the main-loop consumer `01D7:4EA0` repeatedly with `DS:89E6=FFFF`; the normal
+object renderer is deliberately bypassed, so only the low-level WOLKE.BOB
+pixel primitive remains outside the logical-slot queue.
 
 Types `0x29` and `0x2A` use the same normal dispatch callback as `0x2B`:
 `01F7:4727`, object class `1`, reserved byte `0`.
@@ -800,8 +821,12 @@ The statically decoded lookup grid is:
 
 At state 10 the callback clears `object+0x18`, ending the state-machine
 object, and publishes `object+0x04 + 0x19` and `object+0x08 + 0x46` at
-`DS:8828` and `DS:882A`. The purpose of those two published coordinates is
-not assigned beyond this executable-level fact.
+`DS:8828` and `DS:882A`. The transition routine at `01F7:1AAA` reads the
+published pair as an indexed coordinate row (`DS:85D2 * 4`), writes it into
+the persistent player record, reinstalls callback `01F7:3F27`, clears
+`DS:89EA`, and rebuilds the camera/MAP state. Their engine-level role is
+therefore a terminal/respawn-position table; which authored selector state
+populates each indexed row remains open.
 
 The MAP helper at `01F7:3376` is correspondingly:
 
@@ -1089,3 +1114,43 @@ Native-context renderer probes independently resolve map indices 80 through 86
 and descriptor offsets 3520, 3564, 3608, 3652, 3696, 3740, and 3784. Every
 live descriptor is `16x16` with origin `(0,0)`, matching PUZZLE.BOB records 0
 through 6 and confirming the slot-to-descriptor stride.
+
+The completion trigger is in the main selector `01D7`, not in the `01F7`
+letter callback. The routine at `01D7:14E1` compares `DS:60D8` against
+`0x007F` at `01D7:1670`; the taken branch `01D7:16C6-1704` renders the
+`NESQUIK: 2000` and `BONUS-LEVEL!` strings, sets the sound action at `DS:612E`,
+adds `0x07D0` to the score pair `DS:881C/DS:881E`, waits between messages, and
+sets `DS:85DB=1`. Its caller immediately tests that flag at `01D7:4F10`, jumps
+to `01D7:4FAF`, maps the selector state, and enters the reload/transition setup
+at `01D7:5017` (relocated target `01F7:0908`), followed by `01D7:5038`
+(`0227:0D5A` copy helper), `01D7:503D` (`01F7:1AAA`), `01D7:5042`
+(`01F7:321F`), and local rebuild/dispatch call `01D7:5047`. The final-letter synthetic run reaches the
+mask and clears the object but does not execute this authored presentation
+branch within its 1,800-frame window because the comparator is called from the
+outer cloud-state path only when `DS:89E6 != 0`. The nearby-cloud callback at
+`01F7:9269` writes `DS:89E6=0xFFFF`; the positive outer branch
+`01D7:4EA0-4EAA` calls `01D7:14E1`, whose `01D7:1670` comparator then reaches
+`16C6-1704`. A diagnostic probe that seeded this real gate captured
+`4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 -> 1704`,
+set `DS:85DB=1`, and added 2000 points. The post-message delay is a segment-4
+PIT helper at `0207:10A9`: it samples channel 0 through ports `43h/40h`,
+compares against `DS:97F4`, retries while equal, and returns at `0207:1113`
+after storing a changed sample. The bounded diagnostic reached this helper
+before the messages and ended in its second `0207:10CB` poll after `1704`. A
+controlled release of the presentation, input, and audio/UI waits then reached
+`01D7:4F10-4FAF` and advanced the selector to `0x10`; the downstream
+`01D7:5017-5047` reload/resource calls still need a fully authored transition
+fixture.
+
+The downstream contracts are now statically explicit even though that fixture
+is still missing.  `01D7:5010` skips the setup only when `DS:89E0 == 0xFFFF`;
+otherwise `01F7:0908` performs a bounded `0..0x3E7` transition loop after one
+`0227:05CD` call.  `01D7:5038` invokes `0227:0D5A`, a `0x400`-byte copy from
+the stack transition buffer into the far destination at `DS:60E4`.  `01F7:1AAA`
+repositions the player from the indexed `DS:8828/882A` row, reinstalls callback
+`01F7:3F27`, clears `DS:89EA`, and runs `01F7:5D38`.  `01F7:321F` rebuilds
+camera/MAP state from the player position through `31D1`, `20AF`, `3062`, and
+`17AE`; `01D7:313D` resets `DS:88AE` and dispatches the selector-specific END
+constructor/effect setup.  The remaining dynamic question is therefore the
+retail state that leaves `DS:89E0` open long enough for this chain to execute,
+not the identity of the downstream helpers.

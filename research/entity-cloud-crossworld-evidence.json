@@ -1,0 +1,123 @@
+{
+  "schema": "entity-cloud-crossworld-evidence-v1",
+  "purpose": "Cross-world inventory and asset identity for special-rendered cloud type 0x28.",
+  "archive": {
+    "archive_sha256": "c30da6ccb4b5e10da5405b974b18da149fd375cd465170d7ec4ebc184ee935ac",
+    "wolke_bob_sha256": "5f7003b66b878322fc3752ff9a509481284f4e785962888349cf36d1a50bd2c6",
+    "wolke_bob_records": [
+      {"slot": 413, "width": 32, "height": 16, "origin": [0, 0]},
+      {"slot": 414, "width": 32, "height": 16, "origin": [0, 0]},
+      {"slot": 415, "width": 32, "height": 16, "origin": [0, 0]},
+      {"slot": 416, "width": 32, "height": 16, "origin": [0, 0]}
+    ],
+    "world_resource_entries": ["WOLKE.BOB"],
+    "world_specific_wolke_entries": []
+  },
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace_script_sha256": "644df8702a72cefa9bfad694268fcb33e208d7d4c8d9171530c76c7b4fa18af8"
+  },
+  "are_usage": {
+    "W1": ["W1L1", "W1L2", "W1L4"],
+    "W2": ["W2L1", "W2L2", "W2L4"],
+    "W3": ["W3L1", "W3L2", "W3L4"],
+    "W4": ["W4L1", "W4L2", "W4L4"],
+    "W5": ["W5L1", "W5L2", "W5L4"]
+  },
+  "runtime": {
+    "dispatch": "01F7:9256",
+    "callback": "01F7:9269",
+    "logical_slot": 65535,
+    "visible_probe": {"samples": 8, "position": [784, 192], "callback_active": true, "movement": "none", "camera_control": [700, 100]},
+    "offcamera_probe": {"camera": [0, 262], "callback_after": 0},
+    "resource_selector_note": "WOLKE.BOB is not independently requested by the normal per-level resource batch; the callback uses a special renderer with object+0x12=FFFF."
+  },
+  "player_state_probe": {
+    "fixture": "/home/joao/dev/quicky/research/build/entity-28-multiframe/baseline/game",
+    "controls": "camera=(700,100); synthetic DS:881A points at cloud object; DS:89EA=0; bounds fields +0x2C/+0x30=0/16 and +0x2E/+0x32=0/16; object+0x37=0",
+    "trace": "research/build/entity-28-cloud-player-state-forced.json",
+    "samples": [
+      {"callback": "01F7:9256", "next_callback": "01F7:9269", "cloud_global_before": 0, "cloud_global_after": 0},
+      {"callback": "01F7:9269", "next_callback": "01F7:9269", "bounds_object_offset": 120, "player_state_byte": 0, "cloud_global_before": 0, "cloud_global_after": 65535, "callback_active": true}
+    ],
+    "conclusion": "The native 9269 branch writes DS:89E6=FFFF only when the persistent bounds gate is active and player object byte +0x37 is zero; the controlled positive probe keeps the cloud stationary and callback active."
+  },
+  "player_reader_probe": {
+    "controls": "same W1L1 synthetic cloud state; one-shot breakpoint after the 9269 callback",
+    "reader_4087": {
+      "trace": "research/build/entity-28-cloud-consumer-4087.json",
+      "offset": "01F7:4087",
+      "cloud_global_89e6_at_hit": 65535,
+      "samples": 1
+    },
+    "reader_4406": {
+      "trace": "research/build/entity-28-cloud-consumer-4406.json",
+      "offset": "01F7:4406",
+      "cloud_global_89e6_at_hit": 65535,
+      "samples": 1
+    },
+    "conclusion": "Both player-side DS:89E6 readers execute in the positive synthetic state, so the cloud flag is consumed by the player callback path rather than being write-only."
+  },
+  "renderer_static_scan": {
+    "standard_renderer": "01F7:3529 returns immediately when object+0x12 == 0xFFFF, so the cloud does not use the normal DS:6D8E logical-slot path.",
+    "cloud_callback_calls": ["01F7:1DCA", "01F7:1DEE", "01F7:393C", "01F7:5D38", "01F7:1C4D", "01F7:5C27"],
+    "outer_state_consumer": "The main gameplay loop at 01D7:4EA0 tests DS:89E6; the positive path begins at 01D7:4EAA and runs through the outer/main-loop work before the normal object-render pass at 01F7:106A. A controlled trace hits 01D7:4EA0 repeatedly with DS:89E6=FFFF while the cloud object remains active.",
+    "outer_state_trace": {
+      "path": "research/build/entity-28-cloud-outer-renderer-mainloop.json",
+      "sha256": "3a9439d71bfa88cc0f43d422b7716095a7ec6be6ec185a5c03685cea4bcf3fed"
+    },
+    "standard_renderer_trace": {
+      "path": "research/build/entity-28-cloud-standard-renderer-v2.json",
+      "sha256": "ea0f8afa161721798c433ed14886e35692515adf2fac4a43ec03fcc4f965f691"
+    },
+    "hardware_renderer_probe": {
+      "trace": "research/build/entity-28-cloud-hardware-64-camera768.json",
+      "trace_script_sha256": "068cf031f57747876720177ba4c2b0ec3327f6de1c13d00dcfb3d29bf311a0c2",
+      "controls": "W1 synthetic type-0x28 cloud, forced player-state gate, camera=(768,192), 64 frame samples",
+      "observed": {
+        "sample_count": 64,
+        "logical_slot": 276,
+        "map_index": 124,
+        "flags": 0,
+        "return_offset": "01F7:35B8",
+        "cloud_global_89e6": 0,
+        "object_slot": "0xFFFF"
+      },
+      "interpretation": "The bounded hardware hook saw only an ordinary logical-slot draw (slot 276), not WOLKE slots 413-416. This is negative evidence against the special cloud draw being emitted by the normal per-frame queue in this fixture; it does not identify the low-level WOLKE caller."
+    },
+    "wolke_descriptor_map_probe": {
+      "trace": "research/build/entity-28-cloud-hardware-wolke-descriptors-current.json",
+      "trace_sha256": "4fad16ee917d9966ae9896d2a020d035dec60e2794da1b763acd1e27d442e957",
+      "trace_script_sha256": "6a3b2d96e4718998e6b9febc2baf45b376b9a2e312200eee3c7ddf33391c3813",
+      "controls": "Isolated W1L1 type-0x28 variant at camera=(700,100), forced cloud player-state gate, 8 samples at 01F7:0013; snapshot DS:6D8A/DS:6D8E descriptor map for logical slots 413-416 before the draw loop.",
+      "wolke_slots": [
+        {"logical_slot": 413, "map_index": 65535},
+        {"logical_slot": 414, "map_index": 65535},
+        {"logical_slot": 415, "map_index": 65535},
+        {"logical_slot": 416, "map_index": 65535}
+      ],
+      "ordinary_draw_control": {"samples": 8, "logical_slot": 700, "map_index": 153, "return": "01F7:35B8"},
+      "interpretation": "The four WOLKE logical slots are unmapped in the ordinary DS:6D8E descriptor table in this live fixture, while the same hook continues to see a normal mapped draw. This strengthens the conclusion that WOLKE is rendered through a special/alternate path rather than a normal queue entry; it does not yet identify the alternate pixel primitive or frame-selection state."
+    },
+    "outer_pass_target_probes": {
+      "trace_script_sha256": "a4b90acdcaf1faa42dfd7ee2f02471eccf80bebc1ef7beaba1aae4a6f2380f8d",
+      "controls": "Same isolated W1L1 visible-cloud fixture; one breakpoint target per run to avoid debugger breakpoint-capacity masking.",
+      "targets": [
+        {"target": "01F7:106A", "trace": "research/build/entity-28-cloud-outer-target-106a.json", "trace_sha256": "0b73f82e6be048463791709a708008fe2bf1c553b039799d33649ec201084a8d", "samples": 64, "return": "01D7:4BD3", "queue_count": 0, "cloud_global_89e6": 0},
+        {"target": "01F7:17D4", "trace": "research/build/entity-28-cloud-outer-target-17d4.json", "trace_sha256": "5dd2920370b5fb4a9a55e5ea69475d75a881d1e06d88d512a316a032b7ee4edd", "samples": 64, "return": "01F7:106F", "cloud_global_89e6": 0},
+        {"target": "01F7:1997", "trace": "research/build/entity-28-cloud-outer-target-1997.json", "trace_sha256": "85aafb9f5aadcb7b47491408a9ae4da3a790dae274dccc970742139b86d1fb0e", "samples": 64, "return": "01F7:0FCF", "object_slot": 700, "object_offset": 120, "cloud_global_89e6": 0},
+        {"target": "01F7:3529", "trace": "research/build/entity-28-cloud-outer-target-3529.json", "trace_sha256": "a6baaf2a0e4c8ba46ceb458da2dd5e938511814807f9b665c20145958a7d6077", "samples": 64, "return": "01F7:199C", "object_slot": 703, "object_offset": 120, "cloud_global_89e6": 0}
+      ],
+      "interpretation": "The outer scheduler/render targets are reachable, but every controlled hit is on an ordinary object (106A queue count zero; 17D4 cleanup; 1997/3529 ordinary slot 700/703), never the cloud object at logical slot FFFF. This independently rules out the ordinary scheduler's secondary render callback as the WOLKE pixel path; the alternate path remains outside these callbacks."
+    },
+    "direct_caller_census": {
+      "evidence": "research/entity-wolke-renderer-caller-census.json",
+      "relocation_target": "01F7:0013",
+      "direct_relocation_callers": ["01F7:35B3 (return 35B8)"],
+      "direct_near_call_callers": [],
+      "interpretation": "The normal queue caller is unique among the recovered direct forms. Any WOLKE-specific draw must be indirect, use another primitive, or be reached through runtime state not represented by a direct call to 0013."
+    },
+    "conclusion": "The cloud callback contains no direct sprite/resource call. The normal object renderer is still explicitly bypassed (01F7:3529 sees ordinary objects while the cloud object remains at ES:DI with object+0x12=FFFF), while the outer gameplay loop consumes DS:89E6 at 01D7:4EA0. The four WOLKE slots also remain unmapped in DS:6D8E during a live special-state fixture, and targeted 106A/17D4/1997/3529 probes see only ordinary scheduler/render objects. The exact WOLKE.BOB pixel-draw primitive remains outside the normal logical-slot queue."
+  },
+  "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. The player-state gate and the outer DS:89E6 consumer are directly evidenced; the normal logical-slot renderer is bypassed, leaving only the low-level WOLKE.BOB pixel-draw primitive to identify."
+}

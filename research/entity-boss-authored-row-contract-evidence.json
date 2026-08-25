@@ -1,0 +1,102 @@
+{
+  "schema": "quiky-entity-boss-authored-row-contract-v1",
+  "purpose": "Record the authored W1 row snapshots alongside the static boss-consumer predicate, so repeated-hit failures are not mistaken for an unknown collision shape.",
+  "inputs": {
+    "executable": {
+      "path": "game/QUIKY.EXE",
+      "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
+    },
+    "segment_03_decompile": {
+      "path": "/tmp/quiky-ghidra-boss-expanded-20260824/out/QUIKY_SEG03.bin-boss.c",
+      "sha256": "e642e140ddb8a4e1119918d9b68152f5523486f0d54542c293ebb9be7d0a15ed"
+    },
+    "trace": {
+      "path": "research/build/player-w1l3-boss-row-contract-exec.json",
+      "sha256": "fa061b24d24db9ff16380afd28624ffa4cea4e49c4ad2dfb4861c43e93c4ddcb"
+    },
+    "trace_script": {
+      "path": "research/automation/quiky_player_trace.lua",
+      "sha256": "fb0c0049d566829bba8b12cd96758287c68600ef81a264b56377c0d488b87525"
+    }
+  },
+  "static_contract": {
+    "callbacks": {
+      "W1": "01F7:B25D",
+      "W2": "01F7:BB0E",
+      "W3": "01F7:C328",
+      "W4": "01F7:CDA3",
+      "W5": "01F7:D55A"
+    },
+    "row_table": {
+      "base": "DS:87DE",
+      "row_stride": 4,
+      "active_count": "DS:8806",
+      "capacity": "DS:8808",
+      "cursor_field": "object+0x2A",
+      "cursor_behavior": "Each callback scans one row selected from the cursor, advances the cursor, and wraps it after the capacity; a matching row clears its x word and decrements the active count through the native effect path."
+    },
+    "overlap": "strict boss_x-15 < row_x < boss_x+15 and boss_y-25 < row_y < boss_y+5",
+    "thresholds": {
+      "W1": 5,
+      "W2": 6,
+      "W3": 5,
+      "W4": 6,
+      "W5": 4
+    }
+  },
+  "runtime_w1l3": {
+    "fixture": "Native W1L3 selector; left warmup 550 frames; left-alt held during the boss callback loop; 64 callback events captured.",
+    "initial_stage_gate": 1,
+    "capacity": 4,
+    "representative_snapshots": [
+      {
+        "event": 9,
+        "target": "damage_callback",
+        "boss": [365, 554],
+        "cursor_before": 1,
+        "active": 1,
+        "row0": [1, 0],
+        "match": false,
+        "reason": "The row is still at its spawn origin."
+      },
+      {
+        "event": 12,
+        "target": "damage_callback",
+        "boss": [364, 554],
+        "cursor_before": 2,
+        "active": 1,
+        "row0": [148, 479],
+        "match": false,
+        "reason": "The row y coordinate is 75 pixels below the boss."
+      },
+      {
+        "event": 21,
+        "target": "damage_callback",
+        "boss": [363, 552],
+        "cursor_before": 5,
+        "active": 1,
+        "row0": [160, 477],
+        "match": false,
+        "reason": "The cursor is at its wrap boundary; the row remains outside both bands."
+      },
+      {
+        "event": 63,
+        "target": "damage_callback",
+        "boss": [357, 551],
+        "cursor_before": 4,
+        "active": 1,
+        "row0": [216, 490],
+        "match": false,
+        "reason": "The row is moving toward the target but remains 141 pixels left and 61 pixels above it."
+      }
+    ],
+    "observed_cursor_wrap": "The callback return advances object+0x2A through 1,2,3,4,5 and wraps to 1 while DS:8808 remains 4.",
+    "observed_effect_state": "DS:8806 remains 1 after the first authored row is created; DS:880C remains 0.",
+    "interpretation": "The probe confirms the authored row exists in the shared table and that the native consumer's cursor/table contract is live. The bounded route creates no second match because fresh rows do not re-enter the strict W1 band during the captured interval; this is timing/route evidence, not evidence of a missing hitbox."
+  },
+  "remaining": [
+    "Find the authored movement/action route that repeatedly places fresh rows inside the W1 band.",
+    "Repeat the producer/consumer trace for W2-W5 only after a world-specific authored route is identified; the static thresholds are already recovered.",
+    "Correlate the row producer's action latch with DS:880C and with Wind/UFO effect scheduling."
+  ]
+}

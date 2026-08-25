@@ -15,21 +15,12 @@ local state_machine_position_x = state_machine_config.position_x or -1
 local state_machine_position_y = state_machine_config.position_y or -1
 local state_machine_force_emission = state_machine_config.force_emission or false
 local state_machine_patch_map_run = state_machine_config.patch_map_run or false
-local state_machine_force_state = state_machine_config.force_state or nil
-local state_machine_warmup_frames = state_machine_config.warmup_frames or 0
-local state_machine_map_patch_y_offset = state_machine_config.map_patch_y_offset or 0
 local sprite_init_offset = trace_config.sprite_init_offset or 0
 local capture_frame_count = trace_config.capture_frames or 1
 local capture_frame_step = trace_config.frame_step or 30
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
-local source_scan_enabled = trace_config.source_scan or false
-local movement_key = trace_config.movement_key or ""
-local movement_frames = trace_config.movement_frames or 0
-local return_key = trace_config.return_key or ""
-local return_frames = trace_config.return_frames or 0
-local movement_camera_x = trace_config.movement_camera_x or -1
-local movement_camera_y = trace_config.movement_camera_y or -1
+local interaction_align_player = trace_config.interaction_align_player or false
 local runtime_offset = record_offset - 0x160
 local startup_camera_x = nil
 local startup_camera_y = nil
@@ -45,6 +36,11 @@ end
 
 local function little_word(value)
     return string.char(value & 0xff, (value >> 8) & 0xff)
+end
+
+local function little_dword(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff,
+                       (value >> 16) & 0xff, (value >> 24) & 0xff)
 end
 
 local function hex(s)
@@ -158,228 +154,6 @@ local function stop_for_capture()
     return wait_hit("capture barrier")
 end
 
-local function write_movement_camera_lock()
-    if movement_camera_x >= 0 then
-        dosbox.mem_write("ds", 0x81c0, little_word(movement_camera_x))
-    end
-    if movement_camera_y >= 0 then
-        dosbox.mem_write("ds", 0x81c4, little_word(movement_camera_y))
-    end
-end
-
--- Advance from one scheduler frame boundary to the next while servicing the
--- camera update sites.  A plain wait_frames() cannot do this: a debugger stop
--- during that wait freezes the Lua coroutine, so the camera breakpoint would
--- never be observed.  0E96 is the normal frame/scheduler boundary, 1ED7 is
--- the camera-scroll routine, and 1DCA is the object visibility gate used by
--- the object callback tracer.
-local function advance_locked_frames(count)
-    local boundary = nil
-    for _ = 1, count do
-        dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
-        dosbox.breakpoint_set(0x01f7, 0x1ed7, {once = true})
-        dosbox.breakpoint_set(0x01f7, 0x1dca, {once = true})
-        dosbox.debug_continue()
-        while true do
-            local hit = wait_hit("camera-locked frame advance")
-            if hit.segment == 0x01f7 and hit.offset == 0x1ed7 then
-                local stack = dosbox.mem_read(
-                    "ss", hit.registers.esp & 0xffff, 4) or ""
-                assert(#stack >= 2, "camera-scroll call has no near return")
-                local return_offset = word(stack, 1)
-                dosbox.breakpoint_set(hit.registers.cs, return_offset,
-                                      {once = true})
-                dosbox.debug_continue()
-                local returned = wait_hit("camera-scroll return")
-                assert(returned.offset == return_offset,
-                       "unexpected camera-scroll return breakpoint")
-                write_movement_camera_lock()
-                dosbox.breakpoint_set(0x01f7, 0x1ed7, {once = true})
-                dosbox.breakpoint_set(0x01f7, 0x1dca, {once = true})
-                dosbox.debug_continue()
-            elseif hit.segment == 0x01f7 and hit.offset == 0x1dca then
-                write_movement_camera_lock()
-                dosbox.breakpoint_set(0x01f7, 0x1dca, {once = true})
-                dosbox.debug_continue()
-            else
-                assert(hit.segment == 0x01f7 and hit.offset == 0x0e96,
-                       "unexpected camera-locked frame breakpoint")
-                -- 0E96 is the hand-off into the next object pass.  Reapply
-                -- here as well as after 1ED7/1DCA so the next pass observes
-                -- the requested camera even on frames where the normal
-                -- camera path is skipped or clamped by the level bounds.
-                write_movement_camera_lock()
-                boundary = hit
-                break
-            end
-        end
-    end
-    return boundary
-end
-
--- Optional source-aware lifecycle ledger for movement experiments. Keep this
--- behind a config flag: the normal entity tracer should retain its small,
--- single-record output and timing characteristics.
-local function lifecycle_source_snapshot(selector, offset)
-    local snapshot = {selector = selector, offset = offset}
-    if selector == nil or offset == nil or offset == 0xffff then
-        snapshot.absent = true
-        return snapshot
-    end
-    local ok, raw_or_error = pcall(dosbox.mem_read_selector, selector, offset, 6)
-    if not ok then
-        snapshot.read_error = tostring(raw_or_error)
-        return snapshot
-    end
-    local raw = raw_or_error or ""
-    snapshot.raw_hex = "hex:" .. hex(raw)
-    if #raw >= 2 then
-        snapshot.marker_word = word(raw, 1)
-        snapshot.marker_low = string.byte(raw, 1)
-        snapshot.marker_high = string.byte(raw, 2)
-        snapshot.processed_marker = string.byte(raw, 2)
-    end
-    return snapshot
-end
-
-local function lifecycle_record_snapshot(raw, selector, offset, index,
-                                         target_source_offset)
-    local callback = word(raw, 0x18 + 1)
-    local record = {
-        index = index,
-        selector = selector,
-        offset = offset,
-        active = callback ~= 0,
-        update_callback = callback,
-        object_class = string.byte(raw, 0x17 + 1),
-        source_offset = word(raw, 0x1a + 1),
-        lifetime = word(raw, 0x2c + 1),
-        sprite_slot = word(raw, 0x12 + 1),
-        state_field = word(raw, 0x2e + 1),
-        update_state = word(raw, 0x32 + 1),
-        position = {
-            x = dword(raw, 3) >> 16,
-            y = dword(raw, 7) >> 16,
-        },
-    }
-    record.source_match = target_source_offset ~= nil and
-        record.source_offset == target_source_offset
-    return record
-end
-
-local function lifecycle_scan(source_selector, target_source_offset)
-    if not source_scan_enabled then return nil end
-    local pool_offset = dosbox.mem_read_word("ds", 0x755e)
-    local pool_selector = dosbox.mem_read_word("ds", 0x7560)
-    local stride = dosbox.mem_read_word("ds", 0x30ce)
-    local records = {}
-    local source_matches = {}
-    local matching_offsets = {}
-    local pool_raw_ok, pool_raw_or_error = pcall(
-        dosbox.mem_read_selector, pool_selector, pool_offset, stride * 64)
-    if not pool_raw_ok then
-        return {
-            target_source_offset = target_source_offset,
-            source = lifecycle_source_snapshot(source_selector,
-                                                target_source_offset),
-            pool = {
-                selector = pool_selector,
-                offset = pool_offset,
-                stride = stride,
-                count = 64,
-                read_error = tostring(pool_raw_or_error),
-                records = records,
-                source_matches = source_matches,
-            },
-        }
-    end
-    local pool_raw = pool_raw_or_error or ""
-    for index = 0, 63 do
-        local offset = pool_offset + index * stride
-        local start = index * stride + 1
-        local raw = pool_raw:sub(start, start + 0x40 - 1)
-        local record = lifecycle_record_snapshot(
-            raw, pool_selector, offset, index, target_source_offset)
-        if record.source_match then
-            source_matches[#source_matches + 1] = {
-                index = index,
-                offset = offset,
-                active = record.active,
-                update_callback = record.update_callback,
-                source_offset = record.source_offset,
-                object_class = record.object_class,
-            }
-            matching_offsets[offset] = true
-        end
-        records[#records + 1] = record
-    end
-
-    local banks = {}
-    for bank = 0, 1 do
-        local base = 0x7566 + bank * 0x200
-        local raw = dosbox.mem_read("ds", base, 0x200) or ""
-        local entries = {}
-        local entry_count = 0
-        local sentinel_index = nil
-        for index = 0, math.min(#raw // 8, 64) - 1 do
-            local callback = word(raw, index * 8 + 1)
-            if callback == 0xffff then
-                sentinel_index = index
-                break
-            end
-            if callback ~= 0 then
-                entry_count = entry_count + 1
-                local object_offset = word(raw, index * 8 + 5)
-                if matching_offsets[object_offset] then
-                    entries[#entries + 1] = {
-                        bank = bank,
-                        index = index,
-                        table_offset = base + index * 8,
-                        callback = callback,
-                        callback_selector = word(raw, index * 8 + 3),
-                        object_offset = object_offset,
-                        object_selector = word(raw, index * 8 + 7),
-                        source_match = true,
-                    }
-                end
-            end
-        end
-        banks[#banks + 1] = {
-            bank = bank,
-            base = base,
-            entry_count = entry_count,
-            sentinel_index = sentinel_index,
-            entries = entries,
-        }
-    end
-    return {
-        target_source_offset = target_source_offset,
-        globals = {
-            camera_x = dosbox.mem_read_word("ds", 0x81c0),
-            camera_y = dosbox.mem_read_word("ds", 0x81c4),
-            stream_camera_x = dosbox.mem_read_word("ds", 0x3710),
-            stream_camera_y = dosbox.mem_read_word("ds", 0x3712),
-            stream_region_x = dosbox.mem_read_word("ds", 0x3714),
-            stream_region_y = dosbox.mem_read_word("ds", 0x3716),
-            bounds_object_offset = dosbox.mem_read_word("ds", 0x881a),
-        },
-        source = lifecycle_source_snapshot(source_selector,
-                                            target_source_offset),
-        pool = {
-            selector = pool_selector,
-            offset = pool_offset,
-            stride = stride,
-            count = 64,
-            records = records,
-            source_matches = source_matches,
-        },
-        scheduler = {
-            bank_cursor = dosbox.mem_read_word("ds", 0x7966),
-            banks = banks,
-        },
-    }
-end
-
 local state_machine_targets = {0x16ce, 0x3376, 0x171c, 0x393c, 0x8eb5}
 local state_machine_exits = {0x8e78, 0x8e85, 0x9254, 0x9255}
 
@@ -445,16 +219,14 @@ local function patch_state_machine_map_run(x, y, base_tile)
     local cells = {}
     for index = 0, 4 do
         local offset = base_offset + index * 2
-        local before = word(dosbox.mem_read_selector(map_selector, offset, 2), 1)
+        local before = dosbox.mem_read_word(map_selector, offset)
         local after = base_tile + index
         dosbox.mem_write_selector(map_selector, offset, little_word(after))
-        local readback = word(dosbox.mem_read_selector(map_selector, offset, 2), 1)
         cells[#cells + 1] = {
             selector = map_selector,
             offset = offset,
             before = before,
             after = after,
-            readback = readback,
         }
     end
     return {
@@ -525,55 +297,18 @@ local function matches_object(hit, selector, offset)
            (hit.registers.edi & 0xffff) == offset
 end
 
-local function capture_timeline(entity, object_selector, object_offset, first_capture,
-                                source_selector, source_offset)
+local function capture_timeline(entity, object_selector, object_offset, first_capture)
     if capture_frame_count <= 1 then return end
     entity.frames = {}
-    local camera_lock_enabled = movement_camera_x >= 0 and movement_camera_y >= 0
-    if camera_lock_enabled then write_movement_camera_lock() end
-    local input_elapsed = 0
-    local movement_pressed = false
-    local return_pressed = false
-    local return_start = movement_frames + 1
-    if movement_key ~= "" and movement_frames > 0 then
-        dosbox.key(movement_key, true)
-        movement_pressed = true
-    end
     for index = 0, capture_frame_count - 1 do
-        local capture = nil
-        if index == 0 then
-            capture = first_capture
-        else
-            if camera_lock_enabled then
-                capture = advance_locked_frames(capture_frame_step)
-            else
-                dosbox.wait_frames(capture_frame_step)
-                capture = stop_for_capture()
-            end
-        end
+        if index > 0 then dosbox.wait_frames(capture_frame_step) end
+        local capture = (index == 0 and first_capture) or stop_for_capture()
         -- A stopped Lua breakpoint can precede the renderer's present call on
         -- the inert branch. Advance one frame and stop again so the REST video
         -- endpoint sees a fully rendered surface for both variants.
         if capture_frame_count > 1 then
-            if camera_lock_enabled then
-                capture = advance_locked_frames(1)
-            else
-                dosbox.wait_frames(1)
-            end
-            input_elapsed = input_elapsed + capture_frame_step + 1
-            if movement_pressed and input_elapsed >= movement_frames then
-                dosbox.key(movement_key, false)
-                movement_pressed = false
-                if return_key ~= "" and return_frames > 0 then
-                    dosbox.key(return_key, true)
-                    return_pressed = true
-                end
-            end
-            if return_pressed and input_elapsed >= return_start + return_frames then
-                dosbox.key(return_key, false)
-                return_pressed = false
-            end
-            if not camera_lock_enabled then capture = stop_for_capture() end
+            dosbox.wait_frames(1)
+            capture = stop_for_capture()
         end
         local frame = {
             index = index,
@@ -586,8 +321,20 @@ local function capture_timeline(entity, object_selector, object_offset, first_ca
             frame.position = {x = dword(state, 3) >> 16,
                               y = dword(state, 7) >> 16}
             frame.sprite_slot = word(state, 0x12 + 1)
+            if interaction_align_player then
+                local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+                local bounds_state = dosbox.mem_read_selector(
+                    object_selector, bounds_offset, 64)
+                frame.bounds_object = {
+                    selector = object_selector,
+                    offset = bounds_offset,
+                    position = {
+                        x = dword(bounds_state, 3) >> 16,
+                        y = dword(bounds_state, 7) >> 16,
+                    },
+                }
+            end
         end
-        frame.lifecycle = lifecycle_scan(source_selector, source_offset)
         entity.frames[index + 1] = frame
         entity.capture_index = index
         dosbox.output.entity = entity
@@ -597,8 +344,6 @@ local function capture_timeline(entity, object_selector, object_offset, first_ca
         dosbox.breakpoint_set(current.cs, current.eip, {once = true})
         wait_hit("capture acknowledgement")
     end
-    if movement_pressed then dosbox.key(movement_key, false) end
-    if return_pressed then dosbox.key(return_key, false) end
 end
 
 dosbox.output.awaiting_startup_replay = true
@@ -948,6 +693,7 @@ for attempt = 1, 4096 do
         end
 
         local sprite_initialization = nil
+        local interaction_alignment = nil
         local lifetime_samples = {}
         if entity_type >= 0x29 and entity_type <= 0x2b then
             -- The leaf update initializes the visible sprite through a far
@@ -1044,6 +790,37 @@ for attempt = 1, 4096 do
                         word(initialized_state, 0x12 + 1)
                     ),
                 }
+            if interaction_align_player then
+                local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+                local bounds_state = dosbox.mem_read_selector(
+                    object_selector, bounds_offset, 64)
+                local object_state_before = dosbox.mem_read_selector(
+                    object_selector, object_offset, 64)
+                local player_x_fixed = dword(bounds_state, 3)
+                local player_y_fixed = dword(bounds_state, 7)
+                dosbox.mem_write_selector(
+                    object_selector, object_offset + 0x02,
+                    little_dword(player_x_fixed))
+                dosbox.mem_write_selector(
+                    object_selector, object_offset + 0x06,
+                    little_dword(player_y_fixed))
+                interaction_alignment = {
+                    bounds_object = {selector = object_selector,
+                                     offset = bounds_offset,
+                                     position = {
+                                         x = player_x_fixed >> 16,
+                                         y = player_y_fixed >> 16,
+                                     }},
+                    object_before = {
+                        x = dword(object_state_before, 3) >> 16,
+                        y = dword(object_state_before, 7) >> 16,
+                    },
+                    object_after = {
+                        x = player_x_fixed >> 16,
+                        y = player_y_fixed >> 16,
+                    },
+                }
+            end
             dosbox.debug_continue()
         end
         local state_machine_samples = {}
@@ -1052,13 +829,6 @@ for attempt = 1, 4096 do
         local state_machine_emitted_objects = {}
         if entity_type >= 0x1f and entity_type <= 0x21 and
                 state_machine_sample_count > 0 then
-            if state_machine_warmup_frames > 0 then
-                -- Let the normal startup/streaming path finish before the
-                -- controlled callback samples.  This is especially useful
-                -- for relocated ARE records: their object callback can run
-                -- while the MAP buffer is still being published.
-                dosbox.wait_frames(state_machine_warmup_frames)
-            end
             local saved_camera_x = nil
             local saved_camera_y = nil
             local saved_bounds_bytes = nil
@@ -1118,9 +888,7 @@ for attempt = 1, 4096 do
                 local map_run_base = state_machine_patch_map_run and
                     state_machine_effect_run_base() or nil
                 local map_run_patch = patch_state_machine_map_run(
-                    probe_position_x,
-                    probe_position_y + state_machine_map_patch_y_offset,
-                    map_run_base)
+                    probe_position_x, probe_position_y, map_run_base)
                 local sample = {
                     sequence = sequence,
                     breakpoint = {segment = update_entry.segment,
@@ -1149,7 +917,6 @@ for attempt = 1, 4096 do
                             x = state_machine_position_x,
                             y = state_machine_position_y,
                         } or nil),
-                        map_patch_y_offset = state_machine_map_patch_y_offset,
                     },
                     static_slice_globals = static_slice_globals(),
                     tile_effect_table = tile_effect_table,
@@ -1205,16 +972,6 @@ for attempt = 1, 4096 do
                         right = right,
                         top = top,
                     }
-                end
-                if sequence == 1 and state_machine_force_state ~= nil then
-                    -- Controlled state-machine reachability probe: seed the
-                    -- object's update-state field once, then let the
-                    -- original increment/dispatch logic advance it.  This
-                    -- does not alter the MAP or descriptor table.
-                    dosbox.mem_write_selector(
-                        object_selector, object_offset + 0x32,
-                        little_word(state_machine_force_state & 0xffff))
-                    sample.globals.update_state_override = state_machine_force_state
                 end
                 sample.armed_breakpoints = arm_state_machine_breakpoints()
                 dosbox.debug_continue()
@@ -1282,33 +1039,8 @@ for attempt = 1, 4096 do
                                     selector = map_selector,
                                     offset = map_offset,
                                     register_offset = nested.registers.esi & 0xffff,
-                                    word = word(dosbox.mem_read_selector(
-                                        map_selector, map_offset, 2), 1),
-                                }
-                            end
-                            if nested.offset == 0x16ce then
-                                -- 16CE receives AX=column/X and BX=row/Y,
-                                -- opposite the register order used by the
-                                -- 3376 lookup helper.  Capture the exact MAP
-                                -- word before and after the writer so a
-                                -- state-machine call is a mutation proof,
-                                -- not only an inferred DX argument.
-                                local pointer = dword(
-                                    dosbox.mem_read("ds", 0x657a, 4), 1)
-                                local map_base = pointer & 0xffff
-                                local map_selector = (pointer >> 16) & 0xffff
-                                local row_stride = dosbox.mem_read_word("ds", 0x657e)
-                                local map_offset = map_base +
-                                    ((nested.registers.ebx & 0xffff) >> 4) * row_stride +
-                                    ((nested.registers.eax & 0xffff) >> 4) * 2
-                                call.map_pointer = {
-                                    selector = map_selector,
-                                    offset = map_offset,
-                                    row_stride = row_stride,
-                                    x = nested.registers.eax & 0xffff,
-                                    y = nested.registers.ebx & 0xffff,
-                                    word_before = word(dosbox.mem_read_selector(
-                                        map_selector, map_offset, 2), 1),
+                                    word = dosbox.mem_read_word(
+                                        map_selector, map_offset),
                                 }
                             end
                             if nested.offset == 0x393c then
@@ -1432,14 +1164,6 @@ for attempt = 1, 4096 do
                                 end
                             end
                             call.return_registers = nested_return.registers
-                            if nested.offset == 0x16ce and call.map_pointer ~= nil then
-                                call.map_pointer.word_after = word(
-                                    dosbox.mem_read_selector(
-                                        call.map_pointer.selector,
-                                        call.map_pointer.offset, 2), 1)
-                                call.map_pointer.delta = call.map_pointer.word_after -
-                                    call.map_pointer.word_before
-                            end
                             if internal_creator_call ~= nil then
                                 local final_creator_state = dosbox.mem_read_selector(
                                     internal_creator_call.object.selector,
@@ -1680,6 +1404,7 @@ for attempt = 1, 4096 do
             factory_return = {segment = 0x01f7, offset = 0x1e8e},
             object = {selector = object_selector, offset = object_offset},
             sprite_initialization = sprite_initialization,
+            interaction_alignment = interaction_alignment,
             sprite_animation_tables = sprite_animation_tables,
             lifetime_samples = lifetime_samples,
             state_machine_samples = state_machine_samples,
@@ -1699,13 +1424,7 @@ for attempt = 1, 4096 do
             capture_registers = capture.registers,
             record_hex = hex(record),
         }
-        local tracked_source_offset = word(object_state, 0x1a + 1)
-        normal_entity.source = {
-            selector = r.fs,
-            offset = tracked_source_offset,
-        }
-        capture_timeline(normal_entity, object_selector, object_offset, capture,
-                         r.fs, tracked_source_offset)
+        capture_timeline(normal_entity, object_selector, object_offset, capture)
         if capture_frame_count <= 1 then dosbox.wait_frames(1) end
         dosbox.output.entity = normal_entity
         return

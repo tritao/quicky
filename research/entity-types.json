@@ -667,7 +667,7 @@
         "trace_ledger": "research/build/traces/entity-28-confirm.json",
         "experiment": "target_type_28_vs_inert_type_0",
         "experiment_manifest": "research/build/entity-28-multiframe/experiment.json",
-        "note": "The target-vs-inert W1L1 capture removes the white cloud. The object keeps object+0x12 at 0xffff, so WOLKE.BOB is a special renderer correlation rather than a standard logical-slot write."
+        "note": "The target-vs-inert W1L1 capture removes the white cloud. The object keeps object+0x12 at 0xffff, so WOLKE.BOB is a special renderer correlation rather than a standard logical-slot write. The outer gameplay loop consumes DS:89E6 at 01D7:4EA0; the normal 01F7:3529 path deliberately returns on FFFF."
       }
     },
     {

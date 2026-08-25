@@ -1485,7 +1485,15 @@ Normal type `0x28` is a cloud emitter. Its dispatch entry is
 capture removes the large white cloud. This object deliberately leaves
 `object+0x12` at `0xFFFF`, so it does not follow the standard logical-slot
 path; the rendered cloud matches the four 32x16 records in `WOLKE.BOB`, slots
-413-416. The sheet is [`notes/type-28-wolke-sheet.png`](notes/type-28-wolke-sheet.png).
+413-416. A controlled callback probe confirms the player-state gate for
+`DS:89E6=FFFF` (`DS:89EA=0`, persistent player byte `+0x37=0`) while the
+cloud remains active. The standard `01F7:3529` renderer returns on `FFFF`.
+One-shot native reader probes hit both player-side consumers `01F7:4087` and
+`01F7:4406` with `DS:89E6=FFFF`. A controlled outer-state trace also hits
+`01D7:4EA0` with the flag set; the normal object renderer remains a deliberate
+`FFFF` bypass, so only the low-level WOLKE.BOB pixel primitive is still
+unresolved.
+The sheet is [`notes/type-28-wolke-sheet.png`](notes/type-28-wolke-sheet.png).
 
 Types `0x29` and `0x2A` use the same `01F7:4727` leaf callback as confirmed
 type `0x2B`, with class 1 and the same `BLATT.BOB` slots 700-707/750-757,
@@ -1494,7 +1502,9 @@ target-to-inert experiments at a common streamed anchor reached the expected
 leaf slots for both types and removed their target contribution. They are
 cataloged as `falling_leaves_variant_29` and `falling_leaves_variant_2a`; the
 three types are behaviorally grouped because the executable dispatch callback
-does not distinguish them after lookup.
+does not distinguish them after lookup. The extended 256-callback pool trace
+resolves the W1L1 spawn/recycle cadence; archive coverage contains no authored
+W2-W5 leaf declarations, so there is no cross-world cadence to compare.
 
 The next resolved normal families are cataloged with explicit confidence:
 
@@ -1600,3 +1610,30 @@ the table is still zeroed at the menu. Normal entries contain a near update
 callback in segment `01F7`, an object-class byte, and a reserved byte. Types
 `0x65`, `0x66`, and `0x67` bypass this table and are reported as the distinct
 runtime-confirmed handlers `01F7:178D`, `01F7:1798`, and `01F7:17A3`.
+
+## Entity behavior-family matrix
+
+The current behavior-family research is tracked separately from the sprite
+identity catalog:
+
+- [`entity-behavior-families.json`](entity-behavior-families.json) covers all
+  50 used types in 21 families and gives every family an explicit status for
+  initializer fields, update state machine, movement/AI, collision/interaction,
+  animation, removal, and cross-world variants.
+- [`notes/entity-behavior-families.md`](notes/entity-behavior-families.md)
+  explains the evidence boundaries and the next controlled experiments.
+- `entity_behavior_report.py` validates the matrix and prints a compact status
+  report:
+
+```sh
+python3 research/tools/entity_behavior_report.py \
+  research/entity-behavior-families.json
+python3 research/tools/entity_behavior_report.py \
+  research/entity-behavior-families.json --json
+```
+
+The isolated lifecycle tracer is `object_behavior_trace.py`; it records the
+object bytes before and after scheduled callbacks and is intended for the
+movement, collision, animation-timing, and removal gaps called out by the
+matrix. It requires the debugger-enabled dosbox-automation binary described
+above.

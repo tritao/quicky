@@ -1,0 +1,273 @@
+{
+  "schema": "entity-targeted-decompile-evidence-v1",
+  "purpose": "Targeted static recovery of the cloud render chain and remaining effect-family state branches.",
+  "executable": {
+    "path": "game/QUIKY.EXE",
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
+  },
+  "method": {
+    "loader": "raw NE file-backed segments",
+    "processor": "x86:LE:16:Protected Mode",
+    "targets": [
+      "01D7:4EA0-5047",
+      "01F7:0013",
+      "01F7:0FDC,1024,106A,34BC,34E3,3529,3587",
+      "01F7:53F7-58A0",
+      "01F7:87D1-8E4B",
+      "01F7:10B5-17A3"
+    ]
+  },
+  "cloud": {
+    "outer_state_consumer": {
+      "entry": "01D7:4EA0",
+      "positive_branch": "01D7:4EAA",
+      "flag": "DS:89E6",
+      "calls_before_return": [
+        "01E7:0D18",
+        "0207:0002",
+        "01E7:0CAA",
+        "0207:022A",
+        "0207:17A0",
+        "0207:08D8",
+        "01F7:F07B",
+        "01F7:106A"
+      ],
+      "auxiliary_call_interpretations": {
+        "0207:08D8": "VGA mode-13h/framebuffer setup and clear; no WOLKE descriptor selection",
+        "01F7:F07B": "DOS INT 21h/AH=25h installation of interrupt vector 08h; no sprite draw",
+        "01F7:106A": "object update/list pass that can clear callbacks; no direct WOLKE blitter call"
+      },
+      "completion_effect_consumer": {
+        "entry": "01D7:14E1",
+        "call_site": "01D7:4F0D",
+        "gate": "01D7:4EA0 -> 4EAA requires DS:89E6 != 0",
+        "all_seven_branch": "01D7:1670 -> 16C6-1704",
+        "transition_flag": "DS:85DB=1"
+      },
+      "presentation_wait_helper": {
+        "entry": "0207:10A9",
+        "poll_loop": "0207:10CB-110D",
+        "return": "0207:1113",
+        "timer_global": "DS:97F4",
+        "hardware": "PIT channel 0 via ports 43h and 40h",
+        "behavior": "Samples the PIT twice when the count matches DS:97F4, reloads the timer divisor 0x03E8 when still equal, and returns after storing a changed count."
+      },
+      "completion_transition_handoff": {
+        "caller_gate": "01D7:4F10 tests DS:85DB and branches to 01D7:4FAF",
+        "selector_mapping": "01D7:4FAF copies DS:85D4 to DS:85D6 and maps the next selector index to 0x10-0x14",
+        "reload_setup": ["01D7:5017", "01D7:5038", "01D7:503D", "01D7:5042", "01D7:5047"],
+        "relocated_targets": {
+          "01D7:5017": "01F7:0908 (bounded transition delay loop)",
+          "01D7:5038": "0227:0D5A (0x400-byte far-memory copy into the transition buffer)",
+          "01D7:503D": "01F7:1AAA",
+          "01D7:5042": "01F7:321F",
+          "01D7:5047": "01D7:313D (local rebuild/dispatch call)"
+        },
+        "downstream_contracts": {
+          "01D7:5010_gate": "DS:89E0 == 0xFFFF skips 5017-5047 and continues at 504F; any other value enters the reload setup.",
+          "01F7:0908": "stack-frame delay/transition loop: calls 0227:05CD once, then calls 01F7:0931 for counter values 0..0x3E7 before returning.",
+          "0227:0D5A": "far memcpy used by 5038; copies 0x400 bytes from SS:BP-0x400 into the far destination pointer loaded from DS:60E4.",
+          "01F7:1AAA": "repositions the live player from DS:8828/882A indexed by DS:85D2, reinstalls callback 01F7:3F27, clears DS:89EA, and calls 01F7:5D38.",
+          "01F7:321F": "rebuilds camera/map streaming state from the player position, calls 01F7:31D1 for camera clamping and 01F7:20AF for fixed-point camera publication, then calls the VGA/map refresh helper 01F7:3062 and 01F7:17AE.",
+          "01D7:313D": "resets DS:88AE, dispatches the next world/selector stage through DS:85D4 (constructors A101/B115/B9C6/C25E/CC3B/D2CA and related effect setup), and returns via 3212."
+        },
+        "controlled_runtime": "A debugger-only release of the presentation PIT/input/audio waits reached 01D7:4F10 and 01D7:4FAF and advanced DS:85D4 to 0x10; the downstream reload calls were not reached in the synthetic W1L1 fixture.",
+        "remaining": "Capture the same handoff in a fully authored all-seven-letter level or identify the exact DS:89E0/transition resource state that permits 5017-5047 to execute."
+      },
+      "bob_resource_loader": {
+        "loader": "01D7:399E",
+        "slot_map_helper": "01F7:05A0",
+        "descriptor_table": "DS:6D8A, 0x2C-byte records",
+        "logical_slot_map": "DS:6D8E",
+        "static_behavior": "05A0 scans for the first empty descriptor record and publishes its index for the supplied logical BOB slot; 399E then reads BOB descriptor fields into that record.",
+        "interpretation": "WOLKE.BOB slot materialization is generic resource-loader state, not a hardcoded 0013 caller. The specific WOLKE slot argument and the later pixel-draw caller remain unresolved."
+      },
+      "interpretation": "The positive cloud flag path performs the outer gameplay/effect work, calls the completion/effect consumer at 01D7:14E1 through 01D7:4F0D, and then enters the normal object update/render pass; it does not directly call a WOLKE.BOB blitter."
+    },
+    "callback_state_chain": {
+      "initializer": "01F7:9256 installs callback 01F7:9269, sets object+0x12=0xFFFF, and clears object+0x2A",
+      "callback": "01F7:9269",
+      "relocations": [
+        {
+          "call_site": "01F7:9269",
+          "target": "01F7:1DCA",
+          "meaning": "camera-visibility gate"
+        },
+        {
+          "call_site": "01F7:9270",
+          "target": "01F7:1DEE",
+          "meaning": "off-camera deactivation path"
+        },
+        {
+          "call_site": "01F7:9276",
+          "target": "01F7:393C",
+          "meaning": "player-bounds helper"
+        },
+        {
+          "call_site": "01F7:92B6",
+          "target": "01F7:5D38",
+          "meaning": "MAP/collision helper"
+        }
+      ],
+      "interpretation": "The relocation-resolved callback is a camera-gated cloud state machine with explicit deactivation, player-range, and MAP/collision helper edges. It is not a direct WOLKE.BOB draw routine; the world-specific descriptor selection and pixel-draw producer remain outside this callback chain."
+    },
+    "normal_queue": {
+      "object_update_queue": "01F7:0FDC",
+      "object_render_dispatch": "01F7:1024",
+      "queue_append": "01F7:34BC",
+      "queue_draw_pass": "01F7:3587",
+      "logical_slot_renderer": "01F7:3529",
+      "skip_condition": "object+0x12 == 0xFFFF or mapped slot has the high bit set",
+      "generic_vga_bob_entry": "01F7:0013",
+      "interpretation": "The normal queue explicitly excludes the cloud object because its logical slot is FFFF. The generic VGA/BOB entry is a real blitter, but it is reached from ordinary DS:6D86 queue entries."
+    },
+    "dynamic_validation": {
+      "trace": "research/build/entity-28-cloud-hardware-renderer-256.json",
+      "trace_sha256": "9ec1d2af6dce664e2ab1a5d10245c55c683daca1a5ff26d2be09914ade961048",
+      "samples": 256,
+      "unique_call": {
+        "entry": "01F7:0013",
+        "return": "01F7:35B8",
+        "logical_slot": 0,
+        "position": [128, 400],
+        "interpretation": "The controlled probe repeatedly observed the ordinary queue draw, not a WOLKE slot 413-416 call."
+      },
+      "queue_boundary_probe": {
+        "trace": "research/build/entity-28-cloud-outer-queue-targeted.json",
+        "trace_sha256": "127e4f0ce0c85b56bce5d5dd7756a43c469dd89b400cfaaa17b6a0cfcf1c6c0f",
+        "script_sha256": "1d5cc518e3872c6aaadd7e1c4bf5b703e430f7e1dd9599bc036aa65a1d68fa55",
+        "samples": 64,
+        "hit": "01F7:34BC",
+        "return": "01F7:1029",
+        "incoming": {"x": 128, "y": 400, "logical_slot": 0, "flags": 0},
+        "cloud_global_89e6": 65535,
+        "interpretation": "Every captured queue append came from the ordinary object renderer, not from a WOLKE-specific explicit queue entry; the cloud remained logical slot FFFF while DS:89E6 was set."
+      },
+      "extended_hardware_probe": {
+        "trace": "research/build/entity-28-cloud-hardware-renderer-512.json",
+        "trace_sha256": "f34c4fc0339dbd20b1e302817157b7167efde32df4d71203f5121f0908ce60f5",
+        "script_sha256": "0d73213eb8598c832e387c79ad6544a55c31923dc01039d3205fde2da9f45f15",
+        "samples": 512,
+        "entry": "01F7:0013",
+        "return": "01F7:35B8",
+        "unique_parameters": {"flags": 0, "logical_slot": 0, "y": 400, "x": 128},
+        "unique_map_index": 0,
+        "interpretation": "A longer controlled blitter trace still observes only the ordinary slot-0 queue draw; no WOLKE slot 413-416 argument reaches 0013."
+      },
+      "wolke_descriptor_map_probe": {
+        "trace": "research/build/entity-28-cloud-hardware-wolke-descriptors-current.json",
+        "trace_sha256": "4fad16ee917d9966ae9896d2a020d035dec60e2794da1b763acd1e27d442e957",
+        "trace_script_sha256": "6a3b2d96e4718998e6b9febc2baf45b376b9a2e312200eee3c7ddf33391c3813",
+        "wolke_slots": {"413": 65535, "414": 65535, "415": 65535, "416": 65535},
+        "ordinary_control": {"logical_slot": 700, "map_index": 153, "return": "01F7:35B8"},
+        "interpretation": "A live special-state fixture leaves every WOLKE logical slot unmapped in DS:6D8E while the same 01F7:0013 hook receives an ordinary mapped draw. This is a stronger ordinary-queue negative boundary, but does not identify the alternate WOLKE primitive."
+      },
+      "outer_pass_target_probes": {
+        "trace_script_sha256": "a4b90acdcaf1faa42dfd7ee2f02471eccf80bebc1ef7beaba1aae4a6f2380f8d",
+        "targets": {
+          "01F7:106A": {"trace": "research/build/entity-28-cloud-outer-target-106a.json", "trace_sha256": "0b73f82e6be048463791709a708008fe2bf1c553b039799d33649ec201084a8d", "samples": 64, "queue_count": 0, "cloud_global_89e6": 0},
+          "01F7:17D4": {"trace": "research/build/entity-28-cloud-outer-target-17d4.json", "trace_sha256": "5dd2920370b5fb4a9a55e5ea69475d75a881d1e06d88d512a316a032b7ee4edd", "samples": 64, "cloud_global_89e6": 0},
+          "01F7:1997": {"trace": "research/build/entity-28-cloud-outer-target-1997.json", "trace_sha256": "85aafb9f5aadcb7b47491408a9ae4da3a790dae274dccc970742139b86d1fb0e", "samples": 64, "object_slot": 700, "object_offset": 120, "cloud_global_89e6": 0},
+          "01F7:3529": {"trace": "research/build/entity-28-cloud-outer-target-3529.json", "trace_sha256": "a6baaf2a0e4c8ba46ceb458da2dd5e938511814807f9b665c20145958a7d6077", "samples": 64, "object_slot": 703, "object_offset": 120, "cloud_global_89e6": 0}
+        },
+        "interpretation": "Single-target probes avoid breakpoint-capacity masking and show only ordinary scheduler/render objects at 106A, 17D4, 1997, and 3529. The cloud's FFFF object never enters this secondary render path."
+      }
+    },
+    "conclusion": "The generic VGA/BOB blitter and ordinary queue are now statically identified. The generic BOB loader 01D7:399E -> 01F7:05A0 materializes logical slots through DS:6D8A/DS:6D8E, while the direct-caller census finds only the ordinary queue caller for 01F7:0013 (01F7:35B3 -> return 35B8) and no additional direct near-call form. The relocation-resolved WOLKE callback chain now closes its camera, deactivation, player-bounds, and MAP/collision edges (01F7:9269 -> 01F7:1DCA/1DEE/393C/5D38). The targeted queue-boundary trace captures only ordinary 01F7:1024 -> 34BC appends; WOLKE's specific descriptor argument and later pixel-draw caller remain unresolved, with indirect or alternate-primitive paths still possible."
+  },
+  "effect_table": {
+    "reset": "01F7:44FF",
+    "spawn": "01F7:4519",
+    "update": "01F7:45AB",
+    "remove": "01F7:470C",
+    "active_count": "DS:8806",
+    "capacity": "DS:8808",
+    "coordinate_table": "DS:87DE, shared x/y entry storage",
+    "pending_effect_counter": "DS:880C is decremented by the spawn path and consumed by 01D7:14E1",
+    "spawn_guard": "01F7:4519 first requires either DS:88AE > 0 or DS:880C > 0; it then requires DS:8806 < DS:8808. Static writer and asset correlation now identify DS:88AE as a boss/end-sequence stage gate, not a Wind/UFO declaration flag.",
+    "effect_stage_gate_static_writers": {
+      "reset_to_zero": ["01D7:3147"],
+      "set_to_one": ["01F7:A101", "01F7:B115", "01F7:C25E", "01F7:CC3B"],
+      "other_state_writes": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:D60B increment"],
+      "asset_correlation": {
+        "logical_slots": ["0x385", "0x3B7"],
+        "archives": ["END1.BOB", "END3.BOB", "END4.BOB", "END5.BOB"],
+        "method": "archive record scan via research/tools/quikyctl.py find_archive_bob_slots",
+        "meaning": "The slots toggled by the gate-writing callbacks are end-sequence sprite records, with world-specific END archives rather than WIND.BOB/UFO.BOB records."
+      },
+      "state_machine_correlation": {
+        "stage_initializers": ["01F7:A101", "01F7:B115", "01F7:C25E", "01F7:CC3B"],
+        "constructors": ["01F7:B142", "01F7:B9F3", "01F7:C28A", "01F7:CC68", "01F7:D2F6"],
+        "callbacks": {
+          "W1": {"main": "01F7:B33B", "damage": "01F7:B25D", "states": "0/1 movement -> 2 helper kill -> 3 effect loop -> 4 exit -> 5 child replacement"},
+          "W2": {"main": "01F7:BBEC", "damage": "01F7:BB0E", "states": "0/1 movement -> 2/3 transition/effect -> 4/5 exit"},
+          "W3": {"main": "01F7:C40B", "damage": "01F7:C328", "states": "0-3 movement/transition -> 4 helper destroy -> 5 effect loop -> 6 replacement"},
+          "W4": {"main": "01F7:CE81", "damage": "01F7:CDA3", "states": "0/1 movement -> 2-4 transition/effect -> 5 replacement"},
+          "W5": {"main": "01F7:D63D", "damage": "01F7:D55A", "states": "0-2 movement -> 4/5 effect -> 6 replacement"}
+        },
+        "observed_roles": "Each world-specific constructor allocates pooled child/helper records, installs an END callback, and seeds a world-specific slot/velocity. All five damage callbacks use the same strict DS:87DE overlap band (x -15..+15, y -25..+5); consumed-hit thresholds are W1=5, W2=6, W3=5 with counter reset, W4=6, and W5=4 with counter reset. Main callbacks then advance the stage through movement, helper destruction, effect emission, exit, and replacement states.",
+        "runtime_probe": "research/entity-boss-stage-evidence.json records both the native W1L4 stage initializer/END child topology and a controlled callback-path run. The controlled run rewrites one live A234 child to B25D, seeds matching DS:87DE rows, observes five native hit cycles and B30E, then promotes the record to B33B and captures B61A, B791, B824, and the post-write B84C return with DS:88AE=5. Callback execution uses CS 01F7 while scheduler records retain segment 0x1997.",
+        "confidence": "high for static world-specific state machines, pooled topology, and the controlled W1 callback progression; medium for authored transition timing and damage/completion producers"
+      },
+      "pending_counter_static_writers": {
+        "increment_sites": [
+          {"site": "01F7:8D70", "operation": "add 0x000A", "context": "shared 8D20 collectible subtype 1 branch; native type 0x6F/WERBE overlap evidence observes DS:880C 0 -> 10"},
+          {"site": "01F7:1950", "operation": "increment while below 0x63", "context": "01F7:18D4 dedicated-effect queue collision/dispatch path"}
+        ],
+        "consumers": ["01F7:4519 decrements unless DS:88AE is nonzero", "01D7:14E1 reads/consumes the pending count", "01F7:5B9A reads it for the HUD/status path"],
+        "interpretation": "DS:880C is an independent pending-effect budget. It can open the 4519 guard without advancing the boss/end-stage byte DS:88AE; its authored producers and exact relation to the player 38EC trigger still need a combined runtime trace."
+      },
+      "interpretation": "Raw segment disassembly and END archive correlation bind DS:88AE to the boss/end-sequence stage machine: 01D7:3147 resets it, world-specific pooled constructors seed stage 1, and the recovered callbacks mutate stage through world-specific movement/effect/exit/replacement states. Native W1L4 runtime confirms the END child topology and DS:88AE=1; the controlled B25D->B33B probe confirms the native W1 progression through B30E/B61A/B791/B824 and DS:88AE=5. The controlled rewrite is not evidence of the retail producer that supplies damage rows or completion state. DS:880C is separate pending-effect state with known collectible/dedicated-effect increment sites. The ordinary W1L1 player-triggered 4519 allocation therefore fails legitimately with both gates clear; remaining work is the authored completion/damage transition and correlation of pending-effect producers with Wind/UFO row producers."
+    },
+    "producer": "01F7:38EC conditionally calls the pooled-object factory 01F7:0E06 with AX=0x4519 when the player object has flags bit 0x10 and byte +0x3C is clear; 01F7:4519 then claims one shared row and installs 01F7:45AB when its DS:88AE/DS:880C guard passes.",
+    "reset_callers": ["01D7:3FC6 (unclassified level-state routine)", "01D7:44E9 from 01D7:44D0"],
+    "interpretation": "Shared transient effect/contact table. Wind, UFO, and normal-effect callbacks scan the table for matching x/y entries and clear rows through the remove path; the reset path clears the table storage and restores the active-count state. The first authored factory producer is the player-update tail at 01F7:38EC, but an unmutated W1L1 scheduler probe shows 01F7:4519 immediately clearing its new object because DS:88AE=0 and DS:880C=0. A debugger-only DS:88AE=1 probe then reaches 01F7:45AB and updates the claimed row, proving the scheduler/list handoff and callback chain. Static writer/asset evidence now identifies DS:88AE as a boss/end-sequence stage gate; Wind/UFO-specific row producers and the authored completion transition remain open."
+  },
+  "wind": {
+    "initializer": "01F7:87D1",
+    "callback": "01F7:882F",
+    "states": {
+      "0": "horizontal travel with directional MAP block checks and a 0x51-tick travel phase",
+      "1": "bounded deceleration/acceleration after a block or travel timeout",
+      "2": "short vertical phase with a 0x2E-tick timer",
+      "3": "return phase that clamps velocity and returns to state 0"
+    },
+    "interaction": "The shared DS:8806/DS:87DE effect table is scanned with a 10-pixel x and 35-pixel y band and clears a matching table entry; it emits no DS:612E sound action directly.",
+    "removal": "The shared visibility gate clears object+0x18 off camera.",
+    "remaining": ["authored producers and reset/respawn behavior outside the shared table lifecycle"]
+  },
+  "ufo_effect": {
+    "common_setup": "01F7:53F7",
+    "callback": "01F7:546D",
+    "states": {
+      "0": "horizontal patrol with +/-0x14 MAP probes and timer-driven direction changes",
+      "1": "vertical/sine phase entered by the player-range gate",
+      "2": "bounded transition phase",
+      "3-4": "return/acceleration phases with fixed timers",
+      "5-6": "exit phase; camera rejection clears object+0x18 at 01F7:58A0"
+    },
+    "interaction": "The shared DS:8806/DS:87DE effect table is scanned with a directional 0x23-0x28 x band and a 0x19..0x05 y band. A second matching entry selects callback 01F7:4AB3; otherwise the callback emits sound action DS:612E=0x0D.",
+    "remaining": ["authored producers and reset/respawn behavior outside the shared table lifecycle"]
+  },
+  "paper": {
+    "initializer": "01F7:8C4E",
+    "callback": "01F7:8D20",
+    "subtype": 5,
+    "interaction": "The shared overlap branch adds 500 to DS:881C, emits sound action DS:612E=0x0C, increments the bounded DS:880A counter (capped at 9), and clears object+0x18. Static consumers show 01D7:1084 initializes it from DS:88B0+3 and 01F7:5936 renders changed values.",
+    "dynamic_validation": {
+      "trace": "research/build/entity-2c-paper-counter-camera.json",
+      "trace_sha256": "e3ced790d363f3ed36d25eb0d00d7807e5d5dc2e9d01fac1da5b7e7c771999de",
+      "fixture": "W1L1 main-tree entity-2c evidence fixture",
+      "observation": "The runtime captured initializer 01F7:8C4E followed by 01F7:8D20 with DS:880A=4 before and after; this controlled anchor did not enter the overlap-effect branch, so the increment is retained from the existing W1L2 overlap ledger and static branch decompile."
+    },
+    "remaining": ["human-facing label of the bounded DS:880A HUD counter", "respawn/persistence across authored reloads"]
+  },
+  "dedicated_events": {
+    "wrappers": {"0x65": "01F7:178D -> subtype 0x00", "0x66": "01F7:1798 -> subtype 0x08", "0x67": "01F7:17A3 -> subtype 0x10"},
+    "creator": "01F7:1749",
+    "child_callback": "01F7:10B5",
+    "renderer": "01F7:1186 -> 01F7:11B4",
+    "lifetime": "The pooled child decrements +0x2C each update and clears object+0x18 at zero.",
+    "remaining": ["human-facing semantic names for the three visual subtypes"]
+  }
+}

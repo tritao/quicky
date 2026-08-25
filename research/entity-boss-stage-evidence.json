@@ -1,0 +1,396 @@
+{
+  "schema": "quiky-entity-boss-stage-evidence-v1",
+  "purpose": "Recover pooled world-boss/end-stage constructors, callback state machines, and the DS:88AE stage gate used by faithful entity behavior recreation.",
+  "inputs": {
+    "executable": {
+      "path": "game/QUIKY.EXE",
+      "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
+    },
+    "archive": {
+      "path": "game/NESTLE.DAT",
+      "sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2"
+    },
+    "segment_01": {
+      "path": "/tmp/quiky-segments/QUIKY_SEG01.bin",
+      "sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6"
+    },
+    "segment_03": {
+      "path": "/tmp/quiky-segments/QUIKY_SEG03.bin",
+      "sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf"
+    },
+    "segment_03_decompile": {
+      "path": "/tmp/quiky-ghidra-boss-expanded-20260824/out/QUIKY_SEG03.bin-boss.c",
+      "sha256": "e642e140ddb8a4e1119918d9b68152f5523486f0d54542c293ebb9be7d0a15ed"
+    }
+  },
+  "static_recovery": {
+    "pool": {
+      "allocator": "01F7:0E06",
+      "scheduler_insert": "01F7:1036",
+      "stride": "0x78",
+      "interpretation": "World bosses are pooled callbacks. They do not appear as ordinary ARE dispatch entries; constructors allocate a record, install a callback, link child/helper records, and publish an END sprite slot."
+    },
+    "stage_gate": {
+      "global": "DS:88AE",
+      "reset": "01D7:3147",
+      "set_to_one_sites": ["01F7:A101", "01F7:B115", "01F7:B9C6", "01F7:C25E", "01F7:CC3B", "01F7:D2CA"],
+      "other_state_writes": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:BBBF", "01F7:BED1", "01F7:C048", "01F7:C0DB", "01F7:C7B3", "01F7:C8D4", "01F7:C92C", "01F7:CE54", "01F7:D0A8", "01F7:D207", "01F7:D2A1", "01F7:DA69", "01F7:DB8A", "01F7:DBE2"],
+      "writer_census": {
+        "method": "Raw segment-3 opcode scan for byte writes C6 06 AE 88 imm8 and increments FE 06 AE 88, cross-checked against the world-specific constructor/callback ranges; segment-1 scan confirms the level-state reset.",
+        "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+        "segment1_sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6",
+        "worlds": {
+          "W1": {
+            "initializer": {"01F7:A101": 1, "01F7:B115": 1},
+            "state_writes": {"01F7:B30E": 2, "01F7:B61A": 3, "01F7:B791": 4, "01F7:B824": 5}
+          },
+          "W2": {
+            "initializer": {"01F7:B9C6": 1},
+            "state_writes": {"01F7:BBBF": 2, "01F7:BED1": 3, "01F7:C048": 4, "01F7:C0DB": 5}
+          },
+          "W3": {
+            "initializer": {"01F7:C25E": 1},
+            "increment_writes": {"01F7:C3D9": "3 -> 4"},
+            "state_writes": {"01F7:C7B3": 4, "01F7:C8D4": 5, "01F7:C92C": 6}
+          },
+          "W4": {
+            "initializer": {"01F7:CC3B": 1},
+            "state_writes": {"01F7:CE54": 2, "01F7:D0A8": 3, "01F7:D207": 4, "01F7:D2A1": 5}
+          },
+          "W5": {
+            "initializer": {"01F7:D2CA": 1},
+            "increment_writes": {"01F7:D60B": "3 -> 4"},
+            "state_writes": {"01F7:DA69": 4, "01F7:DB8A": 5, "01F7:DBE2": 6}
+          }
+        },
+        "reset": {"01D7:3147": 0},
+        "interpretation": "The complete static writer set is world-specific and matches the recovered callback state machines. W3 and W5 advance from stage 3 to 4 with an increment instruction rather than an immediate store; the remaining stage values are immediate stores. No Wind/UFO callback appears in this writer set."
+      },
+      "interpretation": "The byte is an authored boss/end-sequence stage gate. It is independent of the pending-effect budget DS:880C; 01F7:4519 accepts either gate, but the two values do not advance together."
+    },
+    "damage_row_contract": {
+      "callbacks": ["01F7:B25D", "01F7:BB0E", "01F7:C328", "01F7:CDA3", "01F7:D55A"],
+      "table": {"base": "DS:87DE", "row_stride": 4, "active_count": "DS:8806", "capacity": "DS:8808", "cursor_field": "object+0x2A", "cursor_behavior": "One row is selected per callback, the cursor advances, and it wraps after the capacity."},
+      "overlap_band": "strict boss_x-15 < row_x < boss_x+15 and boss_y-25 < row_y < boss_y+5; all five world callbacks use the same DS:87DE comparison",
+      "consumed_hits_before_stage_transition": {"W1": 5, "W2": 6, "W3": 5, "W4": 6, "W5": 4},
+      "counter_reset_after_transition": ["W3", "W5"],
+      "evidence": "/tmp/quiky-ghidra-boss-expanded-20260824/out/QUIKY_SEG03.bin-boss.c"
+    },
+    "worlds": [
+      {
+        "world": "W1",
+        "constructor": "01F7:B142",
+        "main_callback": "01F7:B33B",
+        "damage_callback": "01F7:B25D",
+        "initializer": {
+          "main_slot": "0x3B7",
+          "child_links": ["+0x2A", "+0x36"],
+          "velocity_x_fixed": "-0x9000",
+          "damage_threshold": ">4 hits (5 consumed hits)"
+        },
+        "states": {
+          "0-1": "movement/attack",
+          "2": "kill helper child, choose slot 900/0x3B6, write stage 3",
+          "3": "emit effects; after 16 cycles write stage 4",
+          "4": "vertical/exit and off-camera clearing",
+          "5": "spawn or reuse child"
+        }
+      },
+      {
+        "world": "W2",
+        "constructor": "01F7:B9F3",
+        "main_callback": "01F7:BBEC",
+        "damage_callback": "01F7:BB0E",
+        "initializer": {
+          "main_slot": "0x10E",
+          "velocity_x_fixed": "-0x7000",
+          "damage_threshold": ">5 hits (6 consumed hits)"
+        },
+        "states": {
+          "0-1": "movement/attack",
+          "2-3": "transition and effect phase",
+          "4-5": "exit/replacement lifecycle"
+        }
+      },
+      {
+        "world": "W3",
+        "constructor": "01F7:C28A",
+        "main_callback": "01F7:C40B",
+        "damage_callback": "01F7:C328",
+        "initializer": {
+          "main_slot": "0x3B7",
+          "child_links": ["+0x36", "+0x46"],
+          "velocity_x_fixed": "-0x13000",
+          "damage_threshold": ">4 hits (5 consumed hits); stage increments and counter resets"
+        },
+        "states": {
+          "0-3": "movement/attack and transition",
+          "4": "destroy helper",
+          "5": "emit effects after 16 cycles",
+          "6": "exit/off-camera and spawn replacement"
+        }
+      },
+      {
+        "world": "W4",
+        "constructor": "01F7:CC68",
+        "main_callback": "01F7:CE81",
+        "damage_callback": "01F7:CDA3",
+        "initializer": {
+          "main_slot": "0x3B7",
+          "child_links": ["+0x2A", "+0x36"],
+          "velocity_x_fixed": "-0x9000",
+          "velocity_y_fixed": "-0x9000",
+          "damage_threshold": ">5 hits (6 consumed hits)"
+        },
+        "states": {
+          "0-1": "movement/attack",
+          "2-4": "transition/effect phases",
+          "5": "exit/replacement lifecycle"
+        }
+      },
+      {
+        "world": "W5",
+        "constructor": "01F7:D2F6",
+        "main_callback": "01F7:D63D",
+        "damage_callback": "01F7:D55A",
+        "initializer": {
+          "main_slot": "0x3B6",
+          "child_links": ["+0x2A", "+0x36", "+0x48"],
+          "velocity_x_fixed": "-0x13000",
+          "velocity_y_fixed": "-0x370000",
+          "damage_threshold": ">3 hits (4 consumed hits); stage increments and counter resets"
+        },
+        "states": {
+          "0-2": "movement/attack",
+          "4-5": "effect/transition phases",
+          "6": "exit and replacement children"
+        }
+      }
+    ],
+    "cross_world_variants": "World-specific constructors use different slots, velocities, child links, damage thresholds, and state counts; the shared pattern is a pooled callback with movement/attack, damage-triggered transition, effect emission, exit, and child replacement."
+  },
+  "runtime_w1l4_probe": {
+    "trace": "research/build/player-w1l4-boss-stage-focus-v5.json",
+    "trace_sha256": "4525ec8eae355156604fffb205dcf68a33caa00279073f7d8522b82af8829bea",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "9462720cc9f476d4223c18758f276ab16779c84a50cc30280257e325b76cecc4",
+    "fixture": "Native main-tree W1L4 selected through the in-game level selector",
+    "observed": {
+      "initial_globals": {
+        "DS:88AE": 0,
+        "DS:880C": 0,
+        "camera": [0, 262]
+      },
+      "stage_initializer_entry": "01F7:A101",
+      "callback_execution_segment": "01F7",
+      "scheduler_callback_segment": "0x1997",
+      "callback_events": [
+        {"callback": "01F7:A39B", "pool_offset": "0x1E0", "phase": 1, "slot": "0xFFFF", "position": [224, 386]},
+        {"callback": "01F7:A234", "pool_offset": "0x078", "phase": 1, "slot": "0x385", "position": [224, 216], "velocity_y_fixed": "0x6000", "bytes_36_37": [104, 1]},
+        {"callback": "01F7:A1F8", "pool_offset": "0x0F0", "phase": 2, "state_field": 10, "slot": "0xFFFF", "position": [230, 187]},
+        {"callback": "01F7:A213", "pool_offset": "0x168", "phase": 2, "slot": "0xFFFF", "position": [255, 216]},
+        {"callback": "01F7:A3CB", "pool_offset": "0x1E0", "phase": 1, "slot": "0x2C7", "position": [224, 386], "velocity_y_fixed": "-0x4000"},
+        {"callback": "01F7:A228", "pool_offset": "0x0F0", "phase": 2, "state_field": 10, "slot": "0x388", "position": [230, 187]},
+        {"callback": "01F7:A22E", "pool_offset": "0x168", "phase": 2, "slot": "0x3AC", "position": [255, 216]}
+      ],
+      "final_globals": {
+        "DS:88AE": 1,
+        "DS:880C": 0,
+        "camera": [144, 246],
+        "effect_active_count": 0,
+        "effect_capacity": 4
+      },
+      "stage_writer_hits": 0,
+      "interpretation": "The authored W1L4 fixture enters the END child callback set with DS:88AE=1. The bounded run did not reach a later stage-writer breakpoint, so it proves the active END callback topology and gate value, not the full timed transition sequence."
+    }
+  },
+  "runtime_controlled_damage_probe": {
+    "trace": "research/build/player-w1l4-boss-damage-promotion-complete.json",
+    "trace_sha256": "62ba912cb1d514e93921445cff54b77409395ac029627985c5ea615b27312fe3",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "869708a5bfceecd79c4703b2b79fff302b8011f0f7b07f9d120d814eccf60eff",
+    "fixture": "Native W1L4 END pool; debugger replaces the live A234 child callback with the original W1 B25D damage callback, seeds matching DS:87DE rows, then promotes that same record to B33B after the native stage-2 write.",
+    "observed": {
+      "damage_cycles": 5,
+      "damage_callback": "01F7:B25D",
+      "damage_return": "01F7:B33A",
+      "row_matching": "B25D consumed five coordinate rows at the live object position; the row x word was cleared and object+0x2C advanced from 0 through 5.",
+      "stage_writers": [
+        {"site": "01F7:B30E", "before": 1, "after": 2},
+        {"site": "01F7:B61A", "before": 2, "after": 3},
+        {"site": "01F7:B791", "before": 3, "after": 4},
+        {"site": "01F7:B824", "before": 4, "after": 5}
+      ],
+      "main_callback": "01F7:B33B",
+      "stage2_helper_action": "B33B cleared the +0x36 helper callback, toggled the END slot from 0x385 to 0x384, and reached B61A.",
+      "stage3_timing": "The reduced trace waited natively through the +0x38 timer and captured B791 after the +0x44 burst counter exceeded 0x0F; it did not breakpoint every identical frame callback.",
+      "stage5_return": "The post-write B84C return observed DS:88AE=5, callback 01F7:487F, and sprite slot 0xFFFF on the promoted record; the final pool active count was 4.",
+      "final_gate": 5
+    },
+    "interpretation": "This is controlled callback-path evidence, not an authored damage/completion run: the fixture deliberately rewrites one live A234 callback and seeds the shared row table. It proves that the recovered native W1 damage/main callbacks implement the five-hit gate and stage progression 1->2->3->4->5, including helper kill, effect-loop timing, exit, and post-stage child replacement. It does not identify the retail producer that delivers damage rows or the completion handoff into DS:85DB/DS:85D4."
+  },
+  "runtime_authored_input_probe": {
+    "trace": "research/build/player-w1l4-left-leftalt-boss-authored.json",
+    "trace_sha256": "9c19a55081fc86f32f48f0d421736a40f86cbb34039bf8bc61d423062d15e5e7",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "6e7b03cf6c8f97fac4b2326f19700fca82be4e91348d5f18924aded56a61a0bc",
+    "fixture": "Native main-tree W1L4 selected through the in-game level selector; requested input held during the boss-stage callback loop",
+    "input": "KBD_left and KBD_leftalt held together",
+    "observed": {
+      "stage_events": 8,
+      "stage_gate": "DS:88AE 0 -> 1 at the authored A101/END initialization",
+      "effect_row_window": "DS:8806=1 while END callbacks A228 and A22E are observed; DS:880C remains 0",
+      "final_effect_count": 0,
+      "damage_callback_hits": 0,
+      "stage_writer_hits": 0,
+      "stop_reason": "bounded boss-stage event wait timed out after the eight one-shot constructor/child targets"
+    },
+    "interpretation": "The player action can create a live shared effect row during the authored W1L4 END sequence, closing the authored row-creation boundary. No B25D damage callback or later stage writer appears in this bounded run, so spatial row delivery/consumption and the retail completion producer remain open."
+  },
+  "runtime_authored_damage_probe": {
+    "trace": "research/build/player-w1l3-left-leftalt-boss-warmup550.json",
+    "trace_sha256": "16a084baf2178e8d5ec1fb32a7fe822c3d577f0e6bcae2fd854eeea86a0bbf0e",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "9cac9c4395b2ffef1c2bbe544f506c7e5aec39908714cab426c55b203fb1fae6",
+    "fixture": "Native W1L3 selector with left warmup and held left-alt action; the probe waits 550 guest frames before arming the boss-stage breakpoints.",
+    "input": "KBD_left held during warmup; KBD_leftalt held during the authored callback loop",
+    "observed": {
+      "stage_gate": "DS:88AE 0 -> 1",
+      "damage_callback": "01F7:B25D",
+      "effect_row_window": "DS:8806=1 while B25D scans the live row table; DS:880C remains 0",
+      "row_match_clear": "01F7:B2B0 at event 202; the matching DS:87DE x word is cleared",
+      "hit_increment": "01F7:B2BA at event 203; the native boss +0x2C hit counter is 0 -> 1 by the callback return",
+      "post_hit": "B25D continues natively with DS:8806 returning to 0; no stage writer occurs in the 256-event window",
+      "stop_reason": "event_limit"
+    },
+    "interpretation": "This is the first unmodified authored row-to-boss delivery proof: a player-produced row passes the native W1 damage overlap band and increments the live boss hit counter. It does not yet prove repeated authored firing, the five-hit stage transition, or downstream completion/reload timing."
+  },
+  "runtime_authored_pulse_boundary_probe": {
+    "trace": "research/build/player-w1l3-left-alt-pulse60-boss-256.json",
+    "trace_sha256": "5047f5835dadc0a896f1b0ba9c1c166f6745b293ac4cd8e2f84a7b8c74d34b24",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "d4b7a81063a15e2d21282c7dc98ee11e087c0967503e9fffdab6a0aff71143c3",
+    "fixture": "Native W1L3 selector with 550-frame left warmup, left movement held, and left-alt action released/re-pressed every 60 boss breakpoint events",
+    "observed": {
+      "boss_events": 256,
+      "damage_match_clear": 1,
+      "damage_hit_increment": 1,
+      "stage_writer_hits": 0,
+      "final_effect_active_count": 4,
+      "effect_capacity": 4,
+      "final_stage_gate": 1
+    },
+    "interpretation": "Repeated native action pulses create pooled rows, but this bounded route fills the four-row table while only the first row reaches the strict W1 damage band. The result rules out input cadence alone as a repeated-hit solution; authored spatial positioning/camera timing remains the missing condition."
+  },
+  "runtime_spatial_lock_boundary_probe": {
+    "trace": "research/build/player-w1l3-spatial-lock-340-540-interval30-pulse30-256.json",
+    "trace_sha256": "53e5dd57e77a731e111aa8c7ae95667d3d63270544b06e54fe79c92bc41a98f1",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "50ab97b9776fd6774622819c424056299e10e6a71e667f2d1cda0d0642d7f084",
+    "host_tool_sha256": "518939ea10f89731cbaf994f74134bd24cd6456e2cceef3d0d80329f86df9e3d",
+    "fixture": "Native W1L3 selector with 550-frame left warmup; left-alt is released/re-pressed every 30 boss events; debugger locks only the live player position to X=340, Y=540 every 30 events.",
+    "mutation_scope": "Only the live player fixed-point position is written; boss callbacks, effect-table factory/scheduler/update/remove, and damage callbacks remain native.",
+    "observed": {
+      "boss_events": 256,
+      "damage_match_clear": 1,
+      "damage_hit_increment": 1,
+      "stage_writer_hits": 0,
+      "final_effect_active_count": 0,
+      "final_stage_gate": 1,
+      "position_lock_events": 8
+    },
+    "interpretation": "A fixed spatial point preserves the native row-to-boss path but still yields only one hit. Repeated authored progression therefore requires a moving platform/vertical route and timing relation, not a static player coordinate or action cadence alone."
+  },
+  "runtime_damage_target_lock_boundary_probe": {
+    "trace": "research/build/player-w1l3-native-target-lock-interval60-pulse60-256.json",
+    "trace_sha256": "f5efc7e48fe8f1bc8153a604a6f23b3b481d36db68a7f0911fb7f9097fee695e",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "1bad64e2cbbda916eeb2b3a91873ca5715cc58aaecd93918ed3ee0f4ce403df7",
+    "host_tool": "research/tools/quikytrace.py",
+    "host_tool_sha256": "486e9be31fbe3d08313a3e7fe2825ab8388c6b90d29f4d3eecb73914d0aaa884",
+    "fixture": "Native W1L3 selector with 550-frame left warmup, left-alt pulse every 60 boss events, and debugger alignment of the persistent player record to the live B25D damage target every 60 events.",
+    "mutation_scope": "Only the persistent player fixed-point position is written at selected damage breakpoints; the shared row producer, B25D consumer, boss movement, and stage callbacks remain native.",
+    "observed": {
+      "boss_events": 256,
+      "target_lock_events": 3,
+      "damage_match_clear": 1,
+      "damage_hit_increment": 1,
+      "stage_writer_hits": 0,
+      "final_effect_active_count": 0,
+      "final_stage_gate": 1,
+      "target_positions_locked": [[357, 551], [349, 563], [340, 561]]
+    },
+    "interpretation": "Following the native damage target preserves one strict row match but does not produce repeated hits. The remaining authored condition is not merely player-to-sensor spatial alignment; it includes the action-latch/row-spawn cadence and the moving route state that determines when fresh rows occupy the B25D overlap band. This diagnostic is debugger-only and does not model retail behavior."
+  },
+  "runtime_cross_world_reachability_probe": {
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "6e7b03cf6c8f97fac4b2326f19700fca82be4e91348d5f18924aded56a61a0bc",
+    "fixtures": [
+      {
+        "world": "W1",
+        "level": "W1L3",
+        "trace": "research/build/player-w1l3-boss-stage-focus.json",
+        "trace_sha256": "326eddf0f1636f9390b04c3b6c441cd57b70539fd0f586ea0f58edcc6537afbc",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:B142", "main_callback": "01F7:B33B", "damage_callback": "01F7:B25D", "main_slot": "0x3B7", "damage_slot": "0x3DE", "main_position": [580, 558], "damage_position": [548, 559], "damage_callback_events": 5}
+      },
+      {
+        "world": "W2",
+        "level": "W2L3",
+        "trace": "research/build/player-w2l3-boss-stage-focus.json",
+        "trace_sha256": "fd79fce3729ba5943de3a615217419f2b6e0d9c10767098419e128bfbd9bba41",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:B9F3", "main_callback": "01F7:BBEC", "damage_callback": "01F7:BB0E", "main_slot": "0x10E", "damage_slot": "0x3DE", "main_position": [450, 354], "damage_position": [417, 355]}
+      },
+      {
+        "world": "W3",
+        "level": "W3L3",
+        "trace": "research/build/player-w3l3-boss-stage-focus.json",
+        "trace_sha256": "4213759d193b884109ad6f674c822a658f3dd5d3f3700e2f648200e1fc8d038f",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:C28A", "main_callback": "01F7:C40B", "damage_callback": "01F7:C328", "main_slot": "0x3B7", "damage_slot": "0x3DE", "main_position": [580, 288], "damage_position": [546, 263]}
+      },
+      {
+        "world": "W4",
+        "level": "W4L3",
+        "trace": "research/build/player-w4l3-boss-stage-focus.json",
+        "trace_sha256": "d617b69fa72b49dcd084b048db40bd0edab51a48933731d325fcf765d15a8551",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:CC68", "main_callback": "01F7:CE81", "damage_callback": "01F7:CDA3", "main_slot": "0x3B7", "damage_slot": "0x3DE", "main_position": [600, 316], "damage_position": [568, 287]}
+      },
+      {
+        "world": "W5",
+        "level": "W5L3",
+        "trace": "research/build/player-w5l3-boss-stage-focus.json",
+        "trace_sha256": "8fa126c9e07d79d3dee7b97373eca9749bf5a4bb2a2d9f0031d161a65bbe1402",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:D2F6", "main_callback": "01F7:D63D", "damage_callback": "01F7:D55A", "main_slot": "0x3B6", "damage_slot": "0x3DE", "main_position": [720, 298], "damage_position": [686, 269]}
+      }
+    ],
+    "interpretation": "Native boss selectors for all five worlds reach their world-specific constructor, main callback, and damage callback with stage gate 1. The idle traces do not show coordinate-row matches or stage progression, so they establish runtime callback reachability and resource slots, not authored hit delivery or death ordering."
+  },
+  "runtime_authored_row_contract_probe": {
+    "trace": "research/build/player-w1l3-boss-row-contract-exec.json",
+    "trace_sha256": "fa061b24d24db9ff16380afd28624ffa4cea4e49c4ad2dfb4861c43e93c4ddcb",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "fb0c0049d566829bba8b12cd96758287c68600ef81a264b56377c0d488b87525",
+    "fixture": "Native W1L3 selector with left warmup 550 frames and held left-alt action; 64 boss callback events with DS:87DE row snapshots.",
+    "observed": {
+      "capacity": 4,
+      "active_count": 1,
+      "cursor_before_after": [[1, 2], [2, 3], [5, 1], [4, 5]],
+      "row_snapshots": [
+        {"event": 9, "boss": [365, 554], "row0": [1, 0], "match": false},
+        {"event": 12, "boss": [364, 554], "row0": [148, 479], "match": false},
+        {"event": 21, "boss": [363, 552], "row0": [160, 477], "match": false},
+        {"event": 63, "boss": [357, 551], "row0": [216, 490], "match": false}
+      ],
+      "stage_gate": 1,
+      "stage_writer_hits": 0,
+      "pending_effect_count": 0
+    },
+    "interpretation": "The authored row is present in the shared table and the native consumer advances/wraps its cursor as recovered statically. After the first authored hit, the bounded route leaves the fresh row outside the strict W1 overlap band, so no second hit or stage writer appears. The remaining gap is authored route/timing, not an unknown boss hitbox. Full normalized details are in entity-boss-authored-row-contract-evidence.json."
+  },
+  "remaining": [
+    "Capture repeated authored damage cycles through the W1-W5 thresholds and the unforced stage writers; one native W1 row-to-boss hit and the shared row cursor contract are now proven.",
+    "Capture the authored completion producer and downstream reload/resource handoff after the controlled DS:85DB -> 01D7:4F10-4FAF selector advance; 01D7:5017/5038/5047 remains unobserved dynamically.",
+    "Correlate DS:880C pending-effect increments with Wind/UFO row producers and the player 01F7:38EC trigger.",
+    "Resolve WOLKE-specific rendering/descriptor selection after the 01D7:4EA0 consumer."
+  ],
+    "confidence": "Static world-specific state machines, the shared all-world damage-row contract, and the controlled W1 callback progression are high-confidence raw-segment/runtime recoveries. Native W1L4 confirms the pooled END topology and DS:88AE=1; repeated authored progression and cross-world runtime timing remain open."
+}

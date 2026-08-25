@@ -1,0 +1,60 @@
+{
+  "schema": "entity-pickup-subtype-overlap-evidence-v1",
+  "purpose": "Controlled native overlap probes for pickup subtypes 0x70-0x72.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "callback": "01F7:8D20",
+    "overlap_helper": "01F7:8D31 -> 01F7:393C",
+    "controls": ["align_object_to_player", "align_y_offset=-32", "force_active_player_bounds", "trace_overlap"]
+  },
+  "probes": [
+    {
+      "type": "0x70",
+      "name": "extra_health_package",
+      "fixture": "W1L2",
+      "record_offset": "0x1758",
+      "trace": "research/build/entity-70-overlap.json",
+      "dispatch": "01F7:8BE5",
+      "post_initializer": "01F7:8BF1",
+      "sprite_slot": 608,
+      "subtype": 2,
+      "globals_before_after": {"DS:612E": [0, 9], "DS:881C": [0, 250], "DS:8822": [3, 4], "DS:8824": [3, 4]},
+      "callback_after": 0,
+      "sound_macro_byte": "0x69"
+    },
+    {
+      "type": "0x71",
+      "name": "health_upgrade",
+      "fixture": "W1L1",
+      "record_offset": "0x1704",
+      "trace": "research/build/entity-71-overlap.json",
+      "dispatch": "01F7:8C08",
+      "post_initializer": "01F7:8C14",
+      "sprite_slot": 609,
+      "subtype": 3,
+      "globals_before_after": {"DS:612E": [0, 10], "DS:881C": [0, 100]},
+      "callback_after": 0,
+      "sound_macro_byte": "0x69"
+    },
+    {
+      "type": "0x72",
+      "name": "temporary_invulnerability",
+      "fixture": "W1L1 synthetic selector anchor",
+      "record_offset": "0x1792",
+      "trace": "research/build/entity-72-overlap.json",
+      "dispatch": "01F7:8C2B",
+      "post_initializer": "01F7:8C37",
+      "sprite_slot": 610,
+      "subtype": 4,
+      "globals_before_after": {"DS:612E": [0, 12], "DS:881C": [0, 150]},
+      "callback_after": 0,
+      "sound_macro_byte": "0x69",
+      "conditional_side_call": "01F7:8DED -> 01F7:1A97 when DS:85D4 <= 15"
+    }
+  ],
+  "conclusions": [
+    "All three adjacent pickup subtypes use the same 8D20 overlap and clear branch.",
+    "Type 0x70 changes DS:881C by 250 and raises DS:8822/DS:8824 together; type 0x71 changes DS:881C by 100; type 0x72 changes DS:881C by 150 and has a level-index conditional side call.",
+    "Types 0x70 and 0x71 emit sound actions 9 and 10; type 0x72 emits sound action 12. Their human-facing catalog names are now backed by native global mutations."
+  ]
+}
