@@ -6,6 +6,7 @@ local common = assert(QUIKY_TRACE_COMMON, "QUIKY_TRACE_COMMON was not loaded")
 local patch_watch = assert(QUIKY_PATCH_WATCH, "QUIKY_PATCH_WATCH was not loaded")
 local breakpoint_controller = common.new_breakpoint_controller(dosbox)
 local patch_engine = patch_watch.new(dosbox, trace_config.patches or {})
+local execute_watches = trace_config.execute_watches or {}
 local timeout_ms = trace_config.timeout_ms or 30000
 local sample_count = trace_config.samples or 8
 local frames_between = trace_config.frames_between or 30
@@ -59,6 +60,11 @@ local collision_repeat_limit = trace_config.collision_repeat_limit or 3
 local trace_event_counter = 0
 local descriptor_census_done = false
 
+local function arm_breakpoint(owner, segment, offset, options)
+    return breakpoint_controller:arm(owner, segment, offset,
+                                     options or {once = true})
+end
+
 local player_record_size = 0x78
 
 local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
@@ -92,6 +98,7 @@ end
 local function wait_hit(label)
     local hit, err = dosbox.wait_for_breakpoint(timeout_ms)
     if not hit then error(label .. ": " .. (err or "timeout")) end
+    hit.breakpoint_owners = breakpoint_controller:consume(hit.segment, hit.offset)
     return hit
 end
 
@@ -501,10 +508,10 @@ end
 local function arm_callback_targets()
     for _, segment in ipairs({0x01d7, 0x01e7, 0x01f7, 0x0207, 0x0227, 0x0237,
                               0x1997}) do
-        dosbox.breakpoint_set(segment, focus_callback_offset, {once = true})
+        arm_breakpoint("callback", segment, focus_callback_offset)
     end
     if probe_release_emitter then
-        dosbox.breakpoint_set(0x01f7, 0x470c, {once = true})
+        arm_breakpoint("release-emitter", 0x01f7, 0x470c)
     end
 end
 
@@ -513,14 +520,13 @@ local function arm_property_targets(blocked)
         local key = address_key({segment = 0x01f7,
                                  offset = property_helper_offset})
         if not blocked or not blocked[key] then
-            dosbox.breakpoint_set(0x01f7, property_helper_offset,
-                                  {once = true})
+            arm_breakpoint("property", 0x01f7, property_helper_offset)
         end
     else
         for _, offset in ipairs({0x5c27, 0x5cc3}) do
             local key = address_key({segment = 0x01f7, offset = offset})
             if not blocked or not blocked[key] then
-                dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                arm_breakpoint("property", 0x01f7, offset)
             end
         end
     end
@@ -533,7 +539,7 @@ local branch_offsets = {0x3d1e, 0x3d36, 0x3d40, 0x3d45, 0x3dd0,
 local function arm_branch_targets(exclude_offset)
     for _, offset in ipairs(branch_offsets) do
         if offset ~= exclude_offset then
-            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+            arm_breakpoint("branch", 0x01f7, offset)
         end
     end
 end
@@ -552,9 +558,9 @@ local function is_branch_return(offset)
 end
 
 local function clear_branch_targets()
-    dosbox.breakpoint_remove(0x01f7, branch_entry_offset)
+    breakpoint_controller:release("branch", 0x01f7, branch_entry_offset)
     for _, offset in ipairs(branch_offsets) do
-        dosbox.breakpoint_remove(0x01f7, offset)
+        breakpoint_controller:release("branch", 0x01f7, offset)
     end
 end
 
@@ -641,36 +647,37 @@ local function arm_targets()
         arm_callback_targets()
     end
     if map_focus then
-        dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+        arm_breakpoint("map", 0x01f7, 0x3376)
     end
     if collision_focus then
         for _, offset in ipairs(collision_offsets) do
-            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+            arm_breakpoint("collision", 0x01f7, offset)
         end
     end
     if property_focus then
         arm_property_targets()
     end
     if descriptor_census and not descriptor_census_done then
-        dosbox.breakpoint_set(0x01f7, 0x5cc3, {once = true})
+        arm_breakpoint("descriptor-census", 0x01f7, 0x5cc3)
     end
     if branch_focus then
-        dosbox.breakpoint_set(0x01f7, branch_entry_offset, {once = true})
+        arm_breakpoint("branch", 0x01f7, branch_entry_offset)
         arm_branch_targets()
     end
     if probe_spawn_emitter and not spawn_probe_done then
         -- 38EC is the post-update producer call site. The player callback
         -- rewrites object+0 before reaching it, so 3FF8 is too early.
-        dosbox.breakpoint_set(0x01f7, 0x38ec, {once = true})
+        arm_breakpoint("spawn-emitter", 0x01f7, 0x38ec)
     end
+    patch_watch.arm_execute_watches(breakpoint_controller, execute_watches)
     if focus_callback or map_focus or collision_focus or property_focus or branch_focus or
-       (descriptor_census and not descriptor_census_done) then
+       (descriptor_census and not descriptor_census_done) or #execute_watches > 0 then
         return
     end
-    dosbox.breakpoint_set(0x01f7, 0x0e96, {once = true})
-    dosbox.breakpoint_set(0x01f7, 0x0f3c, {once = true})
-    dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
-    dosbox.breakpoint_set(0x01f7, 0x3f27, {once = true})
+    arm_breakpoint("default-pool", 0x01f7, 0x0e96)
+    arm_breakpoint("default-kind-scan", 0x01f7, 0x0f3c)
+    arm_breakpoint("default-map", 0x01f7, 0x3376)
+    arm_breakpoint("default-callback", 0x01f7, 0x3f27)
 end
 
 callback_object_snapshot = function(hit)
@@ -719,7 +726,7 @@ local function apply_release_probe(hit)
     if object == nil then return nil end
     local slot = object.target_emitter_slot
     dosbox.mem_write("ds", 0x87de + slot, little_word(0))
-    dosbox.breakpoint_set(0x01f7, 0x470c, {once = true})
+    arm_breakpoint("release-emitter", 0x01f7, 0x470c)
     return {
         target_slot = slot,
         target_x = 0,
@@ -730,7 +737,7 @@ local function capture_release_callback(sample)
     dosbox.debug_continue()
     local hit = wait_hit("target-emitter release callback")
     sample.related_breakpoints[#sample.related_breakpoints + 1] = {
-        segment = hit.segment, offset = hit.offset,
+        segment = hit.segment, offset = hit.offset, owners = hit.breakpoint_owners,
     }
     local object = callback_object_snapshot(hit)
     local release = {
@@ -745,7 +752,7 @@ local function capture_release_callback(sample)
     if #stack >= 4 and object ~= nil then
         local return_offset = word(stack, 1)
         release.return_expected = {segment = hit.segment, offset = return_offset}
-        dosbox.breakpoint_set(hit.segment, return_offset, {once = true})
+        arm_breakpoint("release-return", hit.segment, return_offset)
         dosbox.debug_continue()
         local returned = wait_hit("target-emitter release return")
         release.return_actual = {segment = returned.segment, offset = returned.offset}
@@ -839,7 +846,7 @@ local function arm_map_target(blocked)
     if map_focus then
         local key = address_key({segment = 0x01f7, offset = 0x3376})
         if not blocked or not blocked[key] then
-            dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+            arm_breakpoint("map", 0x01f7, 0x3376)
         end
     end
 end
@@ -948,7 +955,7 @@ local function capture_branch_sequence(sample, initial_hit)
             error(string.format("unexpected collision branch breakpoint 0x%04x", hit.offset))
         end
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
-            segment = hit.segment, offset = hit.offset,
+            segment = hit.segment, offset = hit.offset, owners = hit.breakpoint_owners,
         }
         record_branch(sample, hit)
         if is_branch_return(hit.offset) then
@@ -1116,7 +1123,7 @@ end
 
 local function stop_for_capture()
     local current = dosbox.cpu_state()
-    dosbox.breakpoint_set(current.cs, current.eip, {once = true})
+    arm_breakpoint("capture-barrier", current.cs, current.eip)
     dosbox.debug_continue()
     return wait_hit("capture barrier")
 end
@@ -1139,7 +1146,7 @@ local function begin_selected_level()
     dosbox.wait_frames(30)
     dosbox.type("QUIKYSUPERHERO")
     dosbox.wait_frames(3)
-    dosbox.breakpoint_set(0x01d7, 0x491d, {once = true})
+    arm_breakpoint("level-selector-cheat", 0x01d7, 0x491d)
     dosbox.key("KBD_4", true)
     local cheat = wait_hit("level selector branch")
     dosbox.key("KBD_4", false)
@@ -1148,12 +1155,12 @@ local function begin_selected_level()
     dosbox.mem_write("ds", 0x88ba, "\x05\x00")
     dosbox.debug_continue()
     dosbox.wait_frames(selector_frames)
-    dosbox.breakpoint_set(0x01d7, 0x4ace, {once = true})
+    arm_breakpoint("level-selector-input", 0x01d7, 0x4ace)
     local input_wait = wait_hit("selector input wait")
     dosbox.output.checkpoints.input_wait = input_wait
     dosbox.mem_write("ds", 0x85d4,
                      string.char(selector_index & 0xff, selector_index >> 8))
-    dosbox.breakpoint_set(0x01d7, 0x4b18, {once = true})
+    arm_breakpoint("level-selector-launch", 0x01d7, 0x4b18)
     dosbox.mem_write("ds", 0x88bc, "\x20\x00")
     dosbox.debug_continue()
     dosbox.output.checkpoints.launch = wait_hit("selector Space dispatch")
@@ -1221,7 +1228,7 @@ if transition_focus then
         for _, item in ipairs(watched) do
             if (item.repeat_target and item.name ~= blocked_repeat_name) or
                     (not item.repeat_target and not seen[item.name]) then
-                dosbox.breakpoint_set(item.segment or 0x01f7, item.offset, {once = true})
+                arm_breakpoint("transition", item.segment or 0x01f7, item.offset)
             end
         end
     end
@@ -1237,7 +1244,8 @@ if transition_focus then
             -- Run ordinary gameplay between breakpoint passes. Remove the
             -- one-shot probes first so wait_frames can advance freely.
             for _, item in ipairs(watched) do
-                dosbox.breakpoint_remove(item.segment or 0x01f7, item.offset)
+                breakpoint_controller:release(
+                    "transition", item.segment or 0x01f7, item.offset)
             end
             blocked_repeat_name = nil
             local probe_frames = transition_probe_frames
@@ -1382,10 +1390,21 @@ for sequence = 1, sample_count do
         sequence = sequence,
         frame_index = experiment_frame,
         breakpoint = {segment = hit.segment, offset = hit.offset},
+        breakpoint_owners = hit.breakpoint_owners,
         registers = hit.registers,
         globals = static_globals(),
         related_breakpoints = {},
     }
+    local execute_watch_index = patch_watch.is_execute_watch(
+        execute_watches, hit.segment, hit.offset)
+    if execute_watch_index ~= nil then
+        sample.execute_watch = {
+            index = execute_watch_index,
+            segment = hit.segment,
+            offset = hit.offset,
+            owners = hit.breakpoint_owners,
+        }
+    end
     if not lean_player_capture or sequence == 1 then
         sample.pool = pool_snapshot()
         sample.scheduler = scheduler_snapshot()
@@ -1412,16 +1431,19 @@ for sequence = 1, sample_count do
                            initial_hit.offset == 0x5cc3) then
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,
+            owners = initial_hit.breakpoint_owners,
         }
         record_property(sample, initial_hit)
     elseif initial_hit.offset == 0x3376 and map_focus then
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,
+            owners = initial_hit.breakpoint_owners,
         }
         record_map_lookup(sample, initial_hit)
     elseif is_collision_target(initial_hit.offset) then
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,
+            owners = initial_hit.breakpoint_owners,
         }
         record_collision(sample, initial_hit)
     end
@@ -1435,7 +1457,7 @@ for sequence = 1, sample_count do
         dosbox.debug_continue()
         hit = wait_hit("player callback after related breakpoint")
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
-            segment = hit.segment, offset = hit.offset,
+            segment = hit.segment, offset = hit.offset, owners = hit.breakpoint_owners,
         }
         sample.breakpoint = {segment = hit.segment, offset = hit.offset}
         sample.registers = hit.registers
@@ -1465,9 +1487,10 @@ for sequence = 1, sample_count do
         local stack = dosbox.mem_read(
             "ss", (hit.registers.esp or 0) & 0xffff, 4) or ""
         if #stack >= 4 and callback_object ~= nil then
-            if #(trace_config.patches or {}) > 0 then
-                patch_engine:apply(sample, {player = callback_object})
-            end
+            local callback_ok, callback_error = xpcall(function()
+                if #(trace_config.patches or {}) > 0 then
+                    patch_engine:apply(sample, {player = callback_object})
+                end
             local return_offset = word(stack, 1)
             -- The scheduler calls the callback through a near code pointer;
             -- the next stack word is the DS argument, not a far return
@@ -1539,8 +1562,7 @@ for sequence = 1, sample_count do
                             if not unresolved_targets[address_key({
                                 segment = 0x01f7, offset = offset
                             })] then
-                                dosbox.breakpoint_set(0x01f7, offset,
-                                                      {once = true})
+                                arm_breakpoint("collision", 0x01f7, offset)
                             end
                         end
                     end
@@ -1564,6 +1586,7 @@ for sequence = 1, sample_count do
                 elseif helper_tracing_aborted then
                     sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                         segment = candidate.segment, offset = candidate.offset,
+                        owners = candidate.breakpoint_owners,
                     }
                 elseif repeated_breakpoint_count > collision_repeat_limit then
                     -- A breakpoint that repeats without reaching any pending
@@ -1633,6 +1656,7 @@ for sequence = 1, sample_count do
                 else
                     sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                         segment = candidate.segment, offset = candidate.offset,
+                        owners = candidate.breakpoint_owners,
                     }
                     if is_property_target(candidate.offset) then
                         property_return_event = record_property(sample, candidate)
@@ -1724,27 +1748,36 @@ for sequence = 1, sample_count do
             sample.player_callback.global_writes = numeric_differences(
                 callback_globals, sample.player_callback.post_globals
             )
-            patch_engine:restore()
+            end, function(problem) return tostring(problem) end)
+            local restore_ok, restore_error = pcall(
+                patch_engine.restore, patch_engine
+            )
+            if not restore_ok then
+                error("player patch restoration failed: " .. tostring(restore_error))
+            end
+            if not callback_ok then error(callback_error) end
         end
         if sample.release_probe ~= nil then
             capture_release_callback(sample)
         end
         if map_focus and sample.map_lookup == nil then
-            dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})
+            arm_breakpoint("map", 0x01f7, 0x3376)
             dosbox.debug_continue()
             local related = wait_hit("MAP lookup after player callback")
             sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                 segment = related.segment, offset = related.offset,
+                owners = related.breakpoint_owners,
             }
             record_map_lookup(sample, related)
         elseif collision_focus and sample.collision == nil then
             for _, offset in ipairs(collision_offsets) do
-                dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                arm_breakpoint("collision", 0x01f7, offset)
             end
             dosbox.debug_continue()
             local related = wait_hit("collision helper after player callback")
             sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                 segment = related.segment, offset = related.offset,
+                owners = related.breakpoint_owners,
             }
             record_collision(sample, related)
         end

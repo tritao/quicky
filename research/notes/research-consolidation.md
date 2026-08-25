@@ -72,6 +72,14 @@ The player trace schema remains version 1. Existing focused options and output
 fields are unchanged; mutation ledgers are additive and appear only when a
 declarative patch is requested.
 
+The hardening follow-up routes every canonical player breakpoint through the
+owner-aware controller and records owners on primary and related hits.
+Repeatable `--player-watch-execute SEGMENT:OFFSET` declarations provide the
+generic callback/helper watches previously available only in branch-local
+tracers. Patched callback execution is protected: restoration runs after
+success, timeout, or Lua error, including failures partway through applying a
+multi-patch request.
+
 ## Engine conflict policy
 
 Confirmed standalone rendering primitives were retained: PCX decoding,
@@ -83,7 +91,7 @@ implementation.
 
 ## Validation
 
-- `python3 -m unittest discover -s research/tests -q`: 137 passing.
+- `python3 -m unittest discover -s research/tests -q`: 140 passing.
 - Fresh CMake configure and build: passing.
 - `ctest --test-dir build/engine --output-on-failure`: 11 passing.
 - `git diff --check`: passing.

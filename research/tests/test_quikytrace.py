@@ -9,6 +9,7 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 from quikytrace import (  # noqa: E402
     EntityTraceConfig,
+    ExecuteWatch,
     InputPhase,
     MemoryPatch,
     PlayerTraceConfig,
@@ -24,6 +25,7 @@ from quikytrace import (  # noqa: E402
     player_trace_lua_config,
     parse_memory_patch,
     parse_input_phase,
+    parse_execute_watch,
     trace_player_lua,
     trace_entity_lua,
     trace_resources_lua,
@@ -82,6 +84,35 @@ class QuikyTraceTests(unittest.TestCase):
         for value in ("KBD_right", "KBD_right:-1", "A+B+C+D:1", ":3"):
             with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
                 parse_input_phase(value)
+
+    def test_execute_watch_parser_and_serialization(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        watch = parse_execute_watch("0x1f7:0x3df2")
+        self.assertEqual(watch, ExecuteWatch(0x1F7, 0x3DF2))
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording, execute_watches=(watch,),
+        ))
+        self.assertEqual(payload["execute_watches"], [
+            {"segment": 0x1F7, "offset": 0x3DF2},
+        ])
+
+    def test_execute_watch_parser_rejects_invalid_specs(self):
+        for value in ("0x1f7", "bad:1", "0x10000:0"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                parse_execute_watch(value)
+
+    def test_player_trace_normalizes_breakpoint_owner_arrays(self):
+        trace = normalize_player_trace({"samples": {"1": {
+            "breakpoint_owners": {"2": "watch", "1": "callback"},
+            "execute_watch": {"owners": {"1": "watch"}},
+            "related_breakpoints": {"1": {
+                "owners": {"1": "return"},
+            }},
+        }}})
+        sample = trace["samples"][0]
+        self.assertEqual(sample["breakpoint_owners"], ["callback", "watch"])
+        self.assertEqual(sample["execute_watch"]["owners"], ["watch"])
+        self.assertEqual(sample["related_breakpoints"][0]["owners"], ["return"])
 
     def test_decode_lookup_call(self):
         stack = struct.pack("<HHHH", 0x36D0, 0x01D7, 0x1234, 0x0237)

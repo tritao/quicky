@@ -104,6 +104,28 @@ class InputPhase:
     frames: int
 
 
+@dataclass(frozen=True)
+class ExecuteWatch:
+    """One guest execute address sampled by the player tracer."""
+
+    segment: int
+    offset: int
+
+
+def parse_execute_watch(value: str) -> ExecuteWatch:
+    """Parse SEGMENT:OFFSET as a bounded execute-watch address."""
+    try:
+        raw_segment, raw_offset = value.split(":", 1)
+        segment, offset = int(raw_segment, 0), int(raw_offset, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "execute watch must use SEGMENT:OFFSET"
+        ) from exc
+    if not 0 <= segment <= 0xFFFF or not 0 <= offset <= 0xFFFFFFFF:
+        raise argparse.ArgumentTypeError("execute-watch address is out of range")
+    return ExecuteWatch(segment, offset)
+
+
 def parse_input_phase(value: str) -> InputPhase:
     """Parse KEY[+KEY...]:FRAMES, with WAIT representing no held keys."""
     key_spec, separator, frame_text = value.rpartition(":")
@@ -209,6 +231,7 @@ class PlayerTraceConfig:
     screenshot_mode: str = "rendered"
     patches: tuple[MemoryPatch, ...] = ()
     input_phases: tuple[InputPhase, ...] = ()
+    execute_watches: tuple[ExecuteWatch, ...] = ()
 
 
 def lua_literal(value: Any) -> str:
@@ -336,6 +359,10 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_phases": [
             {"keys": list(phase.keys), "frames": phase.frames}
             for phase in config.input_phases
+        ],
+        "execute_watches": [
+            {"segment": watch.segment, "offset": watch.offset}
+            for watch in config.execute_watches
         ],
     }
 
@@ -684,6 +711,10 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
     trace.setdefault("trace_schema_version", TRACE_SCHEMA_VERSION)
     samples = ordered_lua_array(trace.get("samples", []))
     for sample in samples:
+        if "breakpoint_owners" in sample:
+            sample["breakpoint_owners"] = ordered_lua_array(
+                sample.get("breakpoint_owners", [])
+            )
         pool = sample.get("pool")
         if isinstance(pool, dict):
             pool["objects"] = ordered_lua_array(pool.get("objects", []))
@@ -696,6 +727,16 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
         if "related_breakpoints" in sample:
             sample["related_breakpoints"] = ordered_lua_array(
                 sample.get("related_breakpoints", [])
+            )
+            for breakpoint in sample["related_breakpoints"]:
+                if "owners" in breakpoint:
+                    breakpoint["owners"] = ordered_lua_array(
+                        breakpoint.get("owners", [])
+                    )
+        execute_watch = sample.get("execute_watch")
+        if isinstance(execute_watch, dict) and "owners" in execute_watch:
+            execute_watch["owners"] = ordered_lua_array(
+                execute_watch.get("owners", [])
             )
         if "collisions" in sample:
             sample["collisions"] = ordered_lua_array(sample.get("collisions", []))
@@ -909,6 +950,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-patch", action="append", type=parse_memory_patch,
                         default=[], metavar="TARGET:WIDTH=VALUE",
                         help="reversible callback patch, e.g. player:0x3e:u16=0")
+    parser.add_argument("--player-watch-execute", action="append",
+                        type=parse_execute_watch, default=[], metavar="SEGMENT:OFFSET",
+                        help="sample an execute address, e.g. 0x1f7:0x3df2")
     parser.add_argument("--player-collision-event-limit", type=int, default=96,
                         help="maximum nested helper breakpoints per callback")
     parser.add_argument("--player-collision-repeat-limit", type=int, default=3,
@@ -1203,6 +1247,7 @@ def main(argv: list[str] | None = None) -> int:
                 capture_player_record=args.player_capture_record,
                 patches=tuple(args.player_patch),
                 input_phases=tuple(args.player_input_phase),
+                execute_watches=tuple(args.player_watch_execute),
                 collision_event_limit=args.player_collision_event_limit,
                 collision_repeat_limit=args.player_collision_repeat_limit,
                 transition_focus=args.player_transition_focus,

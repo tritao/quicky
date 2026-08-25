@@ -120,6 +120,23 @@ QUIKY_TRACE_COMMON = (function()
             return result
         end
 
+        function controller:consume(segment, offset)
+            local key = string.format("%04x:%08x", segment, offset)
+            local result = self:owners_for(segment, offset)
+            self.owners[key] = nil
+            return result
+        end
+
+        function controller:release(owner, segment, offset)
+            local key = string.format("%04x:%08x", segment, offset)
+            local address_owners = self.owners[key]
+            if address_owners == nil then return false end
+            address_owners[owner] = nil
+            if next(address_owners) ~= nil then return false end
+            self.owners[key] = nil
+            return dosbox_api.breakpoint_remove(segment, offset)
+        end
+
         return controller
     end
 

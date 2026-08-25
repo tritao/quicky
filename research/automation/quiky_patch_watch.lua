@@ -99,5 +99,21 @@ QUIKY_PATCH_WATCH = (function()
         return engine
     end
 
+    function module.arm_execute_watches(controller, watches)
+        for index, watch in ipairs(watches or {}) do
+            controller:arm("execute-watch-" .. index, watch.segment,
+                           watch.offset, {once = true})
+        end
+    end
+
+    function module.is_execute_watch(watches, segment, offset)
+        for index, watch in ipairs(watches or {}) do
+            if watch.segment == segment and watch.offset == offset then
+                return index
+            end
+        end
+        return nil
+    end
+
     return module
 end)()
