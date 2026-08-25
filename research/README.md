@@ -325,6 +325,24 @@ probes use `--probe-descriptor-delay`, `--probe-descriptor-timer`,
 `--probe-descriptor-table`, `--probe-descriptor-cursor`, and
 `--probe-descriptor-mode`.
 
+Transient high-address effect callbacks are traced separately because they
+are spawned into the pool without an ARE source. The dedicated probe watches
+the five initializer/steady pairs and injects a target through their `+0x2A`
+cursor:
+
+~~~sh
+PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
+  --launch --headless --runtime-dir game --select-level W3L3 \
+  --frames 4 --frame-step 1 \
+  --output research/build/high-effect/w3l3-tail.json
+~~~
+
+The one-frame cadence is intentional: the first steady callback consumes the
+target before its state gate advances the transient object to the next phase.
+All five high tails now have live target-hit evidence; the exact imported
+routine behind their static `AX=4B70` handoff and their sprite/BOB identities
+remain open in `notes/object-behavior.md`.
+
 The first standalone C++ behavior model is in
 [`model/`](model/), covering the proven pool/scheduler operations, descriptor
 sequence state, and type-0x34 proximity output. Build and run its focused test

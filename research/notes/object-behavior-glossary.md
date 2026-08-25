@@ -153,17 +153,19 @@ target-X clearing and cursor advancement for representatives of `707B`,
 `6D01`, `76BF`, `67E0`, `5399`, `62AE`, and `58A7`. The `707B`, `6D01`,
 `76BF`, and `5399` families switch to callback `4AB3`; `67E0` is clear-only;
 `62AE` and `58A7` run their `+0x42` action paths, with `58A7` subsequently
-reaching `4AB3`.
+reaching `4AB3`. The dedicated `high_effect_trace.py` probe uses the same
+target injection for source-less high-address objects and requires a one-frame
+cadence to catch their first steady callback before the state gate advances.
 
 The five high tails are statically grouped as dedicated steady callbacks
 `B25D -> B266`, `BB0E -> BB17`, `C328 -> C331`, `CDA3 -> CDAC`, and
-`D55A -> D563`. Their match path clears target X, increments the separate
-`+0x2C` hit counter, calls `4B70`, sets scheduler phase `+0x17=2`, and then
-continues into the effect-specific state update. Their gameplay identities
-remain intentionally unnamed pending target-hit coverage. Existing live
-scheduler traces reach `B25D` in W1L3 and `D55A` in W5L3; both are phase-2,
-source-less (`+0x1A=FFFF`) transient objects using sprite slots around
-`0x3DE`-`0x3E0`. `BB17`, `C331`, and `CDAC` still need live spawn coverage.
+`D55A -> D563`. A one-frame live target probe covers all five in W1L3,
+W2L3, W3L3, W4L3, and W5L3. Each first steady hit clears target X, retains Y,
+advances the `+0x2A` cursor, increments `+0x2C`, changes the low state byte
+to `1`, and publishes action `0x000D` at `DS:612E`. The objects are phase-2,
+source-less (`+0x1A=FFFF`) transient pool entries, not normal ARE declarations.
+The exact imported routine represented by static `AX=4B70` remains unnamed,
+as do the gameplay/effect asset identities.
 
 | shared | `01F7:44FF` | `reset_target_list` | confirmed | Sets target capacity to four, clears the active count, and zeroes target slots. |
 | shared | `01F7:4519` | `init_target_emitter` | confirmed | Reserves a shared target-list slot and installs callback `45AB`. |

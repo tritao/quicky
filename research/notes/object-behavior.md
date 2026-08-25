@@ -558,26 +558,37 @@ is reached by a dedicated steady callback and has the same contract:
 
 On a match, each clears target X, increments `+0x2C`, calls `4B70`, sets
 `object+0x17=2`, and continues through the family-specific effect update.
-Independent live scheduler traces already reach `B25D` in W1L3 and `D55A` in
-W5L3. Those objects have `+0x1A=FFFF` (no ARE source), phase `2`, and sprite
-slots in the `0x3DE`-`0x3E0` range, confirming that at least these handlers are
-transient effect objects spawned by gameplay rather than normal ARE sprites.
-The machine-readable evidence is `research/build/traces/player-w1l3-sfx-
-position.json` and `research/build/traces/player-W5L3-right-pickups.json` in
-the main research build.
+The dedicated high-object tracer now covers all five families. It watches the
+initializer/steady pair in the live callback segment, waits at one-frame
+cadence, and injects `(object.x, object.y-10)` into the shared list using the
+`+0x2A` cursor. The first steady callback for each family has the same direct
+result: target X becomes zero, Y survives, the cursor advances `0 -> 1`,
+`+0x2C` advances `0 -> 1`, the low state byte becomes `1`, and `DS:612E`
+becomes `0x000D`.
 
-The target-hit branch itself still needs a dedicated high-object probe, and
-`BB17`, `C331`, and `CDAC` have not yet been reached in a live trace. No
-gameplay names are assigned until that coverage exists; the static contract is
-sufficient to model the shared target handoff without conflating it with
-normal ARE sprites.
+| Level evidence | Initializer | Steady callback | Tail | Target-hit body sites |
+| --- | --- | --- | --- | --- |
+| W1L3 `w1l3-state0.json` | `B20B` | `B25D` | `B266` | `B266`, `B2B0`, `B2BA`, `B2BF`, `B303` |
+| W2L3 `w2l3-tail.json` | `BABC` | `BB0E` | `BB17` | `BB17`, `BB61`, `BB6B`, `BB70`, `BBB4` |
+| W3L3 `w3l3-tail.json` | `C30D` | `C328` | `C331` | `C331`, `C37B`, `C385`, `C38A`, `C3CE` |
+| W4L3 `w4l3-tail.json` | `CD88` | `CDA3` | `CDAC` | `CDAC`, `CDF6`, `CE00`, `CE05`, `CE49` |
+| W5L3 `w5l3-tail.json` | `D53F` | `D55A` | `D563` | `D563`, `D5AD`, `D5B7`, `D5BC`, `D600` |
+
+The one-frame cadence is important: after the first hit, the state word
+advances to `0x0101`, `0x0201`, and so on, and the steady callback's initial
+state gate skips the target tail. The high objects are source-less
+(`+0x1A=FFFF`), phase-2 transient pool entries, not normal ARE declarations.
+Their gameplay identities and the exact imported routine behind the static
+`AX=4B70` handoff remain unnamed; the state mutation and shared-list contract
+are now safe to implement.
 
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction
 matters for breakpoints and callback reconstruction. The shared list is a
 cross-family collision/effect handoff, not a type-`0x33` private queue. The
-remaining work is to dynamically verify the family-specific post-hit actions,
-especially the `+0x42` paths and the five high-address effect handlers.
+remaining work is to resolve the imported `4B70` action routine, correlate the
+five transient families with their sprite/BOB assets, and add the now-confirmed
+high-effect state contract to the C++ engine model.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
