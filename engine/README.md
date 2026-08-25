@@ -58,8 +58,66 @@ The foundation currently includes:
 
 The active frontend and scene tools consume `SimulationOutput` and
 `PlayerRecord`; they no longer have a second player-state or collision API.
-`player_update.h` keeps the unresolved vertical stages explicit so the runtime
-cannot silently fall back to guessed gravity, grounding, or jump behavior.
+`player_update.h` keeps the recovered callback stages and unresolved external
+boundaries explicit. The runtime does not silently fall back to guessed
+grounding or jump behavior.
+
+## Unified player callback status
+
+The unified `TraceClosedPlayerUpdate` is the C++ implementation of the
+statically recovered `01F7:3FF8–44FE` callback path. Its branch order and
+field writes are audited against
+`research/notes/player-static-decomp.cpp` and
+`research/ghidra/player-callback-focused-audit.json`.
+
+Implemented from static evidence:
+
+- callback entry, input normalization, action-counter updates, and the
+  `+0x39`, `DS:89EA`, `DS:89E6`, and `DS:8812` gates;
+- ordinary, positive, and negative mode dispatch;
+- signed 16.16 acceleration, release clamp, gravity, apex, and terminal
+  velocity arithmetic;
+- ordered side/vertical probes, `3D02` descriptor correction, and `3DF2`
+  alignment;
+- jump initiation, grounded response, blocked ascent, landing-state writes,
+  common-tail timer/global writes, and the known pending jump sound dispatch;
+- complete raw `0x78` pre/post records and ordered trace publication.
+
+Dynamically parity-validated:
+
+- the existing horizontal/free-space formula fixtures;
+- the C++ callback's synthetic jump, grounded, and blocked-ascent branch
+  vectors;
+- candidate-to-candidate full-record/probe/global/effect comparison through
+  `player_parity_compare.py`.
+
+These checks do not yet constitute full DOS callback parity. The first
+captured-DOS replay set is intentionally reported as a diagnostic until its
+pre-state globals and descriptor observations are complete.
+
+Explicit unresolved boundaries:
+
+- natural `648E/6484` contact behavior and the `0E06` contact-object family;
+- the direct gameplay contract of `5937` when the `DS:89EA` transition gate is
+  active;
+- animation table reads at `5D38/5D60` and presentation-only callbacks;
+- natural ceiling validation, descriptor semantic labels/one-way policy, and
+  moving-platform scheduler/culling behavior;
+- the no-descriptor-table fallback, which remains a deliberate research
+  boundary.
+
+The repeatable callback replay workflow is:
+
+```sh
+python3 research/tools/player_callback_parity.py \
+  --original research/build/player-followup-standing-v1.json \
+  --archive game/NESTLE.DAT --map W1L1.MAP \
+  --binary build/engine/quiky-player-trace
+```
+
+It materializes a pre-state replay manifest, runs `quiky-player-trace`, and
+invokes the fail-closed comparator. Missing records, probes, globals, or
+effect/factory data are reported as mismatches rather than skipped.
 
 ## Horizontal player closure
 
@@ -76,10 +134,10 @@ velocity.
 
 `CollisionKernel` is a pure MAP/descriptor query layer for the recovered
 quadrant mask, ordered `x-5`/`x+5` probes, `3DF2` Y alignment, and `3D02`
-descriptor response. It does not implement floor/ceiling contact or grounded
-policy. `Simulation::setExperimentalPlayerUpdater()` is the explicit opt-in
-integration point; contact resolution and jump initiation remain pending
-rather than being inferred from the free-space rules.
+descriptor response. `TraceClosedPlayerUpdate` composes those helpers with
+the statically recovered floor/ceiling/grounded branch writes. The separate
+`updatePlayerVerticalFreeSpace` API remains a leaf for callers that already
+have clear probes; it is not the unified callback.
 
 The compact `tests/fixtures/player-horizontal-v1.tsv` contains the 1,261
 formula samples represented by all 5,044 values checked by the Python model.
@@ -95,7 +153,8 @@ The `quiky-horizontal-tests` target checks record round trips, all horizontal
 held-out values, direct acceleration/reversal/cap vectors, Python collision
 kernel parity vectors, snapshot isolation, and trace diagnostics. The
 `quiky-vertical-tests` target checks the 15 trace-closed free-space rows and
-the canonical updater integration; contact orchestration remains pending.
+the canonical updater integration. `quiky-player-callback-tests` checks the
+focused jump, grounded, and blocked-ascent records and ordered probes.
 
 ## Runtime descriptor integration
 
@@ -105,10 +164,10 @@ cells. Descriptor-backed horizontal checks use the recovered forward probes
 at `(x +/- 10, y - 1/-17/-33)`. Table boundaries, special descriptor values,
 and probe coordinates have direct engine tests.
 
-No compatibility player simulation remains. The vertical closure has not yet
-obtained deterministic landing and ceiling-contact timelines, so exact
-floor/ceiling snapping, grounded transitions, and jump orchestration remain
-behind the pending research interface.
+No compatibility player simulation remains. The C++ callback contains the
+static landing, ceiling-response, and jump writes, while natural ceiling
+parity, descriptor class names, one-way behavior, and moving-platform contact
+remain explicit research boundaries until targeted runtime traces close them.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
 resources use TFMX, which needs a dedicated decoder. The engine includes an

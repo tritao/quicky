@@ -12,7 +12,7 @@
     "root": "01F7:3FF8",
     "focused_range": "01F7:3FF8-44FE",
     "purpose": "Exact branch order and writes for input/contact/vertical response before runtime implementation.",
-    "implementation_status": "research_only",
+    "implementation_status": "static_callback_paths_implemented_with_explicit_boundaries",
     "unknowns_remain_address_named": true
   },
   "branch_order": [

@@ -3,9 +3,10 @@
 
 The candidate adapter intentionally uses the same small interchange fields as
 the DOSBox player tracer. A C++ trace must provide, for each sample, either a
-``player_callback`` object or ``pre_record_hex``/``post_record_hex`` and may
-provide ``collisions``, ``global_writes``, and ``factory_event``. Missing data
-is a mismatch; position-only comparisons are not accepted.
+``player_callback`` object or ``pre_record_hex``/``post_record_hex`` and must
+provide the complete ordered collision-probe, callback-global, and known
+effect fields. Missing data is a mismatch; position-only comparisons are not
+accepted.
 """
 
 from __future__ import annotations
@@ -19,6 +20,17 @@ from typing import Any
 
 class ParityError(Exception):
     pass
+
+
+GLOBAL_FIELD_MAP = {
+    "horizontal_timer": (0x4FEE, 2),
+    "horizontal_accumulator": (0x4FE2, 4),
+    "horizontal_aux": (0x4FE8, 4),
+    "horizontal_branch_counter": (0x4FEC, 2),
+    "camera_x": (0x81C0, 2),
+    "camera_y": (0x81C4, 2),
+    "player_vertical_adjust": (0x8812, 4),
+}
 
 
 def load_payload(path: Path) -> dict[str, Any]:
@@ -86,41 +98,49 @@ def canonical_probes(sample: dict[str, Any]) -> list[Any] | None:
     if events is None:
         events = sample.get("collision_probes")
     if not isinstance(events, list):
-        return []
+        return None
     result: list[Any] = []
     for event in events:
         if not isinstance(event, dict):
             result.append(event)
             continue
-        registers = event.get("registers")
-        return_breakpoint = event.get("return_breakpoint")
-        return_registers = (return_breakpoint.get("registers")
-                            if isinstance(return_breakpoint, dict) else None)
         map_property = event.get("map_property")
         lookup = (map_property.get("map_lookup")
                   if isinstance(map_property, dict) else None)
+        source = lookup if isinstance(lookup, dict) else event
         result.append({
-            "helper_offset": event.get("helper_offset"),
-            "return_offset": (return_breakpoint.get("offset")
-                               if isinstance(return_breakpoint, dict) else event.get("return_offset")),
-            "return_flags": (return_registers.get("flags")
-                              if isinstance(return_registers, dict) else event.get("return_flags")),
-            "register_flags": (registers.get("flags")
-                                if isinstance(registers, dict) else event.get("register_flags")),
-            "map": ({key: lookup.get(key) for key in ("x", "y", "cell_word", "tile_id")}
-                    if isinstance(lookup, dict) else event.get("map")),
+            # These are the fields both the DOS normalizer and C++ emitter
+            # can publish without interpreting the helper's carry/flags.
+            "x": source.get("x"),
+            "y": source.get("y"),
+            "cell_word": source.get("cell_word", source.get("raw_cell_word")),
+            "tile_id": source.get("tile_id"),
             "descriptor_word": (map_property.get("descriptor_word")
-                                 if isinstance(map_property, dict) else event.get("descriptor_word")),
+                                 if isinstance(map_property, dict)
+                                 else event.get("descriptor_word")),
+            "quadrant_mask": event.get("quadrant_mask"),
+            "occupied": event.get("occupied"),
         })
+    return result
+
+
+def canonical_global_write(value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    result = dict(value)
+    field = result.get("field")
+    if field in GLOBAL_FIELD_MAP and "offset" not in result:
+        result["offset"], result["width"] = GLOBAL_FIELD_MAP[field]
+    result.pop("field", None)
     return result
 
 
 def canonical_globals(sample: dict[str, Any]) -> Any:
     cb = callback(sample)
     if cb is not None and isinstance(cb.get("global_writes"), list):
-        return cb["global_writes"]
+        return [canonical_global_write(value) for value in cb["global_writes"]]
     if isinstance(sample.get("global_writes"), list):
-        return sample["global_writes"]
+        return [canonical_global_write(value) for value in sample["global_writes"]]
     return []
 
 
@@ -148,6 +168,27 @@ def canonical_factory(sample: dict[str, Any]) -> Any:
     return selected
 
 
+def canonical_effects(sample: dict[str, Any]) -> Any:
+    cb = callback(sample)
+    if cb is not None and isinstance(cb.get("effect_dispatches"), list):
+        return cb["effect_dispatches"]
+    for key in ("effects", "effect_dispatches"):
+        if isinstance(sample.get(key), list):
+            return sample[key]
+    return []
+
+
+def canonical_input(sample: dict[str, Any]) -> Any:
+    cb = callback(sample)
+    if cb is not None and isinstance(cb.get("input_flags"), int):
+        return cb["input_flags"]
+    globals_value = sample.get("globals")
+    if isinstance(globals_value, dict) and isinstance(
+            globals_value.get("input_action_flags"), int):
+        return globals_value["input_action_flags"]
+    return None
+
+
 def compare(original: Path, candidate: Path) -> list[dict[str, Any]]:
     left = sample_map(load_payload(original), "original")
     right = sample_map(load_payload(candidate), "candidate")
@@ -166,9 +207,11 @@ def compare(original: Path, candidate: Path) -> list[dict[str, Any]]:
                 continue
             if av != bv:
                 mismatches.append({"sequence": sequence, "field": f"{which}_record", "original": av, "candidate": bv})
-        fields = (("probes", canonical_probes(a), canonical_probes(b)),
+        fields = (("input_flags", canonical_input(a), canonical_input(b)),
+                  ("probes", canonical_probes(a), canonical_probes(b)),
                   ("global_writes", canonical_globals(a), canonical_globals(b)),
-                  ("factory_objects", canonical_factory(a), canonical_factory(b)))
+                  ("factory_objects", canonical_factory(a), canonical_factory(b)),
+                  ("effects", canonical_effects(a), canonical_effects(b)))
         for field, av, bv in fields:
             if av is None or bv is None:
                 mismatches.append({"sequence": sequence, "field": field, "error": "missing required parity data"})

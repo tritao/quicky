@@ -101,10 +101,11 @@ struct PlayerCallbackGlobals {
     PlayerCallbackGlobals();
 };
 
-// Exact trace-closed portion of the original vertical callback. The caller
-// must already have established that the vertical probes are clear. Mode 0
-// deliberately returns without mutation because grounded/jump initiation is
-// inseparable from the unresolved contact path.
+// Public free-space leaf recovered from 4323/41E8. Mode 0 deliberately
+// remains a leaf no-op: ordinary/contact orchestration belongs to the
+// trace-closed 3FF8 callback below, where the descriptor table and callback
+// globals are available. Keeping this distinction prevents callers from
+// treating the leaf as a second grounded-policy implementation.
 VerticalFreeSpaceResult updatePlayerVerticalFreeSpace(
     PlayerRecord &player,
     PlayerTraceSink *trace = 0);

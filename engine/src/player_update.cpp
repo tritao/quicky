@@ -634,6 +634,8 @@ void contactResponse(PlayerRecord &player,
                      std::uint16_t timer,
                      bool setTimer,
                      PlayerTraceSink *trace) {
+    // Static 01F7:41C1-41E5 and 01F7:4350-4368: the shared blocked/contact
+    // response writes the mode, vertical velocity, and optional timer.
     (void)trace;
     if (setTimer) {
         player.resetDeathTimer3E = timer;
@@ -648,6 +650,8 @@ void groundedContact(PlayerRecord &player,
                      const WorldCollisionView &world,
                      PlayerCallbackGlobals &globals,
                      PlayerTraceSink *trace) {
+    // Static 01F7:427F-42B1: correction, side-contact snap, then grounded
+    // mode/velocity/animation writes. Evidence: focused audit caller_order.
     if (player.gate38 == 0) {
         applyDescriptorCorrection(player, world, trace);
         snapPlayerY(player, world, trace);
@@ -675,6 +679,7 @@ void commonCallbackTail(PlayerRecord &player,
                         const WorldCollisionView &world,
                         PlayerCallbackGlobals &globals,
                         PlayerTraceSink *trace) {
+    // Static 01F7:4384-4415: common timer, horizontal, effect, and idle tail.
     if (player.mode37 == 0 && globals.specialSpeedCapMode88B6 == 1) {
         player.horizontalSpeedCap5C.raw = 0x30000;
     }
@@ -760,6 +765,7 @@ void TraceClosedPlayerUpdate::updatePlayer(
         return;
     }
 
+    // Static 01F7:3FF8-4002: callback entry and transition gate.
     stage(trace, PlayerUpdateStage::CallbackEntry);
     player.syncToRaw();
     const PlayerRawRecord preState = player.toRaw();
@@ -778,6 +784,8 @@ void TraceClosedPlayerUpdate::updatePlayer(
         return;
     }
 
+    // Static 01F7:401D-40A1: status/snapshot, deferred-Y, input dispatch,
+    // transition consumption, suppression, and +0x40 action counter.
     stage(trace, PlayerUpdateStage::InputNormalization);
     player.statusWord12 = static_cast<std::uint16_t>(
         player.statusWord12 & 0x0fffU);
@@ -820,7 +828,8 @@ void TraceClosedPlayerUpdate::updatePlayer(
     }
     stage(trace, PlayerUpdateStage::ActionCounterUpdate);
 
-    // 648E/6484 are retained as a mechanical boundary until their runtime
+    // Static 01F7:4006-401D: 648E/6484/3A8A are retained as a mechanical
+    // boundary until their runtime
     // contact-object initialization is integrated. No synthetic contact is
     // created here.
     stage(trace, PlayerUpdateStage::UnresolvedBoundary);
@@ -836,7 +845,10 @@ void TraceClosedPlayerUpdate::updatePlayer(
         updateHorizontalAccumulator(player, action, _globals, trace);
         player.actionWord = action;
 
+        // Static 01F7:41AF-41BF: signed mode dispatch to 42B4, 4323, or 41E8.
         if (player.mode37 == 0) {
+            // Static 01F7:42B4-4321: ordinary correction, jump gate, and
+            // jump-initiation record/effect writes.
             stage(trace, PlayerUpdateStage::OrdinaryMode);
             const bool sideClear = sideProbeClear(player, world, trace);
             if (!sideClear || player.gate38 != 0) {
@@ -866,6 +878,8 @@ void TraceClosedPlayerUpdate::updatePlayer(
             stage(trace, PlayerUpdateStage::CommonCallbackTail);
             commonCallbackTail(player, world, _globals, trace);
         } else if (player.mode37 < 0) {
+            // Static 01F7:4323-4368: ascent probe, release clamp, integrate,
+            // post-step probe, and blocked-ascent response.
             stage(trace, PlayerUpdateStage::NegativeMode);
             if (probeVerticalStep(player, world, trace)) {
                 contactResponse(player, 0x03e7, true, trace);
@@ -895,6 +909,8 @@ void TraceClosedPlayerUpdate::updatePlayer(
             stage(trace, PlayerUpdateStage::CommonCallbackTail);
             commonCallbackTail(player, world, _globals, trace);
         } else {
+            // Static 01F7:41E8-42B1: falling/positive path, descriptor
+            // correction, landing response, and post-step side probe.
             stage(trace, PlayerUpdateStage::PositiveMode);
             player.resetDeathTimer3E = static_cast<std::uint16_t>(
                 player.resetDeathTimer3E + 1);
