@@ -20,12 +20,17 @@ local force_object_y = trace_config.force_object_y
 local stop_at_cursor = trace_config.stop_at_cursor
 local trace_render = trace_config.trace_render or false
 local render_trace_hits = trace_config.render_trace_hits or 64
+local capture_scheduled_pool = trace_config.capture_scheduled_pool ~= false
 local owner_probe_callback = trace_config.owner_probe_callback
 local owner_probe_x = trace_config.owner_probe_x
 local owner_probe_y = trace_config.owner_probe_y
 local owner_probe_phase = trace_config.owner_probe_phase
+local owner_probe_timer = trace_config.owner_probe_timer
+local owner_probe_transition = trace_config.owner_probe_transition
+local owner_probe_once = trace_config.owner_probe_once or false
+local owner_probe_applied = false
 local callback_segments = {0x01f7, 0x1997}
-local pre_render_callback_offsets = {0xb226, 0xb33b, 0x3ff8}
+local pre_render_callback_offsets = {0xb226, 0xb33b, 0xb87b, 0x3ff8}
 local watched_effect_callbacks = {}
 local watched_effect_objects = {}
 local watch_effect_object
@@ -215,7 +220,7 @@ end
 local function trace_render_window()
     if not trace_render then return nil end
     local records = {}
-    local callback_offsets = {0xb226, 0xb33b, 0xb25d, 0x4c74, 0x3ff8}
+    local callback_offsets = {0xb226, 0xb33b, 0xb87b, 0xb25d, 0x4c74, 0x3ff8}
     -- The callback pass may have left one-shot body breakpoints armed for a
     -- later scheduler callback. Remove those before observing the renderer;
     -- otherwise the first hit would be mistaken for a draw-path entry.
@@ -375,20 +380,34 @@ end
 local function trace_simple_callback(hit)
     local result = callback_entry_snapshot(hit)
     if owner_probe_callback ~= nil and hit.offset == owner_probe_callback and
-       owner_probe_x ~= nil and owner_probe_y ~= nil then
+       (not owner_probe_once or not owner_probe_applied) then
         local selector = hit.registers.es or 0
         local object_offset = (hit.registers.edi or 0) & 0xffff
         if owner_probe_phase ~= nil then
             dosbox.mem_write("ds", 0x88ae, string.char(owner_probe_phase))
             result.phase_probe = owner_probe_phase
         end
-        dosbox.mem_write_selector(selector, object_offset + 0x02,
-                                   little_dword(owner_probe_x << 16))
-        dosbox.mem_write_selector(selector, object_offset + 0x06,
-                                   little_dword(owner_probe_y << 16))
-        result.position_probe = {x = owner_probe_x, y = owner_probe_y}
+        if owner_probe_timer ~= nil then
+            dosbox.mem_write_selector(selector, object_offset + 0x38,
+                                       little_word(owner_probe_timer))
+            result.timer_probe = owner_probe_timer
+        end
+        if owner_probe_transition ~= nil then
+            dosbox.mem_write_selector(selector, object_offset + 0x34,
+                                       string.char(owner_probe_transition))
+            result.transition_probe = owner_probe_transition
+        end
+        if owner_probe_x ~= nil and owner_probe_y ~= nil then
+            dosbox.mem_write_selector(selector, object_offset + 0x02,
+                                       little_dword(owner_probe_x << 16))
+            dosbox.mem_write_selector(selector, object_offset + 0x06,
+                                       little_dword(owner_probe_y << 16))
+            result.position_probe = {x = owner_probe_x, y = owner_probe_y}
+        end
         local ok, object = pcall(object_snapshot, selector, object_offset, -1)
         if ok then result.object = object end
+        owner_probe_applied = true
+        result.probe_applied = true
     end
     local returned = near_return(hit)
     if returned == nil then return result end
@@ -721,7 +740,7 @@ for frame = 1, frame_count do
         breakpoint = {segment = hit.segment, offset = hit.offset,
                       registers = hit.registers},
         globals = globals_snapshot(),
-        scheduled_high = scheduled_high_snapshot(),
+        scheduled_high = capture_scheduled_pool and scheduled_high_snapshot() or nil,
         render_callbacks = pre_render_callbacks,
     }
     if stopped_at_cursor ~= nil then break end

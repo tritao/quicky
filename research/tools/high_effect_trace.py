@@ -43,10 +43,14 @@ class HighEffectConfig:
     stop_at_cursor: int | None = None
     trace_render: bool = False
     render_trace_hits: int = 64
+    capture_scheduled_pool: bool = True
     owner_probe_callback: int | None = None
     owner_probe_x: int | None = None
     owner_probe_y: int | None = None
     owner_probe_phase: int | None = None
+    owner_probe_timer: int | None = None
+    owner_probe_transition: int | None = None
+    owner_probe_once: bool = False
 
 
 def lua_config(config: HighEffectConfig) -> dict[str, Any]:
@@ -68,10 +72,14 @@ def lua_config(config: HighEffectConfig) -> dict[str, Any]:
         "stop_at_cursor": config.stop_at_cursor,
         "trace_render": config.trace_render,
         "render_trace_hits": config.render_trace_hits,
+        "capture_scheduled_pool": config.capture_scheduled_pool,
         "owner_probe_callback": config.owner_probe_callback,
         "owner_probe_x": config.owner_probe_x,
         "owner_probe_y": config.owner_probe_y,
         "owner_probe_phase": config.owner_probe_phase,
+        "owner_probe_timer": config.owner_probe_timer,
+        "owner_probe_transition": config.owner_probe_transition,
+        "owner_probe_once": config.owner_probe_once,
     }
 
 
@@ -204,6 +212,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="trace the first spawned effect through 3529/3587")
     parser.add_argument("--render-trace-hits", type=int, default=64,
                         help="maximum render breakpoints to record")
+    parser.add_argument("--no-scheduled-pool", action="store_true",
+                        help="omit expensive 64-entry scheduler snapshots")
     parser.add_argument("--probe-render-owner", type=lambda value: int(value, 0),
                         help="force one ordinary render-owner callback's position")
     parser.add_argument("--probe-render-owner-x", type=int,
@@ -212,6 +222,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="forced Y for --probe-render-owner")
     parser.add_argument("--probe-render-owner-phase", type=lambda value: int(value, 0),
                         help="force DS:88AE before --probe-render-owner")
+    parser.add_argument("--probe-render-owner-timer", type=lambda value: int(value, 0),
+                        help="force B33B's +0x38 timer before the callback")
+    parser.add_argument("--probe-render-owner-transition", type=lambda value: int(value, 0),
+                        help="force the render owner's +0x34 transition byte")
+    parser.add_argument("--probe-render-owner-once", action="store_true",
+                        help="apply the render-owner field probe only once")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -257,6 +273,10 @@ def main(argv: list[str] | None = None) -> int:
             raise TraceError(f"--{name.replace('_', '-')} must be signed 16-bit")
     if args.probe_render_owner_phase is not None and not 0 <= args.probe_render_owner_phase <= 0xff:
         raise TraceError("--probe-render-owner-phase must be between 0 and 255")
+    if args.probe_render_owner_timer is not None and not 0 <= args.probe_render_owner_timer <= 0xffff:
+        raise TraceError("--probe-render-owner-timer must be between 0 and 65535")
+    if args.probe_render_owner_transition is not None and not 0 <= args.probe_render_owner_transition <= 0xff:
+        raise TraceError("--probe-render-owner-transition must be between 0 and 255")
 
     repo_root = Path(__file__).resolve().parents[2]
     startup_recording = args.startup_recording
@@ -331,10 +351,14 @@ def main(argv: list[str] | None = None) -> int:
             stop_at_cursor=args.stop_at_cursor,
             trace_render=args.trace_render,
             render_trace_hits=args.render_trace_hits,
+            capture_scheduled_pool=not args.no_scheduled_pool,
             owner_probe_callback=args.probe_render_owner,
             owner_probe_x=args.probe_render_owner_x,
             owner_probe_y=args.probe_render_owner_y,
             owner_probe_phase=args.probe_render_owner_phase,
+            owner_probe_timer=args.probe_render_owner_timer,
+            owner_probe_transition=args.probe_render_owner_transition,
+            owner_probe_once=args.probe_render_owner_once,
         )
         trace = trace_high_effect(api, script_path, config)
         envelope = {

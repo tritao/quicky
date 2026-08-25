@@ -179,6 +179,31 @@ The linked-object and `0x487F` contracts are still open. They should be
 traced as lifecycle/animation calls, not folded into the player collision
 model.
 
+### Controlled runtime handoff
+
+A one-shot W1L3 probe forced `DS:0x88AE = 1` and the B33B owner byte
+`+0x34 = 1` at owner offset `0x0078` (position `(300,500)`). This exercises
+the real transition branch without waiting for the natural timer. The
+observed sequence is:
+
+1. B33B remains installed on the owner (slot `0x03B7`) and clears its
+   transition byte after the call.
+2. The B33B factory call allocates a child at pool offset `0x01E0` and B84D
+   initializes it with slot `0x0386`, callback B87B, phase `2`, and
+   `+0x3C = 0x30000`.
+3. B87B runs for 31 callback passes in the fixed camera `(0,358)`. It moves
+   the child from approximately `(269,500)` toward the right after its
+   vertical path changes, while retaining callback B87B.
+4. On the next pass the strict camera gate rejects the child at the upper
+   Y boundary (`y=553`, so `y-camera+0x10 = 0xD3 > 0xD0`) and clears only
+   `+0x18`. The record remains allocated with slot `0x0386` and its state
+   fields intact.
+
+This proves the B33B→B84D→B87B allocation and camera-gated deactivation
+edge. It is a controlled transition, so it does not yet identify the
+natural B33B trigger or prove whether a later pool pass reclaims/reactivates
+the inactive record.
+
 ## Linked callback `B84D -> B87B`
 
 The first transition helper is now statically constrained as well. `B84D`
@@ -206,11 +231,11 @@ at the same boundary or one scheduler pass later.
 
 1. Capture `B226` from creation at one-frame cadence to recover its exact
    initial fixed-point state, slot durations, and terminal callback behavior.
-2. Trace the `B33B` action/context path (`1B77 -> 393C/19E6`) and sample
+2. Trace the natural `B33B` action/context path (`1B77 -> 393C/19E6`) and sample
    MAP cells with raw bit `0x4000` to assign its gameplay meaning.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
    and `0x487F`, so object deletion and reactivation are not guessed.
-4. Repeat queue capture across one camera movement to determine whether the
-   W2L3 prefix and effect/player positions persist as the camera scrolls.
+4. Resolve the remaining full-frame palette/timing residuals after the
+   queue-owned records are reproduced.
 5. Once those pass, implement a queue-owned render pass in C++ and compare
    matched frames. The current frontend order remains provisional.
