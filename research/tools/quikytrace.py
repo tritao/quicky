@@ -87,6 +87,8 @@ class PlayerTraceConfig:
     focus_callback_offset: int = 0x3FF8
     effect_table_focus: bool = False
     effect_table_factory_focus: bool = False
+    effect_table_scheduler_focus: bool = False
+    effect_table_force_gate: bool = False
     force_player_action_word: int | None = None
     map_focus: bool = False
     collision_focus: bool = False
@@ -174,6 +176,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "focus_callback_offset": config.focus_callback_offset,
         "effect_table_focus": config.effect_table_focus,
         "effect_table_factory_focus": config.effect_table_factory_focus,
+        "effect_table_scheduler_focus": config.effect_table_scheduler_focus,
+        "effect_table_force_gate": config.effect_table_force_gate,
         "force_player_action_word": config.force_player_action_word,
         "map_focus": config.map_focus,
         "collision_focus": config.collision_focus,
@@ -659,6 +663,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="record shared effect-table reset/spawn/update/remove hits during player callbacks")
     parser.add_argument("--player-effect-table-factory-focus", action="store_true",
                         help="debugger-only: capture the pooled-object factory call at 01F7:0E06")
+    parser.add_argument("--player-effect-table-scheduler-focus", action="store_true",
+                        help="debugger-only: capture pooled effect callbacks after scheduler insertion")
+    parser.add_argument("--player-effect-table-force-gate", action="store_true",
+                        help="debugger-only: set DS:88AE at callback 01F7:4519 to expose its live state chain")
     parser.add_argument("--player-force-action-word", type=lambda value: int(value, 0),
                         help="debugger-only: write this action word at the player producer-tail breakpoint")
     parser.add_argument("--player-map-focus", action="store_true",
@@ -882,6 +890,8 @@ def main(argv: list[str] | None = None) -> int:
                 focus_callback_offset=args.player_callback_offset,
                 effect_table_focus=args.player_effect_table_focus,
                 effect_table_factory_focus=args.player_effect_table_factory_focus,
+                effect_table_scheduler_focus=args.player_effect_table_scheduler_focus,
+                effect_table_force_gate=args.player_effect_table_force_gate,
                 force_player_action_word=args.player_force_action_word,
                 map_focus=args.player_map_focus,
                 collision_focus=args.player_collision_focus,

@@ -216,6 +216,8 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
         self.assertFalse(player_trace_lua_config(config)["effect_table_focus"])
         self.assertFalse(player_trace_lua_config(config)["effect_table_factory_focus"])
+        self.assertFalse(player_trace_lua_config(config)["effect_table_scheduler_focus"])
+        self.assertFalse(player_trace_lua_config(config)["effect_table_force_gate"])
         self.assertIsNone(player_trace_lua_config(config)["force_player_action_word"])
         self.assertFalse(player_trace_lua_config(config)["collision_focus"])
         self.assertFalse(player_trace_lua_config(config)["map_focus"])
@@ -265,6 +267,22 @@ class QuikyTraceTests(unittest.TestCase):
             effect_table_factory_focus=True,
         )
         self.assertTrue(player_trace_lua_config(config)["effect_table_factory_focus"])
+
+    def test_player_effect_table_scheduler_focus_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, effect_table_focus=True,
+            effect_table_scheduler_focus=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["effect_table_scheduler_focus"])
+
+    def test_player_effect_table_force_gate_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, effect_table_focus=True,
+            effect_table_force_gate=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["effect_table_force_gate"])
 
     def test_player_force_action_word_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

@@ -144,9 +144,16 @@
     "capacity": "DS:8808",
     "coordinate_table": "DS:87DE, shared x/y entry storage",
     "pending_effect_counter": "DS:880C is decremented by the spawn path and consumed by 01D7:14E1",
-    "producer": "01F7:38EC conditionally calls the pooled-object factory 01F7:0E06 with AX=0x4519 when the player object has flags bit 0x10 and byte +0x3C is clear; 01F7:4519 then claims one shared row and installs 01F7:45AB.",
+    "spawn_guard": "01F7:4519 first requires either DS:88AE > 0 or DS:880C > 0; it then requires DS:8806 < DS:8808. DS:88AE is a shared effect-stage gate whose authored writers remain to be assigned.",
+    "effect_stage_gate_static_writers": {
+      "reset_to_zero": ["01D7:3147"],
+      "set_to_one": ["01F7:A101", "01F7:B115", "01F7:C25E", "01F7:CC3B"],
+      "other_state_writes": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:D60B increment"],
+      "interpretation": "Raw segment disassembly proves several child/effect initializer or state-machine sites write the gate, but their entity-family ownership and relation to the Wind/UFO declarations are not yet assigned."
+    },
+    "producer": "01F7:38EC conditionally calls the pooled-object factory 01F7:0E06 with AX=0x4519 when the player object has flags bit 0x10 and byte +0x3C is clear; 01F7:4519 then claims one shared row and installs 01F7:45AB when its DS:88AE/DS:880C guard passes.",
     "reset_callers": ["01D7:3FC6 (unclassified level-state routine)", "01D7:44E9 from 01D7:44D0"],
-    "interpretation": "Shared transient effect/contact table. Wind, UFO, and normal-effect callbacks scan the table for matching x/y entries and clear rows through the remove path; the reset path clears the table storage and restores the active-count state. The first authored producer now recovered is the player-update tail at 01F7:38EC; Wind/UFO-specific declaration producers remain open."
+    "interpretation": "Shared transient effect/contact table. Wind, UFO, and normal-effect callbacks scan the table for matching x/y entries and clear rows through the remove path; the reset path clears the table storage and restores the active-count state. The first authored factory producer is the player-update tail at 01F7:38EC, but an unmutated W1L1 scheduler probe shows 01F7:4519 immediately clearing its new object because DS:88AE=0 and DS:880C=0. A debugger-only DS:88AE=1 probe then reaches 01F7:45AB and updates the claimed row, proving the scheduler/list handoff and callback chain. Wind/UFO-specific gate/row producers remain open."
   },
   "wind": {
     "initializer": "01F7:87D1",

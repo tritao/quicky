@@ -352,25 +352,34 @@ The same pass closes the branch-level behavior for the remaining effects:
   table, `4519` allocates/spawns an entry, `45AB` updates one x/y row, and
   `470C` removes it; `DS:8806` is the active-entry count, `DS:8808` the
   capacity bound, and `DS:880C` the pending-effect count consumed by
-  `01D7:14E1`. A relocation-backed producer is now identified: player-update
-  tail `01F7:38EC` calls the pooled-object factory `01F7:0E06` with `AX=0x4519`
-  when player flags bit `0x10` is set and byte `+0x3C` is clear. Reset has two
-  cross-segment callsites, `01D7:3FC6` and `01D7:44E9` (the latter from
-  `01D7:44D0`). This proves one authored producer and the reset boundaries;
-  which gameplay state raises bit `0x10`, and whether Wind/UFO declarations
-  use another producer, remain open. A controlled main-tree mutation at the
-  actual `01F7:38EC` entry (rather than its earlier `4384` prelude) writes
-  action word `0x0010`, observes byte `+0x3C: 0 -> FF`, and reaches the
-  relocation-backed factory `01F7:0E06` with `AX=0x4519`. This closes the
-  player-state-to-factory edge. The same ledger shows pool occupancy `8 -> 9`
-  with slot 1 carrying callback `4519` after the factory, then occupancy `9 -> 8`
-  one guest frame later without a captured `4519/45AB/470C` entry. The
-  scheduler/list handoff or immediate removal is therefore the next precise
-  boundary; the authored gameplay transition that sets the bit also remains
-  open. The unmutated input ledger now identifies the tested source: holding
-  left Alt (scan `0x38`) produces `DS:88BC=0x0010`, player action `0x0010`,
-  and the same `+0x3C: 0 -> FF` guard transition. This closes the keyboard
-  trigger mapping; other non-keyboard gameplay producers remain open. See
+  `01D7:14E1`. The `4519` initializer also gates on the shared byte
+  `DS:88AE`: it clears its newly allocated object unless `DS:88AE > 0` or
+  `DS:880C > 0`, then requires `DS:8806 < DS:8808`. A relocation-backed
+  producer is now identified: player-update tail `01F7:38EC` calls the
+  pooled-object factory `01F7:0E06` with `AX=0x4519` when player flags bit
+  `0x10` is set and byte `+0x3C` is clear. Reset has two cross-segment
+  callsites, `01D7:3FC6` and `01D7:44E9` (the latter from `01D7:44D0`).
+  This proves one authored factory producer and the reset boundaries; which
+  gameplay state raises bit `0x10`, and which path sets `DS:88AE`/`DS:880C`,
+  remain open. A controlled main-tree mutation at the actual `01F7:38EC`
+  entry (rather than its earlier `4384` prelude) writes action word `0x0010`,
+  observes byte `+0x3C: 0 -> FF`, and reaches the relocation-backed factory
+  `01F7:0E06` with `AX=0x4519`. The scheduler-focused trace then catches the
+  new slot at `DS:7566` and enters `01F7:4519`; in the unmutated fixture
+  `DS:88AE=0`, `DS:880C=0`, `DS:8806=0`, and `DS:8808=4`, so `4519` clears
+  `+0x18` immediately. A debugger-only write of `DS:88AE=1` makes the same
+  object claim a row, install `01F7:45AB`, and update x/y from `(128,385)` to
+  `(132,383)` on the next callback. This closes the scheduler handoff and
+  spawn-to-update chain without claiming that the forced gate is authored.
+  The unmutated input ledger identifies the tested source: holding left Alt
+  (scan `0x38`) produces `DS:88BC=0x0010`, player action `0x0010`, and the
+  same `+0x3C: 0 -> FF` guard transition. This closes the keyboard trigger
+  mapping; other non-keyboard gameplay producers and the `DS:88AE`/`DS:880C`
+  writers remain open. Raw disassembly narrows the gate-writer search to a
+  reset at `01D7:3147`, set-to-one sites at `01F7:A101`, `B115`, `C25E`, and
+  `CC3B`, plus state writes around `B30E`, `B61A`, `B791`, `B824`, and an
+  increment at `D60B`; those sites still need family ownership and authored
+  trigger correlation. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
@@ -629,8 +638,8 @@ are deliberately narrower:
    cross-world usage, removal path, and both player-side readers are confirmed;
    the 64-sample queue probe ruled out an explicit ordinary-queue injection.
 3. If effect semantics are required beyond control flow, correlate authored
-   producers/reset paths for the now-decoded `DS:8806` table, and assign the
-   paper `DS:880A` bounded HUD counter its human-facing label.
+   writers of the `DS:88AE`/`DS:880C` spawn gates and Wind/UFO row producers,
+   then assign the paper `DS:880A` bounded HUD counter its human-facing label.
 4. If exact streaming persistence is required, identify which region/resource
    unload transition (if any) causes `1CDA -> 1E04` to revisit a cleared record
    without a full level reload. The current evidence deliberately distinguishes

@@ -9,6 +9,8 @@ local focus_callback = trace_config.focus_callback or false
 local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
 local effect_table_focus = trace_config.effect_table_focus or false
 local effect_table_factory_focus = trace_config.effect_table_factory_focus or false
+local effect_table_scheduler_focus = trace_config.effect_table_scheduler_focus or false
+local effect_table_force_gate = trace_config.effect_table_force_gate or false
 local force_player_action_word = trace_config.force_player_action_word
 local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
@@ -55,6 +57,18 @@ local function arm_effect_table_lifecycle()
             dosbox.breakpoint_set(0x01f7, offset, {once = true})
             dosbox.breakpoint_set(0x1997, offset, {once = true})
         end
+    end
+end
+
+-- The pool factory writes a far callback pointer into the scheduler table,
+-- while the callback executes after the current phase pass.  Keep a separate
+-- arm mode for that boundary so a scheduler hit is captured even when it is
+-- not nested inside the player callback's return window.
+local function arm_effect_table_scheduler_targets()
+    if not effect_table_scheduler_focus then return end
+    for _, offset in ipairs({0x4519, 0x45ab, 0x470c}) do
+        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        dosbox.breakpoint_set(0x1997, offset, {once = true})
     end
 end
 
@@ -332,6 +346,10 @@ local function static_globals()
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
+        effect_active_count = dosbox.mem_read_word("ds", 0x8806),
+        effect_capacity = dosbox.mem_read_word("ds", 0x8808),
+        effect_pending_count = dosbox.mem_read_word("ds", 0x880c),
+        effect_gate_88ae = string.byte(dosbox.mem_read("ds", 0x88ae, 1) or "\0", 1),
     }
 end
 
@@ -525,6 +543,7 @@ local function is_property_target(offset)
 end
 
 local function arm_targets()
+    arm_effect_table_scheduler_targets()
     if focus_callback then
         arm_callback_targets()
     end
@@ -547,6 +566,7 @@ local function arm_targets()
         arm_branch_targets()
     end
     if focus_callback or map_focus or collision_focus or property_focus or branch_focus or
+       effect_table_scheduler_focus or
        (descriptor_census and not descriptor_census_done) then
         return
     end
@@ -676,6 +696,16 @@ local function record_effect_table(sample, hit)
     if hit.offset == 0x0e06 then
         event.factory_pool_before = pool_callback_summary()
     end
+end
+
+local function force_effect_table_gate(sample, hit)
+    if not effect_table_force_gate or hit.offset ~= 0x4519 then return end
+    dosbox.mem_write("ds", 0x88ae, "\x01")
+    sample.forced_effect_table_gate = {
+        offset = 0x88ae,
+        value = 1,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+    }
 end
 
 local function force_player_action(sample, hit)
@@ -836,6 +866,13 @@ for sequence = 1, sample_count do
         }
         record_collision(sample, initial_hit)
     end
+    if effect_table_scheduler_focus and is_effect_table_target(initial_hit.offset) then
+        sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+            segment = initial_hit.segment, offset = initial_hit.offset,
+        }
+        record_effect_table(sample, initial_hit)
+        force_effect_table_gate(sample, initial_hit)
+    end
     if branch_focus and is_branch_target(initial_hit.offset) then
         hit = capture_branch_sequence(sample, initial_hit)
     end
@@ -926,6 +963,7 @@ for sequence = 1, sample_count do
                         collision_return = far_return_location(candidate)
                     elseif is_effect_table_target(candidate.offset) then
                         record_effect_table(sample, candidate)
+                        force_effect_table_gate(sample, candidate)
                         if candidate.offset == 0x0e06 then
                             factory_seen = true
                         end

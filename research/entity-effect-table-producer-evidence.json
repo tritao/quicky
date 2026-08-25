@@ -101,7 +101,7 @@
         "One guest frame later occupancy is back to 8; no 01F7:4519, 01F7:45AB, or 01F7:470C breakpoint is observed.",
         "The player callback returns with action word 0x0010."
       ],
-      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The callback's scheduler/list handoff or immediate removal occurs within the next guest frame and remains unresolved; the authored gameplay transition that sets bit 0x10 also remains open."
+      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The next-frame scheduler probe now shows the record inserted at DS:7566 and 01F7:4519 entered with DS:88AE=0 and DS:880C=0; the callback clears +0x18 at its own guard, so this fixture rejects the effect before claiming a row. The authored gameplay transition that sets bit 0x10 and the paths that set DS:88AE/DS:880C remain open."
     },
     "natural_input_trigger_probe": {
       "trace": "research/build/player-effect-table-leftalt-natural-w1l1-v2.json",
@@ -112,11 +112,37 @@
       "input": "KBD_leftalt held for 30 frames and latched through each player callback",
       "observed": "Samples 1-4 report scan code 0x38, DS:88BC=0x0010, player action word 0x0010, and object byte +0x3C changing from 0x00 at the producer entry to 0xFF after the callback.",
       "interpretation": "The tested authored trigger is the alternate-action keyboard bit supplied by left Alt; no debugger action-word mutation is needed to reach the producer guard. The separate forced probe remains the direct factory-allocation proof because this natural run's factory breakpoint was not independently captured."
-    },
+  },
+  "scheduler_lifecycle_probe": {
+    "trace": "research/build/player-effect-table-scheduler-focus-w1l1-v2.json",
+    "trace_sha256": "6b861963ecb0d7b54f5d8dcab26ead0bdaf07fce93090b4bb7f4170abddb9376",
+    "trace_script_sha256": "502dca34aeeface1ea0b185b67914051a58dbb2dc7d407049a9307c1d70db981",
+    "fixture": "W1L1 main-tree native selector with action word forced at 01F7:38EC",
+    "samples": 4,
+    "observed": [
+      "The factory-created slot at pool offset 0x78 appears in DS:7566 with far callback 0x1997:0x4519 on the next frame.",
+      "01F7:4519 is entered with DS:88AE=0, DS:880C=0, DS:8806=0, and DS:8808=4; it clears object callback +0x18 and does not claim a row.",
+      "The following sample has no callback-4519 object, establishing immediate guard rejection rather than an unobserved list-removal race."
+    ],
+    "interpretation": "The scheduler insertion is confirmed; the missing visible effect in the ordinary fixture is explained by the 4519 shared gate, not by an unresolved scheduler handoff."
+  },
+  "scheduler_lifecycle_force_gate_probe": {
+    "trace": "research/build/player-effect-table-scheduler-forcegate-w1l1-v2.json",
+    "trace_sha256": "cf531aaaa2471852fa4ebc69ae17ac6f953421f5545552adfd4aadb74a2c565d",
+    "trace_script_sha256": "5d8922ff38ce004aefef0e9ddcd85cb42e3da3176638663225e37baca2a6b52a",
+    "fixture": "W1L1 main-tree native selector with action word forced at 01F7:38EC",
+    "samples": 3,
+    "mutation": "At the 01F7:4519 entry, write DS:88AE=1 to pass only the shared stage gate; no row or counter is directly written.",
+    "observed": [
+      "01F7:4519 increments DS:8806 from 0 to 1, installs callback 01F7:45AB at pool offset 0x78, seeds x=128, y=385, and leaves the effect row active.",
+      "The next sample enters 01F7:45AB for the same object with DS:8806=1 and updates the row to x=132, y=383 while callback 01F7:45AB remains installed."
+    ],
+    "interpretation": "The controlled gate pass closes the spawn -> update callback chain. It is debugger-only evidence of the state machine, not evidence that DS:88AE is set by this W1L1 player path."
+  },
   "remaining": [
     "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
-    "How the newly allocated callback-4519 record is inserted into the scheduler/list or removed within the next guest frame.",
-    "Whether Wind/UFO authored declarations use this player-state producer or another producer path.",
+    "Which authored gameplay/effect paths set DS:88AE or DS:880C so callback 01F7:4519 can claim a row.",
+    "Whether Wind/UFO authored declarations use this player-state producer or another producer path, and how they seed DS:87DE rows.",
     "The semantic names and level/reload triggers of the two reset callsites."
   ]
 }

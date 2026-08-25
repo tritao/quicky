@@ -337,6 +337,7 @@ public class AnnotateQuiky extends GhidraScript {
         label(0x81d0, "camera_subtile_phase", "Derived camera phase byte written by update_camera_scroll.");
         label(0x88bc, "keyboard_action_flags", "Normalized make/break action flags populated by poll_keyboard_ring_to_input_flags.");
         label(0x88ba, "last_keyboard_scan_code", "Most recently consumed keyboard scan code.");
+        label(0x88ae, "effect_stage_gate_88ae", "Shared effect-stage gate tested by 01F7:4519 before it claims a DS:87DE row; authored writers remain under investigation.");
     }
 
     private void annotateSegment5() throws Exception {
