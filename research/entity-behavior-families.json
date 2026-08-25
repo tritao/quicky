@@ -218,9 +218,9 @@
       "collision_shape_interaction": {"status": "confirmed", "known": "No normal sprite slot or player/entity collision path; MAP descriptor lookup drives emitted effects."},
       "animation_table": {"status": "confirmed", "known": "DS:6986 maps tile IDs to world ICO indices; emitted objects use 01F7:10B5 -> 1693 -> 1186 and three-tick lifetime."},
       "death_removal": {"status": "confirmed", "known": "Parent clears active field at state 10; child ICO objects are short-lived pooled objects."},
-      "cross_world_variants": {"status": "confirmed", "known": "World ICO mappings are directly matched for W1-W5; type variants differ only by initial +0x2E value."},
+      "cross_world_variants": {"status": "confirmed", "known": "World ICO mappings are directly matched for W1-W5; type variants differ only by initial +0x2E value. State 10 publishes terminal coordinates through DS:8828/882A; transition routine 01F7:1AAA consumes the indexed coordinate row selected by DS:85D2, repositions the player, reinstalls callback 01F7:3F27, clears DS:89EA, and rebuilds map state."},
       "evidence_refs": ["research/effect-mappings.json", "research/notes/ghidra-analysis.md", "research/automation/quiky_entity_trace.lua", "research/entity-targeted-decompile-evidence.json"],
-      "open_questions": ["purpose of published DS:8828/882A terminal coordinates"]
+      "open_questions": ["which authored selector/level state writes each indexed DS:8828/882A coordinate row"]
     },
     {
       "id": "cloud",

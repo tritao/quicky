@@ -612,8 +612,12 @@ The statically decoded lookup grid is:
 
 At state 10 the callback clears `object+0x18`, ending the state-machine
 object, and publishes `object+0x04 + 0x19` and `object+0x08 + 0x46` at
-`DS:8828` and `DS:882A`. The purpose of those two published coordinates is
-not assigned beyond this executable-level fact.
+`DS:8828` and `DS:882A`. The transition routine at `01F7:1AAA` reads the
+published pair as an indexed coordinate row (`DS:85D2 * 4`), writes it into
+the persistent player record, reinstalls callback `01F7:3F27`, clears
+`DS:89EA`, and rebuilds the camera/MAP state. Their engine-level role is
+therefore a terminal/respawn-position table; which authored selector state
+populates each indexed row remains open.
 
 The MAP helper at `01F7:3376` is correspondingly:
 
