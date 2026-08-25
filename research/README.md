@@ -1637,3 +1637,41 @@ object bytes before and after scheduled callbacks and is intended for the
 movement, collision, animation-timing, and removal gaps called out by the
 matrix. It requires the debugger-enabled dosbox-automation binary described
 above.
+
+## Declarative player trace matrix
+
+`tools/player_trace_matrix.py` is an experiment runner layered on top of
+`quikytrace.py`. It leaves the stable tracer unchanged and runs each
+experiment independently, so a failed experiment has its own rerunnable
+manifest and failure artifact. The compact schema supports a level, sample
+count, input phases, execute watches, player/object focus, reversible patches,
+and exact/transition expectations. An example catalog is in
+`experiments/player-trace-matrix.example.json`.
+
+Run one experiment or a named suite with an isolated DOSBox process:
+
+```sh
+PYTHONPATH=research/tools python3 research/tools/player_trace_matrix.py run \
+  --file research/experiments/player-trace-matrix.example.json \
+  --suite smoke --launch --headless --output-root research/build/player-trace-matrix
+```
+
+Each experiment directory contains `raw-trace.json`, compact `normalized.json`,
+`summary.md`, `assertions.json`, and `manifest.json`. The manifest records
+executable/archive hashes, all tracer-source hashes, the canonical experiment
+configuration, and output paths. A failed manifest can be rerun independently:
+
+```sh
+PYTHONPATH=research/tools python3 research/tools/player_trace_matrix.py rerun \
+  research/build/player-trace-matrix/baseline/w1l1-idle/manifest.json \
+  --launch --headless
+```
+
+Compare either raw or normalized artifacts directly:
+
+```sh
+PYTHONPATH=research/tools python3 research/tools/player_trace_matrix.py compare \
+  research/build/player-trace-matrix/baseline/w1l1-idle/normalized.json \
+  research/build/player-trace-matrix/collision/w1l1-right-collision/normalized.json \
+  --output research/build/player-trace-matrix/comparisons/idle-vs-right.json
+```

@@ -1,0 +1,58 @@
+{
+  "experiments": [
+    {
+      "name": "w1l1-idle",
+      "category": "baseline",
+      "level": "W1L1",
+      "sample_count": 4,
+      "input_phases": [
+        {"keys": [], "frames": 10},
+        {"keys": [], "frames": 10},
+        {"keys": [], "frames": 10}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "expected_outputs": {
+        "transitions": []
+      }
+    },
+    {
+      "name": "w1l1-right-collision",
+      "category": "collision",
+      "level": "W1L1",
+      "sample_count": 6,
+      "input_phases": [
+        {"keys": ["KBD_right"], "frames": 8},
+        {"keys": ["KBD_right"], "frames": 8},
+        {"keys": [], "frames": 8},
+        {"keys": [], "frames": 8},
+        {"keys": [], "frames": 8}
+      ],
+      "execute_watches": ["0x1f7:0x3df2"],
+      "focus": {"kind": "collision"},
+      "trace_options": {"collision_event_limit": 96, "collision_repeat_limit": 3}
+    },
+    {
+      "name": "w1l1-descriptor-patch",
+      "category": "descriptor",
+      "level": "W1L1",
+      "sample_count": 3,
+      "input_phases": [
+        {"keys": ["KBD_right"], "frames": 12},
+        {"keys": [], "frames": 12}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "patches": [
+        {"space": "player", "offset": "0x3e", "width": "u16", "value": 0}
+      ],
+      "expected_outputs": {
+        "exact": {
+          "frames[0].callback.offset": 16376
+        }
+      }
+    }
+  ],
+  "suites": {
+    "smoke": ["w1l1-idle"],
+    "player-basics": ["w1l1-idle", "w1l1-right-collision"]
+  }
+}
