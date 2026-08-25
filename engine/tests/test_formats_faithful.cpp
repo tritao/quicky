@@ -626,12 +626,30 @@ void testRecoveredMovingPlatformCarryContract() {
     quiky::LevelSession moving("W1L1.MAP", blockedMap,
                                makeSingleArea(0x3f), config);
     moving.reset(simulation);
-    moving.entitiesForSetup()[0].velocityX = quiky::Fixed16(0x10000);
     moving.updateStreaming(simulation, 24, 16);
+    moving.entitiesForSetup()[0].velocityX = quiky::Fixed16(0x10000);
     moving.tick(simulation, blockedWorld, quiky::InputState(), output);
     assert(moving.entities()[0].x == 16);
     assert(moving.entities()[0].velocityX.raw == 0);
     assert(moving.entities()[0].platformWait54 == 0x46);
+
+    quiky::LevelSession culled("W1L1.MAP", map,
+                               makeSingleArea(0x3f), config);
+    culled.reset(simulation);
+    culled.updateStreaming(simulation, 24, 16);
+    culled.tick(simulation, world, quiky::InputState(), output);
+    assert(culled.entities()[0].platformCarryActive);
+    culled.updateStreaming(simulation, 256, 16);
+    assert(!culled.entities()[0].active);
+    assert(!culled.entities()[0].platformCarryActive);
+    assert(!culled.entities()[0].schedulerHandle.valid());
+
+    culled.updateStreaming(simulation, 24, 16);
+    assert(culled.entities()[0].active);
+    assert(culled.entities()[0].x == culled.entities()[0].initialX);
+    assert(culled.entities()[0].y == culled.entities()[0].initialY);
+    assert(culled.entities()[0].velocityX.raw == 0);
+    assert(culled.entities()[0].platformWait54 == 0);
 }
 
 } // namespace

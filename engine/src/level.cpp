@@ -731,12 +731,32 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
         entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
         entity.active = visible;
         if (visible && !wasActive) {
+            if (entity.kind == EntityKind::MovingPlatform) {
+                // 01F7:1DEE clears the pooled callback and leaves the ARE
+                // declaration eligible for reconstruction. Re-entry therefore
+                // starts from the declaration anchor and the platform
+                // initializer state rather than from the culled object.
+                entity.x = entity.initialX;
+                entity.y = entity.initialY;
+                entity.positionX = Fixed16::fromPixels(entity.x);
+                entity.positionY = Fixed16::fromPixels(entity.y);
+                initializeMovingPlatform(entity);
+            }
             if (scheduler != 0 && entity.updateCallback.offset != 0) {
                 entity.schedulerHandle = scheduler->queueSpawn(
                     entity.updateCallback, entity.id, false);
             }
             spawnedTransient = spawnTransientEffect(entity) || spawnedTransient;
         } else if (!visible) {
+            if (entity.kind == EntityKind::MovingPlatform) {
+                // The off-camera callback is gone before A0B2 can publish a
+                // new carry. Do not retain object-local carry phase or wait
+                // counters across the pooled-object lifetime boundary.
+                entity.platformCarryActive = false;
+                entity.platformCooldown58 = 0;
+                entity.platformWait52 = 0;
+                entity.platformWait54 = 0;
+            }
             if ((isNormalEnemyType(entity.type) ||
                  isWorldEffectType(entity.type) ||
                  isCloudType(entity.type)) && wasActive) {

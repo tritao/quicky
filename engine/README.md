@@ -127,8 +127,11 @@ band, publishes `DS:5006`, `DS:8816`, and `DS:8812`, and consumes the carry in
 the same callback while preserving the packed `0x78` record's subpixel state.
 The confirmed `5DC3` raw-MAP `0x0800` stop/snap path and its `0x46` wait value
 are covered by a native contract test. Full DOS scheduler provenance,
-platform landing/jump detachment, crushing, and culling while attached remain
-explicit boundaries.
+platform landing/jump detachment, and crushing remain explicit boundaries.
+The statically confirmed `A06F -> 1DEE` cull/re-stream lifecycle is modeled:
+platform carry/wait state is discarded at release and the ARE anchor and
+initializer state are restored on re-entry. The effect of that release on an
+attached player remains an explicit runtime boundary.
 
 ## Unified player callback status
 
@@ -191,7 +194,8 @@ Explicit unresolved boundaries:
   read/write and return contract;
 - natural ceiling validation and descriptor semantic labels/one-way policy;
 - moving-platform scheduler provenance beyond the pre-player publication,
-  landing/jump detachment, crushing, and culling while attached;
+  landing/jump detachment, crushing, and the attached-player effect of
+  culling;
 - the no-descriptor-table fallback, which remains a deliberate research
   boundary.
 
