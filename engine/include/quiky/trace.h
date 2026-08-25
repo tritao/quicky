@@ -2,6 +2,7 @@
 #define QUIKY_TRACE_H
 
 #include "quiky/player_record.h"
+#include "quiky/collision_kernel.h"
 #include "quiky/scheduler.h"
 #include "quiky/simulation.h"
 #include "quiky/world_view.h"
@@ -34,11 +35,14 @@ struct TraceStateWrite {
 // fields and does not assign meaning to unknown player bytes.
 struct TraceFrame {
     std::uint64_t tick;
+    std::string sourceExperiment;
+    std::uint64_t sequence;
     std::uint16_t inputFlags;
     std::uint16_t playerSelector;
     std::uint16_t playerOffset;
     PlayerRawRecord player;
     std::vector<TraceMapLookup> mapLookups;
+    std::vector<CollisionProbe> collisionProbes;
     std::vector<SchedulerInvocation> schedulerCallbacks;
     std::vector<TraceStateWrite> stateWrites;
     std::vector<SimulationEvent> emittedEvents;
@@ -63,9 +67,19 @@ struct TraceDifference {
     bool equal;
     std::size_t frameIndex;
     std::uint64_t tick;
+    std::uint16_t inputFlags;
+    std::string sourceExperiment;
+    std::uint64_t sequence;
     std::string field;
     std::string expected;
     std::string actual;
+    bool hasRawOffset;
+    std::size_t rawOffset;
+    std::string semanticField;
+    std::string decodedExpected;
+    std::string decodedActual;
+    std::string expectedCollisionProbes;
+    std::string actualCollisionProbes;
 
     TraceDifference();
 };
