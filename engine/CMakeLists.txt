@@ -17,6 +17,7 @@ add_library(quiky_core
     src/runtime.cpp
     src/level.cpp
     src/level_runtime.cpp
+    src/sfx_events.cpp
     src/tileset.cpp
 )
 
@@ -55,7 +56,10 @@ enable_testing()
 option(QUIKY_ENABLE_MUSIC "Build the TFMX music player" ON)
 
 if(QUIKY_ENABLE_MUSIC)
-    add_library(quiky_music src/music.cpp)
+    add_library(quiky_music
+        src/audio.cpp
+        src/music.cpp
+    )
     target_link_libraries(quiky_music PUBLIC quiky_core)
     if(NOT MSVC)
         target_compile_options(quiky_music PRIVATE -Wall -Wextra -Wpedantic)
@@ -64,10 +68,18 @@ if(QUIKY_ENABLE_MUSIC)
     add_executable(quiky-music apps/quiky-music.cpp)
     target_link_libraries(quiky-music PRIVATE quiky_music)
 
+    add_executable(quiky-sfx apps/quiky-sfx.cpp)
+    target_link_libraries(quiky-sfx PRIVATE quiky_music)
+
+    add_executable(quiky-sfx-tests tests/test_sfx.cpp)
+    target_link_libraries(quiky-sfx-tests PRIVATE quiky_music)
+
     find_package(SDL3 CONFIG QUIET)
     if(SDL3_FOUND AND TARGET SDL3::SDL3)
         target_link_libraries(quiky-music PRIVATE SDL3::SDL3)
         target_compile_definitions(quiky-music PRIVATE QUIKY_WITH_SDL=1)
+        target_link_libraries(quiky-sfx PRIVATE SDL3::SDL3)
+        target_compile_definitions(quiky-sfx PRIVATE QUIKY_WITH_SDL=1)
     endif()
 endif()
 
@@ -96,11 +108,22 @@ if(QUIKY_ENABLE_MUSIC)
     add_test(NAME quiky-music-render-title
         COMMAND quiky-music ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT
                 render TITEL ${CMAKE_CURRENT_BINARY_DIR}/quiky-music-title.wav)
+    add_test(NAME quiky-sfx-info-gameplay
+        COMMAND quiky-sfx ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT info ONGAME2 13)
+    add_test(NAME quiky-sfx-tests
+        COMMAND quiky-sfx-tests ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT)
+    add_test(NAME quiky-sfx-render-gameplay
+        COMMAND quiky-sfx ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT
+                render ONGAME2 0 ${CMAKE_CURRENT_BINARY_DIR}/quiky-sfx-0.wav 1)
 endif()
 
 add_executable(quiky-tests tests/test_formats.cpp)
 target_link_libraries(quiky-tests PRIVATE quiky_core)
 add_test(NAME quiky-tests COMMAND quiky-tests)
+
+add_executable(quiky-sfx-event-tests tests/test_sfx_events.cpp)
+target_link_libraries(quiky-sfx-event-tests PRIVATE quiky_core)
+add_test(NAME quiky-sfx-event-tests COMMAND quiky-sfx-event-tests)
 
 add_test(NAME quiky-calibration-generate
     COMMAND quiky-calibrate ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT

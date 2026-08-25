@@ -151,9 +151,10 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _config(config),
       _entities(),
       _effects(),
-      _event(),
+      _events(),
       _score(0),
-      _deaths(0) {
+      _deaths(0),
+      _alternateActionActive(false) {
     const std::vector<AreaPlacement> placements = _area.placements();
     _entities.reserve(placements.size());
     for (std::size_t index = 0; index < placements.size(); ++index) {
@@ -193,9 +194,10 @@ SpawnPoint LevelSession::spawnPoint() const {
 }
 
 void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation) {
-    _event = LevelEvent();
+    _events.clear();
     _score = 0;
     _deaths = 0;
+    _alternateActionActive = false;
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         entity.phase = EntityPhase::Dormant;
@@ -203,6 +205,7 @@ void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation
         entity.activeFrames = 0;
         entity.active = false;
         entity.collected = false;
+        entity.pooledInteractionTriggered = false;
     }
     _effects.clear();
     resetPlayer(player, simulation);
@@ -389,6 +392,10 @@ bool LevelSession::isWorldEffectType(std::uint16_t type) {
     return type >= 0x1f && type <= 0x21;
 }
 
+bool LevelSession::isPooledInteractionType(std::uint16_t type) {
+    return type >= 0x05 && type <= 0x08;
+}
+
 std::uint32_t LevelSession::collectibleValue(std::uint16_t type) {
     if (type == 0x6f) {
         return 10;
@@ -434,6 +441,19 @@ bool LevelSession::overlaps(const PlayerState &player, const PlayerConfig &playe
     return entity.x >= left && entity.x <= right && entity.y >= top && entity.y <= bottom;
 }
 
+bool LevelSession::pooledInteractionOverlaps(const PlayerState &player,
+                                             const LevelEntity &entity) const {
+    const std::int32_t playerX = player.x.floorPixels();
+    const std::int32_t playerY = player.y.floorPixels();
+    const bool crab = entity.type == 0x07 || entity.type == 0x08;
+    const std::int32_t left = crab ? 10 : 17;
+    const std::int32_t right = crab ? 10 : 18;
+    const std::int32_t top = crab ? 35 : 20;
+    const std::int32_t objectY = entity.y + (crab ? 32 : 16);
+    return entity.x - left < playerX && playerX < entity.x + right &&
+           objectY - top < playerY && playerY < objectY + 5;
+}
+
 bool LevelSession::atRightExit(const PlayerState &player) const {
     if (!_config.enableEdgeExit) {
         return false;
@@ -442,14 +462,16 @@ bool LevelSession::atRightExit(const PlayerState &player) const {
     return player.x.floorPixels() + _config.edgeExitMargin >= mapWidth;
 }
 
-void LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
+bool LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
     const std::int32_t regionX = floorRegion(playerX);
     const std::int32_t regionY = floorRegion(playerY);
+    bool spawnedTransient = false;
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         if (entity.collected) {
             entity.phase = EntityPhase::Collected;
             entity.active = false;
+            entity.pooledInteractionTriggered = false;
             removeTransientEffectsFor(entity.id);
             continue;
         }
@@ -461,11 +483,13 @@ void LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
         entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
         entity.active = visible;
         if (visible && !wasActive) {
-            spawnTransientEffect(entity);
+            spawnedTransient = spawnTransientEffect(entity) || spawnedTransient;
         } else if (!visible) {
+            entity.pooledInteractionTriggered = false;
             removeTransientEffectsFor(entity.id);
         }
     }
+    return spawnedTransient;
 }
 
 void LevelSession::advanceActiveEntities() {
@@ -480,9 +504,9 @@ void LevelSession::advanceActiveEntities() {
     }
 }
 
-void LevelSession::spawnTransientEffect(const LevelEntity &entity) {
+bool LevelSession::spawnTransientEffect(const LevelEntity &entity) {
     if (!isTransientEffectType(entity.type)) {
-        return;
+        return false;
     }
     LevelEffect effect;
     effect.sourceEntityId = entity.id;
@@ -492,13 +516,14 @@ void LevelSession::spawnTransientEffect(const LevelEntity &entity) {
     effect.effectSlot = entity.effectSlot;
     effect.effectResource = entity.effectResource;
     effect.animationFrame = 0;
-    // The original event object is short-lived and advances its animation
-    // byte modulo eight. Its exact removal timing is not yet fully mapped;
-    // eight ticks preserves the observed event animation without turning the
-    // ARE seed into a permanent sprite.
+    // The event object is short-lived and advances its animation byte modulo
+    // eight. Its exact removal timing is not yet fully mapped; eight ticks
+    // preserves the observed event animation without turning the ARE seed
+    // into a permanent sprite.
     effect.lifetime = 8;
     effect.active = true;
     _effects.push_back(effect);
+    return true;
 }
 
 void LevelSession::removeTransientEffectsFor(std::uint32_t entityId) {
@@ -523,7 +548,8 @@ void LevelSession::advanceActiveEffects() {
     }
 }
 
-void LevelSession::emitWorldEffectsForActiveEntities() {
+bool LevelSession::emitWorldEffectsForActiveEntities() {
+    bool emitted = false;
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         const LevelEntity &entity = _entities[index];
         if (entity.phase != EntityPhase::Active ||
@@ -532,14 +558,17 @@ void LevelSession::emitWorldEffectsForActiveEntities() {
         }
         if (entity.activeFrames == 4 || entity.activeFrames == 6 ||
             entity.activeFrames == 8 || entity.activeFrames == 10) {
-            emitWorldEffects(entity,
-                             static_cast<std::uint16_t>(entity.activeFrames));
+            emitted = emitWorldEffects(
+                          entity,
+                          static_cast<std::uint16_t>(entity.activeFrames)) || emitted;
         }
     }
+    return emitted;
 }
 
-void LevelSession::emitWorldEffects(const LevelEntity &entity,
+bool LevelSession::emitWorldEffects(const LevelEntity &entity,
                                     std::uint16_t state) {
+    bool emitted = false;
     const std::int32_t yOffset = state == 4 ? 0 : (state / 2 - 2) * 16;
     const std::int32_t firstXOffset = state == 4 ? 0 : 16;
     const std::int32_t xOffsets[] = {16, 0, 32, 48, 64};
@@ -577,7 +606,9 @@ void LevelSession::emitWorldEffects(const LevelEntity &entity,
         effect.lifetime = 3;
         effect.active = true;
         _effects.push_back(effect);
+        emitted = true;
     }
+    return emitted;
 }
 
 void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
@@ -588,14 +619,52 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
 
 void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
                         const CollisionQuery &collision, const InputState &input) {
-    _event = LevelEvent();
-    updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+    const bool wasGrounded = player.grounded;
+    const bool alternatePressed = input.alternate && !_alternateActionActive;
+    _alternateActionActive = input.alternate;
+    bool spawnedTransient = updateStreaming(player.x.floorPixels(),
+                                            player.y.floorPixels());
     const EntityCollisionQuery entityCollision(collision, _entities);
+    const bool jumpRequested = player.grounded && (input.jump || input.up);
     simulation.tick(player, entityCollision, input);
-    updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+    spawnedTransient = updateStreaming(player.x.floorPixels(),
+                                       player.y.floorPixels()) || spawnedTransient;
     advanceActiveEntities();
     advanceActiveEffects();
-    emitWorldEffectsForActiveEntities();
+    const bool emittedTileEffect = emitWorldEffectsForActiveEntities();
+
+    if (spawnedTransient) {
+        enqueueEvent(LevelEventType::WorldObjectInteraction);
+    }
+    if (emittedTileEffect) {
+        enqueueEvent(LevelEventType::TileInteraction);
+    }
+
+    const bool landed = !wasGrounded && player.grounded;
+    if (landed) {
+        bool landedOnMovingPlatform = false;
+        for (std::size_t index = 0; index < _entities.size(); ++index) {
+            const LevelEntity &entity = _entities[index];
+            if (entity.active && entity.kind == EntityKind::MovingPlatform &&
+                overlaps(player, simulation.config(), entity, 0)) {
+                landedOnMovingPlatform = true;
+                enqueueEvent(LevelEventType::EntityCollisionImpact,
+                             entity.id, entity.type);
+                break;
+            }
+        }
+        if (!landedOnMovingPlatform) {
+            enqueueEvent(LevelEventType::TileInteraction);
+        }
+    }
+
+    if (alternatePressed) {
+        enqueueEvent(LevelEventType::AlternateActionObject);
+    }
+
+    if (jumpRequested) {
+        enqueueEvent(LevelEventType::PlayerJumped);
+    }
 
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
@@ -608,30 +677,56 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
             entity.active = false;
             entity.phase = EntityPhase::Collected;
             _score += collectibleValue(entity.type);
-            _event.type = LevelEventType::Collected;
-            _event.entityId = entity.id;
-            _event.entityType = entity.type;
+            enqueueEvent(LevelEventType::Collected, entity.id, entity.type);
+        } else if (entity.kind == EntityKind::Hazard &&
+                   isPooledInteractionType(entity.type)) {
+            const bool pooledContact = pooledInteractionOverlaps(player, entity);
+            if (!pooledContact) {
+                entity.pooledInteractionTriggered = false;
+            } else if (!entity.pooledInteractionTriggered) {
+                entity.pooledInteractionTriggered = true;
+                enqueueEvent(LevelEventType::PooledObjectInteractionBurst,
+                             entity.id, entity.type);
+            }
+            if (overlaps(player, simulation.config(), entity, _config.hazardRadius)) {
+                resetPlayer(player, simulation);
+                ++_deaths;
+                enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
+                updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+                return;
+            }
         } else if (entity.kind == EntityKind::Hazard &&
                    overlaps(player, simulation.config(), entity, _config.hazardRadius)) {
             resetPlayer(player, simulation);
             ++_deaths;
-            _event.type = LevelEventType::PlayerDied;
-            _event.entityId = entity.id;
-            _event.entityType = entity.type;
+            enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
             updateStreaming(player.x.floorPixels(), player.y.floorPixels());
             return;
         }
     }
 
     if (atRightExit(player)) {
-        _event.type = LevelEventType::LevelExit;
-        _event.targetLevel = nextLevelName(_mapName);
+        enqueueEvent(LevelEventType::LevelExit, 0, 0, nextLevelName(_mapName));
     }
 }
 
+void LevelSession::enqueueEvent(LevelEventType type, std::uint32_t entityId,
+                                std::uint16_t entityType,
+                                const std::string &targetLevel) {
+    LevelEvent event;
+    event.type = type;
+    event.entityId = entityId;
+    event.entityType = entityType;
+    event.targetLevel = targetLevel;
+    _events.push_back(event);
+}
+
 LevelEvent LevelSession::consumeEvent() {
-    const LevelEvent event = _event;
-    _event = LevelEvent();
+    if (_events.empty()) {
+        return LevelEvent();
+    }
+    const LevelEvent event = _events.front();
+    _events.pop_front();
     return event;
 }
 

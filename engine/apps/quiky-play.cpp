@@ -2,7 +2,8 @@
 #include "quiky/bob.h"
 #include "quiky/level_runtime.h"
 #ifdef QUIKY_WITH_MUSIC
-#include "quiky/music.h"
+#include "quiky/audio.h"
+#include "quiky/sfx_events.h"
 #endif
 #include "quiky/renderer.h"
 #include "quiky/runtime.h"
@@ -31,7 +32,8 @@ void usage() {
     std::cerr << "usage: quiky-play ARCHIVE [MAP-RESOURCE BOB-RESOURCE] "
                  "[START-X START-Y] [--overlay-are] [--entities] [--no-music]\n"
                  "controls: arrows/A,D move, space/W/up jump, R reset, "
-                 "P pause, N step, F1 toggle ARE, F2 toggle active entities, Esc quit\n";
+                 "Alt alternate action, P pause, N step, F1 toggle ARE, "
+                 "F2 toggle active entities, Esc quit\n";
 }
 
 long parseNumber(const std::string &value, const char *name) {
@@ -156,20 +158,21 @@ struct SdlState {
     SDL_Renderer *renderer;
     SDL_Texture *texture;
 #ifdef QUIKY_WITH_MUSIC
-    SDL_AudioStream *musicStream;
+    SDL_AudioStream *audioStream;
+    quiky::AudioMixer *audioMixer;
 #endif
 
     SdlState()
         : window(nullptr), renderer(nullptr), texture(nullptr)
 #ifdef QUIKY_WITH_MUSIC
-          , musicStream(nullptr)
+          , audioStream(nullptr), audioMixer(nullptr)
 #endif
     {}
 
     ~SdlState() {
 #ifdef QUIKY_WITH_MUSIC
-        if (musicStream != nullptr) {
-            SDL_DestroyAudioStream(musicStream);
+        if (audioStream != nullptr) {
+            SDL_DestroyAudioStream(audioStream);
         }
 #endif
         if (texture != nullptr) {
@@ -208,28 +211,48 @@ void replaceSurfaceTexture(SdlState &sdl,
 }
 
 #ifdef QUIKY_WITH_MUSIC
-bool startGameplayMusic(const quiky::Archive &archive, SdlState &sdl) {
+void audioStreamCallback(void *userdata, SDL_AudioStream *stream,
+                         int additionalAmount, int) {
+    if (additionalAmount <= 0) {
+        return;
+    }
+    quiky::AudioMixer *mixer = static_cast<quiky::AudioMixer *>(userdata);
+    const std::size_t frames = static_cast<std::size_t>(additionalAmount + 3) / 4;
     try {
-        quiky::MusicModule module(archive, "ONGAME2");
-        const quiky::Pcm16Stereo audio = module.render(0, 180, false);
+        const quiky::Pcm16Stereo audio = mixer->mix(frames);
+        SDL_PutAudioStreamData(stream, audio.samples.data(),
+                               static_cast<int>(audio.samples.size() * sizeof(std::int16_t)));
+    } catch (const std::exception &) {
+        // The callback cannot propagate exceptions across the SDL audio thread.
+        // Leaving the stream short is safer than terminating the process here.
+    }
+}
+
+bool startGameplayAudio(const quiky::Archive &archive, SdlState &sdl,
+                        std::unique_ptr<quiky::AudioMixer> &audioMixer) {
+    try {
+        audioMixer.reset(new quiky::AudioMixer(archive, "ONGAME2", "ONGAME2"));
         SDL_AudioSpec spec;
         SDL_zero(spec);
-        spec.freq = static_cast<int>(audio.sampleRate);
+        spec.freq = static_cast<int>(audioMixer->sampleRate());
         spec.format = SDL_AUDIO_S16LE;
         spec.channels = 2;
-        sdl.musicStream = SDL_OpenAudioDeviceStream(
+        sdl.audioStream = SDL_OpenAudioDeviceStream(
             SDL_AUDIO_DEVICE_DEFAULT_PLAYBACK, &spec, nullptr, nullptr);
-        if (sdl.musicStream == nullptr) {
+        if (sdl.audioStream == nullptr) {
             std::cerr << "warning: gameplay music unavailable: " << SDL_GetError() << "\n";
+            audioMixer.reset();
             return false;
         }
-        const int bytes = static_cast<int>(audio.samples.size() * sizeof(std::int16_t));
-        if (!SDL_PutAudioStreamData(sdl.musicStream, audio.samples.data(), bytes) ||
-            !SDL_FlushAudioStream(sdl.musicStream) ||
-            !SDL_ResumeAudioStreamDevice(sdl.musicStream)) {
+        sdl.audioMixer = audioMixer.get();
+        if (!SDL_SetAudioStreamGetCallback(sdl.audioStream, audioStreamCallback,
+                                            sdl.audioMixer) ||
+            !SDL_ResumeAudioStreamDevice(sdl.audioStream)) {
             std::cerr << "warning: gameplay music could not start: " << SDL_GetError() << "\n";
-            SDL_DestroyAudioStream(sdl.musicStream);
-            sdl.musicStream = nullptr;
+            SDL_DestroyAudioStream(sdl.audioStream);
+            sdl.audioStream = nullptr;
+            sdl.audioMixer = nullptr;
+            audioMixer.reset();
             return false;
         }
         return true;
@@ -237,6 +260,20 @@ bool startGameplayMusic(const quiky::Archive &archive, SdlState &sdl) {
         std::cerr << "warning: gameplay music unavailable: " << error.what() << "\n";
         return false;
     }
+}
+
+void triggerLevelSfx(SdlState &sdl, quiky::AudioMixer *audioMixer,
+                     const quiky::LevelEvent &event) {
+    const quiky::GameplaySfx effect = quiky::gameplaySfxForEvent(event);
+    if (effect == quiky::GameplaySfx::Silent ||
+        audioMixer == nullptr || sdl.audioStream == nullptr) {
+        return;
+    }
+    if (!SDL_LockAudioStream(sdl.audioStream)) {
+        return;
+    }
+    audioMixer->triggerSfx(static_cast<int>(effect));
+    SDL_UnlockAudioStream(sdl.audioStream);
 }
 #endif
 
@@ -388,13 +425,16 @@ int main(int argc, char **argv) {
         runtime->reset(player, simulation);
 
         checkSdl(SDL_Init(SDL_INIT_VIDEO), "SDL_Init");
+#ifdef QUIKY_WITH_MUSIC
+        std::unique_ptr<quiky::AudioMixer> audioMixer;
+#endif
         SdlState sdl;
 #ifdef QUIKY_WITH_MUSIC
         if (musicEnabled) {
             if (!SDL_InitSubSystem(SDL_INIT_AUDIO)) {
                 std::cerr << "warning: gameplay music unavailable: " << SDL_GetError() << "\n";
             } else {
-                startGameplayMusic(archive, sdl);
+                startGameplayAudio(archive, sdl, audioMixer);
             }
         }
 #else
@@ -417,6 +457,7 @@ int main(int argc, char **argv) {
         bool paused = false;
         bool left = false;
         bool right = false;
+        bool alternate = false;
         bool jumpPressed = false;
         bool stepRequested = false;
         std::uint64_t frame = 0;
@@ -448,6 +489,8 @@ int main(int argc, char **argv) {
                         left = down;
                     } else if (isKey(key, SDL_SCANCODE_RIGHT, SDL_SCANCODE_D)) {
                         right = down;
+                    } else if (isKey(key, SDL_SCANCODE_LALT, SDL_SCANCODE_RALT)) {
+                        alternate = down;
                     } else if (isKey(key, SDL_SCANCODE_SPACE, SDL_SCANCODE_W) ||
                                key == SDL_SCANCODE_UP) {
                         if (down && !event.key.repeat) {
@@ -477,12 +520,36 @@ int main(int argc, char **argv) {
                     input.left = left;
                     input.right = right;
                     input.jump = jumpPressed;
+                    input.alternate = alternate;
                     runtime->tick(player, simulation, input);
                     ++frame;
                     jumpPressed = false;
                     const quiky::LevelEvent event = runtime->session().consumeEvent();
+#ifdef QUIKY_WITH_MUSIC
+                    triggerLevelSfx(sdl,
+                                    audioMixer.get(),
+                                    event);
+#endif
                     if (event.type == quiky::LevelEventType::Collected) {
                         eventText = "collected";
+                        eventUntil = now + 1000000000ULL;
+                    } else if (event.type == quiky::LevelEventType::PlayerJumped) {
+                        eventText = "jump";
+                        eventUntil = now + 500000000ULL;
+                    } else if (event.type == quiky::LevelEventType::EntityCollisionImpact) {
+                        eventText = "entity-impact";
+                        eventUntil = now + 1000000000ULL;
+                    } else if (event.type == quiky::LevelEventType::TileInteraction) {
+                        eventText = "tile-interaction";
+                        eventUntil = now + 1000000000ULL;
+                    } else if (event.type == quiky::LevelEventType::AlternateActionObject) {
+                        eventText = "alternate-action";
+                        eventUntil = now + 1000000000ULL;
+                    } else if (event.type == quiky::LevelEventType::PooledObjectInteractionBurst) {
+                        eventText = "object-interaction-burst";
+                        eventUntil = now + 1000000000ULL;
+                    } else if (event.type == quiky::LevelEventType::WorldObjectInteraction) {
+                        eventText = "world-object";
                         eventUntil = now + 1000000000ULL;
                     } else if (event.type == quiky::LevelEventType::PlayerDied) {
                         eventText = "player-died";
@@ -520,11 +587,17 @@ int main(int argc, char **argv) {
                 input.left = left;
                 input.right = right;
                 input.jump = jumpPressed;
+                input.alternate = alternate;
                 runtime->tick(player, simulation, input);
                 ++frame;
                 jumpPressed = false;
                 stepRequested = false;
-                runtime->session().consumeEvent();
+                const quiky::LevelEvent event = runtime->session().consumeEvent();
+#ifdef QUIKY_WITH_MUSIC
+                triggerLevelSfx(sdl,
+                                audioMixer.get(),
+                                event);
+#endif
             }
 
             quiky::Palette framePalette = runtime->palette();

@@ -5,6 +5,7 @@
 #include "quiky/runtime.h"
 
 #include <cstdint>
+#include <deque>
 #include <string>
 #include <vector>
 
@@ -26,6 +27,12 @@ enum class EntityPhase {
 enum class LevelEventType {
     None,
     Collected,
+    PlayerJumped,
+    EntityCollisionImpact,
+    TileInteraction,
+    AlternateActionObject,
+    PooledObjectInteractionBurst,
+    WorldObjectInteraction,
     PlayerDied,
     LevelExit,
 };
@@ -34,10 +41,12 @@ struct LevelEvent {
     LevelEventType type;
     std::uint32_t entityId;
     std::uint16_t entityType;
+    std::uint16_t tileId;
     std::string targetLevel;
 
     LevelEvent()
-        : type(LevelEventType::None), entityId(0), entityType(0), targetLevel() {}
+        : type(LevelEventType::None), entityId(0), entityType(0), tileId(0xffff),
+          targetLevel() {}
 };
 
 struct LevelSessionConfig {
@@ -93,6 +102,7 @@ struct LevelEntity {
     std::uint32_t activeFrames;
     bool active;
     bool collected;
+    bool pooledInteractionTriggered;
 
     LevelEntity()
         : id(0), recordOffset(0), type(0), regionX(0), regionY(0), x(0), y(0),
@@ -100,7 +110,7 @@ struct LevelEntity {
           spriteSlot(0xffff), spriteResource(), effectSlot(0xffff), effectResource(),
           collisionWidth(0), collisionHeight(0),
           animationFrame(0), activeFrames(0),
-          active(false), collected(false) {}
+          active(false), collected(false), pooledInteractionTriggered(false) {}
 };
 
 class LevelSession {
@@ -115,9 +125,10 @@ public:
     void tick(PlayerState &player, const PlayerSimulation &simulation,
               const CollisionQuery &collision, const InputState &input);
 
-    void updateStreaming(std::int32_t playerX, std::int32_t playerY);
+    bool updateStreaming(std::int32_t playerX, std::int32_t playerY);
     const std::vector<LevelEntity> &entities() const { return _entities; }
     const std::vector<LevelEffect> &effects() const { return _effects; }
+    bool hasPendingEvents() const { return !_events.empty(); }
     LevelEvent consumeEvent();
     std::uint32_t score() const { return _score; }
     std::uint32_t deaths() const { return _deaths; }
@@ -136,15 +147,21 @@ private:
     void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;
     void advanceActiveEntities();
     void advanceActiveEffects();
-    void emitWorldEffectsForActiveEntities();
-    void emitWorldEffects(const LevelEntity &entity, std::uint16_t state);
-    void spawnTransientEffect(const LevelEntity &entity);
+    bool emitWorldEffectsForActiveEntities();
+    bool emitWorldEffects(const LevelEntity &entity, std::uint16_t state);
+    bool spawnTransientEffect(const LevelEntity &entity);
     void removeTransientEffectsFor(std::uint32_t entityId);
     static bool isTransientEffectType(std::uint16_t type);
     static bool isWorldEffectType(std::uint16_t type);
+    static bool isPooledInteractionType(std::uint16_t type);
     bool overlaps(const PlayerState &player, const PlayerConfig &playerConfig,
                   const LevelEntity &entity, std::int32_t radius) const;
+    bool pooledInteractionOverlaps(const PlayerState &player,
+                                   const LevelEntity &entity) const;
     bool atRightExit(const PlayerState &player) const;
+    void enqueueEvent(LevelEventType type, std::uint32_t entityId = 0,
+                      std::uint16_t entityType = 0,
+                      const std::string &targetLevel = std::string());
 
     std::string _mapName;
     const Map &_map;
@@ -152,9 +169,10 @@ private:
     LevelSessionConfig _config;
     std::vector<LevelEntity> _entities;
     std::vector<LevelEffect> _effects;
-    LevelEvent _event;
+    std::deque<LevelEvent> _events;
     std::uint32_t _score;
     std::uint32_t _deaths;
+    bool _alternateActionActive;
 };
 
 } // namespace quiky

@@ -1,4 +1,4 @@
-#include "quiky/music.h"
+#include "quiky/sfx.h"
 
 #include "quiky/types.h"
 
@@ -119,7 +119,7 @@ public:
           _sequenceCount(0), _stepAdvanced(false), _trackLoopCount(-1), _trackLoopTarget(0),
           _voices(), _tracks(), _songs(), _loadedSongForSimulation(0),
           _traceLimit(0), _tickNumber(0), _filteredLeft(0.0),
-          _filteredRight(0.0) {
+          _filteredRight(0.0), _effectCount(0) {
         const char *trace = std::getenv("QUIKY_TFMX_TRACE");
         if (trace) {
             _traceLimit = std::atoi(trace);
@@ -132,6 +132,8 @@ public:
 
     int songs() const { return static_cast<int>(_songs.size()); }
     int voices() const { return 4; }
+
+    int effects() const { return static_cast<int>(_effectCount); }
 
     std::uint32_t durationMs(int song) {
         reset(song, false);
@@ -170,6 +172,112 @@ public:
             // delayed DMA and macro waits land on stable block boundaries.
             mix(output, frames, sampleRate);
         }
+        return output;
+    }
+
+    SfxEffectInfo effectInfo(int id) const {
+        if (id < 0 || id >= static_cast<int>(_effectCount)) {
+            std::ostringstream message;
+            message << "SFX effect number out of range: " << id;
+            throw FormatError(message.str());
+        }
+        const std::size_t offset = 0x200 + static_cast<std::size_t>(id) * 8;
+        SfxEffectInfo result;
+        result.id = id;
+        result.voice = _tfx[offset + 2] & 0x0f;
+        result.priority = _tfx[offset + 5] & 0x7f;
+        result.macroOffset = macroOffset(static_cast<byte>(id));
+        result.sampleStart = 0;
+        result.sampleLength = 0;
+        for (int step = 0; step < 32; ++step) {
+            const std::size_t commandOffset =
+                result.macroOffset + static_cast<std::size_t>(step) * 4;
+            if (commandOffset + 4 > _tfx.size()) {
+                break;
+            }
+            const byte command = _tfx[commandOffset] & 0x3f;
+            if (command == 2) {
+                result.sampleStart = be24(_tfx, commandOffset + 1);
+            } else if (command == 3) {
+                result.sampleLength = static_cast<std::uint32_t>(
+                    be16(_tfx, commandOffset + 2)) * 2u;
+            } else if (command == 7) {
+                break;
+            }
+        }
+        return result;
+    }
+
+    void resetSfx() {
+        _currentStep = 0;
+        _songEnd = true;
+        _loopMode = false;
+        _tickNumber = 0;
+        _filteredLeft = 0;
+        _filteredRight = 0;
+        _voices.assign(4, Voice());
+        _tracks.clear();
+        for (std::size_t i = 0; i < _voices.size(); ++i) {
+            clearVoice(_voices[i]);
+        }
+    }
+
+    bool triggerSfx(int id) {
+        const SfxEffectInfo definition = effectInfo(id);
+        Voice &voice = _voices[static_cast<std::size_t>(definition.voice)];
+        if (voice.active && voice.sfxPriority > definition.priority) {
+            return false;
+        }
+        clearVoice(voice);
+        voice.active = true;
+        voice.noteVolume = _tfx[0x200 + static_cast<std::size_t>(id) * 8 + 4];
+        voice.sfxPriority = definition.priority;
+        voice.macroOffset = definition.macroOffset;
+        voice.macroStep = 0;
+        voice.macroWait = 0;
+        voice.macroLoops = -1;
+        voice.macroStopped = false;
+        voice.effectsMode = 0;
+        return true;
+    }
+
+    Pcm16Stereo renderSfx(std::uint32_t maxSeconds) {
+        static const std::uint32_t sampleRate = 44100;
+        const std::size_t maxFrames = static_cast<std::size_t>(maxSeconds) * sampleRate;
+        Pcm16Stereo output;
+        output.sampleRate = sampleRate;
+        output.samples.reserve(maxFrames * 2);
+
+        const std::size_t framesPerTick = sampleRate / 50;
+        const std::size_t remainder = sampleRate % 50;
+        std::size_t fractional = 0;
+        while (output.frames() < maxFrames && !sfxFinished()) {
+            std::size_t frames = framesPerTick;
+            fractional += remainder;
+            if (fractional >= 50) {
+                fractional -= 50;
+                ++frames;
+            }
+            frames = std::min(frames, maxFrames - output.frames());
+            tickSfx();
+            mix(output, frames, sampleRate);
+        }
+        return output;
+    }
+
+    void advanceSfx() {
+        tickSfx();
+    }
+
+    bool sfxActive() const {
+        return !sfxFinished();
+    }
+
+    Pcm16Stereo mixSfx(std::size_t frames, std::uint32_t sampleRate) {
+        Pcm16Stereo output;
+        output.sampleRate = sampleRate;
+        output.samples.reserve(frames * 2);
+        mix(output, frames, sampleRate);
         return output;
     }
 
@@ -232,6 +340,7 @@ private:
         int vibratoCount;
         int vibratoIntensity;
         int vibratoDelta;
+        int sfxPriority;
     };
 
     static std::uint16_t be16(const Bytes &data, std::size_t offset) {
@@ -343,6 +452,19 @@ private:
         if (_songs.empty()) {
             throw FormatError("TFMX module contains no playable songs");
         }
+
+        for (int id = 0; id < 14; ++id) {
+            const std::size_t offset = 0x200 + static_cast<std::size_t>(id) * 8;
+            if (offset + 8 > _tfx.size() || offset + 8 > _trackOffset ||
+                _tfx[offset] != 0x15 || _tfx[offset + 1] != static_cast<byte>(id) ||
+                (_tfx[offset + 2] & 0xf0) != 0xf0 || _tfx[offset + 3] != 0) {
+                break;
+            }
+            if (macroOffset(static_cast<byte>(id)) == 0) {
+                break;
+            }
+            ++_effectCount;
+        }
     }
 
     std::uint32_t patternOffset(byte pattern) const {
@@ -399,6 +521,7 @@ private:
         voice.vibratoCount = 0;
         voice.vibratoIntensity = 0;
         voice.vibratoDelta = 0;
+        voice.sfxPriority = 0;
     }
 
     void reset(int song, bool loop) {
@@ -1041,6 +1164,58 @@ private:
         }
     }
 
+    void tickSfx() {
+        ++_tickNumber;
+        for (std::size_t i = 0; i < _voices.size(); ++i) {
+            processMacro(_voices[i]);
+            processEffects(_voices[i]);
+        }
+        for (std::size_t i = 0; i < _voices.size(); ++i) {
+            Voice &voice = _voices[i];
+            if (!voice.dmaPending) {
+                continue;
+            }
+            voice.dmaPending = false;
+            voice.dmaOn = true;
+            voice.playbackStart = voice.sampleStart;
+            voice.playbackLength = voice.sampleLength;
+            voice.playbackEnd = voice.playbackStart + voice.playbackLength;
+            voice.samplePosition = 0.0;
+        }
+        if (_traceLimit != 0 && _tickNumber <= _traceLimit) {
+            for (std::size_t i = 0; i < _voices.size(); ++i) {
+                const Voice &voice = _voices[i];
+                std::cerr << "TFMX sfx-state tick=" << _tickNumber
+                          << " voice=" << i
+                          << " active=" << voice.active
+                          << " dma=" << voice.dmaOn
+                          << " volume=" << voice.volume
+                          << " period=" << voice.period
+                          << " out=" << voice.outputPeriod
+                          << " macro-stopped=" << voice.macroStopped
+                          << " step=" << voice.macroStep
+                          << " wait=" << voice.macroWait
+                          << " effects=" << voice.effectsMode
+                          << " sample=" << voice.sampleStart << "/" << voice.sampleLength
+                          << " playback=" << voice.playbackStart << "/"
+                          << voice.playbackLength << "\n";
+            }
+        }
+    }
+
+    bool sfxFinished() const {
+        for (std::size_t i = 0; i < _voices.size(); ++i) {
+            const Voice &voice = _voices[i];
+            if (!voice.active) {
+                continue;
+            }
+            if (!voice.macroStopped || (voice.dmaOn && voice.volume > 0)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     void processEnvelope(Voice &voice) {
         if (!voice.active || voice.envelopeFlag == 0) {
             return;
@@ -1206,6 +1381,7 @@ private:
     int _tickNumber;
     std::int16_t _filteredLeft;
     std::int16_t _filteredRight;
+    std::size_t _effectCount;
 };
 
 MusicModule::MusicModule(const Archive &archive, const std::string &track)
@@ -1249,6 +1425,93 @@ MusicInfo MusicModule::info(int song) {
 Pcm16Stereo MusicModule::render(int song, std::uint32_t maxSeconds, bool loop) {
     load(song);
     return _decoder->render(song, maxSeconds, loop);
+}
+
+class SfxModule::Decoder {
+public:
+    Decoder(const Archive &archive, const std::string &track)
+        : _decoder(nullptr) {
+        const ArchiveEntry *tfx = findEntryByBasename(archive, track + ".TFX");
+        const ArchiveEntry *sam = findEntryByBasename(archive, track + ".SAM");
+        if (!tfx || !sam) {
+            throw FormatError("SFX track requires matching TFX and SAM entries: " + track);
+        }
+        _decoder = new TfmxDecoder(archive.read(tfx->name), archive.read(sam->name));
+        if (_decoder->effects() == 0) {
+            delete _decoder;
+            _decoder = nullptr;
+            throw FormatError("track contains no supported sound effects: " + track);
+        }
+    }
+
+    ~Decoder() {
+        delete _decoder;
+    }
+
+    int effects() const { return _decoder->effects(); }
+    SfxEffectInfo info(int id) const { return _decoder->effectInfo(id); }
+    void reset() { _decoder->resetSfx(); }
+    bool trigger(int id) { return _decoder->triggerSfx(id); }
+    void advance() { _decoder->advanceSfx(); }
+    bool active() const { return _decoder->sfxActive(); }
+    Pcm16Stereo mix(std::size_t frames, std::uint32_t sampleRate) {
+        return _decoder->mixSfx(frames, sampleRate);
+    }
+    Pcm16Stereo render(std::uint32_t maxSeconds) {
+        return _decoder->renderSfx(maxSeconds);
+    }
+
+private:
+    TfmxDecoder *_decoder;
+};
+
+SfxModule::SfxModule(const Archive &archive, const std::string &track)
+    : _decoder(new Decoder(archive, track)) {
+    _decoder->reset();
+}
+
+SfxModule::~SfxModule() {
+    delete _decoder;
+}
+
+int SfxModule::effects() const {
+    return _decoder->effects();
+}
+
+SfxEffectInfo SfxModule::info(int id) const {
+    return _decoder->info(id);
+}
+
+void SfxModule::reset() {
+    _decoder->reset();
+}
+
+bool SfxModule::trigger(int id) {
+    return _decoder->trigger(id);
+}
+
+void SfxModule::advance() {
+    _decoder->advance();
+}
+
+bool SfxModule::active() const {
+    return _decoder->active();
+}
+
+Pcm16Stereo SfxModule::mix(std::size_t frames, std::uint32_t sampleRate) {
+    return _decoder->mix(frames, sampleRate);
+}
+
+Pcm16Stereo SfxModule::render(std::uint32_t maxSeconds) {
+    return _decoder->render(maxSeconds);
+}
+
+Pcm16Stereo SfxModule::render(int id, std::uint32_t maxSeconds) {
+    reset();
+    if (!trigger(id)) {
+        throw FormatError("SFX effect could not be scheduled: " + std::to_string(id));
+    }
+    return render(maxSeconds);
 }
 
 void writeWave(const std::string &path, const Pcm16Stereo &audio) {

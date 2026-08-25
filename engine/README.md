@@ -19,14 +19,16 @@ The current iteration supports:
   (kept separate until streamed MAP cells are linked to descriptor entries);
 - an explicit MAP-cell-to-descriptor-table query bridge for those rules;
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
+- a shared SDL audio mixer that combines gameplay music with confirmed pickup SFX;
 - ARE-backed level streaming with provisional collectible, hazard, and exit events;
 - synthetic unit tests for the format readers.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
 resources use TFMX, which needs a dedicated decoder. The engine includes an
-in-tree four-voice TFMX Pro parser, sequencer, and Paula-style mixer. It reads
-paired resources directly from `NESTLE.DAT`, renders WAV, and can play through
-SDL3 when SDL3 is discoverable by CMake.
+in-tree four-voice TFMX Pro parser, sequencer, Paula-style mixer, and gameplay
+SFX scheduler. It reads paired resources directly from `NESTLE.DAT`, renders
+WAV, and can play through SDL3 when SDL3 is discoverable by CMake. No external
+audio runtime is required.
 
 Build it with the normal engine configuration:
 
@@ -36,7 +38,24 @@ cmake --build build/engine
 build/engine/quiky-music game/NESTLE.DAT list
 build/engine/quiky-music game/NESTLE.DAT render TITEL /tmp/TITEL.wav
 build/engine/quiky-music game/NESTLE.DAT play TITEL
+build/engine/quiky-sfx game/NESTLE.DAT list ONGAME2
+build/engine/quiky-sfx game/NESTLE.DAT render ONGAME2 0 /tmp/sfx-0.wav
+build/engine/quiky-sfx game/NESTLE.DAT play ONGAME2 0
 ```
+
+`quiky-sfx` exposes all fourteen gameplay effect IDs. The `SfxModule` API in
+`include/quiky/sfx.h` keeps TFX/SAM loading, four-voice priority scheduling,
+macro interpretation, and PCM output separate. A frontend can call `trigger`,
+advance the 50 Hz voice state, and mix PCM blocks, or use the deterministic
+`render` helper for one-shot diagnostics. `quiky-play` now uses the shared
+`AudioMixer` and triggers the confirmed pickup mappings, including the
+puzzle-letter state-0 branch (ID 11). The event mapper exposes semantic
+`GameplayCollectible` and `GameplaySfx` names in `include/quiky/sfx_events.h`,
+so the frontend does not depend on raw entity-type or effect-slot literals.
+Jump, player death/respawn, entity impact, tile interaction, alternate action,
+and world-object events now use their confirmed named SFX roles. Exit events
+and unresolved effect-table IDs remain silent until their dispatch semantics
+are proven.
 
 For short sequencer diagnostics, set `QUIKY_TFMX_TRACE` to the number of
 50 Hz ticks to print before rendering:
