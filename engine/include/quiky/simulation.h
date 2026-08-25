@@ -12,6 +12,7 @@
 namespace quiky {
 
 class PlayerUpdateCallback;
+struct PlayerUpdateTrace;
 
 enum class SimulationEventKind {
     Game,
@@ -108,6 +109,10 @@ public:
     void reset();
     void enqueueEvent(const SimulationEvent &event);
     void setExperimentalPlayerUpdater(PlayerUpdateCallback *updater);
+    // Optional caller-owned sink for the recovered player callback trace. The
+    // simulation still owns the player state; this only exposes the exact
+    // callback-local evidence at the session boundary.
+    void setPlayerTraceSink(PlayerUpdateTrace *sink);
     PlayerUpdateCallback *playerUpdater() const {
         return _experimentalPlayerUpdater;
     }
@@ -125,6 +130,7 @@ public:
 private:
     SimulationState _state;
     PlayerUpdateCallback *_experimentalPlayerUpdater;
+    PlayerUpdateTrace *_playerTraceSink;
 };
 
 } // namespace quiky

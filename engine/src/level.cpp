@@ -247,16 +247,13 @@ void LevelSession::resetPlayer(Simulation &simulation) {
     const SpawnPoint spawn = spawnPoint();
     simulation.reset();
     PlayerRecord &player = simulation.stateForSetup().player;
-    player.initializeConfirmedHorizontalFields();
     player.positionX = Fixed16::fromPixels(spawn.x);
     player.positionY = Fixed16::fromPixels(spawn.y);
-    player.velocityX = Fixed16();
-    player.velocityY = Fixed16();
-    player.mode37 = 0;
-    player.gate38 = 0;
-    player.transition39 = 0;
-    player.verticalResponse3A = 0;
-    player.sideResponse3B = 1;
+    player.initializeRecoveredCallbackFields();
+    // The native scheduler has advanced the player pool record to phase 2 by
+    // the time 3FF8 is entered. This is a pool-lifecycle byte, not callback
+    // policy, and is kept explicit at the session boundary.
+    player.field17 = 2;
     player.syncToRaw();
 
     // Simulation::reset clears the object pool as part of the player respawn.

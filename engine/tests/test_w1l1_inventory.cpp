@@ -91,6 +91,16 @@ void testW1L1Inventory(const std::string &archivePath) {
     assert(runtime->session().hasStreamAnchor());
     assert(runtime->session().streamAnchorX() == 0);
     assert(runtime->session().streamAnchorY() == 262);
+    const quiky::PlayerRecord &startupPlayer = simulation.state().player;
+    assert(startupPlayer.callbackOffset18 == 0x3ff8);
+    assert(startupPlayer.field17 == 2);
+    assert(startupPlayer.field1C == 0x1997);
+    assert(startupPlayer.animationDelay20 == 0x000e);
+    assert(startupPlayer.animationCursor22 == 0x316c);
+    assert(startupPlayer.state2C == -10);
+    assert(startupPlayer.state30 == 10);
+    assert(startupPlayer.gate38 == 0xff);
+
     bool startupLeafPublished = false;
     std::size_t scheduledDeclarations = 0;
     for (std::size_t index = 0; index < runtime->session().entities().size();
@@ -109,6 +119,16 @@ void testW1L1Inventory(const std::string &archivePath) {
     assert(simulation.state().scheduler.activeCount() == 0);
     simulation.stateForSetup().scheduler.beginTick(1);
     assert(simulation.state().scheduler.activeCount() == scheduledDeclarations);
+
+    quiky::PlayerUpdateTrace startupTrace;
+    simulation.setPlayerTraceSink(&startupTrace);
+    quiky::SimulationOutput startupOutput;
+    runtime->tick(simulation, quiky::InputState(), startupOutput);
+    simulation.setPlayerTraceSink(0);
+    assert(startupTrace.hasPreState);
+    assert(startupTrace.preState.toBytes().size() == 0x78);
+    assert(startupTrace.postState.toBytes().size() == 0x78);
+    assert(startupOutput.player.toBytes().size() == 0x78);
 }
 
 } // namespace

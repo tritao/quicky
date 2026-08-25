@@ -31,7 +31,8 @@ SimulationState::SimulationState(std::size_t schedulerCapacity)
 }
 
 Simulation::Simulation(std::size_t schedulerCapacity)
-    : _state(schedulerCapacity), _experimentalPlayerUpdater(0) {
+    : _state(schedulerCapacity), _experimentalPlayerUpdater(0),
+      _playerTraceSink(0) {
 }
 
 void Simulation::reset() {
@@ -49,15 +50,22 @@ void Simulation::setExperimentalPlayerUpdater(PlayerUpdateCallback *updater) {
     _experimentalPlayerUpdater = updater;
 }
 
+void Simulation::setPlayerTraceSink(PlayerUpdateTrace *sink) {
+    _playerTraceSink = sink;
+}
+
 void Simulation::tick(const InputState &input,
                       const WorldCollisionView &world,
                       SimulationOutput &output) {
     ++_state.tick;
     _state.scheduler.beginTick(_state.tick);
     if (_experimentalPlayerUpdater != 0) {
-        PlayerUpdateTrace trace;
+        PlayerUpdateTrace localTrace;
+        PlayerUpdateTrace *trace = _playerTraceSink != 0
+            ? _playerTraceSink : &localTrace;
+        *trace = PlayerUpdateTrace();
         _experimentalPlayerUpdater->updatePlayer(_state.player, input, world,
-                                                  &trace);
+                                                  trace);
     }
     output.clearForTick(_state.tick, input);
     output.player = _state.player;

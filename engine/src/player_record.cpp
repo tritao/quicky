@@ -344,4 +344,48 @@ void PlayerRecord::initializeConfirmedHorizontalFields() {
     syncToRaw();
 }
 
+void PlayerRecord::initializeRecoveredCallbackFields() {
+    velocityX = Fixed16();
+    velocityY = Fixed16();
+    actionWord = 0;
+    timer34 = 0;
+    mode37 = 0;
+    verticalResponse3A = 0;
+    positionY.raw &= static_cast<std::int32_t>(0xfff00000U);
+
+    initializeConfirmedHorizontalFields();
+
+    // 01F7:0E06 pool defaults and 01F7:5D38(0x316A) startup descriptor.
+    field14 = 0;
+    field16 = 0;
+    field17 = 0;
+    callbackOffset18 = 0x3ff8;
+    field1A = 0xffff;
+    field1C = 0x1997;
+    field1E = 0x000e;
+    animationDelay20 = 0x000e;
+    animationCursor22 = 0x316c;
+    field24 = 0x316c;
+    field26 = 0;
+    directionByte28 = 1;
+    motionDirectionByte29 = 1;
+    actionCounter2A = 0;
+    contactScratch2B = 0;
+    state2C = -10;
+    verticalStepOrDirection2E = static_cast<std::int16_t>(verticalStepPixels72);
+    state30 = 10;
+    callbackState32 = 0;
+    animationState36 = 0xff;
+    gate38 = 0xff;
+    transition39 = 0;
+    sideResponse3B = 1;
+    field3C = 0;
+    resetDeathTimer3E = 0;
+    callbackCounter40 = 0;
+    field42 = 0;
+    savedY44 = Fixed16();
+    savedX48 = Fixed16();
+    syncToRaw();
+}
+
 } // namespace quiky

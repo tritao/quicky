@@ -62,6 +62,9 @@ target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 add_executable(quiky-player-trace apps/quiky-player-trace.cpp)
 target_link_libraries(quiky-player-trace PRIVATE quiky_core)
 
+add_executable(quiky-w1l1-trace apps/quiky-w1l1-trace.cpp)
+target_link_libraries(quiky-w1l1-trace PRIVATE quiky_core)
+
 add_executable(quiky-frame apps/quiky-frame.cpp)
 target_link_libraries(quiky-frame PRIVATE quiky_core)
 

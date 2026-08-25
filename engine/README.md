@@ -198,6 +198,27 @@ anchor `(0,262)`, and the SDL frontend publishes its settled camera for the
 following tick. Camera-follow recomputation beyond that published boundary is
 not inferred here.
 
+The W1L1 session boundary is traceable with the dedicated native emitter:
+
+~~~sh
+build/engine/quiky-w1l1-trace game/NESTLE.DAT W1L1.MAP /tmp/w1l1-session.json \
+  --frames 4 --action-flags 0
+python3 research/tools/w1l1_session_compare.py \
+  --original research/build/player-frame-full-v1.json \
+  --candidate /tmp/w1l1-session.json
+~~~
+
+An input TSV contains `sequence action_flags` and may append `camera_x
+camera_y`; the latter is published before that tick's streaming pass. Each
+native sample records the complete callback pre/post record, ordered probes,
+state/global/effect writes, camera anchor, scheduler/dependency order, active
+entities/effects, gameplay globals, and queued events. The comparator is
+fail-closed for player records and reports DOS capture coverage gaps instead
+of treating an unrecorded probe or effect list as an empty equal list. The
+current four-frame startup comparison is exact for the player callback; its
+remaining object differences identify scheduler ordering and the unresolved
+BLATT PRNG/animation cadence boundary.
+
 ## Unified player callback status
 
 The unified `TraceClosedPlayerUpdate` is the C++ implementation of the

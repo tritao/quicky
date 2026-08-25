@@ -181,6 +181,10 @@ struct PlayerRecord : public RecoveredPlayerState {
     void setXPixel(std::int16_t value);
     void setYPixel(std::int16_t value);
     void initializeConfirmedHorizontalFields();
+    // Exact 01F7:3F27 player initializer projection. The animation descriptor
+    // words are the values published by the native 0x316A startup path; the
+    // object-pool phase byte is supplied by the session after this call.
+    void initializeRecoveredCallbackFields();
 };
 
 } // namespace quiky
