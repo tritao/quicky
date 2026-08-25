@@ -457,6 +457,18 @@ The same pass closes the branch-level behavior for the remaining effects:
   creation in the END scene, but leaves spatial row delivery/consumption and
   the retail completion producer open; the trace is recorded as
   `runtime_authored_input_probe` in the same evidence ledger.
+
+  Native boss selectors now cover all five world callback families. `W1L3`
+  reaches `B142 -> B33B -> B25D`, `W2L3` reaches `B9F3 -> BBEC -> BB0E`,
+  `W3L3` reaches `C28A -> C40B -> C328`, `W4L3` reaches
+  `CC68 -> CE81 -> CDA3`, and `W5L3` reaches `D2F6 -> D63D -> D55A`;
+  each constructor raises `DS:88AE` from 0 to 1, and the damage-child slot
+  is `0x3DE` in every world. The idle traces validate native callback
+  reachability and world-specific main slots (`0x3B7`, `0x10E`, `0x3B7`,
+  `0x3B7`, `0x3B6`), but no coordinate-row match occurs, so authored hit
+  delivery and per-world progression remain open. Hashes and raw traces are
+  recorded under `runtime_cross_world_reachability_probe` in
+  [`entity-boss-stage-evidence.json`](../entity-boss-stage-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
   while below 9), and clears the live callback. `01D7:1084` initializes the

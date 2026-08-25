@@ -454,10 +454,15 @@
       },
       "verified_runs": [
         {"fixture": "Native W1L4 selector boss-stage focus", "stage_gate": "DS:88AE 0 -> 1", "callbacks": ["01F7:A39B", "01F7:A234", "01F7:A1F8", "01F7:A213", "01F7:A3CB", "01F7:A228", "01F7:A22E"], "evidence": "research/entity-boss-stage-evidence.json"},
-        {"fixture": "W1L4 controlled native damage/main callback promotion", "replacement": "live A234 -> B25D, then same record -> B33B", "damage_cycles": 5, "stage_writers": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824"], "stage_gate": "DS:88AE 1 -> 5", "post_exit": "B84C return observes callback 01F7:487F and slot 0xFFFF", "evidence": "research/entity-boss-stage-evidence.json"}
+        {"fixture": "W1L4 controlled native damage/main callback promotion", "replacement": "live A234 -> B25D, then same record -> B33B", "damage_cycles": 5, "stage_writers": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824"], "stage_gate": "DS:88AE 1 -> 5", "post_exit": "B84C return observes callback 01F7:487F and slot 0xFFFF", "evidence": "research/entity-boss-stage-evidence.json"},
+        {"fixture": "Native W1L3 boss-stage focus", "constructor": "01F7:B142", "main_callback": "01F7:B33B", "damage_callback": "01F7:B25D", "stage_gate": "0 -> 1", "main_slot": "0x3B7", "damage_slot": "0x3DE", "damage_callback_events": 5, "evidence": "research/entity-boss-stage-evidence.json"},
+        {"fixture": "Native W2L3 boss-stage focus", "constructor": "01F7:B9F3", "main_callback": "01F7:BBEC", "damage_callback": "01F7:BB0E", "stage_gate": "0 -> 1", "main_slot": "0x10E", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"},
+        {"fixture": "Native W3L3 boss-stage focus", "constructor": "01F7:C28A", "main_callback": "01F7:C40B", "damage_callback": "01F7:C328", "stage_gate": "0 -> 1", "main_slot": "0x3B7", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"},
+        {"fixture": "Native W4L3 boss-stage focus", "constructor": "01F7:CC68", "main_callback": "01F7:CE81", "damage_callback": "01F7:CDA3", "stage_gate": "0 -> 1", "main_slot": "0x3B7", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"},
+        {"fixture": "Native W5L3 boss-stage focus", "constructor": "01F7:D2F6", "main_callback": "01F7:D63D", "damage_callback": "01F7:D55A", "stage_gate": "0 -> 1", "main_slot": "0x3B6", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"}
       ],
       "evidence_refs": ["research/entity-boss-stage-evidence.json", "research/entity-targeted-decompile-evidence.json", "research/entity-puzzle-completion-evidence.json"],
-      "open_questions": ["authored damage-row producer and unforced boss transition", "downstream reload/resource timing after the controlled DS:85DB -> 01D7:4F10-4FAF handoff", "full per-state END animation timing", "exact boss collision/death ordering and cross-world runtime validation"]
+      "open_questions": ["authored damage-row producer and unforced boss transition", "downstream reload/resource timing after the controlled DS:85DB -> 01D7:4F10-4FAF handoff", "full per-state END animation timing", "exact boss collision/death ordering and per-world hit progression"]
     }
   ]
 }

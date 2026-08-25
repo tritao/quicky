@@ -208,6 +208,48 @@
     },
     "interpretation": "The player action can create a live shared effect row during the authored W1L4 END sequence, closing the authored row-creation boundary. No B25D damage callback or later stage writer appears in this bounded run, so spatial row delivery/consumption and the retail completion producer remain open."
   },
+  "runtime_cross_world_reachability_probe": {
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "6e7b03cf6c8f97fac4b2326f19700fca82be4e91348d5f18924aded56a61a0bc",
+    "fixtures": [
+      {
+        "world": "W1",
+        "level": "W1L3",
+        "trace": "research/build/player-w1l3-boss-stage-focus.json",
+        "trace_sha256": "326eddf0f1636f9390b04c3b6c441cd57b70539fd0f586ea0f58edcc6537afbc",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:B142", "main_callback": "01F7:B33B", "damage_callback": "01F7:B25D", "main_slot": "0x3B7", "damage_slot": "0x3DE", "main_position": [580, 558], "damage_position": [548, 559], "damage_callback_events": 5}
+      },
+      {
+        "world": "W2",
+        "level": "W2L3",
+        "trace": "research/build/player-w2l3-boss-stage-focus.json",
+        "trace_sha256": "fd79fce3729ba5943de3a615217419f2b6e0d9c10767098419e128bfbd9bba41",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:B9F3", "main_callback": "01F7:BBEC", "damage_callback": "01F7:BB0E", "main_slot": "0x10E", "damage_slot": "0x3DE", "main_position": [450, 354], "damage_position": [417, 355]}
+      },
+      {
+        "world": "W3",
+        "level": "W3L3",
+        "trace": "research/build/player-w3l3-boss-stage-focus.json",
+        "trace_sha256": "4213759d193b884109ad6f674c822a658f3dd5d3f3700e2f648200e1fc8d038f",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:C28A", "main_callback": "01F7:C40B", "damage_callback": "01F7:C328", "main_slot": "0x3B7", "damage_slot": "0x3DE", "main_position": [580, 288], "damage_position": [546, 263]}
+      },
+      {
+        "world": "W4",
+        "level": "W4L3",
+        "trace": "research/build/player-w4l3-boss-stage-focus.json",
+        "trace_sha256": "d617b69fa72b49dcd084b048db40bd0edab51a48933731d325fcf765d15a8551",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:CC68", "main_callback": "01F7:CE81", "damage_callback": "01F7:CDA3", "main_slot": "0x3B7", "damage_slot": "0x3DE", "main_position": [600, 316], "damage_position": [568, 287]}
+      },
+      {
+        "world": "W5",
+        "level": "W5L3",
+        "trace": "research/build/player-w5l3-boss-stage-focus.json",
+        "trace_sha256": "8fa126c9e07d79d3dee7b97373eca9749bf5a4bb2a2d9f0031d161a65bbe1402",
+        "observed": {"stage_gate": "0 -> 1", "constructor": "01F7:D2F6", "main_callback": "01F7:D63D", "damage_callback": "01F7:D55A", "main_slot": "0x3B6", "damage_slot": "0x3DE", "main_position": [720, 298], "damage_position": [686, 269]}
+      }
+    ],
+    "interpretation": "Native boss selectors for all five worlds reach their world-specific constructor, main callback, and damage callback with stage gate 1. The idle traces do not show coordinate-row matches or stage progression, so they establish runtime callback reachability and resource slots, not authored hit delivery or death ordering."
+  },
   "remaining": [
     "Capture the authored damage/completion producer that feeds DS:87DE rows or invokes the world-boss damage callbacks; the native callback state machine is now controlled-verified.",
     "Capture the authored completion producer and downstream reload/resource handoff after the controlled DS:85DB -> 01D7:4F10-4FAF selector advance; 01D7:5017/5038/5047 remains unobserved dynamically.",
