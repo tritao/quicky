@@ -427,6 +427,66 @@ state `0` at `+/-0x5000`. These observations are now implemented in
 `step_type33_motion` and checked by the C++ model tests and helper-enabled
 Python comparator.
 
+### Common target-list tail
+
+The type-`0x33` tail at `01F7:8AE5` is now resolved. When `DS:8806` (the
+active producer count) is nonzero it uses object `+0x30` as a cursor, wraps it
+to zero when it reaches `DS:8808` (the list capacity), and reads a signed
+`(x,y)` pair from `DS:87DE + cursor*4`. A target is consumed by clearing only
+its X word when it lies strictly inside
+`object.x-10 < target.x < object.x+10` and
+`object.y-0x23 < target.y < object.y+5`; the Y word survives. The cursor is
+incremented on every active pass, including a pass that does not match.
+
+Debugger-only target probes confirm both sides: `(object=(738,400),
+target=(740,380))` changes the target from `(740,380)` to `(0,380)` and
+advances the cursor, while `(760,380)` remains unchanged. This behavior is
+implemented as `step_type33_target_tail` and checked by the frame comparator.
+
+The static producer side is also identified. `01F7:44FF` resets the shared
+list with capacity `4`, clears the active-producer count at `DS:8806`, and
+zeroes ten `(x,y)` slots. `01F7:4519` admits a new emitter only while
+`DS:8806 < DS:8808`, increments the active count, reserves the first slot
+whose X+Y pair is zero, and installs callback `01F7:45AB`. The `45AB` callback
+publishes its current object position into that slot every update; if the
+slot has been cleared or the object leaves its camera window it switches to
+`01F7:470C`. `470C` decrements the active count, clears both slot words, and
+clears the emitter callback. This explains why the `8AE5` consumer clears only
+X: the producer notices the cleared slot on its next update and performs the
+full release path.
+
+A debugger-only player probe confirms the producer lifecycle in DOSBox. At
+the post-update call site `01F7:38EC`, forcing the player action bit `0x10`,
+clearing byte `+0x3C`, and setting `DS:88AE=1` leads to `01F7:45AB`; the first
+sample has slot offset `+0x2A=0`, active count `1`, capacity `4`, and target
+`(1,0)`. After the callback returns the target is `(132,383)`, and subsequent
+`45AB` samples continue publishing `(144,381)`, `(160,381)`, and so on. This
+verifies the admission, slot selection, and publication edges; release remains
+covered statically by the exact `470C` sequence.
+
+The list is shared across more than this one callback. Static scanning finds
+17 inline consumers. They all gate on `DS:8806`, advance a per-object cursor,
+and clear only target X, but their windows and post-hit actions differ. The
+known variants are:
+
+| Tail | Cursor | Strict target window | Post-hit action |
+| --- | --- | --- | --- |
+| `5399` | `+0x30` | X `-20..+20`, Y `-25..+5` | callback `4AB3` |
+| `58A7`, `62AE`, `67E0`, `6D01`, `83AF` | `+0x30` | X `-15..+15`, Y `-25..+5` | `6D01/83AF`: callback `4AB3`; `58A7/62AE`: advance `+0x42` path; `67E0`: clear only |
+| `707B` | `+0x30` | X `-25..+25`, Y `-15..+5` | callback `4AB3` |
+| `76BF` | `+0x30` | X `-15..+15`, Y `-35..+5` | callback `4AB3`; uses `<=` rather than `<` for the cursor bound |
+| `7A85` | `+0x30` | X `-10..+10`, Y `-35..+5` | callback `4BA0` |
+| `7E1A`, `8773` | `+0x30` | X `-17..+18`, Y `-20..+5` | callback `4BA0`/`4AB3` |
+| `8AE5` | `+0x30` | X `-10..+10`, Y `-35..+5` | clear only |
+| `B266`, `BB17`, `C331`, `CDAC`, `D563` | `+0x2A` | X `-15..+15`, Y `-25..+5` | advance `+0x2C`, call `4B70`, set phase byte `+0x17=2` |
+
+The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
+player-position gate; the target scan itself begins at `6D01`. This distinction
+matters for breakpoints and callback reconstruction. The shared list is a
+cross-family collision/effect handoff, not a type-`0x33` private queue. The
+remaining work is to map each inline tail to its dispatch entry and verify the
+family-specific post-hit action dynamically.
+
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
 can reach the visibility check, descriptor advance, and local `0x9C29`

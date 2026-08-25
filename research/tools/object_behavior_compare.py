@@ -362,6 +362,75 @@ def _compare_type33_motion(sample: dict[str, Any],
                    "type-0x33 motion state diverged from the recovered 882F branch")
 
 
+def _target_entries(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [entry for entry in value if isinstance(entry, dict)]
+    if isinstance(value, dict):
+        pairs = []
+        for key, entry in value.items():
+            try:
+                pairs.append((int(key), entry))
+            except (TypeError, ValueError):
+                continue
+        return [entry for _, entry in sorted(pairs)
+                if isinstance(entry, dict)]
+    return []
+
+
+def _compare_type33_target_tail(sample: dict[str, Any],
+                                issues: list[ComparisonIssue]) -> None:
+    before_globals = sample.get("globals_before") or {}
+    after_globals = sample.get("globals_after") or {}
+    before_object = sample.get("object_before") or {}
+    after_object = sample.get("object_after") or {}
+    before_type33 = before_object.get("type33") or {}
+    after_type33 = after_object.get("type33") or {}
+    required_globals = {"type33_target_active_count", "type33_target_capacity",
+                        "type33_targets"}
+    if not required_globals.issubset(before_globals) or not required_globals.issubset(after_globals):
+        return
+    if "target_cursor" not in before_type33 or "target_cursor" not in after_type33:
+        return
+    if not before_globals["type33_target_active_count"]:
+        return
+    targets_before = _target_entries(before_globals["type33_targets"])
+    targets_after = _target_entries(after_globals.get("type33_targets"))
+    if not targets_before or not targets_after:
+        return
+
+    count = int(before_globals["type33_target_capacity"])
+    cursor = int(before_type33["target_cursor"])
+    if cursor >= count:
+        cursor = 0
+    index = cursor
+    if index >= len(targets_before):
+        return
+    expected_cursor = (cursor + 1) & 0xffff
+    object_position = before_object.get("position") or {}
+    if "x" not in object_position or "y" not in object_position:
+        return
+    target = targets_before[index]
+    expected_x = int(target.get("x", 0))
+    expected_y = int(target.get("y", 0))
+    object_x = int(object_position["x"])
+    object_y = int(object_position["y"])
+    matched = (object_x - 10 < expected_x < object_x + 10 and
+               object_y - 0x23 < expected_y < object_y + 5)
+    expected_target_x = 0 if matched else expected_x
+    actual_target = targets_after[index]
+    sequence = int(sample.get("sequence", 0))
+    checks = {
+        "target_cursor": (expected_cursor, int(after_type33["target_cursor"])),
+        "target_x": (expected_target_x, int(actual_target.get("x", 0))),
+        "target_y": (expected_y, int(actual_target.get("y", 0))),
+    }
+    for field, (expected, actual) in checks.items():
+        if expected != actual:
+            _issue(issues, sequence, "type33-target-tail", field,
+                   expected, actual,
+                   "8AE5 target-list cursor or clearing rule diverged")
+
+
 def compare_type34(payload: dict[str, Any], samples: list[dict[str, Any]],
                    issues: list[ComparisonIssue]) -> dict[str, int]:
     config = _config(payload)
@@ -450,6 +519,7 @@ def compare_type33(samples: list[dict[str, Any]],
         map_sets_transition = _type33_map_sets_transition(sample)
         if map_sets_transition is not None:
             _compare_type33_motion(sample, issues, map_sets_transition)
+        _compare_type33_target_tail(sample, issues)
         if after.get("update_callback") == 0 and not sample.get("termination", {}).get("visibility_gate_hit"):
             _issue(issues, int(sample.get("sequence", 0)), "type33",
                    "update_callback", "nonzero or visibility cull",

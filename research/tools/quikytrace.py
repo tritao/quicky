@@ -96,6 +96,7 @@ class PlayerTraceConfig:
     property_focus: bool = False
     property_helper_offset: int | None = None
     branch_focus: bool = False
+    probe_spawn_emitter: bool = False
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
@@ -180,6 +181,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "property_focus": config.property_focus,
         "property_helper_offset": config.property_helper_offset,
         "branch_focus": config.branch_focus,
+        "probe_spawn_emitter": config.probe_spawn_emitter,
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
@@ -665,6 +667,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="limit --player-property-focus to helper 0x5c27 or 0x5cc3")
     parser.add_argument("--player-branch-focus", action="store_true",
                         help="trace the 01F7:3D02 descriptor branch masks and return path")
+    parser.add_argument("--player-probe-spawn-emitter", action="store_true",
+                        help="debugger-only: force the player post-update target-emitter spawn path")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
     parser.add_argument("--player-input-frames", type=int, default=0,
@@ -850,6 +854,7 @@ def main(argv: list[str] | None = None) -> int:
                 property_focus=args.player_property_focus,
                 property_helper_offset=args.player_property_helper,
                 branch_focus=args.player_branch_focus,
+                probe_spawn_emitter=args.player_probe_spawn_emitter,
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,

@@ -59,6 +59,10 @@ class ObjectBehaviorConfig:
     probe_type33_velocity: int | None = None
     probe_type33_travel_counter: int | None = None
     probe_type33_animation_counter: int | None = None
+    probe_type33_target_x: int | None = None
+    probe_type33_target_y: int | None = None
+    probe_type33_target_capacity: int | None = None
+    probe_type33_target_cursor: int | None = None
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
     movement_key: str = ""
@@ -96,6 +100,10 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "probe_type33_velocity": config.probe_type33_velocity,
         "probe_type33_travel_counter": config.probe_type33_travel_counter,
         "probe_type33_animation_counter": config.probe_type33_animation_counter,
+        "probe_type33_target_x": config.probe_type33_target_x,
+        "probe_type33_target_y": config.probe_type33_target_y,
+        "probe_type33_target_capacity": config.probe_type33_target_capacity,
+        "probe_type33_target_cursor": config.probe_type33_target_cursor,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
         "movement_key": config.movement_key,
@@ -291,6 +299,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="override type-0x33 travel counter word +0x2A")
     parser.add_argument("--probe-type33-animation-counter", type=lambda value: int(value, 0),
                         help="override type-0x33 animation counter word +0x35")
+    parser.add_argument("--probe-type33-target-x", type=lambda value: int(value, 0),
+                        help="write one type-0x33 common-tail target X at DS:87DE")
+    parser.add_argument("--probe-type33-target-y", type=lambda value: int(value, 0),
+                        help="write one type-0x33 common-tail target Y at DS:87E0")
+    parser.add_argument("--probe-type33-target-capacity", type=lambda value: int(value, 0),
+                        help="override DS:8808 type-0x33 common-tail target capacity")
+    parser.add_argument("--probe-type33-target-cursor", type=lambda value: int(value, 0),
+                        help="override type-0x33 common-tail cursor word +0x30")
     parser.add_argument("--reactivate-camera-x", type=int,
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
@@ -355,6 +371,16 @@ def main(argv: list[str] | None = None) -> int:
     if args.probe_type33_velocity is not None and not -0x80000000 <= args.probe_type33_velocity <= 0x7fffffff:
         raise TraceError("--probe-type33-velocity must be a signed 32-bit value")
     for name in ("probe_type33_travel_counter", "probe_type33_animation_counter"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if (args.probe_type33_target_x is None) != (args.probe_type33_target_y is None):
+        raise TraceError("--probe-type33-target-x and --probe-type33-target-y must be used together")
+    for name in ("probe_type33_target_x", "probe_type33_target_y"):
+        value = getattr(args, name)
+        if value is not None and not -0x8000 <= value <= 0x7fff:
+            raise TraceError(f"--{name.replace('_', '-')} must be a signed 16-bit value")
+    for name in ("probe_type33_target_capacity", "probe_type33_target_cursor"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
@@ -444,6 +470,10 @@ def main(argv: list[str] | None = None) -> int:
             probe_type33_velocity=args.probe_type33_velocity,
             probe_type33_travel_counter=args.probe_type33_travel_counter,
             probe_type33_animation_counter=args.probe_type33_animation_counter,
+            probe_type33_target_x=args.probe_type33_target_x,
+            probe_type33_target_y=args.probe_type33_target_y,
+            probe_type33_target_capacity=args.probe_type33_target_capacity,
+            probe_type33_target_cursor=args.probe_type33_target_cursor,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
             movement_key=args.movement_key or "",

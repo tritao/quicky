@@ -246,6 +246,81 @@ Type33StepResult step_type33_motion(ObjectRecord& object,
     return result;
 }
 
+Type33TargetStepResult step_type33_target_tail(
+    ObjectRecord& object, Type33TargetList& target_list) {
+    Type33TargetStepResult result;
+    if (target_list.active_count == 0 || target_list.targets.empty()) {
+        return result;
+    }
+    if (object.type33_target_cursor >= target_list.capacity) {
+        object.type33_target_cursor = 0;
+        result.cursor_wrapped = true;
+    }
+    const std::size_t index = object.type33_target_cursor;
+    if (index >= target_list.targets.size()) {
+        return result;
+    }
+    ++object.type33_target_cursor;
+    result.inspected = true;
+    result.target_index = index;
+    auto& target = target_list.targets[index];
+    const auto object_x = object.world_x_pixels();
+    const auto object_y = object.world_y_pixels();
+    if (object_x - 10 < target[0] && target[0] < object_x + 10 &&
+        object_y - 0x23 < target[1] && target[1] < object_y + 5) {
+        target[0] = 0;
+        result.target_cleared = true;
+    }
+    return result;
+}
+
+Type33TargetRegistrationResult register_type33_target_emitter(
+    ObjectRecord& object, Type33TargetList& target_list) {
+    Type33TargetRegistrationResult result;
+    if (target_list.active_count >= target_list.capacity) {
+        return result;
+    }
+    const std::size_t limit = std::min<std::size_t>(
+        target_list.capacity, target_list.targets.size());
+    for (std::size_t index = 0; index < limit; ++index) {
+        auto& target = target_list.targets[index];
+        if (static_cast<std::int32_t>(target[0]) + target[1] != 0) {
+            continue;
+        }
+        ++target_list.active_count;
+        object.target_emitter_slot = static_cast<std::uint16_t>(index * 4);
+        target[0] = 1;
+        result.admitted = true;
+        result.target_index = index;
+        return result;
+    }
+    return result;
+}
+
+void publish_type33_target_emitter_position(
+    const ObjectRecord& object, Type33TargetList& target_list) {
+    const std::size_t index = object.target_emitter_slot / 4;
+    if (index >= target_list.targets.size()) {
+        return;
+    }
+    target_list.targets[index][0] = static_cast<std::int16_t>(
+        object.world_x_pixels());
+    target_list.targets[index][1] = static_cast<std::int16_t>(
+        object.world_y_pixels());
+}
+
+void release_type33_target_emitter(ObjectRecord& object,
+                                   Type33TargetList& target_list) {
+    if (target_list.active_count != 0) {
+        --target_list.active_count;
+    }
+    const std::size_t index = object.target_emitter_slot / 4;
+    if (index < target_list.targets.size()) {
+        target_list.targets[index] = {0, 0};
+    }
+    object.update_callback = kFreeCallback;
+}
+
 Type34Action test_type34_proximity(const ObjectRecord& object,
                                     PlayerState& player,
                                     std::uint16_t activation_state) {

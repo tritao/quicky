@@ -267,6 +267,13 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertTrue(player_trace_lua_config(config)["branch_focus"])
 
+    def test_player_spawn_probe_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, probe_spawn_emitter=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["probe_spawn_emitter"])
+
 
 if __name__ == "__main__":
     unittest.main()

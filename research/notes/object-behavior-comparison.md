@@ -35,6 +35,8 @@ The current DOSBox evidence passes the recovered contracts:
 | `targeted-type34-state32-accepted` | 7 inactive-gate frames | pass |
 | `helper-33-s48-mapprobe` | 47 type-0x33 movement observations | pass |
 | `type33-y400-state1-helper` | helper-derived state `1→2`, velocity, and descriptor transition | pass |
+| `type33-tail-target-hit` | active `8AE5` target clear and cursor advance | pass |
+| `type33-tail-target-miss` | active `8AE5` nonmatching target and cursor advance | pass |
 
 Traces without helper tracing remain conservative: they still check lifecycle,
 descriptor, and type-specific observations, but do not infer an unrecorded MAP

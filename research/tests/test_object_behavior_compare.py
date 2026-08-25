@@ -132,6 +132,34 @@ class ObjectBehaviorCompareTests(unittest.TestCase):
         })
         self.assertTrue(result["passed"], result)
 
+    def test_type33_target_tail_contract(self):
+        sample = {
+            "sequence": 2,
+            "callback": {"offset": 0x882F, "related_hits": [],
+                          "helper_calls": []},
+            "object_before": {
+                "position": {"x": 100, "y": 100},
+                "type33": {"target_cursor": 0},
+            },
+            "object_after": {
+                "type33": {"target_cursor": 1},
+            },
+            "globals_before": {
+                "type33_target_active_count": 1,
+                "type33_target_capacity": 1,
+                "type33_targets": [{"index": 0, "x": 105, "y": 70}],
+            },
+            "globals_after": {
+                "type33_target_active_count": 1,
+                "type33_target_capacity": 1,
+                "type33_targets": [{"index": 0, "x": 0, "y": 70}],
+            },
+        }
+        result = compare_payload({
+            "config": {"entity_type": 0x33}, "samples": [sample],
+        })
+        self.assertTrue(result["passed"], result)
+
 
 if __name__ == "__main__":
     unittest.main()

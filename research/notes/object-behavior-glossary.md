@@ -61,13 +61,15 @@ stable use seen so far, while the address remains the authoritative identity.
 | `+0x24` | `descriptor_sequence_cursor` | confirmed | Byte cursor advanced by two and redirected by signed jump words. |
 | `+0x28` | `descriptor_mode` | provisional | Selects an alternate descriptor adjustment when equal to `0xFFFF`. |
 | `+0x29` | `map_probe_direction` | confirmed | Direction byte used when forming the type-`0x33` MAP probe. |
+| `+0x2A` | `target_slot_or_type33_travel_counter` | confirmed | Shared-emitter slot byte offset for `45AB`; type `0x33` uses the same word as its travel counter. |
+| `+0x2B` | `player_contact_state` | provisional | Set to `0xFF` by `apply_player_displacement`; broader state meaning is open. |
 | `+0x2C` | `type33_phase` | confirmed | Signed acceleration phase used by the type-`0x33` transition branch. |
 | `+0x2D` | `type33_phase_timer` | confirmed | Signed-countdown reversal timer, reloaded to `0x14` on expiry. |
 | `+0x2F` | `type33_transition` | confirmed | MAP/state transition flag; positive selects the acceleration/state-transition path. |
+| `+0x30` | `shared_target_cursor` | confirmed | Cursor into the shared `DS:87DE` target list; the `0x8AE5` type-`0x33` tail uses this word. |
 | `+0x32` | `type33_state` | confirmed | Type-`0x33` motion substate: `0`, `1`, `2`, or `3`. |
 | `+0x33` | `type33_state_counter` | confirmed | State-`2` hold counter; transition occurs after it passes `0x2D`. |
 | `+0x35` | `type33_animation_counter` | confirmed | State-`0` animation counter; resets and sets the transition flag after `0x50`. |
-| `+0x2B` | `player_contact_state` | provisional | Set to `0xFF` by `apply_player_displacement`; broader state meaning is open. |
 | `+0x37` | `player_collision_class` | confirmed | Returned in `CL` by `query_player_collision_state`; gates type-`0x34` proximity. |
 | `+0x44/+0x48` | `player_position_snapshots` | confirmed | Persistent-player position snapshots used by the player callback. |
 
@@ -87,6 +89,7 @@ families, nearby fields participate in animation or state machines.
 | `01F7:5CC3` | `map_descriptor_read` | confirmed | Returns the descriptor word for a masked MAP tile. |
 | `01F7:393C` | `compute_player_collision_bounds` | confirmed | Returns four bounds from the persistent player record at `DS:881A`, or zeroes when `DS:89EA` is nonzero. |
 | `01F7:39FE` | `query_player_collision_state` | confirmed | Returns player/bounds X, Y, and collision-class byte for type `0x34`. |
+| `01F7:69FF -> 6D01` | `player_target_collision_handoff` | confirmed | Player-position gate followed by a shared-target consumer; clears a matching X and switches the object to callback `0x4AB3`. |
 | `01F7:5D38` | `load_animation_descriptor` | probable | Loads a descriptor/table entry into object animation state and selects the current slot/action. |
 | `01F7:5D60` | `advance_animation_descriptor` | probable | Decrements the active timer or advances the descriptor cursor when it expires. |
 
@@ -100,6 +103,11 @@ Relevant data names:
 | `DS:6582` | `tile_descriptor_table_offset` | confirmed |
 | `DS:6584` | `tile_descriptor_table_segment` | confirmed |
 | `DS:30D4` | `tile_descriptor_stride` | confirmed |
+| `DS:87DE` | `shared_target_list` | confirmed | Shared target-list entries, stored as signed X/Y word pairs. |
+| `DS:8806` | `shared_target_list_active_count` | confirmed | Number of active producer objects; nonzero enables the inline target scans. |
+| `DS:8808` | `shared_target_list_capacity` | confirmed | Capacity and cursor wrap bound for the shared target list. |
+| `DS:880C` | `target_emitter_pending_budget` | confirmed | Alternate admission budget consumed by `4519` when `DS:88AE` is not positive. |
+| `DS:88AE` | `target_emitter_spawn_gate` | confirmed | Positive byte admits the `4519` producer path and avoids consuming `DS:880C`. |
 
 The names `floor`, `ceiling`, and `wall` are intentionally not used for
 descriptor bits yet. The player-side traces establish the consumers of bits
@@ -115,6 +123,10 @@ directions.
 | `0x2C` | `01F7:8D31` | `update_are_type_2c_action_helper` | probable | Uses `compute_player_collision_bounds`; terminal clear path is at `0x8E42`. |
 | `0x33` | `01F7:87D1` | `init_are_type_33` | confirmed | Initializes the snow-family object and descriptor state. |
 | `0x33` | `01F7:882F` | `update_are_type_33` | confirmed | Autonomous motion plus MAP/descriptor branch. |
+| shared | `01F7:44FF` | `reset_target_list` | confirmed | Sets target capacity to four, clears the active count, and zeroes target slots. |
+| shared | `01F7:4519` | `init_target_emitter` | confirmed | Reserves a shared target-list slot and installs callback `45AB`. |
+| shared | `01F7:45AB` | `update_target_emitter` | confirmed | Publishes emitter position and releases when its slot/camera gate invalidates. |
+| shared | `01F7:470C` | `release_target_emitter` | confirmed | Decrements the active count, clears the target pair, and clears the callback. |
 | `0x34` | `01F7:9BEE` | `init_are_type_34` | confirmed | Initializes the bump-family object and descriptor state. |
 | `0x34` | `01F7:9C0C` | `update_are_type_34` | confirmed | Proximity-driven steady callback. |
 | `0x34` | `01F7:9C29` | `test_type34_proximity` | confirmed | Strict X/Y proximity test gated by player collision class. |

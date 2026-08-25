@@ -49,6 +49,10 @@ struct ObjectRecord {
     std::uint16_t type33_state_counter = 0; // object +0x33
     std::uint16_t type33_travel_counter = 0; // object +0x2A
     std::uint16_t type33_animation_counter = 0; // object +0x35
+    std::uint16_t type33_target_cursor = 0; // object +0x30
+    // The same +0x2A word is a target slot byte offset for 45AB emitters;
+    // type-0x33 uses the callback-specific travel counter above instead.
+    std::uint16_t target_emitter_slot = 0;
     std::uint16_t update_state = 0; // object +0x32
     std::uint8_t player_collision_class = 0; // object +0x37, player use
 
@@ -129,11 +133,45 @@ struct Type33StepResult {
 // Models the recovered motion portion of 01F7:882F. The caller supplies the
 // result of the directional 5C27 MAP/descriptor probe: a zero result sets
 // object+0x2F before the motion state machine runs. The common DS:8806 target
-// tail is intentionally outside this function and remains a separate model.
+// tail is intentionally outside this function and is modeled separately by
+// step_type33_target_tail.
 Type33StepResult step_type33_motion(ObjectRecord& object,
                                     const DescriptorMemory& memory,
                                     Type33MotionContext& context,
                                     bool map_probe_zero);
+
+// View of the shared DS:87DE target list used by the type-0x33 tail and
+// several other inline object consumers.
+struct Type33TargetList {
+    std::uint16_t active_count = 0; // DS:8806
+    std::uint16_t capacity = 0; // DS:8808
+    std::vector<std::array<std::int16_t, 2>> targets; // DS:87DE, x/y words
+};
+
+struct Type33TargetStepResult {
+    bool inspected = false;
+    bool cursor_wrapped = false;
+    bool target_cleared = false;
+    std::size_t target_index = 0;
+};
+
+// Models the common 01F7:8AE5 tail. It advances the per-object cursor every
+// active pass and clears only the matching target X word; target Y survives.
+Type33TargetStepResult step_type33_target_tail(
+    ObjectRecord& object, Type33TargetList& target_list);
+
+struct Type33TargetRegistrationResult {
+    bool admitted = false;
+    std::size_t target_index = 0;
+};
+
+// Models the static 01F7:4519/45AB/470C target-emitter slot lifecycle.
+Type33TargetRegistrationResult register_type33_target_emitter(
+    ObjectRecord& object, Type33TargetList& target_list);
+void publish_type33_target_emitter_position(
+    const ObjectRecord& object, Type33TargetList& target_list);
+void release_type33_target_emitter(ObjectRecord& object,
+                                   Type33TargetList& target_list);
 
 struct PlayerState {
     std::int32_t world_x_fixed = 0;

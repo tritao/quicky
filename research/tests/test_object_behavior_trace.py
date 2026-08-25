@@ -43,6 +43,10 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             probe_type33_velocity=0,
             probe_type33_travel_counter=0,
             probe_type33_animation_counter=0,
+            probe_type33_target_x=740,
+            probe_type33_target_y=380,
+            probe_type33_target_capacity=1,
+            probe_type33_target_cursor=0,
             movement_key="KBD_right",
         )
         payload = lua_config(config)
@@ -66,6 +70,9 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["probe_type33_direction"], 1)
         self.assertEqual(payload["probe_type33_phase"], -1)
         self.assertEqual(payload["probe_type33_velocity"], 0)
+        self.assertEqual(payload["probe_type33_target_x"], 740)
+        self.assertEqual(payload["probe_type33_target_y"], 380)
+        self.assertEqual(payload["probe_type33_target_capacity"], 1)
         self.assertEqual(payload["movement_key"], "KBD_right")
         self.assertNotIn("player_callback_offset", payload)
 

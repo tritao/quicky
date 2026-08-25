@@ -12,6 +12,7 @@ local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
 local property_helper_offset = trace_config.property_helper_offset or 0
 local branch_focus = trace_config.branch_focus or false
+local probe_spawn_emitter = trace_config.probe_spawn_emitter or false
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
@@ -25,6 +26,14 @@ end
 
 local function dword(s, index)
     return word(s, index) | (word(s, index + 2) << 16)
+end
+
+local function little_word(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff)
+end
+
+local function signed_word(value)
+    return value >= 0x8000 and value - 0x10000 or value
 end
 
 local function hex(s)
@@ -60,9 +69,11 @@ local function object_snapshot(raw, selector, offset, index)
         phase = string.byte(raw, 0x17 + 1),
         callback = word(raw, 0x18 + 1),
         callback_data = word(raw, 0x1a + 1),
+        target_emitter_slot = word(raw, 0x2a + 1),
         sprite_slot = word(raw, 0x12 + 1),
         lifetime = word(raw, 0x2c + 1),
         state_field = word(raw, 0x2e + 1),
+        target_cursor = word(raw, 0x30 + 1),
         update_state = word(raw, 0x32 + 1),
         player_byte_0x36 = string.byte(raw, 0x36 + 1),
         player_byte_0x37 = string.byte(raw, 0x37 + 1),
@@ -224,6 +235,19 @@ local function map_property_snapshot(hit)
 end
 
 local function static_globals()
+    local target_capacity = dosbox.mem_read_word("ds", 0x8808)
+    local raw_targets = dosbox.mem_read("ds", 0x87de, 40) or ""
+    local target_entries = {}
+    for index = 0, 9 do
+        local base = index * 4 + 1
+        if #raw_targets >= base + 3 then
+            target_entries[#target_entries + 1] = {
+                index = index,
+                x = signed_word(word(raw_targets, base)),
+                y = signed_word(word(raw_targets, base + 2)),
+            }
+        end
+    end
     return {
         input_action_flags = dosbox.mem_read_word("ds", 0x8196),
         keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
@@ -234,6 +258,9 @@ local function static_globals()
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
+        target_active_count = dosbox.mem_read_word("ds", 0x8806),
+        target_capacity = target_capacity,
+        target_entries = target_entries,
     }
 end
 
@@ -310,6 +337,12 @@ local function arm_targets()
         dosbox.breakpoint_set(0x01f7, branch_entry_offset, {once = true})
         arm_branch_targets()
     end
+    if probe_spawn_emitter then
+        -- 38EC is the post-update producer call site.  The player callback
+        -- rewrites object+0 before reaching it, so arming 3FF8 is too early
+        -- to force the observed TEST/0x10 admission gate.
+        dosbox.breakpoint_set(0x01f7, 0x38ec, {once = true})
+    end
     if focus_callback or map_focus or collision_focus or property_focus or branch_focus then
         return
     end
@@ -335,6 +368,23 @@ local function callback_object_snapshot(hit)
         }
     end
     return object_snapshot(raw_or_error, selector, offset, -1)
+end
+
+local function apply_spawn_probe(hit)
+    if not probe_spawn_emitter or hit.offset ~= 0x38ec then return nil end
+    local object = callback_object_snapshot(hit)
+    if object == nil then return nil end
+    dosbox.mem_write_selector(object.selector, object.offset,
+                               little_word(object.action_word | 0x10))
+    dosbox.mem_write_selector(object.selector, object.offset + 0x3c, "\x00")
+    -- 4519 admits the emitter only while this gate is positive (or DS:880C
+    -- is positive). This is debugger-only setup of the observed call path.
+    dosbox.mem_write("ds", 0x88ae, little_word(1))
+    return {
+        player_action_word = object.action_word | 0x10,
+        player_byte_3c = 0,
+        spawn_gate_88ae = 1,
+    }
 end
 
 local function record_map_lookup(sample, hit)
@@ -519,6 +569,7 @@ for sequence = 1, sample_count do
         scheduler = scheduler_snapshot(),
         related_breakpoints = {},
     }
+    sample.spawn_probe = apply_spawn_probe(hit)
     local initial_hit = hit
     if property_focus and (initial_hit.offset == 0x5c27 or
                            initial_hit.offset == 0x5cc3) then
@@ -622,6 +673,7 @@ for sequence = 1, sample_count do
                 sample.player_callback.post_object = object_snapshot(
                     raw_or_error, callback_object.selector, callback_object.offset, -1
                 )
+                sample.player_callback.post_globals = static_globals()
             else
                 sample.player_callback.post_object_read_error =
                     ok and "short object state" or tostring(raw_or_error)

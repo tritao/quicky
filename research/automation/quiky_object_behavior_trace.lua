@@ -32,6 +32,10 @@ local probe_type33_state_counter = trace_config.probe_type33_state_counter or -1
 local probe_type33_velocity = trace_config.probe_type33_velocity
 local probe_type33_travel_counter = trace_config.probe_type33_travel_counter or -1
 local probe_type33_animation_counter = trace_config.probe_type33_animation_counter or -1
+local probe_type33_target_x = trace_config.probe_type33_target_x
+local probe_type33_target_y = trace_config.probe_type33_target_y
+local probe_type33_target_capacity = trace_config.probe_type33_target_capacity
+local probe_type33_target_cursor = trace_config.probe_type33_target_cursor
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local movement_key = trace_config.movement_key or ""
@@ -84,6 +88,10 @@ end
 local function signed_dword(s, index)
     local value = dword(s, index)
     return value < 0x80000000 and value or value - 0x100000000
+end
+
+local function signed_word_value(value)
+    return value < 0x8000 and value or value - 0x10000
 end
 
 local function little_word(value)
@@ -189,6 +197,7 @@ local function object_snapshot(selector, offset)
             state_counter = word(raw, 0x33 + 1),
             travel_counter = word(raw, 0x2a + 1),
             animation_counter = word(raw, 0x35 + 1),
+            target_cursor = word(raw, 0x30 + 1),
         },
     }
 end
@@ -302,6 +311,36 @@ local function apply_type33_probe(selector, offset)
     return applied
 end
 
+local function apply_type33_target_probe(selector, offset)
+    if expected_type ~= 0x33 then return nil end
+    local applied = {}
+    if probe_type33_target_x ~= nil then
+        dosbox.mem_write("ds", 0x8806, little_word(1))
+        dosbox.mem_write("ds", 0x87de,
+                         little_word(probe_type33_target_x & 0xffff))
+        dosbox.mem_write("ds", 0x87e0,
+                         little_word(probe_type33_target_y & 0xffff))
+        applied.target_x = probe_type33_target_x
+        applied.target_y = probe_type33_target_y
+        applied.active_count = 1
+    end
+    if probe_type33_target_capacity ~= nil then
+        dosbox.mem_write("ds", 0x8808,
+                         little_word(probe_type33_target_capacity))
+        applied.target_capacity = probe_type33_target_capacity
+    elseif probe_type33_target_x ~= nil then
+        dosbox.mem_write("ds", 0x8808, little_word(1))
+        applied.target_capacity = 1
+    end
+    if probe_type33_target_cursor ~= nil then
+        dosbox.mem_write_selector(selector, offset + 0x30,
+                                   little_word(probe_type33_target_cursor))
+        applied.target_cursor = probe_type33_target_cursor
+    end
+    if next(applied) == nil then return nil end
+    return applied
+end
+
 local function bounds_object_snapshot()
     local selector = dosbox.mem_read_word("ds", 0x7560)
     local offset = dosbox.mem_read_word("ds", 0x881a)
@@ -334,6 +373,17 @@ local function source_snapshot(selector, offset)
 end
 
 local function lifecycle_globals()
+    local target_capacity = dosbox.mem_read_word("ds", 0x8808)
+    local targets = {}
+    for index = 0, math.min(target_capacity, 64) - 1 do
+        targets[#targets + 1] = {
+            index = index,
+            x = signed_word_value(dosbox.mem_read_word(
+                "ds", 0x87de + index * 4)),
+            y = signed_word_value(dosbox.mem_read_word(
+                "ds", 0x87e0 + index * 4)),
+        }
+    end
     return {
         camera_x = dosbox.mem_read_word("ds", 0x81c0),
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
@@ -353,6 +403,9 @@ local function lifecycle_globals()
         stream_grid_offset = dosbox.mem_read_word("ds", 0x796c),
         stream_grid_stride = dosbox.mem_read_word("ds", 0x7968),
         stream_grid_limit = dosbox.mem_read_word("ds", 0x7972),
+        type33_target_active_count = dosbox.mem_read_word("ds", 0x8806),
+        type33_target_capacity = target_capacity,
+        type33_targets = targets,
     }
 end
 
@@ -818,8 +871,11 @@ while #samples < sample_count and attempts < sample_count * 128 do
                                                             object_offset)
         local type33_override = apply_type33_probe(object_selector,
                                                    object_offset)
+        local type33_target_override = apply_type33_target_probe(
+            object_selector, object_offset)
         local global_probe_override = apply_global_probe()
-        local before = (position_override or descriptor_override or type33_override) and
+        local before = (position_override or descriptor_override or
+                        type33_override or type33_target_override) and
             object_snapshot(object_selector, object_offset) or natural_before
         if initial_object.observed_scheduler_class == nil then
             initial_object = before
@@ -1015,6 +1071,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             position_override = position_override,
             descriptor_override = descriptor_override,
             type33_override = type33_override,
+            type33_target_override = type33_target_override,
             global_probe_override = global_probe_override,
             bounds_object_before = bounds_object_before,
             bounds_object_after = bounds_object_snapshot(),

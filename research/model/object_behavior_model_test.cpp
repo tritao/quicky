@@ -205,6 +205,58 @@ static void test_type33_travel_ring() {
     assert(context.travel_ring_index == 1);
 }
 
+static void test_type33_target_tail() {
+    ObjectRecord object;
+    object.world_x_fixed = fixed16_16_from_pixels(100);
+    object.world_y_fixed = fixed16_16_from_pixels(100);
+    Type33TargetList targets;
+    targets.capacity = 1;
+    targets.active_count = 1;
+    targets.targets.push_back({105, 70});
+
+    const auto hit = step_type33_target_tail(object, targets);
+    assert(hit.inspected);
+    assert(!hit.cursor_wrapped);
+    assert(hit.target_cleared);
+    assert(hit.target_index == 0);
+    assert(object.type33_target_cursor == 1);
+    assert(targets.targets[0][0] == 0);
+    assert(targets.targets[0][1] == 70);
+
+    const auto wrapped = step_type33_target_tail(object, targets);
+    assert(wrapped.inspected);
+    assert(wrapped.cursor_wrapped);
+    assert(!wrapped.target_cleared);
+    assert(object.type33_target_cursor == 1);
+}
+
+static void test_type33_target_emitter_lifecycle() {
+    ObjectRecord object;
+    object.update_callback = 0x45ab;
+    object.world_x_fixed = fixed16_16_from_pixels(120);
+    object.world_y_fixed = fixed16_16_from_pixels(80);
+    Type33TargetList targets;
+    targets.capacity = 2;
+    targets.targets = {{0, 0}, {9, 9}};
+
+    const auto registration = register_type33_target_emitter(object, targets);
+    assert(registration.admitted);
+    assert(registration.target_index == 0);
+    assert(targets.active_count == 1);
+    assert(object.target_emitter_slot == 0);
+    assert(targets.targets[0][0] == 1);
+
+    publish_type33_target_emitter_position(object, targets);
+    assert(targets.targets[0][0] == 120);
+    assert(targets.targets[0][1] == 80);
+
+    release_type33_target_emitter(object, targets);
+    assert(targets.active_count == 0);
+    assert(targets.targets[0][0] == 0);
+    assert(targets.targets[0][1] == 0);
+    assert(!object.active());
+}
+
 int main() {
     test_type33_descriptor_sequence();
     test_descriptor_mode_adjustment();
@@ -212,4 +264,6 @@ int main() {
     test_type34_proximity();
     test_type33_motion_states();
     test_type33_travel_ring();
+    test_type33_target_tail();
+    test_type33_target_emitter_lifecycle();
 }
