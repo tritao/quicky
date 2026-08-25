@@ -62,6 +62,33 @@
       },
       "interpretation": "The positive cloud flag path performs the outer gameplay/effect work, calls the completion/effect consumer at 01D7:14E1 through 01D7:4F0D, and then enters the normal object update/render pass; it does not directly call a WOLKE.BOB blitter."
     },
+    "callback_state_chain": {
+      "initializer": "01F7:9256 installs callback 01F7:9269, sets object+0x12=0xFFFF, and clears object+0x2A",
+      "callback": "01F7:9269",
+      "relocations": [
+        {
+          "call_site": "01F7:9269",
+          "target": "01F7:1DCA",
+          "meaning": "camera-visibility gate"
+        },
+        {
+          "call_site": "01F7:9270",
+          "target": "01F7:1DEE",
+          "meaning": "off-camera deactivation path"
+        },
+        {
+          "call_site": "01F7:9276",
+          "target": "01F7:393C",
+          "meaning": "player-bounds helper"
+        },
+        {
+          "call_site": "01F7:92B6",
+          "target": "01F7:5D38",
+          "meaning": "MAP/collision helper"
+        }
+      ],
+      "interpretation": "The relocation-resolved callback is a camera-gated cloud state machine with explicit deactivation, player-range, and MAP/collision helper edges. It is not a direct WOLKE.BOB draw routine; the world-specific descriptor selection and pixel-draw producer remain outside this callback chain."
+    },
     "normal_queue": {
       "object_update_queue": "01F7:0FDC",
       "object_render_dispatch": "01F7:1024",
@@ -106,7 +133,7 @@
         "interpretation": "A longer controlled blitter trace still observes only the ordinary slot-0 queue draw; no WOLKE slot 413-416 argument reaches 0013."
       }
     },
-    "conclusion": "The generic VGA/BOB blitter and ordinary queue are now statically identified. The generic BOB loader 01D7:399E -> 01F7:05A0 materializes logical slots through DS:6D8A/DS:6D8E, while raw-segment relocation scanning finds only the ordinary queue caller for 01F7:0013 (01F7:35B3 -> return 35B8). The targeted queue-boundary trace captures only ordinary 01F7:1024 -> 34BC appends; WOLKE's specific slot argument and later pixel-draw caller remain unresolved."
+    "conclusion": "The generic VGA/BOB blitter and ordinary queue are now statically identified. The generic BOB loader 01D7:399E -> 01F7:05A0 materializes logical slots through DS:6D8A/DS:6D8E, while raw-segment relocation scanning finds only the ordinary queue caller for 01F7:0013 (01F7:35B3 -> return 35B8). The relocation-resolved WOLKE callback chain now closes its camera, deactivation, player-bounds, and MAP/collision edges (01F7:9269 -> 01F7:1DCA/1DEE/393C/5D38). The targeted queue-boundary trace captures only ordinary 01F7:1024 -> 34BC appends; WOLKE's specific descriptor argument and later pixel-draw caller remain unresolved."
   },
   "effect_table": {
     "reset": "01F7:44FF",

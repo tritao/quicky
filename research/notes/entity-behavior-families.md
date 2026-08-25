@@ -336,8 +336,8 @@ append/draw path is `34BC -> 3587 -> 0013`, where `0013` is a generic VGA/BOB
 blitter. A 256-sample main-tree hardware trace hit `0013` only from return
 site `35B8`, with identical ordinary queue parameters (logical slot 0,
 position 128,400), and never observed a WOLKE slot 413-416 call. Thus the
-generic primitive is identified, but the WOLKE-specific caller or direct record
-selection after the outer consumer remains open; archive and cross-world
+generic primitive is identified, but the WOLKE-specific descriptor argument or
+direct pixel-draw caller after the outer consumer remains open; archive and cross-world
 resource evidence still establish slots 413-416.
 
 The same pass closes the branch-level behavior for the remaining effects:
@@ -452,7 +452,13 @@ matches the special renderer rather than a missing sprite. Native callback
 rectangle, and confirms `DS:89E6: 0 -> FFFF` while callback `9269` remains
 active and stationary; the static `+0x37 == 0` test is therefore resolved. The
 standard renderer `01F7:3529` returns immediately for logical slot `FFFF`, and
-`9269` has no direct draw/resource call. One-shot native probes hit both
+`9269` has no direct draw/resource call. Relocation mapping now resolves the
+callback's internal edges: `01F7:9269 -> 01F7:1DCA` is the camera-visibility
+gate, `01F7:9270 -> 01F7:1DEE` is the off-camera deactivation path,
+`01F7:9276 -> 01F7:393C` is the player-bounds helper, and
+`01F7:92B6 -> 01F7:5D38` is the MAP/collision helper. Thus the cloud update
+state machine's camera, removal, interaction-range, and map-query boundaries
+are closed even though the callback is not a pixel renderer. One-shot native probes hit both
 player-side readers `01F7:4087` and `01F7:4406` with `DS:89E6=FFFF`; a separate
 controlled run hits the outer main-loop consumer `01D7:4EA0` repeatedly with
 that flag set. The exact low-level WOLKE.BOB pixel primitive is still outside
