@@ -461,8 +461,12 @@ clearing byte `+0x3C`, and setting `DS:88AE=1` leads to `01F7:45AB`; the first
 sample has slot offset `+0x2A=0`, active count `1`, capacity `4`, and target
 `(1,0)`. After the callback returns the target is `(132,383)`, and subsequent
 `45AB` samples continue publishing `(144,381)`, `(160,381)`, and so on. This
-verifies the admission, slot selection, and publication edges; release remains
-covered statically by the exact `470C` sequence.
+verifies the admission, slot selection, and publication edges. A second
+debugger-only probe then clears slot zero immediately after `45AB` publishes
+`(132,383)`. The producer returns with callback `01F7:470C`; after that release
+callback, the object callback is zero, `DS:8806` is zero, and both words of
+slot zero are zero. This confirms the complete publish -> consumer-clear ->
+release lifecycle dynamically, including the active-count teardown.
 
 The list is shared across more than this one callback. Static scanning finds
 17 inline consumers. They all gate on `DS:8806`, advance a per-object cursor,
@@ -480,12 +484,38 @@ known variants are:
 | `8AE5` | `+0x30` | X `-10..+10`, Y `-35..+5` | clear only |
 | `B266`, `BB17`, `C331`, `CDAC`, `D563` | `+0x2A` | X `-15..+15`, Y `-25..+5` | advance `+0x2C`, call `4B70`, set phase byte `+0x17=2` |
 
+Static dispatch tracing now maps the normal entity families to these tails.
+The association is made from each family initializer's installed callback and
+the following callback body, ending at the next inline target scan; it does
+not rely on the type name alone:
+
+| ARE types | Installed update callback | Shared target tail | Family label |
+| --- | --- | --- | --- |
+| `0x01/0x02` | `6DC4` | `707B` | WURM2 |
+| `0x03/0x04` | `68C0` | `6D01` | BIENE |
+| `0x05/0x06` | `7B71` | `7E1A` | FISCH |
+| `0x07/0x08` | `778C` | `7A85` | KRABBE |
+| `0x09/0x0A` | `715E` | `76BF` | PENGO |
+| `0x0B/0x0C` | `66E1` | `67E0` | SCHNEE |
+| `0x15/0x16` | `7EF8` | `83AF` | FLIEGE |
+| `0x17/0x18` | `8472` | `8773` | SPINNE |
+| `0x19/0x1A` | `5071` | `5399` | BUGGY |
+| `0x1B/0x1C` | `5F28` | `62AE` | UFO |
+| `0x33` | `882F` | `8AE5` | snow-family object |
+| `0x35/0x36` | `546D` | `58A7` | later normal family |
+
+The five high-address tails (`B266`, `BB17`, `C331`, `CDAC`, and `D563`) are
+not promoted to entity names yet. They have the same target window but a
+distinct `+0x2A` cursor and `4B70` phase-transition action, so they should be
+traced as a separate family of stateful effect handlers rather than forced
+into the normal dispatch table.
+
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction
 matters for breakpoints and callback reconstruction. The shared list is a
 cross-family collision/effect handoff, not a type-`0x33` private queue. The
-remaining work is to map each inline tail to its dispatch entry and verify the
-family-specific post-hit action dynamically.
+remaining work is to dynamically verify the family-specific post-hit actions,
+especially the `+0x42` paths and the five high-address effect handlers.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`

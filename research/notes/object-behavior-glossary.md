@@ -123,6 +123,28 @@ directions.
 | `0x2C` | `01F7:8D31` | `update_are_type_2c_action_helper` | probable | Uses `compute_player_collision_bounds`; terminal clear path is at `0x8E42`. |
 | `0x33` | `01F7:87D1` | `init_are_type_33` | confirmed | Initializes the snow-family object and descriptor state. |
 | `0x33` | `01F7:882F` | `update_are_type_33` | confirmed | Autonomous motion plus MAP/descriptor branch. |
+
+### Normal-family target-tail associations
+
+These are static callback-body associations, not guesses from the German
+asset labels. Each update callback reaches the listed inline shared-target
+tail before returning:
+
+| ARE types | Update callback | Shared target tail | Family |
+| --- | --- | --- | --- |
+| `0x01/0x02` | `01F7:6DC4` | `01F7:707B` | WURM2 |
+| `0x03/0x04` | `01F7:68C0` | `01F7:6D01` | BIENE |
+| `0x05/0x06` | `01F7:7B71` | `01F7:7E1A` | FISCH |
+| `0x07/0x08` | `01F7:778C` | `01F7:7A85` | KRABBE |
+| `0x09/0x0A` | `01F7:715E` | `01F7:76BF` | PENGO |
+| `0x0B/0x0C` | `01F7:66E1` | `01F7:67E0` | SCHNEE |
+| `0x15/0x16` | `01F7:7EF8` | `01F7:83AF` | FLIEGE |
+| `0x17/0x18` | `01F7:8472` | `01F7:8773` | SPINNE |
+| `0x19/0x1A` | `01F7:5071` | `01F7:5399` | BUGGY |
+| `0x1B/0x1C` | `01F7:5F28` | `01F7:62AE` | UFO |
+| `0x33` | `01F7:882F` | `01F7:8AE5` | snow-family object |
+| `0x35/0x36` | `01F7:546D` | `01F7:58A7` | later normal family |
+
 | shared | `01F7:44FF` | `reset_target_list` | confirmed | Sets target capacity to four, clears the active count, and zeroes target slots. |
 | shared | `01F7:4519` | `init_target_emitter` | confirmed | Reserves a shared target-list slot and installs callback `45AB`. |
 | shared | `01F7:45AB` | `update_target_emitter` | confirmed | Publishes emitter position and releases when its slot/camera gate invalidates. |

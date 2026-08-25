@@ -13,6 +13,8 @@ local property_focus = trace_config.property_focus or false
 local property_helper_offset = trace_config.property_helper_offset or 0
 local branch_focus = trace_config.branch_focus or false
 local probe_spawn_emitter = trace_config.probe_spawn_emitter or false
+local probe_release_emitter = trace_config.probe_release_emitter or false
+local spawn_probe_done = false
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
@@ -269,6 +271,9 @@ local function arm_callback_targets()
                               0x1997}) do
         dosbox.breakpoint_set(segment, focus_callback_offset, {once = true})
     end
+    if probe_release_emitter then
+        dosbox.breakpoint_set(0x01f7, 0x470c, {once = true})
+    end
 end
 
 local function arm_property_targets()
@@ -337,7 +342,7 @@ local function arm_targets()
         dosbox.breakpoint_set(0x01f7, branch_entry_offset, {once = true})
         arm_branch_targets()
     end
-    if probe_spawn_emitter then
+    if probe_spawn_emitter and not spawn_probe_done then
         -- 38EC is the post-update producer call site.  The player callback
         -- rewrites object+0 before reaching it, so arming 3FF8 is too early
         -- to force the observed TEST/0x10 admission gate.
@@ -371,7 +376,8 @@ local function callback_object_snapshot(hit)
 end
 
 local function apply_spawn_probe(hit)
-    if not probe_spawn_emitter or hit.offset ~= 0x38ec then return nil end
+    if not probe_spawn_emitter or spawn_probe_done or hit.offset ~= 0x38ec then return nil end
+    spawn_probe_done = true
     local object = callback_object_snapshot(hit)
     if object == nil then return nil end
     dosbox.mem_write_selector(object.selector, object.offset,
@@ -385,6 +391,58 @@ local function apply_spawn_probe(hit)
         player_byte_3c = 0,
         spawn_gate_88ae = 1,
     }
+end
+
+local function apply_release_probe(hit)
+    if not probe_release_emitter or hit.offset ~= 0x45ab then return nil end
+    local object = callback_object_snapshot(hit)
+    if object == nil then return nil end
+    local slot = object.target_emitter_slot
+    dosbox.mem_write("ds", 0x87de + slot, little_word(0))
+    dosbox.breakpoint_set(0x01f7, 0x470c, {once = true})
+    return {
+        target_slot = slot,
+        target_x = 0,
+    }
+end
+
+local function capture_release_callback(sample)
+    dosbox.debug_continue()
+    local hit = wait_hit("target-emitter release callback")
+    sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+        segment = hit.segment, offset = hit.offset,
+    }
+    local object = callback_object_snapshot(hit)
+    local release = {
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        callback_offset = hit.offset,
+        registers = hit.registers,
+        object = object,
+    }
+    local stack = dosbox.mem_read(
+        "ss", (hit.registers.esp or 0) & 0xffff, 4
+    ) or ""
+    if #stack >= 4 and object ~= nil then
+        local return_offset = word(stack, 1)
+        release.return_expected = {segment = hit.segment, offset = return_offset}
+        dosbox.breakpoint_set(hit.segment, return_offset, {once = true})
+        dosbox.debug_continue()
+        local returned = wait_hit("target-emitter release return")
+        release.return_actual = {segment = returned.segment, offset = returned.offset}
+        local ok, raw_or_error = pcall(
+            dosbox.mem_read_selector, object.selector, object.offset, 0x40
+        )
+        if ok and raw_or_error and #raw_or_error >= 0x40 then
+            release.post_object = object_snapshot(
+                raw_or_error, object.selector, object.offset, -1
+            )
+            release.post_globals = static_globals()
+        else
+            release.post_object_read_error =
+                ok and "short object state" or tostring(raw_or_error)
+        end
+    end
+    sample.release_callback = release
 end
 
 local function record_map_lookup(sample, hit)
@@ -570,6 +628,7 @@ for sequence = 1, sample_count do
         related_breakpoints = {},
     }
     sample.spawn_probe = apply_spawn_probe(hit)
+    sample.release_probe = apply_release_probe(hit)
     local initial_hit = hit
     if property_focus and (initial_hit.offset == 0x5c27 or
                            initial_hit.offset == 0x5cc3) then
@@ -594,7 +653,8 @@ for sequence = 1, sample_count do
         hit = capture_branch_sequence(sample, initial_hit)
     end
     if focus_callback and initial_hit.offset ~= focus_callback_offset and
-       initial_hit.offset ~= 0x3f27 then
+       initial_hit.offset ~= 0x3f27 and
+       not (probe_release_emitter and initial_hit.offset == 0x470c) then
         arm_callback_targets()
         dosbox.debug_continue()
         hit = wait_hit("player callback after related breakpoint")
@@ -606,8 +666,11 @@ for sequence = 1, sample_count do
         sample.globals = static_globals()
         sample.pool = pool_snapshot()
         sample.scheduler = scheduler_snapshot()
+        sample.release_probe = apply_release_probe(hit)
     end
-    if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
+    if hit.offset == 0x3f27 or
+       (focus_callback and (hit.offset == focus_callback_offset or
+                            (probe_release_emitter and hit.offset == 0x470c))) then
         local callback_object = callback_object_snapshot(hit)
         sample.player_callback = {
             breakpoint = {segment = hit.segment, offset = hit.offset},
@@ -678,6 +741,9 @@ for sequence = 1, sample_count do
                 sample.player_callback.post_object_read_error =
                     ok and "short object state" or tostring(raw_or_error)
             end
+        end
+        if sample.release_probe ~= nil then
+            capture_release_callback(sample)
         end
         if map_focus and sample.map_lookup == nil then
             dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})

@@ -97,6 +97,7 @@ class PlayerTraceConfig:
     property_helper_offset: int | None = None
     branch_focus: bool = False
     probe_spawn_emitter: bool = False
+    probe_release_emitter: bool = False
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
@@ -182,6 +183,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "property_helper_offset": config.property_helper_offset,
         "branch_focus": config.branch_focus,
         "probe_spawn_emitter": config.probe_spawn_emitter,
+        "probe_release_emitter": config.probe_release_emitter,
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
@@ -669,6 +671,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="trace the 01F7:3D02 descriptor branch masks and return path")
     parser.add_argument("--player-probe-spawn-emitter", action="store_true",
                         help="debugger-only: force the player post-update target-emitter spawn path")
+    parser.add_argument("--player-probe-release-emitter", action="store_true",
+                        help="debugger-only: clear the first emitter target at 45AB and trace 470C teardown")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
     parser.add_argument("--player-input-frames", type=int, default=0,
@@ -735,6 +739,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-property-helper requires --player-property-focus")
     if not 0 <= args.player_callback_offset <= 0xffff:
         raise TraceError("--player-callback-offset must be between 0 and 65535")
+    if args.player_probe_release_emitter and not args.player_focus_callback:
+        raise TraceError("--player-probe-release-emitter requires --player-focus-callback")
     if (args.player_focus_callback and args.player_callback_offset == 0x3f27
             and args.player_samples != 1):
         raise TraceError("--player-focus-callback 0x3f27 requires --player-samples 1; use 0x3ff8 for repeated updates")
@@ -855,6 +861,7 @@ def main(argv: list[str] | None = None) -> int:
                 property_helper_offset=args.player_property_helper,
                 branch_focus=args.player_branch_focus,
                 probe_spawn_emitter=args.player_probe_spawn_emitter,
+                probe_release_emitter=args.player_probe_release_emitter,
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
