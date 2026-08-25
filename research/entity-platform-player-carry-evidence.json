@@ -5,6 +5,8 @@
     "segment": "QUIKY_SEG03.bin",
     "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
     "trace_script_sha256": "644df8702a72cefa9bfad694268fcb33e208d7d4c8d9171530c76c7b4fa18af8",
+    "current_main_trace_launcher": "research/tools/object_behavior_trace.py",
+    "current_main_trace_launcher_sha256": "84fe39dca2c504a8b9aa8714fb05b63bb1b8c4d08702a5787be1af1cf92ec310",
     "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
     "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85"
   },
@@ -24,8 +26,9 @@
     "record_offset": "0x1898",
     "entity_type": "0x3D",
     "object_callback": "01F7:9DC7",
-    "controls": ["camera_x=640", "camera_y=100", "select_level=W4L1", "align object to live player with x=-8, y=-8 offsets", "no force_platform_ready", "no forced player bounds"],
-    "raw_trace": "/home/joao/dev/quicky/research/build/entity-platform-native-overlap-v1.json",
+    "controls": ["camera_x=640", "camera_y=100", "select_level=W4L1", "align object to live player with x=-8, y=-8 offsets", "no force_platform_ready", "no forced player bounds", "current main-repository object_behavior_trace.py launcher"],
+    "raw_trace": "research/build/entity-platform-player-followup-v2.json",
+    "raw_trace_sha256": "4e046a13c349c2fae7369cb3682d406f495454bb7feeb43caa47c4feca26087e",
     "samples": [
       {"sequence":1,"object_position":[504,392],"live_player_position":[512,400],"helpers":["01F7:A075","01F7:A0B2"],"platform_overlap_latch":"DS:5006 0 -> 0xFFFF","carry_globals_before":{"x_fixed":0,"y_fixed":0},"carry_globals_after":{"x_fixed":1,"y_fixed":4294443009},"object_fields":{"+0x59":"1 -> 0","+0x5A":"0 -> 0xFF"},"interpretation":"Accepted overlap initializes the native carry offsets; the platform itself does not move in this stationary state."},
       {"sequence":2,"object_position":[504,392],"helpers":["01F7:A075","01F7:A0B2"],"object_fields":{"+0x52":"20 -> 19","+0x58":"0 -> 20","+0x5A":"0xFF -> 0"},"interpretation":"The carry latch enters its 0x14-tick phase while the callback remains active."}
