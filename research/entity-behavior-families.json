@@ -463,7 +463,7 @@
         {"fixture": "Native W1L3 authored row-to-boss hit", "input": "KBD_left warmup 550 frames + held KBD_leftalt", "damage_callback": "01F7:B25D", "row_match": "01F7:B2B0", "hit_increment": "01F7:B2BA", "hits": 1, "stage_gate": "1", "evidence": "research/entity-boss-stage-evidence.json"}
       ],
       "evidence_refs": ["research/entity-boss-stage-evidence.json", "research/entity-targeted-decompile-evidence.json", "research/entity-puzzle-completion-evidence.json"],
-      "open_questions": ["repeated authored damage cycles and unforced boss transition", "downstream reload/resource timing after the controlled DS:85DB -> 01D7:4F10-4FAF handoff", "full per-state END animation timing", "exact boss collision/death ordering and per-world hit progression"]
+      "open_questions": ["repeated authored damage cycles and per-world hit progression", "unforced boss/completion transition", "downstream reload/resource timing after the controlled DS:85DB -> 01D7:4F10-4FAF handoff", "full per-state END animation timing"]
     }
   ]
 }
