@@ -7,15 +7,18 @@ namespace quiky {
 namespace {
 
 std::int32_t floorFixed(std::int32_t raw) {
-    if (raw >= 0) {
-        return raw / Fixed16::kOne;
-    }
-    return -static_cast<std::int32_t>((-static_cast<std::int64_t>(raw) + Fixed16::kOne - 1) /
-                                      Fixed16::kOne);
+    return Fixed16::floorRaw(raw);
 }
 
 std::int32_t clampVelocity(std::int32_t value, std::int32_t limit) {
     return std::max(-limit, std::min(limit, value));
+}
+
+std::int32_t rightOrBottomRaw(std::int32_t positionRaw,
+                              std::int32_t extentPixels) {
+    return Fixed16::wrapSubRaw(
+        Fixed16::wrapAddRaw(positionRaw, Fixed16::fromPixels(extentPixels).raw),
+        1);
 }
 
 std::int32_t floorTile(std::int32_t pixels) {
@@ -27,10 +30,6 @@ std::int32_t floorTile(std::int32_t pixels) {
 
 } // namespace
 
-std::int32_t Fixed16::floorPixels() const {
-    return floorFixed(raw);
-}
-
 InputState InputState::fromActionFlags(std::uint16_t flags) {
     InputState input;
     input.left = (flags & 0x08) != 0;
@@ -40,6 +39,29 @@ InputState InputState::fromActionFlags(std::uint16_t flags) {
     input.jump = (flags & 0x20) != 0;
     input.alternate = (flags & 0x10) != 0;
     return input;
+}
+
+std::uint16_t InputState::actionFlags() const {
+    std::uint16_t flags = 0;
+    if (down) {
+        flags |= 0x01;
+    }
+    if (up) {
+        flags |= 0x02;
+    }
+    if (right) {
+        flags |= 0x04;
+    }
+    if (left) {
+        flags |= 0x08;
+    }
+    if (alternate) {
+        flags |= 0x10;
+    }
+    if (jump) {
+        flags |= 0x20;
+    }
+    return flags;
 }
 
 PlayerConfig::PlayerConfig()
@@ -250,9 +272,11 @@ void PlayerSimulation::reset(PlayerState &player, std::int32_t x, std::int32_t y
 bool PlayerSimulation::collidesHorizontal(const CollisionQuery &collision,
                                           const PlayerState &player) const {
     const std::int32_t left = player.x.floorPixels();
-    const std::int32_t right = floorFixed(player.x.raw + _config.width * Fixed16::kOne - 1);
+    const std::int32_t right = floorFixed(
+        rightOrBottomRaw(player.x.raw, _config.width));
     const std::int32_t top = player.y.floorPixels();
-    const std::int32_t bottom = floorFixed(player.y.raw + _config.height * Fixed16::kOne - 1);
+    const std::int32_t bottom = floorFixed(
+        rightOrBottomRaw(player.y.raw, _config.height));
     const std::int32_t edge = player.velocityX.raw > 0 ? right : left;
     const PlayerProbeQuery *probes =
         dynamic_cast<const PlayerProbeQuery *>(&collision);
@@ -276,8 +300,10 @@ bool PlayerSimulation::collidesHorizontal(const CollisionQuery &collision,
 bool PlayerSimulation::collidesFloor(const CollisionQuery &collision,
                                      const PlayerState &player) const {
     const std::int32_t left = player.x.floorPixels();
-    const std::int32_t right = floorFixed(player.x.raw + _config.width * Fixed16::kOne - 1);
-    const std::int32_t bottom = floorFixed(player.y.raw + _config.height * Fixed16::kOne - 1);
+    const std::int32_t right = floorFixed(
+        rightOrBottomRaw(player.x.raw, _config.width));
+    const std::int32_t bottom = floorFixed(
+        rightOrBottomRaw(player.y.raw, _config.height));
     const std::int32_t tileY = floorTile(bottom);
     const std::int32_t firstTileX = floorTile(left);
     const std::int32_t lastTileX = floorTile(right);
@@ -292,7 +318,8 @@ bool PlayerSimulation::collidesFloor(const CollisionQuery &collision,
 bool PlayerSimulation::collidesCeiling(const CollisionQuery &collision,
                                        const PlayerState &player) const {
     const std::int32_t left = player.x.floorPixels();
-    const std::int32_t right = floorFixed(player.x.raw + _config.width * Fixed16::kOne - 1);
+    const std::int32_t right = floorFixed(
+        rightOrBottomRaw(player.x.raw, _config.width));
     const std::int32_t top = player.y.floorPixels();
     const std::int32_t tileY = floorTile(top);
     const std::int32_t firstTileX = floorTile(left);
@@ -310,20 +337,21 @@ void PlayerSimulation::moveHorizontal(PlayerState &player,
     if (player.velocityX.raw == 0) {
         return;
     }
-    player.x.raw += player.velocityX.raw;
+    player.x.raw = Fixed16::wrapAddRaw(player.x.raw, player.velocityX.raw);
     if (!collidesHorizontal(collision, player)) {
         return;
     }
 
     const bool movingRight = player.velocityX.raw > 0;
     if (movingRight) {
-        const std::int32_t right = floorFixed(player.x.raw + _config.width * Fixed16::kOne - 1);
+        const std::int32_t right = floorFixed(
+            rightOrBottomRaw(player.x.raw, _config.width));
         const std::int32_t tileX = floorTile(right);
-        player.x.raw = (tileX * 16 - _config.width) * Fixed16::kOne;
+        player.x.raw = Fixed16::fromPixels(tileX * 16 - _config.width).raw;
     } else {
         const std::int32_t left = player.x.floorPixels();
         const std::int32_t tileX = floorTile(left);
-        player.x.raw = (tileX + 1) * 16 * Fixed16::kOne;
+        player.x.raw = Fixed16::fromPixels((tileX + 1) * 16).raw;
     }
     const PlayerProbeQuery *probes =
         dynamic_cast<const PlayerProbeQuery *>(&collision);
@@ -342,15 +370,16 @@ void PlayerSimulation::moveHorizontal(PlayerState &player,
 
 void PlayerSimulation::moveVertical(PlayerState &player,
                                     const CollisionQuery &collision) const {
-    player.y.raw += player.velocityY.raw;
+    player.y.raw = Fixed16::wrapAddRaw(player.y.raw, player.velocityY.raw);
     if (player.velocityY.raw > 0) {
         player.grounded = false;
         if (!collidesFloor(collision, player)) {
             return;
         }
-        const std::int32_t bottom = floorFixed(player.y.raw + _config.height * Fixed16::kOne - 1);
+        const std::int32_t bottom = floorFixed(
+            rightOrBottomRaw(player.y.raw, _config.height));
         const std::int32_t tileY = floorTile(bottom);
-        player.y.raw = (tileY * 16 - _config.height) * Fixed16::kOne;
+        player.y.raw = Fixed16::fromPixels(tileY * 16 - _config.height).raw;
         player.velocityY.raw = 0;
         player.grounded = true;
         player.callbackMode = 1;
@@ -361,7 +390,7 @@ void PlayerSimulation::moveVertical(PlayerState &player,
         }
         const std::int32_t top = player.y.floorPixels();
         const std::int32_t tileY = floorTile(top);
-        player.y.raw = (tileY + 1) * 16 * Fixed16::kOne;
+        player.y.raw = Fixed16::fromPixels((tileY + 1) * 16).raw;
         player.velocityY.raw = 0;
         player.callbackMode = 1;
         player.verticalResponse = 1;
@@ -376,7 +405,7 @@ void PlayerSimulation::tick(PlayerState &player, const CollisionQuery &collision
         // The simultaneous-input capture follows the right branch.
         player.velocityX.raw = std::min(
             _config.maxHorizontalSpeed,
-            player.velocityX.raw + _config.acceleration);
+            Fixed16::wrapAddRaw(player.velocityX.raw, _config.acceleration));
         player.facingRight = true;
     } else if (input.left) {
         if (player.velocityX.raw > 0) {
@@ -385,7 +414,7 @@ void PlayerSimulation::tick(PlayerState &player, const CollisionQuery &collision
             player.velocityX.raw = 0;
         } else {
             player.velocityX.raw = clampVelocity(
-                player.velocityX.raw - _config.acceleration,
+                Fixed16::wrapSubRaw(player.velocityX.raw, _config.acceleration),
                 _config.maxHorizontalSpeed);
         }
         player.facingRight = false;
@@ -394,15 +423,17 @@ void PlayerSimulation::tick(PlayerState &player, const CollisionQuery &collision
             player.velocityX.raw = 0;
         } else {
             player.velocityX.raw = clampVelocity(
-                player.velocityX.raw + _config.acceleration,
+                Fixed16::wrapAddRaw(player.velocityX.raw, _config.acceleration),
                 _config.maxHorizontalSpeed);
         }
         player.facingRight = true;
     } else {
         if (player.velocityX.raw > 0) {
-            player.velocityX.raw = std::max(0, player.velocityX.raw - _config.friction);
+            player.velocityX.raw = std::max(
+                0, Fixed16::wrapSubRaw(player.velocityX.raw, _config.friction));
         } else if (player.velocityX.raw < 0) {
-            player.velocityX.raw = std::min(0, player.velocityX.raw + _config.friction);
+            player.velocityX.raw = std::min(
+                0, Fixed16::wrapAddRaw(player.velocityX.raw, _config.friction));
         }
     }
 
@@ -412,16 +443,19 @@ void PlayerSimulation::tick(PlayerState &player, const CollisionQuery &collision
         player.callbackMode = -1;
         player.verticalResponse = 0;
     } else if (player.velocityY.raw < 0) {
-        player.velocityY.raw = std::min(0, player.velocityY.raw + _config.gravity);
+        player.velocityY.raw = std::min(
+            0, Fixed16::wrapAddRaw(player.velocityY.raw, _config.gravity));
     } else if (player.velocityY.raw > 0) {
         player.velocityY.raw = std::min(
-            0x20000, player.velocityY.raw + _config.gravity);
+            0x20000,
+            Fixed16::wrapAddRaw(player.velocityY.raw, _config.gravity));
     } else if (!player.grounded) {
         // A reset starts airborne in the compatibility model; the callback's
         // positive path supplies the first downward step before probing the
         // floor.
         player.velocityY.raw = std::min(
-            0x20000, player.velocityY.raw + _config.gravity);
+            0x20000,
+            Fixed16::wrapAddRaw(player.velocityY.raw, _config.gravity));
     }
 
     moveHorizontal(player, collision);

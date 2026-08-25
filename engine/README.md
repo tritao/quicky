@@ -30,6 +30,37 @@ The current iteration supports:
   screenshots with explicit camera, input, and high-effect controls;
 - synthetic unit tests for the format readers.
 
+## Player foundation boundary
+
+The `engine/player-foundation` branch establishes the deterministic shell for
+the faithful player implementation. Its mutable ownership is explicit:
+`SimulationState` owns the tick counter, recovered player record, scheduler,
+object-pool records, and queued events. `WorldCollisionView` borrows decoded
+MAP and descriptor data read-only. `Simulation::tick(input, world, output)` is
+the one fixed-step boundary; it advances scheduling and drains events into a
+`SimulationOutput` snapshot. Rendering reads that snapshot, and audio reads
+its emitted audio events instead of driving gameplay.
+
+The foundation currently includes:
+
+- `Fixed16`, the centralized signed 16.16 representation with explicit
+  arithmetic shifts, wrapping, clamping, conversion, and multiplication;
+- `RecoveredPlayerState`, a typed projection of the recovered `0x78`-byte
+  record, with stable `fieldXX` names and lossless raw-record conversion;
+- `WorldCollisionView`, which preserves raw MAP words, tile IDs, cell flags,
+  descriptor words, runtime flags, and out-of-bounds status. It exposes only
+  the confirmed descriptor predicates, not a guessed `isSolid()` rule;
+- `ObjectScheduler`, which applies deferred spawn/release mutations, walks
+  stable slot order, and records callback identity and invocation order;
+- `quiky-trace-v1`, a normalized trace interchange containing the raw player,
+  MAP lookups, scheduler callbacks, state writes, and emitted events. The
+  `quiky-trace-compare` tool reports the first divergent tick and field.
+
+The existing `PlayerSimulation` and SDL frontend remain compatibility code and
+are still provisional. No movement, collision, grounded, facing, or transition
+formula is promoted by this shell. `player_update.h` defines the replaceable
+callback stages for the later evidence-backed implementation.
+
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
 resources use TFMX, which needs a dedicated decoder. The engine includes an
 in-tree four-voice TFMX Pro parser, sequencer, Paula-style mixer, and gameplay

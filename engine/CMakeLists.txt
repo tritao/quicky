@@ -11,16 +11,22 @@ add_library(quiky_core
     src/archive.cpp
     src/bob.cpp
     src/binary_reader.cpp
+    src/fixed.cpp
     src/map.cpp
+    src/player_record.cpp
     src/palette.cpp
     src/pcx.cpp
     src/player_animation.cpp
     src/renderer.cpp
     src/runtime.cpp
+    src/scheduler.cpp
+    src/simulation.cpp
     src/level.cpp
     src/level_runtime.cpp
     src/sfx_events.cpp
     src/tileset.cpp
+    src/trace.cpp
+    src/world_view.cpp
 )
 
 target_include_directories(quiky_core
@@ -49,6 +55,9 @@ target_link_libraries(quiky-calibrate PRIVATE quiky_core)
 
 add_executable(quiky-compare-trace apps/quiky-compare-trace.cpp)
 target_link_libraries(quiky-compare-trace PRIVATE quiky_core)
+
+add_executable(quiky-trace-compare apps/quiky-trace-compare.cpp)
+target_link_libraries(quiky-trace-compare PRIVATE quiky_core)
 
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
@@ -125,6 +134,10 @@ endif()
 add_executable(quiky-tests tests/test_formats.cpp)
 target_link_libraries(quiky-tests PRIVATE quiky_core)
 add_test(NAME quiky-tests COMMAND quiky-tests)
+
+add_executable(quiky-foundation-tests tests/test_foundation.cpp)
+target_link_libraries(quiky-foundation-tests PRIVATE quiky_core)
+add_test(NAME quiky-foundation-tests COMMAND quiky-foundation-tests)
 
 add_executable(quiky-sfx-event-tests tests/test_sfx_events.cpp)
 target_link_libraries(quiky-sfx-event-tests PRIVATE quiky_core)
