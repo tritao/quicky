@@ -63,6 +63,14 @@
           "01D7:5042": "01F7:321F",
           "01D7:5047": "01D7:313D (local rebuild/dispatch call)"
         },
+        "downstream_contracts": {
+          "01D7:5010_gate": "DS:89E0 == 0xFFFF skips 5017-5047 and continues at 504F; any other value enters the reload setup.",
+          "01F7:0908": "stack-frame delay/transition loop: calls 0227:05CD once, then calls 01F7:0931 for counter values 0..0x3E7 before returning.",
+          "0227:0D5A": "far memcpy used by 5038; copies 0x400 bytes from SS:BP-0x400 into the far destination pointer loaded from DS:60E4.",
+          "01F7:1AAA": "repositions the live player from DS:8828/882A indexed by DS:85D2, reinstalls callback 01F7:3F27, clears DS:89EA, and calls 01F7:5D38.",
+          "01F7:321F": "rebuilds camera/map streaming state from the player position, calls 01F7:31D1 for camera clamping and 01F7:20AF for fixed-point camera publication, then calls the VGA/map refresh helper 01F7:3062 and 01F7:17AE.",
+          "01D7:313D": "resets DS:88AE, dispatches the next world/selector stage through DS:85D4 (constructors A101/B115/B9C6/C25E/CC3B/D2CA and related effect setup), and returns via 3212."
+        },
         "controlled_runtime": "A debugger-only release of the presentation PIT/input/audio waits reached 01D7:4F10 and 01D7:4FAF and advanced DS:85D4 to 0x10; the downstream reload calls were not reached in the synthetic W1L1 fixture.",
         "remaining": "Capture the same handoff in a fully authored all-seven-letter level or identify the exact DS:89E0/transition resource state that permits 5017-5047 to execute."
       },

@@ -865,3 +865,16 @@ controlled release of the presentation, input, and audio/UI waits then reached
 `01D7:4F10-4FAF` and advanced the selector to `0x10`; the downstream
 `01D7:5017-5047` reload/resource calls still need a fully authored transition
 fixture.
+
+The downstream contracts are now statically explicit even though that fixture
+is still missing.  `01D7:5010` skips the setup only when `DS:89E0 == 0xFFFF`;
+otherwise `01F7:0908` performs a bounded `0..0x3E7` transition loop after one
+`0227:05CD` call.  `01D7:5038` invokes `0227:0D5A`, a `0x400`-byte copy from
+the stack transition buffer into the far destination at `DS:60E4`.  `01F7:1AAA`
+repositions the player from the indexed `DS:8828/882A` row, reinstalls callback
+`01F7:3F27`, clears `DS:89EA`, and runs `01F7:5D38`.  `01F7:321F` rebuilds
+camera/MAP state from the player position through `31D1`, `20AF`, `3062`, and
+`17AE`; `01D7:313D` resets `DS:88AE` and dispatches the selector-specific END
+constructor/effect setup.  The remaining dynamic question is therefore the
+retail state that leaves `DS:89E0` open long enough for this chain to execute,
+not the identity of the downstream helpers.
