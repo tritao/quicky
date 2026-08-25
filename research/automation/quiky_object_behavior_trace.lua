@@ -982,12 +982,28 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         {segment = 0x01d7, offset = 0x5038},
         {segment = 0x01d7, offset = 0x5047},
     }
+    local stage_writer_points = {
+        {segment = 0x01d7, offset = 0x3147},
+        {segment = 0x01f7, offset = 0xa101},
+        {segment = 0x01f7, offset = 0xb115},
+        {segment = 0x01f7, offset = 0xc25e},
+        {segment = 0x01f7, offset = 0xcc3b},
+        {segment = 0x01f7, offset = 0xb30e},
+        {segment = 0x01f7, offset = 0xb61a},
+        {segment = 0x01f7, offset = 0xb791},
+        {segment = 0x01f7, offset = 0xb824},
+        {segment = 0x01f7, offset = 0xd60b},
+    }
     local outer_state_point = {segment = 0x01d7, offset = 0x4ea0}
     local presentation_hits = {}
+    local stage_gate_hits = {}
     local presentation_timeout_ms = force_completion_outer_state and
         math.min(timeout_ms, 30000) or math.min(timeout_ms, 5000)
     local function arm_presentation_points()
         for _, point in ipairs(presentation_points) do
+            dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+        end
+        for _, point in ipairs(stage_writer_points) do
             dosbox.breakpoint_set(point.segment, point.offset, {once = true})
         end
     end
@@ -1031,9 +1047,37 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
                 timer_tick = dosbox.mem_read_word("ds", 0x97f4),
             }
         end
+        local is_stage_writer = false
+        for _, point in ipairs(stage_writer_points) do
+            if hit.segment == point.segment and hit.offset == point.offset then
+                is_stage_writer = true
+                break
+            end
+        end
+        if is_stage_writer then
+            local stack = dosbox.mem_read("ss", hit.registers.esp & 0xffff, 12) or ""
+            stage_gate_hits[#stage_gate_hits + 1] = {
+                sequence = #stage_gate_hits + 1,
+                hit = {segment = hit.segment, offset = hit.offset,
+                       registers = hit.registers},
+                stack_hex = hex(stack),
+                effect_stage_gate = string.byte(
+                    dosbox.mem_read("ds", 0x88ae, 1) or "\0", 1) or 0,
+                pending_effect_count = dosbox.mem_read_word("ds", 0x880c),
+                active_effect_count = dosbox.mem_read_word("ds", 0x8806),
+                completion_flag = dosbox.mem_read_word("ds", 0x85db),
+            }
+        end
         if #presentation_hits >= 32 then break end
         dosbox.debug_continue()
     end
+    for _, point in ipairs(presentation_points) do
+        dosbox.breakpoint_remove(point.segment, point.offset)
+    end
+    for _, point in ipairs(stage_writer_points) do
+        dosbox.breakpoint_remove(point.segment, point.offset)
+    end
+    dosbox.breakpoint_remove(outer_state_point.segment, outer_state_point.offset)
     dosbox.debug_continue()
     dosbox.wait_frames(puzzle_probe_frames)
     local resource_state = dosbox.mem_read("ds", 0x97e4, 12) or ""
@@ -1053,6 +1097,9 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         score_hi = dosbox.mem_read_word("ds", 0x881e),
         level_loop_state = dosbox.mem_read_word("ds", 0x819e),
         presentation_hits = presentation_hits,
+        stage_writer_points = stage_writer_points,
+        stage_gate_hits = stage_gate_hits,
+        stage_gate_hit_count = #stage_gate_hits,
         outer_state_forced = force_completion_outer_state,
         cpu = dosbox.cpu_state(),
     }

@@ -635,6 +635,16 @@ captures `01D7:4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 ->
 probe, not a substitute for the fully authored all-seven-letter run; the
 post-message `4FAF-5047` continuation remains the timing gap.
 
+A current-script stage-writer diagnostic arms the known END constructors and
+state writes (`01D7:3147`, `01F7:A101/B115/C25E/CC3B`, `B30E/B61A/B791/B824`,
+and `D60B`) around the same forced outer-gate handoff. It reaches the outer
+completion entry and PIT wait helper, records zero stage-writer hits, and leaves
+`DS:88AE=0` over the bounded 180-frame window. This narrows the result to a
+timing/authoring boundary: the completion presentation is not itself proof that
+the END stage machine has advanced. See
+[`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json)
+for the trace hash and exact watcher points.
+
 For a level-specific representative, add `--select-level W2L1` and use the
 record offset from `quikyctl.py entity-catalog`. Use paired traces for each
 family variant, then run a one-record target-vs-inert mutation with
