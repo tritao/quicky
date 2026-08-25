@@ -36,7 +36,7 @@
       "01D7:16F0 renders BONUS-LEVEL!",
       "01D7:1704 sets DS:85DB=1"
     ],
-    "level_transition_gate": "The caller at 01D7:4F10 tests DS:85DB and jumps to 01D7:4FAF; that branch copies DS:85D4 to DS:85D6, maps the selector state, and enters the reload/transition setup at 01D7:5017 (relocated target 01F7:0908) and 01D7:5038-5047.",
+    "level_transition_gate": "The caller at 01D7:4F10 tests DS:85DB and jumps to 01D7:4FAF; that branch copies DS:85D4 to DS:85D6, maps the selector state, and enters 01D7:5017 (relocated target 01F7:0908), 01D7:5038 (0227:0D5A copy), 01D7:503D (01F7:1AAA), 01D7:5042 (01F7:321F), and 01D7:5047 (local 01D7:313D rebuild/dispatch).",
     "direct_reference_count": 3,
     "direct_reference_count_scope": "semantic sites (writer, changed-bit reader, main-loop comparator), not every repeated operand inside the reader",
     "direct_completion_comparator": true,
@@ -145,7 +145,7 @@
     },
     "transition_release_probe": {
       "trace": "research/build/entity-7f-puzzle-completion-transition-release.json",
-      "trace_sha256": "57b3177a669384443daa289add64bb33265f5316280d10cde691f70240ef4372",
+      "trace_sha256": "f61b52bcfae712f1b25355d942c63ec83f085b71f7ab2f72a9962b030227b3a3",
       "trace_script_sha256": "03c536db7e5836dca7960b669e08ec915ca689bbd41da27db899aaa85b0acd41",
       "fixture": "W1L1 type-0x7F synthetic final-letter archive variant from the main-tree QUIKY.EXE/NESTLE.DAT",
       "controls": [

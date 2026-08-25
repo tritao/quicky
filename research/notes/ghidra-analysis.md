@@ -846,8 +846,9 @@ letter callback. The routine at `01D7:14E1` compares `DS:60D8` against
 adds `0x07D0` to the score pair `DS:881C/DS:881E`, waits between messages, and
 sets `DS:85DB=1`. Its caller immediately tests that flag at `01D7:4F10`, jumps
 to `01D7:4FAF`, maps the selector state, and enters the reload/transition setup
-at `01D7:5017` (relocated target `01F7:0908`) followed by the resource/object
-handoff calls through `01D7:5047`. The final-letter synthetic run reaches the
+at `01D7:5017` (relocated target `01F7:0908`), followed by `01D7:5038`
+(`0227:0D5A` copy helper), `01D7:503D` (`01F7:1AAA`), `01D7:5042`
+(`01F7:321F`), and local rebuild/dispatch call `01D7:5047`. The final-letter synthetic run reaches the
 mask and clears the object but does not execute this authored presentation
 branch within its 1,800-frame window because the comparator is called from the
 outer cloud-state path only when `DS:89E6 != 0`. The nearby-cloud callback at

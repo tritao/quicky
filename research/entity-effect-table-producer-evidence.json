@@ -45,6 +45,18 @@
         "callback_argument": "AX=0x4519, DX=0x0000 immediately before the factory call",
         "post_call": "The factory-created object is initialized by 01F7:4519, which installs 01F7:45AB and claims one DS:87DE row."
       },
+      "factory_callsite_census": {
+        "target": "01F7:0E06",
+        "segment": "01F7",
+        "relocation_callsite_count": 98,
+        "4519_argument_callsite": "01F7:390E (AX=0x4519)",
+        "other_callsite_families": [
+          "world-specific pooled constructors and END child callbacks",
+          "normal effect/pickup constructors",
+          "generic movement/projectile constructors"
+        ],
+        "interpretation": "The relocation census finds no second authored callsite that passes AX=0x4519; all shared-row spawn evidence therefore converges on the player-state tail at 01F7:38EC, while the gameplay condition that supplies player flag 0x10 remains unresolved."
+      },
       "raw_word_occurrence": "The little-endian word 0x4519 occurs once in segment 3, at 01F7:3909, as the immediate AX operand."
     },
     "update_and_remove": {
