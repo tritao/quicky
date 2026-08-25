@@ -80,6 +80,14 @@ tracers. Patched callback execution is protected: restoration runs after
 success, timeout, or Lua error, including failures partway through applying a
 multi-patch request.
 
+The final worktree-capability pass adds three focused primitives without
+restoring the old mega-tracer: `--player-object-focus CALLBACK[:POOL_OFFSET]`
+selects a generic object callback, `--player-factory-focus` captures the
+allocator entry-to-scheduler-tail pool delta, and declarative patches accept
+`map:CELL_X:CELL_Y:u16=VALUE` targets resolved through the live MAP pointer
+and row stride. MAP mutations use the same restoration ledger as DS, selector,
+and callback-object patches.
+
 ## Engine conflict policy
 
 Confirmed standalone rendering primitives were retained: PCX decoding,
@@ -91,7 +99,7 @@ implementation.
 
 ## Validation
 
-- `python3 -m unittest discover -s research/tests -q`: 140 passing.
+- `python3 -m unittest discover -s research/tests -q`: 144 passing.
 - Fresh CMake configure and build: passing.
 - `ctest --test-dir build/engine --output-on-failure`: 11 passing.
 - `git diff --check`: passing.

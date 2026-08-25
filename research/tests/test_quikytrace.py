@@ -11,6 +11,7 @@ from quikytrace import (  # noqa: E402
     EntityTraceConfig,
     ExecuteWatch,
     InputPhase,
+    ObjectFocus,
     MemoryPatch,
     PlayerTraceConfig,
     TraceError,
@@ -26,6 +27,7 @@ from quikytrace import (  # noqa: E402
     parse_memory_patch,
     parse_input_phase,
     parse_execute_watch,
+    parse_object_focus,
     trace_player_lua,
     trace_entity_lua,
     trace_resources_lua,
@@ -101,6 +103,35 @@ class QuikyTraceTests(unittest.TestCase):
             with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
                 parse_execute_watch(value)
 
+    def test_object_focus_parser_and_serialization(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        focus = parse_object_focus("0xa234:0x1234")
+        self.assertEqual(focus, ObjectFocus(0xA234, 0x1234))
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording, object_focus=focus, factory_focus=True,
+        ))
+        self.assertEqual(payload["object_focus"], {
+            "callback_offset": 0xA234, "object_offset": 0x1234,
+        })
+        self.assertTrue(payload["factory_focus"])
+
+    def test_object_focus_parser_rejects_invalid_specs(self):
+        for value in ("bad", "1:2:3", "0x10000"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                parse_object_focus(value)
+
+    def test_map_cell_patch_parser_and_serialization(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        patch = parse_memory_patch("map:3:4:u16=0x160")
+        self.assertEqual(
+            patch, MemoryPatch("map", 0, 2, 0x160, None, 3, 4)
+        )
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording, patches=(patch,),
+        ))
+        self.assertEqual(payload["patches"][0]["map_x"], 3)
+        self.assertEqual(payload["patches"][0]["map_y"], 4)
+
     def test_player_trace_normalizes_breakpoint_owner_arrays(self):
         trace = normalize_player_trace({"samples": {"1": {
             "breakpoint_owners": {"2": "watch", "1": "callback"},
@@ -113,6 +144,21 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(sample["breakpoint_owners"], ["callback", "watch"])
         self.assertEqual(sample["execute_watch"]["owners"], ["watch"])
         self.assertEqual(sample["related_breakpoints"][0]["owners"], ["return"])
+
+    def test_player_trace_normalizes_factory_window(self):
+        trace = normalize_player_trace({"samples": {"1": {
+            "factory_event": {
+                "entry": {"owners": {"1": "factory-entry"}},
+                "tail": {"owners": {"1": "factory-tail"}},
+                "before_pool": {"objects": {}, "kind_0x64": {}},
+                "after_pool": {"objects": {"1": {"offset": 4}}, "kind_0x64": {}},
+                "created_objects": {"1": {"offset": 4}},
+            },
+        }}})
+        event = trace["samples"][0]["factory_event"]
+        self.assertEqual(event["entry"]["owners"], ["factory-entry"])
+        self.assertEqual(event["tail"]["owners"], ["factory-tail"])
+        self.assertEqual(event["created_objects"], [{"offset": 4}])
 
     def test_decode_lookup_call(self):
         stack = struct.pack("<HHHH", 0x36D0, 0x01D7, 0x1234, 0x0237)

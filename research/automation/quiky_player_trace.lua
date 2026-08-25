@@ -10,8 +10,11 @@ local execute_watches = trace_config.execute_watches or {}
 local timeout_ms = trace_config.timeout_ms or 30000
 local sample_count = trace_config.samples or 8
 local frames_between = trace_config.frames_between or 30
-local focus_callback = trace_config.focus_callback or false
-local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
+local object_focus = trace_config.object_focus
+local factory_focus = trace_config.factory_focus or false
+local focus_callback = trace_config.focus_callback or object_focus ~= nil
+local focus_callback_offset = object_focus and object_focus.callback_offset or
+                              trace_config.focus_callback_offset or 0x3ff8
 local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
@@ -643,6 +646,10 @@ local function is_property_target(offset)
 end
 
 local function arm_targets()
+    if factory_focus then
+        arm_breakpoint("factory-entry", 0x01f7, 0x0e06)
+        return
+    end
     if focus_callback then
         arm_callback_targets()
     end
@@ -1386,6 +1393,22 @@ for sequence = 1, sample_count do
     arm_targets()
     dosbox.debug_continue()
     local hit = wait_hit("player/object update breakpoint")
+    local ignored_object_callbacks = 0
+    if object_focus ~= nil and object_focus.object_offset ~= nil then
+        while hit.offset == focus_callback_offset do
+            local candidate = callback_object_snapshot(hit)
+            if candidate ~= nil and candidate.offset == object_focus.object_offset then
+                break
+            end
+            ignored_object_callbacks = ignored_object_callbacks + 1
+            if ignored_object_callbacks >= 256 then
+                error("object focus exceeded 256 non-matching callbacks")
+            end
+            arm_callback_targets()
+            dosbox.debug_continue()
+            hit = wait_hit("focused object callback")
+        end
+    end
     local sample = {
         sequence = sequence,
         frame_index = experiment_frame,
@@ -1395,6 +1418,13 @@ for sequence = 1, sample_count do
         globals = static_globals(),
         related_breakpoints = {},
     }
+    if object_focus ~= nil then
+        sample.object_focus = {
+            callback_offset = object_focus.callback_offset,
+            object_offset = object_focus.object_offset,
+            ignored_callbacks = ignored_object_callbacks,
+        }
+    end
     local execute_watch_index = patch_watch.is_execute_watch(
         execute_watches, hit.segment, hit.offset)
     if execute_watch_index ~= nil then
@@ -1411,6 +1441,30 @@ for sequence = 1, sample_count do
     end
     sample.spawn_probe = apply_spawn_probe(hit)
     sample.release_probe = apply_release_probe(hit)
+    if factory_focus and hit.offset == 0x0e06 then
+        local before = sample.pool or pool_snapshot()
+        arm_breakpoint("factory-tail", 0x01f7, 0x0f35)
+        dosbox.debug_continue()
+        local tail = wait_hit("factory allocation window tail")
+        local after = pool_snapshot()
+        local before_offsets = {}
+        for _, object in ipairs(before.objects or {}) do
+            before_offsets[object.offset] = true
+        end
+        local created = {}
+        for _, object in ipairs(after.objects or {}) do
+            if not before_offsets[object.offset] then created[#created + 1] = object end
+        end
+        sample.factory_event = {
+            entry = {segment = hit.segment, offset = hit.offset,
+                     registers = hit.registers, owners = hit.breakpoint_owners},
+            tail = {segment = tail.segment, offset = tail.offset,
+                    registers = tail.registers, owners = tail.breakpoint_owners},
+            before_pool = before,
+            after_pool = after,
+            created_objects = created,
+        }
+    end
     local initial_hit = hit
     local descriptor_census_result = nil
     if descriptor_census and initial_hit.offset == 0x5cc3 then

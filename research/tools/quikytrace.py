@@ -94,6 +94,8 @@ class MemoryPatch:
     width: int
     value: int
     selector: int | None = None
+    map_x: int | None = None
+    map_y: int | None = None
 
 
 @dataclass(frozen=True)
@@ -110,6 +112,30 @@ class ExecuteWatch:
 
     segment: int
     offset: int
+
+
+@dataclass(frozen=True)
+class ObjectFocus:
+    """A callback and optional exact pool-record offset to follow."""
+
+    callback_offset: int
+    object_offset: int | None = None
+
+
+def parse_object_focus(value: str) -> ObjectFocus:
+    """Parse CALLBACK[:OBJECT_OFFSET]."""
+    try:
+        parts = value.split(":")
+        if len(parts) not in (1, 2):
+            raise ValueError
+        values = [int(part, 0) for part in parts]
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "object focus must use CALLBACK[:OBJECT_OFFSET]"
+        ) from exc
+    if any(not 0 <= item <= 0xFFFF for item in values):
+        raise argparse.ArgumentTypeError("object-focus value is out of range")
+    return ObjectFocus(values[0], values[1] if len(values) == 2 else None)
 
 
 def parse_execute_watch(value: str) -> ExecuteWatch:
@@ -152,7 +178,13 @@ def parse_memory_patch(value: str) -> MemoryPatch:
     try:
         target, raw_value = value.split("=", 1)
         parts = target.split(":")
-        if parts[0] == "selector" and len(parts) == 4:
+        map_x = map_y = None
+        if parts[0] == "map" and len(parts) == 4:
+            space, raw_x, raw_y, raw_width = parts
+            map_x, map_y = int(raw_x, 0), int(raw_y, 0)
+            raw_offset = "0"
+            selector = None
+        elif parts[0] == "selector" and len(parts) == 4:
             space, raw_selector, raw_offset, raw_width = parts
             selector = int(raw_selector, 0)
         elif parts[0] in ("ds", "player") and len(parts) == 3:
@@ -169,14 +201,17 @@ def parse_memory_patch(value: str) -> MemoryPatch:
             "patch must be ds:OFFSET:u8|u16|u32=VALUE, "
             "player:OFFSET:u8|u16|u32=VALUE, or "
             "selector:SELECTOR:OFFSET:u8|u16|u32=VALUE"
+            ", or map:X:Y:u16=VALUE"
         ) from exc
     if not 0 <= offset <= 0xFFFF:
         raise argparse.ArgumentTypeError("patch offset must be between 0 and 0xffff")
     if selector is not None and not 0 <= selector <= 0xFFFF:
         raise argparse.ArgumentTypeError("patch selector must be between 0 and 0xffff")
+    if space == "map" and (map_x < 0 or map_y < 0 or width != 2):
+        raise argparse.ArgumentTypeError("MAP patches require non-negative X:Y and u16")
     if not 0 <= patch_value < 1 << (width * 8):
         raise argparse.ArgumentTypeError(f"patch value does not fit {raw_width.lower()}")
-    return MemoryPatch(space, offset, width, patch_value, selector)
+    return MemoryPatch(space, offset, width, patch_value, selector, map_x, map_y)
 
 
 @dataclass(frozen=True)
@@ -232,6 +267,8 @@ class PlayerTraceConfig:
     patches: tuple[MemoryPatch, ...] = ()
     input_phases: tuple[InputPhase, ...] = ()
     execute_watches: tuple[ExecuteWatch, ...] = ()
+    object_focus: ObjectFocus | None = None
+    factory_focus: bool = False
 
 
 def lua_literal(value: Any) -> str:
@@ -353,6 +390,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
                 "offset": patch.offset,
                 "width": patch.width,
                 "value": patch.value,
+                "map_x": patch.map_x,
+                "map_y": patch.map_y,
             }
             for patch in config.patches
         ],
@@ -364,6 +403,14 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
             {"segment": watch.segment, "offset": watch.offset}
             for watch in config.execute_watches
         ],
+        "object_focus": (
+            {
+                "callback_offset": config.object_focus.callback_offset,
+                "object_offset": config.object_focus.object_offset,
+            }
+            if config.object_focus else None
+        ),
+        "factory_focus": config.factory_focus,
     }
 
 
@@ -738,6 +785,26 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             execute_watch["owners"] = ordered_lua_array(
                 execute_watch.get("owners", [])
             )
+        factory_event = sample.get("factory_event")
+        if isinstance(factory_event, dict):
+            factory_event["created_objects"] = ordered_lua_array(
+                factory_event.get("created_objects", [])
+            )
+            for endpoint in ("entry", "tail"):
+                point = factory_event.get(endpoint)
+                if isinstance(point, dict) and "owners" in point:
+                    point["owners"] = ordered_lua_array(
+                        point.get("owners", [])
+                    )
+            for pool_key in ("before_pool", "after_pool"):
+                factory_pool = factory_event.get(pool_key)
+                if isinstance(factory_pool, dict):
+                    factory_pool["objects"] = ordered_lua_array(
+                        factory_pool.get("objects", [])
+                    )
+                    factory_pool["kind_0x64"] = ordered_lua_array(
+                        factory_pool.get("kind_0x64", [])
+                    )
         if "collisions" in sample:
             sample["collisions"] = ordered_lua_array(sample.get("collisions", []))
         if "map_lookups" in sample:
@@ -892,6 +959,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-callback-offset", type=lambda value: int(value, 0),
                         default=0x3FF8,
                         help="player callback offset for --player-focus-callback (default 0x3ff8)")
+    parser.add_argument("--player-object-focus", type=parse_object_focus,
+                        metavar="CALLBACK[:OBJECT_OFFSET]",
+                        help="follow an object callback, optionally requiring an exact pool offset")
+    parser.add_argument("--player-factory-focus", action="store_true",
+                        help="capture object-pool allocation windows at 01f7:0e06..0f35")
     parser.add_argument("--player-map-focus", action="store_true",
                         help="break on the 01F7:3376 MAP helper used by player collision probes")
     parser.add_argument("--player-collision-focus", action="store_true",
@@ -1064,8 +1136,9 @@ def main(argv: list[str] | None = None) -> int:
             args.player_input_key_2 or args.player_input_frames or
             args.player_input_samples):
         raise TraceError("--player-input-phase cannot be combined with legacy player input options")
-    if args.player_capture_record and not args.player_focus_callback:
-        raise TraceError("--player-capture-record requires --player-focus-callback")
+    if args.player_capture_record and not (
+            args.player_focus_callback or args.player_object_focus):
+        raise TraceError("--player-capture-record requires player callback or object focus")
     if args.player_collision_event_limit < 1:
         raise TraceError("--player-collision-event-limit must be positive")
     if args.player_collision_repeat_limit < 1:
@@ -1139,6 +1212,21 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--select-level cannot be combined with another level navigation mode")
     if args.player_trace and (args.dispatch_table or args.entity_record_offset is not None):
         raise TraceError("--player-trace cannot be combined with --dispatch-table or --entity-record-offset")
+    player_focus_modes = sum(bool(mode) for mode in (
+        args.player_focus_callback, args.player_object_focus,
+        args.player_factory_focus,
+    ))
+    if player_focus_modes > 1:
+        raise TraceError("player callback, object, and factory focus modes are mutually exclusive")
+    if args.player_factory_focus and (
+            args.player_map_focus or args.player_collision_focus or
+            args.player_property_focus or args.player_branch_focus or
+            args.player_descriptor_census or args.player_watch_execute or
+            args.player_patch):
+        raise TraceError("--player-factory-focus cannot be combined with another trace focus")
+    if args.player_patch and not (
+            args.player_focus_callback or args.player_object_focus):
+        raise TraceError("--player-patch requires player callback or object focus")
     for option_name, option_value in (("navigate-level", args.navigate_level),
                                       ("select-level", args.select_level)):
         if option_value is not None and (
@@ -1248,6 +1336,8 @@ def main(argv: list[str] | None = None) -> int:
                 patches=tuple(args.player_patch),
                 input_phases=tuple(args.player_input_phase),
                 execute_watches=tuple(args.player_watch_execute),
+                object_focus=args.player_object_focus,
+                factory_focus=args.player_factory_focus,
                 collision_event_limit=args.player_collision_event_limit,
                 collision_repeat_limit=args.player_collision_repeat_limit,
                 transition_focus=args.player_transition_focus,

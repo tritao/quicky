@@ -18,6 +18,18 @@ QUIKY_PATCH_WATCH = (function()
     end
 
     local function resolve(spec, context)
+        if spec.space == "map" then
+            local map_base = context.dosbox.mem_read_word("ds", 0x657a)
+            local map_selector = context.dosbox.mem_read_word("ds", 0x657c)
+            local row_stride = context.dosbox.mem_read_word("ds", 0x657e)
+            return {
+                kind = "selector",
+                selector = map_selector,
+                offset = map_base + spec.map_y * row_stride + spec.map_x * 2,
+                map_x = spec.map_x,
+                map_y = spec.map_y,
+            }
+        end
         if spec.space == "player" then
             if context.player == nil then return nil, "player object unavailable" end
             return {
@@ -41,7 +53,9 @@ QUIKY_PATCH_WATCH = (function()
         function engine:apply(sample, context)
             sample.mutation_ledger = sample.mutation_ledger or {}
             for index, spec in ipairs(self.specs) do
-                local target, reason = resolve(spec, context or {})
+                context = context or {}
+                context.dosbox = self.dosbox
+                local target, reason = resolve(spec, context)
                 if target == nil then error("patch " .. index .. ": " .. reason) end
                 local original
                 if target.kind == "selector" then
@@ -69,6 +83,8 @@ QUIKY_PATCH_WATCH = (function()
                     offset = target.offset,
                     width = spec.width,
                     value = spec.value,
+                    map_x = target.map_x,
+                    map_y = target.map_y,
                     original_bytes = byte_array(original),
                     replacement_bytes = byte_array(replacement),
                     restored = false,
