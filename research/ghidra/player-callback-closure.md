@@ -69,6 +69,9 @@ verifier independently checks those near edges against raw bytes and checks
 far edges against the executable's NE relocation table; the ledger-backed
 `callgraph-*.json` remains the complete contract graph.
 
+The PyGhidra audit view in `quiky-analysis.json` is generated from this ledger
+by `generate_quiky_analysis.py`; the baseline fails if that projection drifts.
+
 ## Unresolved or partially resolved items
 
 - `01F7:5937` (`player_helper_5937`) remains address-named. Its writes before
