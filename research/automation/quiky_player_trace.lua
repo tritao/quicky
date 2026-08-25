@@ -922,6 +922,22 @@ local function clear_boss_targets()
     end
 end
 
+local function effect_table_rows_snapshot()
+    local rows = {}
+    local active = dosbox.mem_read_word("ds", 0x8806)
+    local capacity = dosbox.mem_read_word("ds", 0x8808)
+    local limit = capacity
+    if limit > 4 then limit = 4 end
+    for index = 0, limit - 1 do
+        rows[#rows + 1] = {
+            index = index,
+            x = dosbox.mem_read_word("ds", 0x87de + index * 4),
+            y = dosbox.mem_read_word("ds", 0x87e0 + index * 4),
+        }
+    end
+    return {active = active, capacity = capacity, rows = rows}
+end
+
 local function boss_event_snapshot(hit, target, event_index, previous_globals)
     local globals = static_globals()
     local object = callback_object_snapshot(hit)
@@ -936,6 +952,7 @@ local function boss_event_snapshot(hit, target, event_index, previous_globals)
         globals = globals,
         object = object,
         effect_table_87de_hex = hex(dosbox.mem_read("ds", 0x87de, 16) or ""),
+        effect_table_rows = effect_table_rows_snapshot(),
     }
     if boss_stage_compact then
         event.registers = {

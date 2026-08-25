@@ -782,6 +782,16 @@ W3 and W5 reset the hit counter when advancing their stage. The remaining
 boss gap is therefore authored repeat timing and per-world stage progression,
 not an unknown hitbox.
 
+The follow-up W1L3 row-contract trace now snapshots the live table at every
+boss callback. `DS:8808` is four, `object+0x2A` advances through 1,2,3,4,5
+and wraps to 1, and the authored row remains active while it travels from
+`(1,0)` through `(148,479)` to `(216,490)`. At the corresponding callbacks the
+boss is approximately `(365,554)` through `(357,551)`, so the later rows miss
+the strict band by both x and y. This is durable evidence that the repeated-hit
+gap is the authored movement/action route and row timing, not an unresolved
+collision predicate. The normalized ledger is
+[`entity-boss-authored-row-contract-evidence.json`](../entity-boss-authored-row-contract-evidence.json).
+
 For a level-specific representative, add `--select-level W2L1` and use the
 record offset from `quikyctl.py entity-catalog`. Use paired traces for each
 family variant, then run a one-record target-vs-inert mutation with
@@ -809,10 +819,11 @@ are deliberately narrower:
    injection in the current fixture.
 3. Capture the authored boss/end damage or completion producer (the controlled
    callback path already maps `DS:88AE` 1->5). Identify the non-keyboard player
-   bit-`0x10` producer, then trace a WERBE or
-   dedicated-effect `DS:880C` increment after that transition and correlate the
-   separate Wind/UFO row producers that seed `DS:87DE`. Assign the paper
-   `DS:880A` bounded HUD counter its human-facing label afterward.
+   bit-`0x10` producer and the movement/platform timing that repeatedly places
+   fresh rows inside the strict band; then trace a WERBE or dedicated-effect
+   `DS:880C` increment after that transition and correlate the separate
+   Wind/UFO row producers that seed `DS:87DE`. Assign the paper `DS:880A`
+   bounded HUD counter its human-facing label afterward.
 4. If exact streaming persistence is required, identify which region/resource
    unload transition (if any) causes `1CDA -> 1E04` to revisit a cleared record
    without a full level reload. The current evidence deliberately distinguishes

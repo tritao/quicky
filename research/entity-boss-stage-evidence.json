@@ -70,6 +70,7 @@
     },
     "damage_row_contract": {
       "callbacks": ["01F7:B25D", "01F7:BB0E", "01F7:C328", "01F7:CDA3", "01F7:D55A"],
+      "table": {"base": "DS:87DE", "row_stride": 4, "active_count": "DS:8806", "capacity": "DS:8808", "cursor_field": "object+0x2A", "cursor_behavior": "One row is selected per callback, the cursor advances, and it wraps after the capacity."},
       "overlap_band": "strict boss_x-15 < row_x < boss_x+15 and boss_y-25 < row_y < boss_y+5; all five world callbacks use the same DS:87DE comparison",
       "consumed_hits_before_stage_transition": {"W1": 5, "W2": 6, "W3": 5, "W4": 6, "W5": 4},
       "counter_reset_after_transition": ["W3", "W5"],
@@ -363,8 +364,30 @@
     ],
     "interpretation": "Native boss selectors for all five worlds reach their world-specific constructor, main callback, and damage callback with stage gate 1. The idle traces do not show coordinate-row matches or stage progression, so they establish runtime callback reachability and resource slots, not authored hit delivery or death ordering."
   },
+  "runtime_authored_row_contract_probe": {
+    "trace": "research/build/player-w1l3-boss-row-contract-exec.json",
+    "trace_sha256": "fa061b24d24db9ff16380afd28624ffa4cea4e49c4ad2dfb4861c43e93c4ddcb",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "fb0c0049d566829bba8b12cd96758287c68600ef81a264b56377c0d488b87525",
+    "fixture": "Native W1L3 selector with left warmup 550 frames and held left-alt action; 64 boss callback events with DS:87DE row snapshots.",
+    "observed": {
+      "capacity": 4,
+      "active_count": 1,
+      "cursor_before_after": [[1, 2], [2, 3], [5, 1], [4, 5]],
+      "row_snapshots": [
+        {"event": 9, "boss": [365, 554], "row0": [1, 0], "match": false},
+        {"event": 12, "boss": [364, 554], "row0": [148, 479], "match": false},
+        {"event": 21, "boss": [363, 552], "row0": [160, 477], "match": false},
+        {"event": 63, "boss": [357, 551], "row0": [216, 490], "match": false}
+      ],
+      "stage_gate": 1,
+      "stage_writer_hits": 0,
+      "pending_effect_count": 0
+    },
+    "interpretation": "The authored row is present in the shared table and the native consumer advances/wraps its cursor as recovered statically. After the first authored hit, the bounded route leaves the fresh row outside the strict W1 overlap band, so no second hit or stage writer appears. The remaining gap is authored route/timing, not an unknown boss hitbox. Full normalized details are in entity-boss-authored-row-contract-evidence.json."
+  },
   "remaining": [
-    "Capture repeated authored damage cycles through the W1-W5 thresholds and the unforced stage writers; one native W1 row-to-boss hit is now proven.",
+    "Capture repeated authored damage cycles through the W1-W5 thresholds and the unforced stage writers; one native W1 row-to-boss hit and the shared row cursor contract are now proven.",
     "Capture the authored completion producer and downstream reload/resource handoff after the controlled DS:85DB -> 01D7:4F10-4FAF selector advance; 01D7:5017/5038/5047 remains unobserved dynamically.",
     "Correlate DS:880C pending-effect increments with Wind/UFO row producers and the player 01F7:38EC trigger.",
     "Resolve WOLKE-specific rendering/descriptor selection after the 01D7:4EA0 consumer."
