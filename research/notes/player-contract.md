@@ -55,7 +55,7 @@ Descriptor values recovered from the live table and branch traces:
 
 The low-nibble quadrant mask is `0x08/0x04/0x02/0x01` for the four
 8-pixel quadrants. `3a1f` probes `(x-5,y)` then `(x+5,y)`; `3df2` repeats
-that pair and snaps X to an 8-pixel boundary when the alignment branch is
+that pair and snaps Y to an 8-pixel boundary when the alignment branch is
 selected. The controlled property traces prove that a blocking left probe
 short-circuits the right probe, while a non-blocking left probe permits it.
 
