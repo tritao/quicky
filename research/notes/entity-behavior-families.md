@@ -370,7 +370,12 @@ The same pass closes the branch-level behavior for the remaining effects:
   callsites, `01D7:3FC6` and `01D7:44E9` (the latter from `01D7:44D0`).
   This proves one authored factory producer and the reset boundaries; which
   gameplay state raises bit `0x10`, and which completion/boss transition
-  advances `DS:88AE` or supplies `DS:880C`, remain open. A controlled
+  advances `DS:88AE`, remain open. `DS:880C` is a separate pending-effect
+  budget: `01F7:8D70` adds `0xA` for the shared collectible subtype-1 branch
+  (native type `0x6F` observes `0 -> 10`), while `01F7:1950` increments a
+  bounded counter from the dedicated-effect queue path `01F7:18D4`. A
+  combined trace must still show how those pending increments feed the
+  `01F7:38EC -> 4519` producer. A controlled
   main-tree mutation at the actual `01F7:38EC`
   entry (rather than its earlier `4384` prelude) writes action word `0x0010`,
   observes byte `+0x3C: 0 -> FF`, and reaches the relocation-backed factory
@@ -386,8 +391,10 @@ The same pass closes the branch-level behavior for the remaining effects:
   same `+0x3C: 0 -> FF` guard transition. This closes the keyboard trigger
   mapping; other non-keyboard gameplay producers and the independent Wind/UFO
   row producers remain open. The gate-writer search is now bounded to the
-  boss/end-stage constructors and callbacks; what remains is the authored
-  completion transition that advances the stage. See
+  boss/end-stage constructors and callbacks, while the pending-counter search
+  has concrete collectible/dedicated-effect writers. What remains is the
+  authored completion transition that advances the stage and the combined
+  pending-effect-to-row trace. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
@@ -646,9 +653,10 @@ are deliberately narrower:
    cross-world usage, removal path, and both player-side readers are confirmed;
    the 64-sample queue probe ruled out an explicit ordinary-queue injection.
 3. If effect semantics are required beyond control flow, capture one authored
-   boss/end transition to map `DS:88AE` stage values and correlate the separate
-   Wind/UFO row producers that seed `DS:87DE`; then assign the paper `DS:880A`
-   bounded HUD counter its human-facing label.
+   boss/end transition to map `DS:88AE` stage values; then trace a WERBE or
+   dedicated-effect `DS:880C` increment through `01F7:38EC -> 4519` and
+   correlate the separate Wind/UFO row producers that seed `DS:87DE`. Assign
+   the paper `DS:880A` bounded HUD counter its human-facing label afterward.
 4. If exact streaming persistence is required, identify which region/resource
    unload transition (if any) causes `1CDA -> 1E04` to revisit a cleared record
    without a full level reload. The current evidence deliberately distinguishes

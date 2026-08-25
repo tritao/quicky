@@ -101,7 +101,7 @@
         "One guest frame later occupancy is back to 8; no 01F7:4519, 01F7:45AB, or 01F7:470C breakpoint is observed.",
         "The player callback returns with action word 0x0010."
       ],
-      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The next-frame scheduler probe now shows the record inserted at DS:7566 and 01F7:4519 entered with DS:88AE=0 and DS:880C=0; the callback clears +0x18 at its own guard, so this fixture rejects the effect before claiming a row. Static disassembly and END archive-slot correlation bound DS:88AE to a boss/end-sequence stage machine, so the remaining authored trigger is the completion/boss path rather than a normal Wind/UFO initializer."
+      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The next-frame scheduler probe now shows the record inserted at DS:7566 and 01F7:4519 entered with DS:88AE=0 and DS:880C=0; the callback clears +0x18 at its own guard, so this fixture rejects the effect before claiming a row. Static disassembly and END archive-slot correlation bound DS:88AE to a boss/end-sequence stage machine, while separate static/runtime evidence shows DS:880C is an independent pending-effect budget. The remaining work is to correlate the authored completion/boss transition and pending-effect producers with the player 38EC factory path, rather than attributing either gate to a normal Wind/UFO initializer."
     },
     "natural_input_trigger_probe": {
       "trace": "research/build/player-effect-table-leftalt-natural-w1l1-v2.json",
@@ -141,8 +141,9 @@
   },
   "remaining": [
     "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
-    "Which authored completion/boss transition advances DS:88AE (or supplies DS:880C) so callback 01F7:4519 can claim a row, and which end-stage callback consumes each stage value.",
-    "Whether Wind/UFO authored declarations use the player-state producer or another producer path, and how their paths seed DS:87DE rows independently of the boss/end-stage gate.",
+    "Which authored completion/boss transition advances DS:88AE and which end-stage callback consumes each stage value.",
+    "How the known DS:880C producers (WERBE subtype 1 at 01F7:8D70 and dedicated-effect processing at 01F7:1950) feed the 01F7:38EC -> 4519 path, and whether other pending-effect producers exist.",
+    "Whether Wind/UFO authored declarations use the player-state producer or another producer path, and how their paths seed DS:87DE rows independently of both gates.",
     "The semantic names and level/reload triggers of the two reset callsites."
   ]
 }

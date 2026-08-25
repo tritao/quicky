@@ -160,7 +160,15 @@
         "observed_roles": "Each set-to-one site allocates a child callback and seeds an END sprite slot; nearby state writes advance or consume the stage during boss/end presentation.",
         "confidence": "static raw disassembly plus archive-slot correlation; runtime world-by-world transition capture remains open"
       },
-      "interpretation": "Raw segment disassembly and END archive correlation bound DS:88AE to the boss/end-sequence stage machine: 01D7:3147 resets it, world-specific child constructors set stage 1, and later callbacks mutate the stage while using END sprite slots 0x385/0x3B7. The ordinary W1L1 player-triggered 4519 allocation therefore fails legitimately with DS:88AE=0; the remaining work is to capture the authored completion/boss transition and separate Wind/UFO row producers from this end-stage gate."
+      "pending_counter_static_writers": {
+        "increment_sites": [
+          {"site": "01F7:8D70", "operation": "add 0x000A", "context": "shared 8D20 collectible subtype 1 branch; native type 0x6F/WERBE overlap evidence observes DS:880C 0 -> 10"},
+          {"site": "01F7:1950", "operation": "increment while below 0x63", "context": "01F7:18D4 dedicated-effect queue collision/dispatch path"}
+        ],
+        "consumers": ["01F7:4519 decrements unless DS:88AE is nonzero", "01D7:14E1 reads/consumes the pending count", "01F7:5B9A reads it for the HUD/status path"],
+        "interpretation": "DS:880C is an independent pending-effect budget. It can open the 4519 guard without advancing the boss/end-stage byte DS:88AE; its authored producers and exact relation to the player 38EC trigger still need a combined runtime trace."
+      },
+      "interpretation": "Raw segment disassembly and END archive correlation bound DS:88AE to the boss/end-sequence stage machine: 01D7:3147 resets it, world-specific child constructors set stage 1, and later callbacks mutate the stage while using END sprite slots 0x385/0x3B7. DS:880C is separate pending-effect state with known collectible/dedicated-effect increment sites. The ordinary W1L1 player-triggered 4519 allocation therefore fails legitimately with both gates clear; remaining work is to capture the authored completion/boss transition and correlate pending-effect producers with Wind/UFO row producers."
     },
     "producer": "01F7:38EC conditionally calls the pooled-object factory 01F7:0E06 with AX=0x4519 when the player object has flags bit 0x10 and byte +0x3C is clear; 01F7:4519 then claims one shared row and installs 01F7:45AB when its DS:88AE/DS:880C guard passes.",
     "reset_callers": ["01D7:3FC6 (unclassified level-state routine)", "01D7:44E9 from 01D7:44D0"],
