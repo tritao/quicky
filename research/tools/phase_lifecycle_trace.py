@@ -33,6 +33,9 @@ class PhaseLifecycleConfig:
     force_transition: int | None = None
     force_x: int | None = None
     force_y: int | None = None
+    force_player_with_owner: bool = False
+    force_game_state: int | None = None
+    force_late_action_state: bool = False
     teardown_probe: bool = False
     teardown_timeout_ms: int = 1000
     teardown_rearm_callbacks: bool = False
@@ -42,6 +45,10 @@ class PhaseLifecycleConfig:
     teardown_watch_linked_records: bool = False
     teardown_watch_self_test: bool = False
     teardown_watch_b87b_gate: bool = False
+    teardown_watch_main_transitions: bool = False
+    teardown_watch_control_writes: bool = False
+    teardown_hold_key: str = ""
+    teardown_hold_jump: bool = False
 
 
 def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
@@ -58,6 +65,9 @@ def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
         "force_transition": config.force_transition,
         "force_x": config.force_x,
         "force_y": config.force_y,
+        "force_player_with_owner": config.force_player_with_owner,
+        "force_game_state": config.force_game_state,
+        "force_late_action_state": config.force_late_action_state,
         "teardown_probe": config.teardown_probe,
         "teardown_timeout_ms": config.teardown_timeout_ms,
         "teardown_rearm_callbacks": config.teardown_rearm_callbacks,
@@ -67,6 +77,10 @@ def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
         "teardown_watch_linked_records": config.teardown_watch_linked_records,
         "teardown_watch_self_test": config.teardown_watch_self_test,
         "teardown_watch_b87b_gate": config.teardown_watch_b87b_gate,
+        "teardown_watch_main_transitions": config.teardown_watch_main_transitions,
+        "teardown_watch_control_writes": config.teardown_watch_control_writes,
+        "teardown_hold_key": config.teardown_hold_key,
+        "teardown_hold_jump": config.teardown_hold_jump,
     }
 
 
@@ -114,6 +128,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-transition", type=lambda value: int(value, 0))
     parser.add_argument("--force-x", type=int)
     parser.add_argument("--force-y", type=int)
+    parser.add_argument("--force-player-with-owner", action="store_true")
+    parser.add_argument("--force-game-state", type=lambda value: int(value, 0))
+    parser.add_argument("--force-late-action-state", action="store_true")
     parser.add_argument("--teardown-probe", action="store_true")
     parser.add_argument("--teardown-timeout-ms", type=int, default=1000)
     parser.add_argument("--teardown-rearm-callbacks", action="store_true")
@@ -123,6 +140,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--teardown-watch-linked-records", action="store_true")
     parser.add_argument("--teardown-watch-self-test", action="store_true")
     parser.add_argument("--teardown-watch-b87b-gate", action="store_true")
+    parser.add_argument("--teardown-watch-main-transitions", action="store_true")
+    parser.add_argument("--teardown-watch-control-writes", action="store_true")
+    parser.add_argument("--teardown-hold-key", default="")
+    parser.add_argument("--teardown-hold-jump", action="store_true")
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--headless", action="store_true")
     return parser
@@ -138,6 +159,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--force-phase must be between 0 and 255")
     if args.force_transition is not None and not 0 <= args.force_transition <= 0xff:
         raise TraceError("--force-transition must be between 0 and 255")
+    if args.force_game_state is not None and not 0 <= args.force_game_state <= 0xffff:
+        raise TraceError("--force-game-state must be between 0 and 65535")
     if (args.force_x is None) != (args.force_y is None):
         raise TraceError("--force-x and --force-y must be used together")
     if args.teardown_timeout_ms < 1:
@@ -193,6 +216,9 @@ def main(argv: list[str] | None = None) -> int:
                 force_transition=args.force_transition,
                 force_x=args.force_x,
                 force_y=args.force_y,
+                force_player_with_owner=args.force_player_with_owner,
+                force_game_state=args.force_game_state,
+                force_late_action_state=args.force_late_action_state,
                 teardown_probe=args.teardown_probe,
                 teardown_timeout_ms=args.teardown_timeout_ms,
                 teardown_rearm_callbacks=args.teardown_rearm_callbacks,
@@ -202,6 +228,10 @@ def main(argv: list[str] | None = None) -> int:
                 teardown_watch_linked_records=args.teardown_watch_linked_records,
                 teardown_watch_self_test=args.teardown_watch_self_test,
                 teardown_watch_b87b_gate=args.teardown_watch_b87b_gate,
+                teardown_watch_main_transitions=args.teardown_watch_main_transitions,
+                teardown_watch_control_writes=args.teardown_watch_control_writes,
+                teardown_hold_key=args.teardown_hold_key,
+                teardown_hold_jump=args.teardown_hold_jump,
             )
             result = trace_lifecycle(
                 api, repo_root / "research/automation/quiky_phase_lifecycle_trace.lua",

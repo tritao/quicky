@@ -334,6 +334,15 @@ phase byte to `2`, then sets `+0x2A = 2`. This explains the late conversion's
 phase duplication and identifies the final callback-clear condition without
 depending on a frame snapshot.
 
+A controlled runtime pass confirms the action-side ordering. With global phase
+`5`, the B33B owner and persistent player placed at `(128,400)`, W1L3 state
+`DS:85D8 = 3`, and the late record's `+0x2A` advanced to `1`, the same pool
+record reaches `4936`, calls `393C`, and stops at `496E` with
+`DS:612E = 0x000C`. It then reaches the direct callback clear at `49EB`.
+The post-clear pool contains the phase-1 `489C` record with `+0x2A = 2` and
+new phase-2/initializer records; B33B and B25D remain installed. This is the
+verified final-owner self-lifecycle, not the external B33B/B25D teardown edge.
+
 ### Controlled late-phase boundary
 
 The same lightweight sampler, forcing only the initial global phase to `2` and
@@ -380,6 +389,24 @@ This closes the static callback edge but not its runtime lifetime. The next
 trace should follow the same pool record from `B84D` entry through the first
 `B87B` return and confirm whether the linked `+0x2A/+0x36` records are cleared
 at the same boundary or one scheduler pass later.
+
+### Late-owner self-clear versus scheduler reachability
+
+The exact `489C` tail is now decoded from the segment image. At `492D` it
+tests `+0x2A >= 2`, and `49EB` is the direct store of zero to the callback
+word. The terminal state-2 path at `496E` instead sets `+0x2A = 2`, writes
+`DS:89E6 = 0xFFFF`, and returns through `49F2`; it does not itself execute
+`49EB`.
+
+A controlled W1L3 run with phase `5`, player/owner overlap at `(128,400)`,
+and `DS:85D8 = 2` reached `489C -> 4936 -> 393C -> 496E` and left the late
+record at callback `489C`, `+0x2A = 2`. The probe re-armed `489C` after its
+dispatcher return and watched both `01F7` and `1997` selector aliases, but no
+second `489C` entry or `49EB` clear occurred in the observation window;
+B33B/B25D continued to dispatch. This separates the statically known
+self-clear condition from the still-unresolved scheduler reachability/entry
+that must deliver the next callback pass. It also explains why a pool scan
+alone can show a live `489C` record after the terminal action.
 
 ## What remains before changing the recreation
 

@@ -17,6 +17,9 @@ local force_phase = trace_config.force_phase
 local force_transition = trace_config.force_transition
 local force_x = trace_config.force_x
 local force_y = trace_config.force_y
+local force_player_with_owner = trace_config.force_player_with_owner or false
+local force_game_state = trace_config.force_game_state
+local force_late_action_state = trace_config.force_late_action_state or false
 local teardown_probe = trace_config.teardown_probe or false
 local teardown_timeout_ms = trace_config.teardown_timeout_ms or 1000
 local teardown_rearm_callbacks = trace_config.teardown_rearm_callbacks or false
@@ -29,6 +32,12 @@ local teardown_watch_linked_records =
     trace_config.teardown_watch_linked_records or false
 local teardown_watch_self_test = trace_config.teardown_watch_self_test or false
 local teardown_watch_b87b_gate = trace_config.teardown_watch_b87b_gate or false
+local teardown_watch_main_transitions =
+    trace_config.teardown_watch_main_transitions or false
+local teardown_watch_control_writes =
+    trace_config.teardown_watch_control_writes or false
+local teardown_hold_key = trace_config.teardown_hold_key or ""
+local teardown_hold_jump = trace_config.teardown_hold_jump or false
 
 local function word(s, index)
     local lo, hi = string.byte(s, index, index + 1)
@@ -48,6 +57,10 @@ local function little_dword(value)
         return string.char(word_value & 0xff, (word_value >> 8) & 0xff)
     end
     return little_word(value & 0xffff) .. little_word((value >> 16) & 0xffff)
+end
+
+local function little_word(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff)
 end
 
 local function map_word_snapshot(x, y)
@@ -202,6 +215,7 @@ local function globals_snapshot()
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
         scheduler_cursor = dosbox.mem_read_word("ds", 0x7966),
         action_word = dosbox.mem_read_word("ds", 0x612e),
+        late_owner_state = dosbox.mem_read_word("ds", 0x85d8),
     }
 end
 
@@ -209,6 +223,7 @@ local function callback_write_probe()
     if not teardown_watch_callback_writes then return nil end
     local before = pool_snapshot()
     local watches = {}
+    local control_watches = {}
     local linked_watched = false
     for _, object in ipairs(before.objects or {}) do
         local selected = object.callback == 0xb33b or object.callback == 0xb25d
@@ -258,6 +273,34 @@ local function callback_write_probe()
                 error = "no callback fields selected for watch"}
     end
 
+    if teardown_watch_control_writes and not teardown_watch_self_test then
+        -- DS is stable for the loaded game data in this executable (0237h).
+        -- These fields are the state/control side of the late-owner clear:
+        -- 89E6 is written by the 489C state machine, while 85D8/88AE and
+        -- 612E expose the phase/action handoff around it.
+        local controls = {
+            {name = "late_owner_error", offset = 0x89e6, size = 2},
+            {name = "late_owner_state", offset = 0x85d8, size = 2},
+            {name = "owner_phase", offset = 0x88ae, size = 1},
+            {name = "action_word", offset = 0x612e, size = 2},
+            {name = "action_accumulator", offset = 0x881c, size = 4},
+        }
+        for _, control in ipairs(controls) do
+            local raw = dosbox.mem_read_selector(0x0237, control.offset,
+                                                 control.size) or ""
+            local added = dosbox.memory_breakpoint_set(
+                0x0237, control.offset, {protected = true})
+            if added then
+                control_watches[#control_watches + 1] = {
+                    name = control.name,
+                    offset = control.offset,
+                    size = control.size,
+                    raw = raw,
+                }
+            end
+        end
+    end
+
     if teardown_watch_self_test then
         -- Diagnostic only: prove that the Lua API watchpoint observes a
         -- protected-selector byte change before attempting the natural run.
@@ -270,6 +313,22 @@ local function callback_write_probe()
         -- stop can prove the callback word changed after this instruction.
         dosbox.breakpoint_set(0x01f7, 0xb89f, {once = true})
     end
+    if teardown_watch_main_transitions and not teardown_watch_self_test then
+        -- 01F7:106A is reached from these segment-1 main-loop state
+        -- transitions. Arm their callers too, so a quiet callback window is
+        -- distinguishable from a transition that did not happen.
+        local transition_sites = {
+            {segment = 0x01d7, offset = 0x499e},
+            {segment = 0x01d7, offset = 0x4bce},
+            {segment = 0x01d7, offset = 0x4c9b},
+            {segment = 0x01d7, offset = 0x4ce9},
+            {segment = 0x01d7, offset = 0x4f08},
+            {segment = 0x01f7, offset = 0x106a},
+        }
+        for _, site in ipairs(transition_sites) do
+            dosbox.breakpoint_set(site.segment, site.offset, {once = true})
+        end
+    end
     local write_hits = {}
     local after = before
     for _ = 1, teardown_max_hits do
@@ -278,6 +337,7 @@ local function callback_write_probe()
         after = pool_snapshot()
         if not hit then break end
         local changed = {}
+        local changed_controls = {}
         for _, watch in ipairs(watches) do
             local object = object_snapshot(before.selector, watch.offset,
                                            watch.index)
@@ -290,13 +350,55 @@ local function callback_write_probe()
                     watch_offset = watch.watch_offset,
                 }
                 watch.callback = object.callback
+                if watch.index == 4 and object.callback == 0x489c and
+                        force_late_action_state then
+                    dosbox.mem_write_selector(
+                        watch.selector or before.selector,
+                        watch.offset + 0x2a, "\x01")
+                    if force_player_with_owner and force_x ~= nil then
+                        local player_offset = dosbox.mem_read_word("ds", 0x881a)
+                        dosbox.mem_write_selector(
+                            before.selector, player_offset + 0x02,
+                            little_dword(force_x << 16))
+                        dosbox.mem_write_selector(
+                            before.selector, player_offset + 0x06,
+                            little_dword(force_y << 16))
+                    end
+                end
+            end
+        end
+        for _, control in ipairs(control_watches) do
+            local raw = dosbox.mem_read_selector(0x0237, control.offset,
+                                                 control.size) or ""
+            if raw ~= control.raw then
+                changed_controls[#changed_controls + 1] = {
+                    name = control.name,
+                    offset = control.offset,
+                    size = control.size,
+                    before_hex = hex(control.raw),
+                    after_hex = hex(raw),
+                }
+                control.raw = raw
             end
         end
         write_hits[#write_hits + 1] = {
             hit = hit,
             changed = changed,
+            changed_controls = changed_controls,
             execution_site = hit.segment == 0x01f7 and
-                hit.offset == 0xb89f and "b87b_callback_clear_store" or nil,
+                hit.offset == 0xb89f and "b87b_callback_clear_store" or
+                (hit.segment == 0x01d7 and hit.offset == 0x499e and
+                    "main_transition_499e" or
+                (hit.segment == 0x01d7 and hit.offset == 0x4bce and
+                    "main_transition_4bce" or
+                (hit.segment == 0x01d7 and hit.offset == 0x4c9b and
+                    "main_transition_4c9b" or
+                (hit.segment == 0x01d7 and hit.offset == 0x4ce9 and
+                    "main_transition_4ce9" or
+                (hit.segment == 0x01d7 and hit.offset == 0x4f08 and
+                    "main_transition_4f08" or
+                (hit.segment == 0x01f7 and hit.offset == 0x106a and
+                    "scheduler_cleanup" or nil)))))) ,
             pool_after = after,
             globals = globals_snapshot(),
         }
@@ -308,6 +410,7 @@ local function callback_write_probe()
     return {
         before = before,
         watches = watches,
+        control_watches = control_watches,
         hits = write_hits,
         hit = first_hit and first_hit.hit or nil,
         matched = first_hit and first_hit.changed[1] or nil,
@@ -317,8 +420,16 @@ end
 
 local function teardown_probe_hits()
     if not teardown_probe then return nil end
+    if teardown_hold_key ~= "" then
+        dosbox.key(teardown_hold_key, true)
+    end
+    if teardown_hold_jump then
+        dosbox.key("KBD_space", true)
+    end
     local callback_write = callback_write_probe()
     if teardown_watch_self_test then
+        if teardown_hold_key ~= "" then dosbox.key(teardown_hold_key, false) end
+        if teardown_hold_jump then dosbox.key("KBD_space", false) end
         return {callback_write = callback_write}
     end
     local targets = {
@@ -328,8 +439,26 @@ local function teardown_probe_hits()
         {segment = 0x01f7, offset = 0x1dee, name = "deactivate"},
         {segment = 0x01f7, offset = 0x1b77, name = "context"},
         {segment = 0x01f7, offset = 0x1c6e, name = "map_contact"},
+        {segment = 0x01f7, offset = 0x393c, name = "bounds_helper"},
         {segment = 0x01f7, offset = 0x19e6, name = "action_bridge"},
         {segment = 0x01e7, offset = 0x0fcf, name = "action_sink"},
+        {segment = 0x01f7, offset = 0x487f, name = "late_owner_init"},
+        {segment = 0x01f7, offset = 0x489c, name = "late_owner_update"},
+        {segment = 0x01f7, offset = 0x48c8, name = "late_owner_map_gate"},
+        {segment = 0x01f7, offset = 0x4936, name = "late_owner_bounds_gate"},
+        {segment = 0x01f7, offset = 0x496e, name = "late_owner_action"},
+        {segment = 0x01f7, offset = 0x49eb, name = "late_owner_clear"},
+        {segment = 0x1997, offset = 0x487f, name = "late_owner_init"},
+        {segment = 0x1997, offset = 0x489c, name = "late_owner_update"},
+        {segment = 0x1997, offset = 0x48c8, name = "late_owner_map_gate"},
+        {segment = 0x1997, offset = 0x4936, name = "late_owner_bounds_gate"},
+        {segment = 0x1997, offset = 0x496e, name = "late_owner_action"},
+        {segment = 0x1997, offset = 0x49eb, name = "late_owner_clear"},
+        {segment = 0x01d7, offset = 0x499e, name = "main_transition_499e"},
+        {segment = 0x01d7, offset = 0x4bce, name = "main_transition_4bce"},
+        {segment = 0x01d7, offset = 0x4c9b, name = "main_transition_4c9b"},
+        {segment = 0x01d7, offset = 0x4ce9, name = "main_transition_4ce9"},
+        {segment = 0x01d7, offset = 0x4f08, name = "main_transition_4f08"},
         {segment = 0x01f7, offset = 0xb25d, name = "b25d"},
         {segment = 0x1997, offset = 0xb25d, name = "b25d"},
         {segment = 0x01f7, offset = 0xb33b, name = "b33b"},
@@ -376,7 +505,27 @@ local function teardown_probe_hits()
                 globals = globals_snapshot(),
             }
             hits[#hits + 1] = record
-            if (hit.offset == 0xb33b or hit.offset == 0xb25d) then
+            if hit.offset == 0x489c and force_player_with_owner and
+                    force_x ~= nil then
+                -- Keep the persistent bounds/player record at the controlled
+                -- overlap point for the first late-owner action test. The
+                -- ordinary player callback can move it between the B33B
+                -- setup stop and this pooled 489C callback.
+                local player_offset = dosbox.mem_read_word("ds", 0x881a)
+                dosbox.mem_write_selector(
+                    hit.registers.es, player_offset + 0x02,
+                    little_dword(force_x << 16))
+                dosbox.mem_write_selector(
+                    hit.registers.es, player_offset + 0x06,
+                    little_dword(force_y << 16))
+                if force_late_action_state then
+                    dosbox.mem_write_selector(
+                        hit.registers.es, (hit.registers.edi & 0xffff) + 0x2a,
+                        "\x01")
+                end
+            end
+            if (hit.offset == 0xb33b or hit.offset == 0xb25d or
+                    hit.offset == 0x489c) then
                 local stack = dosbox.mem_read("ss",
                                               (hit.registers.esp or 0) & 0xffff,
                                               2) or ""
@@ -397,6 +546,8 @@ local function teardown_probe_hits()
         dosbox.debug_continue()
     end
     dosbox.breakpoint_clear()
+    if teardown_hold_key ~= "" then dosbox.key(teardown_hold_key, false) end
+    if teardown_hold_jump then dosbox.key("KBD_space", false) end
     hits.callback_write = callback_write
     return hits
 end
@@ -417,6 +568,17 @@ local function force_owner_phase(hit)
     end
     if force_y ~= nil then
         dosbox.mem_write_selector(selector, offset + 0x06,
+                                   little_dword(force_y << 16))
+    end
+    if force_game_state ~= nil then
+        dosbox.mem_write("ds", 0x85d8,
+                         little_word(force_game_state & 0xffff))
+    end
+    if force_player_with_owner and force_x ~= nil then
+        local player_offset = dosbox.mem_read_word("ds", 0x881a)
+        dosbox.mem_write_selector(selector, player_offset + 0x02,
+                                   little_dword(force_x << 16))
+        dosbox.mem_write_selector(selector, player_offset + 0x06,
                                    little_dword(force_y << 16))
     end
     return object_snapshot(selector, offset, -1)

@@ -23,6 +23,9 @@ class PhaseLifecycleTraceTests(unittest.TestCase):
             force_transition=1,
             force_x=300,
             force_y=500,
+            force_player_with_owner=True,
+            force_game_state=3,
+            force_late_action_state=True,
             teardown_probe=True,
             teardown_timeout_ms=250,
             teardown_rearm_callbacks=True,
@@ -32,6 +35,10 @@ class PhaseLifecycleTraceTests(unittest.TestCase):
             teardown_watch_linked_records=True,
             teardown_watch_self_test=True,
             teardown_watch_b87b_gate=True,
+            teardown_watch_main_transitions=True,
+            teardown_watch_control_writes=True,
+            teardown_hold_key="KBD_right",
+            teardown_hold_jump=True,
         )
         payload = lua_config(config)
         self.assertEqual(payload["sample_count"], 240)
@@ -39,6 +46,9 @@ class PhaseLifecycleTraceTests(unittest.TestCase):
         self.assertEqual(payload["warmup_frames"], 480)
         self.assertEqual(payload["scan_limit"], 20)
         self.assertEqual(payload["force_transition"], 1)
+        self.assertTrue(payload["force_player_with_owner"])
+        self.assertEqual(payload["force_game_state"], 3)
+        self.assertTrue(payload["force_late_action_state"])
         self.assertTrue(payload["teardown_probe"])
         self.assertEqual(payload["teardown_timeout_ms"], 250)
         self.assertTrue(payload["teardown_rearm_callbacks"])
@@ -48,6 +58,10 @@ class PhaseLifecycleTraceTests(unittest.TestCase):
         self.assertTrue(payload["teardown_watch_linked_records"])
         self.assertTrue(payload["teardown_watch_self_test"])
         self.assertTrue(payload["teardown_watch_b87b_gate"])
+        self.assertTrue(payload["teardown_watch_main_transitions"])
+        self.assertTrue(payload["teardown_watch_control_writes"])
+        self.assertEqual(payload["teardown_hold_key"], "KBD_right")
+        self.assertTrue(payload["teardown_hold_jump"])
 
     def test_config_can_leave_natural_state_unmodified(self):
         config = PhaseLifecycleConfig(startup_recording=Path("startup.json"))
