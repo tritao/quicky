@@ -1,0 +1,80 @@
+# Research consolidation checkpoint
+
+This checkpoint reunifies the parallel descriptor, object lifecycle, entity
+family, game-state, boss, rendering, player, and audio work on one branch.
+The integration base is main commit `191a14d`; the source worktrees are merged
+as explicit parents so no source commit is orphaned.
+
+## Preserved durable work
+
+- Runtime descriptor construction notes, evidence JSON, static reports, and
+  selector-safe trace modes.
+- Object scheduler, linked-child teardown, render-owner, frame-comparison, and
+  high-effect evidence and tools.
+- Entity family, moving-platform, pickup reconstruction, WOLKE, puzzle,
+  effect-table, and authored boss-route evidence.
+- Actual game-state, ending, checkpoint, score-file, and high-score probes.
+- Cross-world boss constructors, callbacks, damage/phase matrices, lifecycle
+  probes, and targeted decompilation tools.
+- Rendering order, pixel, palette, transition, HUD, PCX, player-animation, and
+  fidelity-audit work.
+- Main's full 0x78-byte player callback capture, ordered frame reporting,
+  signed fixed-point audit, audio mixer, and SFX implementation.
+
+Every tracked path present on a source branch is present on the integration
+branch. All known Ghidra symbols from the branch-local `AnnotateQuiky.java`
+variants are represented by the integrated annotation script; specialized
+boss, disassembly, reference, and call-form tools are retained separately.
+
+## Shared tracer reconciliation
+
+`quiky_player_trace.lua`, `quikytrace.py`, and `test_quikytrace.py` use main's
+newer full-record player tracer as the base, with descriptor-construction and
+object-emitter options added. Branch-local experiments remain reproducible
+from their dedicated scripts and merged history.
+
+The following older branch-only CLI option families were deliberately not
+copied wholesale into the canonical player CLI because doing so would restore
+four divergent copies of player state, breakpoint ownership, and input
+scheduling:
+
+- entity branch: boss-stage, effect-table, player-alignment, and secondary
+  pulse controls;
+- actual-state branch: checkpoint, goal, menu, high-score, state-event, and
+  seed controls;
+- boss branch: generic object patch/watch, factory, death-bypass, teleport,
+  callback, and MAP patch controls;
+- rendering branch: lightweight callback and forced position/camera controls.
+
+The conclusions and dedicated probe scripts that used those options are
+retained. Before another broad player-tracer extension, migrate only the
+still-needed controls into focused subsystem scripts or a versioned common
+trace schema. The merged source commits remain available for exact option
+recovery.
+
+## Engine conflict policy
+
+Confirmed standalone rendering primitives were retained: PCX decoding,
+palette DAC/fade operations, renderer helpers, and player-animation tables.
+Rendering's provisional goal/death/checkpoint frontend policy was not allowed
+to replace the newer queued level-event, object-effect, and SFX runtime. Its
+evidence and fidelity audit remain available for a later evidence-driven
+implementation.
+
+## Validation
+
+- `python3 -m unittest discover -s research/tests -q`: 129 passing.
+- Fresh CMake configure and build: passing.
+- `ctest --test-dir build/engine --output-on-failure`: 11 passing.
+- `git diff --check`: passing.
+
+## Next infrastructure pass
+
+1. Extract Ghidra symbols, forced boundaries, types, confidence, and evidence
+   references into one machine-readable manifest.
+2. Add a PyGhidra proof of concept for the player closure while retaining the
+   Java scripts as the reference path.
+3. Add trace-schema versions and migrate only actively needed branch-local
+   controls into focused scripts.
+4. Continue the player movement/collision closure from the canonical
+   full-record tracer.
