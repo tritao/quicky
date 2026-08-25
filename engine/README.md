@@ -125,6 +125,13 @@ contracts without being folded into generic gameplay behavior:
   `01F7:10B5`. The event-ring seed, exact child selector/lifetime, and human
   semantic names remain explicit external data.
 
+The current-main native goal fixture also exercises all seven authored W1L1
+letter callbacks and reaches `DS:60D8=0x007F` through their normal updates.
+That is dynamic validation of letter accumulation only. The fixture does not
+place the player on the native cloud, so `DS:89E6`, the outer completion gate,
+and the downstream resource reload remain explicitly unresolved; no
+completion or level-exit behavior is inferred from this result.
+
 The moving-platform slice now executes the static `01F7:9DC7` / `A075` /
 `A0B2` publication contract for ARE types `0x3D`-`0x40`. It runs before the
 player callback, applies the strict horizontal interval and 12-pixel contact
