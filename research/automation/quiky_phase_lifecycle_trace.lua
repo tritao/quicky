@@ -21,6 +21,14 @@ local teardown_probe = trace_config.teardown_probe or false
 local teardown_timeout_ms = trace_config.teardown_timeout_ms or 1000
 local teardown_rearm_callbacks = trace_config.teardown_rearm_callbacks or false
 local teardown_max_hits = trace_config.teardown_max_hits or 48
+local teardown_watch_callback_writes =
+    trace_config.teardown_watch_callback_writes or false
+local teardown_watch_all_callbacks =
+    trace_config.teardown_watch_all_callbacks or false
+local teardown_watch_linked_records =
+    trace_config.teardown_watch_linked_records or false
+local teardown_watch_self_test = trace_config.teardown_watch_self_test or false
+local teardown_watch_b87b_gate = trace_config.teardown_watch_b87b_gate or false
 
 local function word(s, index)
     local lo, hi = string.byte(s, index, index + 1)
@@ -197,8 +205,122 @@ local function globals_snapshot()
     }
 end
 
+local function callback_write_probe()
+    if not teardown_watch_callback_writes then return nil end
+    local before = pool_snapshot()
+    local watches = {}
+    local linked_watched = false
+    for _, object in ipairs(before.objects or {}) do
+        local selected = object.callback == 0xb33b or object.callback == 0xb25d
+        if teardown_watch_all_callbacks or
+           (teardown_watch_linked_records and object.index == 4) then
+            selected = true
+        end
+        if selected then
+            local watch_offset = object.offset + 0x18
+            local added = dosbox.memory_breakpoint_set(
+                before.selector, watch_offset, {protected = true})
+            if added then
+                linked_watched = linked_watched or object.index == 4
+                watches[#watches + 1] = {
+                    index = object.index,
+                    offset = object.offset,
+                    initial_callback = object.callback,
+                    callback = object.callback,
+                    watch_offset = watch_offset,
+                }
+            end
+        end
+    end
+    if teardown_watch_linked_records and not linked_watched then
+        -- The B33B transition may allocate the linked record after this
+        -- snapshot, so watch its callback word even while the pool slot is
+        -- still free.
+        local linked_offset = before.base + 4 * before.stride
+        local raw = dosbox.mem_read_selector(before.selector,
+                                             linked_offset + 0x18, 2) or ""
+        local callback = #raw >= 2 and word(raw, 1) or 0
+        local watch_offset = linked_offset + 0x18
+        local added = dosbox.memory_breakpoint_set(
+            before.selector, watch_offset, {protected = true})
+        if added then
+            watches[#watches + 1] = {
+                index = 4,
+                offset = linked_offset,
+                initial_callback = callback,
+                callback = callback,
+                watch_offset = watch_offset,
+            }
+        end
+    end
+    if #watches == 0 then
+        return {before = before, watches = {},
+                error = "no callback fields selected for watch"}
+    end
+
+    if teardown_watch_self_test then
+        -- Diagnostic only: prove that the Lua API watchpoint observes a
+        -- protected-selector byte change before attempting the natural run.
+        dosbox.mem_write_selector(before.selector, watches[1].watch_offset,
+                                  "\x00")
+    end
+    if teardown_watch_b87b_gate and not teardown_watch_self_test then
+        -- B87B's strict camera gate contains the statically decoded callback
+        -- clear at 01F7:B89F. Keep the memory watch armed so the following
+        -- stop can prove the callback word changed after this instruction.
+        dosbox.breakpoint_set(0x01f7, 0xb89f, {once = true})
+    end
+    local write_hits = {}
+    local after = before
+    for _ = 1, teardown_max_hits do
+        dosbox.debug_continue()
+        local hit = dosbox.wait_for_breakpoint(teardown_timeout_ms)
+        after = pool_snapshot()
+        if not hit then break end
+        local changed = {}
+        for _, watch in ipairs(watches) do
+            local object = object_snapshot(before.selector, watch.offset,
+                                           watch.index)
+            if object.callback ~= watch.callback then
+                changed[#changed + 1] = {
+                    index = watch.index,
+                    offset = watch.offset,
+                    callback_before = watch.callback,
+                    callback_after = object.callback,
+                    watch_offset = watch.watch_offset,
+                }
+                watch.callback = object.callback
+            end
+        end
+        write_hits[#write_hits + 1] = {
+            hit = hit,
+            changed = changed,
+            execution_site = hit.segment == 0x01f7 and
+                hit.offset == 0xb89f and "b87b_callback_clear_store" or nil,
+            pool_after = after,
+            globals = globals_snapshot(),
+        }
+        if teardown_watch_self_test then break end
+    end
+    dosbox.breakpoint_clear()
+    dosbox.debug_continue()
+    local first_hit = write_hits[1]
+    return {
+        before = before,
+        watches = watches,
+        hits = write_hits,
+        hit = first_hit and first_hit.hit or nil,
+        matched = first_hit and first_hit.changed[1] or nil,
+        after = after,
+    }
+end
+
 local function teardown_probe_hits()
     if not teardown_probe then return nil end
+    local callback_write = callback_write_probe()
+    if teardown_watch_self_test then
+        return {callback_write = callback_write}
+    end
     local targets = {
         {segment = 0x01f7, offset = 0x0e06, name = "factory"},
         {segment = 0x01f7, offset = 0x106a, name = "scheduler_cleanup"},
@@ -275,6 +397,7 @@ local function teardown_probe_hits()
         dosbox.debug_continue()
     end
     dosbox.breakpoint_clear()
+    hits.callback_write = callback_write
     return hits
 end
 

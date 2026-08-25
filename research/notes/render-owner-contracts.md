@@ -117,10 +117,13 @@ The same static pass identifies one concrete candidate for that external edge:
 each live entry whose object source `+0x1A` is `0xffff`, it writes zero to the
 object callback at `+0x18`; otherwise it calls the scheduler continuation.
 This is the first code path that can clear B33B/B25D without appearing in
-their callback bodies. The late-frame probe armed `106A` in both runtime code
-segments but did not hit it in the captured window, so the candidate's active
-bank and call-site timing are still unconfirmed; B33B and B25D were both seen
-to return normally before the probe window ended.
+their callback bodies. NE relocation analysis shows that `106A` is called from
+segment-1 state-transition sites `499E`, `4BCE`, `4C9B`, `4CE9`, and `4F08`,
+not from the per-frame segment-3 object scheduler. The late-frame probe armed
+`106A` in both runtime code segments but did not hit it in the captured
+object-local window; B33B and B25D were both seen to return normally. The
+remaining dynamic target is therefore a main-loop transition run that reaches
+one of those five callers and captures the coupled callback clears.
 
 The gate is conditional on the global phase byte. A controlled debugger probe
 with `DS:88AE=4` confirms the strict boundary at the live initial camera:
@@ -233,6 +236,25 @@ The linked-object and `0x487F` contracts are still open. They should be
 traced as lifecycle/animation calls, not folded into the player collision
 model.
 
+### Callback-word watch proof
+
+The debugger extension now exposes protected-selector memory breakpoints to
+Lua. A controlled transition watches the future child record at pool offset
+`0x01E0` and captures the complete callback sequence:
+
+```text
+0 -> B84D -> B87B -> 0 -> 10B5
+```
+
+The first two installs occur at the allocator/factory boundary and the B84D
+transition body. An execution breakpoint at `01F7:B89F`, combined with the
+callback-word watch, stops at the statically decoded B87B store and then at
+the post-store observation point `01F7:B8AF`, where the record reads
+`B87B -> 0`. This proves that the strict camera gate in B87B itself clears
+the callback; the later `10B5` install is normal pool reuse, not a separate
+reclamation rule. The debugger-reported current IP for a memory watch is an
+observation point and must not be mistaken for the store instruction.
+
 ### Controlled runtime handoff
 
 A one-shot W1L3 probe forced `DS:0x88AE = 1` and the B33B owner byte
@@ -286,6 +308,31 @@ remains active, and no B25D record is reactivated during the remaining 1,872
 sampled frames. Thus the old `+0x36` record is reclaimed as part of the natural
 B33B owner teardown rather than by an independently observed B25D terminal
 callback; the exact clear ordering still needs an entry/return trace.
+
+### Final linked-owner callbacks (`487F`/`489C`)
+
+The remaining late-phase callbacks are now statically constrained. `487F`
+first calls `5D38` with the late sequence at `DS:32EC`, installs callback
+`489C`, clears byte `+0x2A`, and sets the fixed-point Y velocity to
+`0x11000`. The steady `489C` callback then:
+
+- integrates `+0x0E` into Y, reducing positive velocity by `0x12C` while it
+  remains above `0x3000`;
+- calls `1BD1` with `(CX,DX)=(0,0)` and marks `+0x2A = 1` on the returned
+  MAP/descriptor carry condition;
+- runs two directional `5C27` descriptor probes at Y and Y-`0x10`, also
+  marking `+0x2A = 1` when descriptor bits `0x70` are present;
+- while `+0x2A < 1`, checks the player overlap using `393C`'s returned
+  bounds. On overlap it publishes action `0x000C` and adds `5000` to the
+  shared word at `DS:881C`.
+
+After that action, the callback checks `DS:85D8`. For values other than
+`1`, `3`, or `5`, it sets `+0x2A = 2`, publishes `DS:89E6 = 0xFFFF`, and
+returns; the next `489C` pass clears `+0x18`. For `1/3/5`, it copies the
+record's position into phase-1 and phase-2 scheduler records, sets the owner
+phase byte to `2`, then sets `+0x2A = 2`. This explains the late conversion's
+phase duplication and identifies the final callback-clear condition without
+depending on a frame snapshot.
 
 ### Controlled late-phase boundary
 

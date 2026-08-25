@@ -27,6 +27,11 @@ class PhaseLifecycleTraceTests(unittest.TestCase):
             teardown_timeout_ms=250,
             teardown_rearm_callbacks=True,
             teardown_max_hits=12,
+            teardown_watch_callback_writes=True,
+            teardown_watch_all_callbacks=True,
+            teardown_watch_linked_records=True,
+            teardown_watch_self_test=True,
+            teardown_watch_b87b_gate=True,
         )
         payload = lua_config(config)
         self.assertEqual(payload["sample_count"], 240)
@@ -38,6 +43,11 @@ class PhaseLifecycleTraceTests(unittest.TestCase):
         self.assertEqual(payload["teardown_timeout_ms"], 250)
         self.assertTrue(payload["teardown_rearm_callbacks"])
         self.assertEqual(payload["teardown_max_hits"], 12)
+        self.assertTrue(payload["teardown_watch_callback_writes"])
+        self.assertTrue(payload["teardown_watch_all_callbacks"])
+        self.assertTrue(payload["teardown_watch_linked_records"])
+        self.assertTrue(payload["teardown_watch_self_test"])
+        self.assertTrue(payload["teardown_watch_b87b_gate"])
 
     def test_config_can_leave_natural_state_unmodified(self):
         config = PhaseLifecycleConfig(startup_recording=Path("startup.json"))

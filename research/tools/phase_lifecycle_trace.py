@@ -37,6 +37,11 @@ class PhaseLifecycleConfig:
     teardown_timeout_ms: int = 1000
     teardown_rearm_callbacks: bool = False
     teardown_max_hits: int = 48
+    teardown_watch_callback_writes: bool = False
+    teardown_watch_all_callbacks: bool = False
+    teardown_watch_linked_records: bool = False
+    teardown_watch_self_test: bool = False
+    teardown_watch_b87b_gate: bool = False
 
 
 def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
@@ -57,6 +62,11 @@ def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
         "teardown_timeout_ms": config.teardown_timeout_ms,
         "teardown_rearm_callbacks": config.teardown_rearm_callbacks,
         "teardown_max_hits": config.teardown_max_hits,
+        "teardown_watch_callback_writes": config.teardown_watch_callback_writes,
+        "teardown_watch_all_callbacks": config.teardown_watch_all_callbacks,
+        "teardown_watch_linked_records": config.teardown_watch_linked_records,
+        "teardown_watch_self_test": config.teardown_watch_self_test,
+        "teardown_watch_b87b_gate": config.teardown_watch_b87b_gate,
     }
 
 
@@ -108,6 +118,11 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--teardown-timeout-ms", type=int, default=1000)
     parser.add_argument("--teardown-rearm-callbacks", action="store_true")
     parser.add_argument("--teardown-max-hits", type=int, default=48)
+    parser.add_argument("--teardown-watch-callback-writes", action="store_true")
+    parser.add_argument("--teardown-watch-all-callbacks", action="store_true")
+    parser.add_argument("--teardown-watch-linked-records", action="store_true")
+    parser.add_argument("--teardown-watch-self-test", action="store_true")
+    parser.add_argument("--teardown-watch-b87b-gate", action="store_true")
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--headless", action="store_true")
     return parser
@@ -182,6 +197,11 @@ def main(argv: list[str] | None = None) -> int:
                 teardown_timeout_ms=args.teardown_timeout_ms,
                 teardown_rearm_callbacks=args.teardown_rearm_callbacks,
                 teardown_max_hits=args.teardown_max_hits,
+                teardown_watch_callback_writes=args.teardown_watch_callback_writes,
+                teardown_watch_all_callbacks=args.teardown_watch_all_callbacks,
+                teardown_watch_linked_records=args.teardown_watch_linked_records,
+                teardown_watch_self_test=args.teardown_watch_self_test,
+                teardown_watch_b87b_gate=args.teardown_watch_b87b_gate,
             )
             result = trace_lifecycle(
                 api, repo_root / "research/automation/quiky_phase_lifecycle_trace.lua",
