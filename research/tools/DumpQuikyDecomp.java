@@ -49,12 +49,16 @@ public class DumpQuikyDecomp extends GhidraScript {
                 Address address = toAddr(offset);
                 Function function = currentProgram.getFunctionManager().getFunctionAt(address);
                 if (function == null) {
+                    function = currentProgram.getFunctionManager().getFunctionContaining(address);
+                }
+                if (function == null) {
                     writer.println("/* MISSING 0x" + target[0] + " " + expectedName + " */");
                     writer.println();
                     continue;
                 }
 
-                writer.println("/* " + expectedName + " at 0x" + target[0] + " */");
+                writer.println("/* " + expectedName + " at 0x" + target[0] +
+                    "; decompiled function entry 0x" + function.getEntryPoint() + " */");
                 DecompileResults result = decompiler.decompileFunction(function, 120, monitor);
                 if (result.decompileCompleted() && result.getDecompiledFunction() != null) {
                     writer.println(result.getDecompiledFunction().getC());
@@ -97,6 +101,26 @@ public class DumpQuikyDecomp extends GhidraScript {
             return new String[][] {
                 {"085e", "load_sam_tfx_resource"},
                 {"0caa", "seg2_target_0caa"},
+                {"0fcf", "dispatch_pending_sound_effect"},
+                {"168d", "dispatch_audio_driver_command"},
+                {"1761", "set_sound_blaster_rate"},
+                {"17b5", "start_sound_blaster_output"},
+                {"17f1", "sound_blaster_irq_handler"},
+                {"190e", "program_sound_blaster_dma"},
+                {"19ad", "stop_sound_blaster_output"},
+                {"1a26", "render_audio_buffer"},
+                {"1a89", "mix_voice_into_output_buffer"},
+                {"1f7f", "convert_mixed_word_to_output_byte"},
+                {"2809", "control_audio_driver_tick"},
+                {"285e", "render_audio_driver_tick"},
+                {"2984", "update_audio_driver_voices"},
+                {"2a0f", "commit_voice_mixer_state"},
+                {"2b42", "run_voice_macro"},
+                {"2f3e", "advance_music_voice"},
+                {"31f5", "advance_music_sequence"},
+                {"3237", "initialize_effect_voice"},
+                {"3360", "select_effect_voice"},
+                {"33f8", "finish_music_sequence"},
             };
         }
         if ("SEG03".equals(segment)) {
@@ -130,8 +154,14 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"6370", "player_collision_helper_6370"},
                 {"342f", "seg3_target_342f"},
                 {"393c", "compute_state_machine_bounds"},
+                {"3909", "contact_effect_callback_assignment"},
                 {"3f27", "initialize_player_object"},
                 {"3ff8", "update_player_object"},
+                {"44ff", "reset_contact_effect_table"},
+                {"4519", "spawn_contact_effect_entry"},
+                {"45ab", "update_contact_effect_entry"},
+                {"470c", "remove_contact_effect_entry"},
+                {"58a0", "clear_ufo_contact_effect"},
                 {"3a1f", "player_collision_probe_3a1f"},
                 {"3a62", "player_collision_probe_3a62"},
                 {"3a8a", "player_collision_helper_3a8a"},
@@ -143,6 +173,8 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"648e", "player_collision_helper_648e"},
                 {"69ff", "player_bounds_or_collision_69ff"},
                 {"44dc", "player_control_transition_44dc"},
+                {"8d20", "update_collectible_effect"},
+                {"8d31", "update_collectible_state"},
                 {"8e4b", "update_tile_effect_state_machine"},
                 {"f17f", "keyboard_irq1_handler"},
                 {"f1a8", "poll_keyboard_ring_to_input_flags"},

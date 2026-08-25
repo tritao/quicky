@@ -75,7 +75,47 @@ public class AnnotateQuiky extends GhidraScript {
     private void annotateSegment2() throws Exception {
         label(0x084b, "path_template_sam_tfx", "Pascal fragments: GAMEDATA\\ + .SAM + .TFX");
         function(0x085e, "load_sam_tfx_resource", "Builds/loads SAM and TFX audio resources.");
+        function(0x0fcf, "dispatch_pending_sound_effect",
+            "Dispatches the pending gameplay effect when the FX gate and audio system are ready.");
         relocationTarget(0x0caa, "seg2_target_0caa", "NE relocation target referenced by segment 1.");
+        function(0x168d, "dispatch_audio_driver_command",
+            "Dispatches an audio-driver command through the driver jump table.");
+        function(0x1761, "set_sound_blaster_rate",
+            "Writes the Sound Blaster playback rate and command sequence.");
+        function(0x17b5, "start_sound_blaster_output",
+            "Starts the Sound Blaster output path after the driver buffer is ready.");
+        function(0x17f1, "sound_blaster_irq_handler",
+            "Acknowledges the Sound Blaster DSP and PIC interrupt for the output buffer.");
+        function(0x190e, "program_sound_blaster_dma",
+            "Programs the Sound Blaster DMA transfer from the prepared output buffer.");
+        function(0x19ad, "stop_sound_blaster_output",
+            "Stops the Sound Blaster output path and releases its active state.");
+        function(0x1a26, "render_audio_buffer",
+            "Renders one prepared driver output buffer from the software mixer state.");
+        function(0x1a89, "mix_voice_into_output_buffer",
+            "Mixes one software voice into the driver's 16-bit output buffer.");
+        function(0x1f7f, "convert_mixed_word_to_output_byte",
+            "Converts a mixed output word through the driver's byte table.");
+        function(0x2984, "update_audio_driver_voices",
+            "Advances music and effect voice state once per driver update.");
+        function(0x2809, "control_audio_driver_tick",
+            "Starts or stops the audio driver and derives its update cadence.");
+        function(0x285e, "render_audio_driver_tick",
+            "Renders one audio-driver buffer from the current software voice state.");
+        function(0x2a0f, "commit_voice_mixer_state",
+            "Commits pending voice control bits into the mixer channel state.");
+        function(0x2b42, "run_voice_macro",
+            "Runs one voice macro command or decrements its per-update wait counter.");
+        function(0x2f3e, "advance_music_voice",
+            "Advances the music-side voice state after the eight driver channels update.");
+        function(0x31f5, "advance_music_sequence",
+            "Advances the active music sequence when its voice reaches a boundary.");
+        function(0x3237, "initialize_effect_voice",
+            "Initializes a selected voice from the effect table and macro pointer.");
+        function(0x3360, "select_effect_voice",
+            "Selects and accepts or rejects an effect voice by priority and status.");
+        function(0x33f8, "finish_music_sequence",
+            "Finishes the active music sequence when its terminal voice is exhausted.");
     }
 
     private void annotateSegment4() throws Exception {
@@ -160,6 +200,16 @@ public class AnnotateQuiky extends GhidraScript {
             "Initializes the persistent player object: stores ES:DI into DS:881A, clears player globals, and installs callback 01F7:3FF8; runtime W1L1 pool offset 0 confirms this record.");
         function(0x3ff8, "update_player_object",
             "Persistent player callback installed by 01F7:3F27; checks DS:89EA, runs MAP collision probes, and advances the player record at ES:DI.");
+        function(0x44ff, "reset_contact_effect_table",
+            "Resets the contact-effect table and its runtime ring state.");
+        function(0x4519, "spawn_contact_effect_entry",
+            "Adds a contact-effect entry and publishes its ring coordinates.");
+        function(0x45ab, "update_contact_effect_entry",
+            "Updates an active contact-effect entry and its ring coordinates.");
+        function(0x470c, "remove_contact_effect_entry",
+            "Removes a contact-effect entry and advances the ring state.");
+        function(0x58a0, "clear_ufo_contact_effect",
+            "Clears the UFO contact-effect state and its ring coordinates.");
         function(0x3a1f, "player_collision_probe_3a1f",
             "Player callback helper reached during grounded/collision resolution; exact return flags remain to be correlated with controlled input.");
         function(0x3a62, "player_collision_probe_3a62",
@@ -207,6 +257,10 @@ public class AnnotateQuiky extends GhidraScript {
             "Updates a temporary MAP-cell state/counter used by player movement.");
         function(0x6370, "player_collision_helper_6370",
             "MAP tile-ID collision helper parallel to 648E; calls 3376 and applies tile IDs 5-10 to player state.");
+        function(0x8d20, "update_collectible_effect",
+            "Updates collectible-effect objects: runs the visibility gate, then delegates to the player-bounds state routine.");
+        function(0x8d31, "update_collectible_state",
+            "Collectible state routine: tests strict player-bounds overlap, applies object state, and writes pending effect IDs.");
         function(0x8e4b, "update_tile_effect_state_machine",
             "Dispatches the shared tile-effect object state machine through object +0x32; state branches call the MAP lookup and create transient effects.");
         function(0x20c8, "render_map_column",
@@ -292,4 +346,5 @@ public class AnnotateQuiky extends GhidraScript {
     private void relocationTarget(int offset, String name, String comment) throws Exception {
         function(offset, name, comment);
     }
+
 }

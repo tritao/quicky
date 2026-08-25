@@ -7,6 +7,8 @@ import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.FunctionManager;
 import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.Listing;
+import ghidra.program.model.address.Address;
+import ghidra.program.model.symbol.Reference;
 
 public class FindQuikyReferences extends GhidraScript {
 
@@ -15,7 +17,11 @@ public class FindQuikyReferences extends GhidraScript {
         0x36fc, 0x36fe, 0x3700, 0x3702,
         0x755e, 0x7560, 0x7566, 0x7966,
         0x8196, 0x81c0, 0x81c4, 0x88ba, 0x88bc,
-        0x796e, 0x881a, 0x881c, 0x8828, 0x882a, 0x89ea,
+        0x796e, 0x87de, 0x87e0, 0x881a, 0x881c, 0x8828, 0x882a, 0x89ea,
+    };
+
+    private static final int[] CODE_TARGETS = {
+        0x44ff, 0x4519, 0x45ab, 0x470c, 0x58a0,
     };
 
     @Override
@@ -42,6 +48,22 @@ public class FindQuikyReferences extends GhidraScript {
                 String entry = function == null ? "----" : function.getEntryPoint().toString();
                 println(String.format("  bytes at %s (%s, %s)",
                     instruction.getAddress(), entry, functionName));
+            }
+        }
+
+        println("Contact-effect lifecycle references: " + currentProgram.getName());
+        for (int target : CODE_TARGETS) {
+            Address address = toAddr(target);
+            println(String.format("CODE 0x%04x (%s)", target,
+                currentProgram.getFunctionManager().getFunctionAt(address) == null
+                    ? "<no function>"
+                    : currentProgram.getFunctionManager().getFunctionAt(address).getName()));
+            for (Reference reference : getReferencesTo(address)) {
+                Function function = functions.getFunctionContaining(reference.getFromAddress());
+                String functionName = function == null ? "<no function>" : function.getName();
+                String entry = function == null ? "----" : function.getEntryPoint().toString();
+                println(String.format("  %s (%s, %s, %s)", reference.getFromAddress(),
+                    entry, functionName, reference.getReferenceType()));
             }
         }
     }
