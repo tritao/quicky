@@ -23,7 +23,18 @@ enum class PlayerUpdateStage {
     UpdateVerticalVelocity,
     IntegrateNewVerticalVelocity,
     TransitionVerticalApex,
-    CapturePostState
+    CapturePostState,
+    CallbackEntry,
+    InputNormalization,
+    ActionCounterUpdate,
+    VerticalContactGate,
+    HorizontalAccumulatorUpdate,
+    OrdinaryMode,
+    PositiveMode,
+    NegativeMode,
+    GroundedContactResponse,
+    CommonCallbackTail,
+    UnresolvedBoundary
 };
 
 enum class VerticalFreeSpaceStatus {
@@ -36,6 +47,58 @@ struct VerticalFreeSpaceResult {
     PlayerRawRecord postState;
     VerticalFreeSpaceStatus status;
     bool crossedApex;
+};
+
+struct PlayerGlobalWrite {
+    std::uint16_t address;
+    std::uint8_t width;
+    std::uint32_t before;
+    std::uint32_t after;
+
+    PlayerGlobalWrite(std::uint16_t addressValue = 0,
+                      std::uint8_t widthValue = 0,
+                      std::uint32_t beforeValue = 0,
+                      std::uint32_t afterValue = 0)
+        : address(addressValue),
+          width(widthValue),
+          before(beforeValue),
+          after(afterValue) {}
+};
+
+struct PlayerEffectDispatch {
+    std::uint32_t address;
+    std::uint16_t code;
+
+    PlayerEffectDispatch(std::uint32_t addressValue = 0,
+                         std::uint16_t codeValue = 0)
+        : address(addressValue), code(codeValue) {}
+};
+
+// Typed projection of the callback globals used by the recovered 3FF8 path.
+// Addresses are retained because these values are part of the trace contract;
+// they are not presented as a modern engine singleton.
+struct PlayerCallbackGlobals {
+    std::int32_t deferredY8812;
+    std::int32_t externalXDelta8816;
+    std::uint16_t timerClear8810;
+    std::uint16_t inputRunCounter4FEC;
+    std::int32_t horizontalAccumulator4FE2;
+    std::int16_t viewStateA4FE4;
+    std::int16_t viewStateB4FE6;
+    std::int32_t horizontalAccel4FE8;
+    std::uint16_t idleCounter4FEE;
+    std::uint8_t actionLowCopy4FF0;
+    std::uint16_t pendingEvent612E;
+    std::uint16_t cameraX81C0;
+    std::uint16_t cameraY81C4;
+    std::uint16_t cameraYLimit81CC;
+    std::uint16_t actionSource656C;
+    std::int16_t activationState85DA;
+    std::uint16_t specialSpeedCapMode88B6;
+    std::int16_t actionSuppressor89E6;
+    std::int16_t collisionTransitionMode89EA;
+
+    PlayerCallbackGlobals();
 };
 
 // Exact trace-closed portion of the original vertical callback. The caller
@@ -57,6 +120,12 @@ public:
                               std::uint32_t after) = 0;
     virtual void onCollisionProbe(const CollisionProbe &probe,
                                   bool occupied) = 0;
+    virtual void onGlobalWrite(const PlayerGlobalWrite &write) {
+        (void)write;
+    }
+    virtual void onEffectDispatch(const PlayerEffectDispatch &dispatch) {
+        (void)dispatch;
+    }
     virtual void onPreState(const PlayerRawRecord &state) { (void)state; }
     virtual void onInputFlags(std::uint16_t flags) { (void)flags; }
     virtual void onPostState(const PlayerRawRecord &state) { (void)state; }
@@ -70,6 +139,9 @@ struct PlayerUpdateTrace : public PlayerTraceSink {
     PlayerRawRecord postState;
     std::vector<TraceStateWrite> stateWrites;
     std::vector<CollisionProbe> collisionProbes;
+    std::vector<bool> collisionOccupied;
+    std::vector<PlayerGlobalWrite> globalWrites;
+    std::vector<PlayerEffectDispatch> effectDispatches;
 
     PlayerUpdateTrace();
 
@@ -80,6 +152,8 @@ struct PlayerUpdateTrace : public PlayerTraceSink {
                       std::uint32_t after) override;
     void onCollisionProbe(const CollisionProbe &probe,
                           bool occupied) override;
+    void onGlobalWrite(const PlayerGlobalWrite &write) override;
+    void onEffectDispatch(const PlayerEffectDispatch &dispatch) override;
     void onPreState(const PlayerRawRecord &state) override;
     void onInputFlags(std::uint16_t flags) override;
     void onPostState(const PlayerRawRecord &state) override;
@@ -93,9 +167,9 @@ struct PlayerUpdateResult {
     bool appliedYCorrection;
 };
 
-// Horizontal-only callback implementation. The trace-closed updater below
-// adds only the already-recovered free-space vertical branch; contact,
-// grounded, and jump initiation remain behind the pending research interface.
+// Horizontal-only foundation API. TraceClosedPlayerUpdate composes this
+// motion with the recovered callback ordering when a runtime descriptor table
+// is present; an absent table remains an explicit unresolved boundary.
 PlayerUpdateResult updatePlayerHorizontal(
     PlayerRecord &player,
     const InputState &input,
@@ -114,10 +188,18 @@ public:
 
 class TraceClosedPlayerUpdate : public PlayerUpdateCallback {
 public:
+    TraceClosedPlayerUpdate();
+
+    PlayerCallbackGlobals &globalsForSetup() { return _globals; }
+    const PlayerCallbackGlobals &globals() const { return _globals; }
+
     void updatePlayer(PlayerRecord &player,
                       const InputState &input,
                       const WorldCollisionView &world,
                       PlayerUpdateTrace *trace) override;
+
+private:
+    PlayerCallbackGlobals _globals;
 };
 
 } // namespace quiky

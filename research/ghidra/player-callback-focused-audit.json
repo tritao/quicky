@@ -6,7 +6,7 @@
     "raw_segment": "research/build/ghidra-segments/QUIKY_SEG03.bin",
     "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
     "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
-    "raw_disassembly": "objdump -D -b binary -m i8086"
+    "raw_disassembly": "Ghidra headless x86:LE:16:Protected Mode export"
   },
   "scope": {
     "root": "01F7:3FF8",

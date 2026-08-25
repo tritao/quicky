@@ -14,22 +14,22 @@ direct pseudocode is
 ## Reproduce the result
 
 The pinned input is `game/QUIKY.EXE`, SHA-256
-`c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1`. Extract
-the NE segment and inspect the exact bytes with:
+`c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1`. Rebuild
+the segment images and run the repository's pinned Ghidra import/decompile
+pipeline with:
 
 ```sh
-python3 research/tools/ghidra_ne_segments.py game/QUIKY.EXE /tmp/quiky-segments
-objdump -D -b binary -m i8086 --adjust-vma=0 \
-  research/build/ghidra-segments/QUIKY_SEG03.bin
+python3 research/tools/run_player_callback_baseline.py \
+  --output /tmp/quiky-player-callback-baseline
 python3 research/tools/ne_relocs.py game/QUIKY.EXE \
   --segment 3 --start 0x3376 --end 0x659c
 python3 research/tools/verify_player_static_closure.py \
-  --segment /tmp/quiky-segments/QUIKY_SEG03.bin
+  --segment /tmp/quiky-player-callback-baseline/segments/QUIKY_SEG03.bin
 ```
 
 The checked segment image is 62,013 bytes, SHA-256
 `8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf`.
-The existing Ghidra scripts can regenerate a decompiler cross-check:
+The existing Ghidra scripts can also regenerate a focused decompiler export:
 
 ```sh
 analyzeHeadless research/build/ghidra-project QuikySegments \
@@ -38,11 +38,11 @@ analyzeHeadless research/build/ghidra-project QuikySegments \
   -scriptPath research/tools -commit 'Dump player closure'
 ```
 
-Ghidra's output is not the canonical source of names. The executable contains
-unresolved NE far-call relocations, and the input routine ends in a byte table
-that a generic i8086 importer may decode as a computed jump. The raw bytes,
-relocation listing, JSON manifest, and pseudocode together are the
-reproducible decompilation.
+The Ghidra output is not the canonical source of names. The executable
+contains unresolved NE far-call relocations, and the input routine ends in a
+byte table that the generic protected-mode x86 importer may decode as a
+computed jump. The Ghidra project/export, relocation listing, JSON manifest,
+and pseudocode together are the reproducible decompilation.
 
 ## Boundary and call-convention map
 

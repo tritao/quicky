@@ -59,6 +59,9 @@ target_link_libraries(quiky-trace-compare PRIVATE quiky_core)
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 
+add_executable(quiky-player-trace apps/quiky-player-trace.cpp)
+target_link_libraries(quiky-player-trace PRIVATE quiky_core)
+
 add_executable(quiky-frame apps/quiky-frame.cpp)
 target_link_libraries(quiky-frame PRIVATE quiky_core)
 
@@ -147,6 +150,10 @@ target_link_libraries(quiky-vertical-tests PRIVATE quiky_core)
 add_test(NAME quiky-vertical-tests
     COMMAND quiky-vertical-tests
             ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player-vertical-v1.tsv)
+
+add_executable(quiky-player-callback-tests tests/test_player_callback.cpp)
+target_link_libraries(quiky-player-callback-tests PRIVATE quiky_core)
+add_test(NAME quiky-player-callback-tests COMMAND quiky-player-callback-tests)
 
 add_executable(quiky-sfx-event-tests tests/test_sfx_events.cpp)
 target_link_libraries(quiky-sfx-event-tests PRIVATE quiky_core)
