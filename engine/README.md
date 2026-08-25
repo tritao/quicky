@@ -129,9 +129,10 @@ The current-main native goal fixture exercises all seven authored W1L1 letter
 callbacks and reaches `DS:60D8=0x007F` through their normal updates. A
 separate adjacent-cell fixture also reaches the accepted cloud callback at
 `01F7:92A9` and publishes `DS:89E6=0xFFFF`; the cloud writer is observed
-before the native letter mask becomes complete. These are dynamic validations
-of letter accumulation and cloud latching only. The one-shot outer consumer,
-completion presentation, and downstream resource reload remain explicitly
+before the native letter mask becomes complete. The immediate outer path then
+reaches `01D7:4EA0/4EAA` with the complete mask and cloud latch. These are
+dynamic validations of letter accumulation and the outer gate only. The
+completion presentation and downstream resource reload remain explicitly
 unresolved; no completion or level-exit behavior is inferred from them.
 
 The moving-platform slice now executes the static `01F7:9DC7` / `A075` /

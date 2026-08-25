@@ -23,7 +23,7 @@ local function little_dword(value)
                        (value >> 16) & 0xff, (value >> 24) & 0xff)
 end
 
-local function checkpoint(name, hit)
+local function checkpoint(name, hit, hold_frames)
     local record = {
         name = name,
         frame = dosbox.frame(),
@@ -41,19 +41,20 @@ local function checkpoint(name, hit)
     dosbox.output.goal_transition_checkpoint = record
     -- Leave the guest stopped long enough for the host to capture this exact
     -- rendered page before it acknowledges the checkpoint.
-    dosbox.wait_frames(20)
+    if hold_frames == nil then hold_frames = 20 end
+    if hold_frames > 0 then dosbox.wait_frames(hold_frames) end
     dosbox.output.goal_transition_checkpoint = nil
 end
 
 -- A timeout is evidence that this build did not reach the requested path in
 -- the observation window, not a reason to abort the whole research run.  Keep
 -- those negative observations in the ledger and leave the guest running.
-local function optional_checkpoint(name, segment, offset)
+local function optional_checkpoint(name, segment, offset, hold_frames)
     dosbox.breakpoint_set(segment, offset, {once = true})
     dosbox.debug_continue()
     local hit, err = dosbox.wait_for_breakpoint(optional_timeout_ms)
     if hit then
-        checkpoint(name, hit)
+        checkpoint(name, hit, hold_frames)
         return true
     end
     dosbox.breakpoint_remove(segment, offset)
@@ -157,11 +158,13 @@ if native_cloud_focus and native_goal then
     -- DS:89E6.  Keep this as an optional one-shot observation so the native
     -- letter fixture can distinguish the real cloud gate from the synthetic
     -- DS:89E6 seed used by older completion probes.
-    optional_checkpoint("native-cloud-flag-writer", 0x01f7, 0x92a9)
-    optional_checkpoint("native-cloud-outer-gate", 0x01d7, 0x4ea0)
-    optional_checkpoint("native-cloud-completion-call", 0x01d7, 0x4f0d)
-    optional_checkpoint("native-cloud-completion-check", 0x01d7, 0x1669)
-    optional_checkpoint("native-cloud-completion-branch", 0x01d7, 0x16c6)
+    optional_checkpoint("native-cloud-flag-writer", 0x01f7, 0x92a9, 0)
+    optional_checkpoint("native-cloud-outer-gate", 0x01d7, 0x4ea0, 0)
+    optional_checkpoint("native-cloud-outer-positive-branch", 0x01d7, 0x4eaa, 0)
+    optional_checkpoint("native-cloud-completion-routine", 0x01d7, 0x14e1, 0)
+    optional_checkpoint("native-cloud-completion-call", 0x01d7, 0x4f0d, 0)
+    optional_checkpoint("native-cloud-completion-check", 0x01d7, 0x1669, 0)
+    optional_checkpoint("native-cloud-completion-branch", 0x01d7, 0x16c6, 0)
 end
 
 -- These are selector-relative segment-1 offsets.  01D7:1669 is the separate
