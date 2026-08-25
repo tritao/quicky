@@ -719,6 +719,15 @@ after the high callback observes the later `B25D -> 3FF8 -> 3587` sequence;
 the phase-1 `B33B`/`B226` entries have already run by that point and need a
 frame-boundary trace for their complete insertion logic.
 
+The frame-boundary hook now captures that prefix. Across the W1L3 cursor-20
+run, the recurring scheduler prefix is `B33B -> B226`, followed by the current
+high callback (`B25D`, then `4B70`, then `4C74` as the effect is created and
+advanced). At the final render checkpoint the suffix is `B25D -> 3FF8 ->
+3587`. This matches the queue's pool order `[1,2,4,3,0]`: the two phase-1
+owners enqueue first, the high-effect callback occupies the third record, the
+slot-994 owner follows, and the player is flushed last. The draw-order result
+is now dynamic evidence rather than an assumption from the C++ frontend.
+
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
 can reach the visibility check, descriptor advance, and local `0x9C29`

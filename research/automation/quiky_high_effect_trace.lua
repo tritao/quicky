@@ -21,6 +21,7 @@ local stop_at_cursor = trace_config.stop_at_cursor
 local trace_render = trace_config.trace_render or false
 local render_trace_hits = trace_config.render_trace_hits or 64
 local callback_segments = {0x01f7, 0x1997}
+local pre_render_callback_offsets = {0xb226, 0xb33b, 0x3ff8}
 local watched_effect_callbacks = {}
 local watched_effect_objects = {}
 local watch_effect_object
@@ -335,7 +336,36 @@ local function arm_callback_targets()
         for callback in pairs(watched_effect_callbacks) do
             dosbox.breakpoint_set(segment, callback, {once = true})
         end
+        if trace_render then
+            for _, callback in ipairs(pre_render_callback_offsets) do
+                dosbox.breakpoint_set(segment, callback, {once = true})
+            end
+        end
     end
+end
+
+local function is_pre_render_callback(offset)
+    for _, callback in ipairs(pre_render_callback_offsets) do
+        if offset == callback then return true end
+    end
+    return false
+end
+
+local function callback_entry_snapshot(hit)
+    local selector = hit.registers.es or 0
+    local offset = (hit.registers.edi or 0) & 0xffff
+    local result = {
+        segment = hit.segment,
+        offset = hit.offset,
+        registers = hit.registers,
+    }
+    local ok, object = pcall(object_snapshot, selector, offset, -1)
+    if ok then
+        result.object = object
+    else
+        result.object_error = tostring(object)
+    end
+    return result
 end
 
 local function family_body_offset(family, offset)
@@ -618,6 +648,12 @@ for frame = 1, frame_count do
     arm_callback_targets()
     dosbox.debug_continue()
     local hit = wait_hit("high-effect callback")
+    local pre_render_callbacks = {}
+    while trace_render and is_pre_render_callback(hit.offset) do
+        pre_render_callbacks[#pre_render_callbacks + 1] = callback_entry_snapshot(hit)
+        dosbox.debug_continue()
+        hit = wait_hit("high-effect callback after render-owner callback")
+    end
     local event = nil
     if hit.offset == 0x4b70 or watched_effect_callbacks[hit.offset] then
         event = trace_spawned_effect_callback(hit)
@@ -645,10 +681,11 @@ for frame = 1, frame_count do
                       registers = hit.registers},
         globals = globals_snapshot(),
         scheduled_high = scheduled_high_snapshot(),
+        render_callbacks = pre_render_callbacks,
     }
     if stopped_at_cursor ~= nil then break end
 end
-if input_key ~= "" then dosbox.key(input_key, false) end
+    if input_key ~= "" then dosbox.key(input_key, false) end
 dosbox.output.high_effect_trace = {
     trace_schema_version = 1,
     trace_kind = "high-effect",
