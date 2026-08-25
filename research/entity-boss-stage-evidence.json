@@ -33,8 +33,39 @@
     "stage_gate": {
       "global": "DS:88AE",
       "reset": "01D7:3147",
-      "set_to_one_sites": ["01F7:A101", "01F7:B115", "01F7:C25E", "01F7:CC3B"],
-      "other_state_writes": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:D60B"],
+      "set_to_one_sites": ["01F7:A101", "01F7:B115", "01F7:B9C6", "01F7:C25E", "01F7:CC3B", "01F7:D2CA"],
+      "other_state_writes": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:BBBF", "01F7:BED1", "01F7:C048", "01F7:C0DB", "01F7:C7B3", "01F7:C8D4", "01F7:C92C", "01F7:CE54", "01F7:D0A8", "01F7:D207", "01F7:D2A1", "01F7:DA69", "01F7:DB8A", "01F7:DBE2"],
+      "writer_census": {
+        "method": "Raw segment-3 opcode scan for byte writes C6 06 AE 88 imm8 and increments FE 06 AE 88, cross-checked against the world-specific constructor/callback ranges; segment-1 scan confirms the level-state reset.",
+        "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+        "segment1_sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6",
+        "worlds": {
+          "W1": {
+            "initializer": {"01F7:A101": 1, "01F7:B115": 1},
+            "state_writes": {"01F7:B30E": 2, "01F7:B61A": 3, "01F7:B791": 4, "01F7:B824": 5}
+          },
+          "W2": {
+            "initializer": {"01F7:B9C6": 1},
+            "state_writes": {"01F7:BBBF": 2, "01F7:BED1": 3, "01F7:C048": 4, "01F7:C0DB": 5}
+          },
+          "W3": {
+            "initializer": {"01F7:C25E": 1},
+            "increment_writes": {"01F7:C3D9": "3 -> 4"},
+            "state_writes": {"01F7:C7B3": 4, "01F7:C8D4": 5, "01F7:C92C": 6}
+          },
+          "W4": {
+            "initializer": {"01F7:CC3B": 1},
+            "state_writes": {"01F7:CE54": 2, "01F7:D0A8": 3, "01F7:D207": 4, "01F7:D2A1": 5}
+          },
+          "W5": {
+            "initializer": {"01F7:D2CA": 1},
+            "increment_writes": {"01F7:D60B": "3 -> 4"},
+            "state_writes": {"01F7:DA69": 4, "01F7:DB8A": 5, "01F7:DBE2": 6}
+          }
+        },
+        "reset": {"01D7:3147": 0},
+        "interpretation": "The complete static writer set is world-specific and matches the recovered callback state machines. W3 and W5 advance from stage 3 to 4 with an increment instruction rather than an immediate store; the remaining stage values are immediate stores. No Wind/UFO callback appears in this writer set."
+      },
       "interpretation": "The byte is an authored boss/end-sequence stage gate. It is independent of the pending-effect budget DS:880C; 01F7:4519 accepts either gate, but the two values do not advance together."
     },
     "damage_row_contract": {

@@ -44,6 +44,19 @@
     "interpretation": "The final-letter callback writes DS:60D8, the 01D7 main-loop completion routine owns the all-seven comparator and presentation, and DS:85DB is the explicit handoff into the level-transition state machine.",
     "outer_state_gate": "01D7:4EA0 tests DS:89E6; its positive branch 01D7:4EAA calls the completion/effect consumer at 01D7:14E1. The normal cloud callback 01F7:9269 writes DS:89E6=0xFFFF when the player is in range.",
     "presentation_wait_helper": "0207:10A9 samples PIT channel 0 through ports 43h/40h, compares the sample with DS:97F4, retries while equal, and stores the changed sample at 0207:1113."
+    ,"transition_gate_census": {
+      "global": "DS:89E0",
+      "terminal_writers": ["01D7:4E10", "01D7:4E8E", "01D7:4ECC"],
+      "zero_resets": ["01D7:1140", "01D7:4B82", "01D7:50E7", "01D7:517C"],
+      "gate_reads": ["01D7:5010", "01D7:5058", "01D7:5173", "01D7:5203"],
+      "interpretation": "The terminal value 0xFFFF is written only by the outer gameplay/completion branches; initialization and transition-loop paths clear the gate. The downstream resource path is therefore controlled by both the completion handoff and the transition-loop state, not by the final-letter callback alone."
+    },
+    "completion_flag_census": {
+      "global": "DS:85DB",
+      "clear_site": "01D7:16BF",
+      "set_sites": ["01D7:1704", "01D7:4B34"],
+      "interpretation": "01D7:1704 sets the flag after the all-seven presentation; 01D7:4B34 sets it for selector transition states 0x10-0x14; 01D7:16BF clears it on the non-final comparator path."
+    }
   },
   "runtime_probe": {
     "fixture": "W1L1 entity-7f-native baseline; source ARE record 0x1792 mutated from type 0x2B to type 0x7F; runtime declaration offset 0x1632",

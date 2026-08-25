@@ -57,11 +57,24 @@
   "producer": {
         "routine": "01F7:38EC",
         "label": "spawn_effect_table_from_player_state",
-        "condition": "The player-update tail takes this branch only when object flags at +0x00 include 0x10 and object byte +0x3C is zero.",
-        "factory_call": "01F7:390E relocated far call to 01F7:0E06",
-        "callback_argument": "AX=0x4519, DX=0x0000 immediately before the factory call",
-        "post_call": "The factory-created object is initialized by 01F7:4519, which installs 01F7:45AB and claims one DS:87DE row."
-      },
+      "condition": "The player-update tail takes this branch only when object flags at +0x00 include 0x10 and object byte +0x3C is zero.",
+      "factory_call": "01F7:390E relocated far call to 01F7:0E06",
+      "callback_argument": "AX=0x4519, DX=0x0000 immediately before the factory call",
+      "post_call": "The factory-created object is initialized by 01F7:4519, which installs 01F7:45AB and claims one DS:87DE row.",
+      "raw_instruction_contract": [
+        "01F7:38EC test word [ES:DI+0x00] against 0x0010",
+        "01F7:38FA compare byte [ES:DI+0x3C] against zero",
+        "01F7:3901 set byte [ES:DI+0x3C] to 0xFF",
+        "01F7:3908 load AX=0x4519 and DX=0 before the relocated factory call at 01F7:390E"
+      ],
+      "flag_setter_census": {
+        "method": "Bounded segment-3 scan for immediate object-field writes/ORs of 0x0010, cross-checked against the raw 01F7:38EC disassembly.",
+        "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+        "direct_test_sites": ["01F7:38EC"],
+        "immediate_object_field_setter_sites": [],
+        "interpretation": "The scan identifies the producer's direct test but no immediate OR/SET instruction that writes bit 0x10 into an object field in segment 3. This narrows the unresolved trigger to register/helper-derived writes or another segment; it does not prove that no setter exists."
+      }
+    },
       "factory_callsite_census": {
         "target": "01F7:0E06",
         "segment": "01F7",
