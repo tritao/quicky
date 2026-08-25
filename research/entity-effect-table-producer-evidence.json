@@ -65,7 +65,7 @@
     "runtime": "main-tree game/QUIKY.EXE",
     "fixture": "W1L1 selected through the native cheat selector",
     "samples": 8,
-    "focus": "player callback 01F7:3FF8 with effect-table breakpoints 44FF/4519/45AB/470C",
+    "focus": "player callback 01F7:3FF8 with effect-table breakpoints 4384/44FF/4519/45AB/470C",
     "hits": [],
     "observed_player_flags": "The sampled player object action word remained 0x0000 and the shared effect-table breakpoints were not reached.",
     "interpretation": "The producer is statically recovered but not reached in this ordinary W1L1 idle trace; a targeted player-state trigger or controlled flag probe is still needed.",
@@ -76,6 +76,16 @@
       "hits": [],
       "observed_action_words": "0x0000 in all eight sampled player callbacks"
     }
+  },
+  "pre_producer_tail_probe": {
+    "trace": "research/build/player-effect-table-tail-w1l1-right-v2.json",
+    "trace_sha256": "375f2c6562eabb1d07b47472cb88bcda5ff047ccfb8ec7bf5e4ab001191cf114",
+    "trace_script_sha256": "c1e31804a500b61453a1b5396e7c2c200f016e5c1cd976939832a0e61812df7e",
+    "breakpoint": "01F7:4384 immediately before the 38EC producer-tail helper",
+    "fixture": "W1L1 main-tree native selector with KBD_right held for 30 frames before each of six samples",
+    "samples": 6,
+    "observed": "All six tail snapshots had player action word 0x0000 and DS:656C source word 0x0000; no 44FF/4519/45AB/470C lifecycle hit followed.",
+    "interpretation": "The ordinary input path does not raise the producer's 0x10 flag in this fixture; the trigger is likely a collision/death or other gameplay-state transition rather than directional input."
   },
   "remaining": [
     "Which gameplay state sets player object flags bit 0x10 and therefore triggers 01F7:38EC in normal play.",

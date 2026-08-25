@@ -27,7 +27,7 @@ local trace_event_counter = 0
 local descriptor_census_done = false
 
 local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
-local effect_table_offsets = {0x44ff, 0x4519, 0x45ab, 0x470c}
+local effect_table_offsets = {0x4384, 0x44ff, 0x4519, 0x45ab, 0x470c}
 
 local function is_effect_table_target(offset)
     if not effect_table_focus then return false end
@@ -37,10 +37,17 @@ local function is_effect_table_target(offset)
     return false
 end
 
-local function arm_effect_table_targets()
+local function arm_effect_table_tail_once()
     if not effect_table_focus then return end
-    for _, offset in ipairs(effect_table_offsets) do
-        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+    dosbox.breakpoint_set(0x01f7, effect_table_offsets[1], {once = true})
+end
+
+local function arm_effect_table_lifecycle()
+    if not effect_table_focus then return end
+    for index, offset in ipairs(effect_table_offsets) do
+        if index ~= 1 then
+            dosbox.breakpoint_set(0x01f7, offset, {once = true})
+        end
     end
 end
 
@@ -267,6 +274,7 @@ end
 local function static_globals()
     return {
         input_action_flags = dosbox.mem_read_word("ds", 0x8196),
+        player_action_source_656c = dosbox.mem_read_word("ds", 0x656c),
         keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
         last_scan_code = dosbox.mem_read_word("ds", 0x88ba),
         camera_x = dosbox.mem_read_word("ds", 0x81c0),
@@ -611,6 +619,7 @@ local function record_effect_table(sample, hit)
         helper_offset = hit.offset,
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
+        object = callback_object_snapshot(hit),
         globals = static_globals(),
     }
     sample.effect_table_events = sample.effect_table_events or {}
@@ -792,6 +801,7 @@ for sequence = 1, sample_count do
             local returned = nil
             local property_return = nil
             local collision_return = nil
+            local effect_table_tail_seen = false
             while returned == nil do
                 dosbox.breakpoint_set(return_segment, return_offset, {once = true})
                 if property_return ~= nil then
@@ -807,7 +817,10 @@ for sequence = 1, sample_count do
                         dosbox.breakpoint_set(0x01f7, offset, {once = true})
                     end
                 elseif effect_table_focus then
-                    arm_effect_table_targets()
+                    arm_effect_table_lifecycle()
+                    if not effect_table_tail_seen then
+                        arm_effect_table_tail_once()
+                    end
                 end
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
@@ -835,6 +848,9 @@ for sequence = 1, sample_count do
                         collision_return = far_return_location(candidate)
                     elseif is_effect_table_target(candidate.offset) then
                         record_effect_table(sample, candidate)
+                        if candidate.offset == effect_table_offsets[1] then
+                            effect_table_tail_seen = true
+                        end
                     end
                 end
             end
