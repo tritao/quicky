@@ -37,6 +37,13 @@
       "other_state_writes": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:D60B"],
       "interpretation": "The byte is an authored boss/end-sequence stage gate. It is independent of the pending-effect budget DS:880C; 01F7:4519 accepts either gate, but the two values do not advance together."
     },
+    "damage_row_contract": {
+      "callbacks": ["01F7:B25D", "01F7:BB0E", "01F7:C328", "01F7:CDA3", "01F7:D55A"],
+      "overlap_band": "strict boss_x-15 < row_x < boss_x+15 and boss_y-25 < row_y < boss_y+5; all five world callbacks use the same DS:87DE comparison",
+      "consumed_hits_before_stage_transition": {"W1": 5, "W2": 6, "W3": 5, "W4": 6, "W5": 4},
+      "counter_reset_after_transition": ["W3", "W5"],
+      "evidence": "/tmp/quiky-ghidra-boss-expanded-20260824/out/QUIKY_SEG03.bin-boss.c"
+    },
     "worlds": [
       {
         "world": "W1",
@@ -47,7 +54,7 @@
           "main_slot": "0x3B7",
           "child_links": ["+0x2A", "+0x36"],
           "velocity_x_fixed": "-0x9000",
-          "damage_threshold": ">4 hits"
+          "damage_threshold": ">4 hits (5 consumed hits)"
         },
         "states": {
           "0-1": "movement/attack",
@@ -65,7 +72,7 @@
         "initializer": {
           "main_slot": "0x10E",
           "velocity_x_fixed": "-0x7000",
-          "damage_threshold": ">4 hits"
+          "damage_threshold": ">5 hits (6 consumed hits)"
         },
         "states": {
           "0-1": "movement/attack",
@@ -82,7 +89,7 @@
           "main_slot": "0x3B7",
           "child_links": ["+0x36", "+0x46"],
           "velocity_x_fixed": "-0x13000",
-          "damage_threshold": ">4 hits; stage increments by 1"
+          "damage_threshold": ">4 hits (5 consumed hits); stage increments and counter resets"
         },
         "states": {
           "0-3": "movement/attack and transition",
@@ -101,7 +108,7 @@
           "child_links": ["+0x2A", "+0x36"],
           "velocity_x_fixed": "-0x9000",
           "velocity_y_fixed": "-0x9000",
-          "damage_threshold": ">5 hits"
+          "damage_threshold": ">5 hits (6 consumed hits)"
         },
         "states": {
           "0-1": "movement/attack",
@@ -119,7 +126,7 @@
           "child_links": ["+0x2A", "+0x36", "+0x48"],
           "velocity_x_fixed": "-0x13000",
           "velocity_y_fixed": "-0x370000",
-          "damage_threshold": ">3 hits; stage increments"
+          "damage_threshold": ">3 hits (4 consumed hits); stage increments and counter resets"
         },
         "states": {
           "0-2": "movement/attack",
@@ -274,5 +281,5 @@
     "Correlate DS:880C pending-effect increments with Wind/UFO row producers and the player 01F7:38EC trigger.",
     "Resolve WOLKE-specific rendering/descriptor selection after the 01D7:4EA0 consumer."
   ],
-  "confidence": "Static world-specific state machines and the controlled W1 callback progression are high-confidence raw-segment/runtime recoveries. Native W1L4 confirms the pooled END topology and DS:88AE=1; the authored damage/completion producer and cross-world runtime timing remain open."
+    "confidence": "Static world-specific state machines, the shared all-world damage-row contract, and the controlled W1 callback progression are high-confidence raw-segment/runtime recoveries. Native W1L4 confirms the pooled END topology and DS:88AE=1; repeated authored progression and cross-world runtime timing remain open."
 }

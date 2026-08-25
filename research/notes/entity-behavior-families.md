@@ -722,7 +722,16 @@ matching `DS:87DE` x word, and returns with the boss hit counter advanced from
 window. This proves the retail producer/delivery boundary for one hit, but
 repeated authored firing, the per-world thresholds, and the unforced
 completion/reload handoff still need separate traces; see
-[`entity-boss-stage-evidence.json`](../entity-boss-stage-evidence.json).
+  [`entity-boss-stage-evidence.json`](../entity-boss-stage-evidence.json).
+
+The expanded raw-segment decompile also closes the boss collision-shape
+ambiguity. `B25D`, `BB0E`, `C328`, `CDA3`, and `D55A` all scan the same four-byte
+`DS:87DE` rows with the strict band `boss_x-15 < row_x < boss_x+15` and
+`boss_y-25 < row_y < boss_y+5`. The consumed-hit thresholds are not uniform:
+W1 and W3 consume five rows, W2 and W4 consume six, and W5 consumes four;
+W3 and W5 reset the hit counter when advancing their stage. The remaining
+boss gap is therefore authored repeat timing and per-world stage progression,
+not an unknown hitbox.
 
 For a level-specific representative, add `--select-level W2L1` and use the
 record offset from `quikyctl.py entity-catalog`. Use paired traces for each
