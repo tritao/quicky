@@ -100,6 +100,18 @@ replaces the earlier “roughly one pixel/slot” description with the actual
 record-local animation contract; creation cadence and the table's semantic
 frame names remain open.
 
+A targeted Ghidra pass over the lifecycle callbacks narrows teardown further.
+`B25D` handles target hits through `+0x2A/+0x2C`, advances its animation state,
+and can publish global phase `2` after more than four hits. Its body has no
+direct write clearing `+0x18`; the `+0x2E >= 1` branch only rolls its local
+animation counter and calls an unresolved helper after the `+0x2F > 100`
+boundary. `B33B` likewise has no phase-0/1 self-clear. Its explicit linked
+clear is only in the later `< 3` phase branch, where it writes zero to the
+record at `+0x36`. Therefore the natural sample's simultaneous disappearance
+of B33B and B25D is an external scheduler/streaming/action teardown edge, not
+an obvious direct clear in either callback; that edge needs one more runtime
+pass with the general deactivation and helper-call sites armed.
+
 The gate is conditional on the global phase byte. A controlled debugger probe
 with `DS:88AE=4` confirms the strict boundary at the live initial camera:
 
@@ -322,8 +334,8 @@ at the same boundary or one scheduler pass later.
    bit `0x4000`; the frame-445 sample shows that this bit is not the direct
    cause of the timer-driven handoff.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
-   and `0x487F`, so the coupled teardown and any later object reactivation are
-   not guessed.
+   and `0x487F`, plus the general deactivation/scheduler sites, so the coupled
+   teardown and any later object reactivation are not guessed.
 4. Resolve the remaining full-frame palette/timing residuals after the
    queue-owned records are reproduced.
 5. Once those pass, implement a queue-owned render pass in C++ and compare

@@ -148,6 +148,9 @@ local function object_snapshot(selector, offset, index)
         linked_child = word(raw, 0x36 + 1),
         phase_timer = word(raw, 0x38 + 1),
         emission_counter = word(raw, 0x44 + 1),
+        collision_flag = string.byte(raw, 0x3e + 1),
+        movement_mode = string.byte(raw, 0x40 + 1),
+        movement_timer = word(raw, 0x42 + 1),
         direction_mode = string.byte(raw, 0x28 + 1),
         direction_byte = string.byte(raw, 0x29 + 1),
         map_probes = word(raw, 0x18 + 1) == 0xb33b and

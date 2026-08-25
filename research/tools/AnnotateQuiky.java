@@ -147,6 +147,42 @@ public class AnnotateQuiky extends GhidraScript {
             "Scans the object list for an object whose +0x14 kind field equals 0x64; ownership semantics remain unresolved.");
         function(0x0fa2, "object_update_pass_nonzero_state",
             "Runs callbacks for list entries with a non-null callback pointer; list/object state semantics remain unresolved.");
+        function(0x0b142, "create_b33b_owner",
+            "Creates the B33B phased owner and its linked B226/B25D records; lifecycle contract under dynamic validation.");
+        function(0x0b1f0, "create_b226_linked_object",
+            "Initializes the B226 linked animation record through the shared sequence loader.");
+        function(0x0b20b, "create_b25d_linked_object",
+            "Initializes the B25D linked animation record through the shared sequence loader.");
+        function(0x0b226, "update_b226_animation",
+            "B226 linked animation callback with phase-dependent camera visibility gate.");
+        function(0x0b25d, "update_b25d_animation",
+            "B25D linked animation callback and target/effect tail dispatch.");
+        function(0x0b266, "b25d_tail_dispatch",
+            "B25D tail branch reached after the target/effect update; teardown behavior under validation.");
+        function(0x0b2b0, "b25d_animation_step",
+            "B25D animation-step helper reached from the linked callback.");
+        function(0x0b2b8, "b25d_animation_step_alt",
+            "B25D animation-step branch.");
+        function(0x0b2ba, "b25d_animation_step_alt2",
+            "B25D animation-step branch.");
+        function(0x0b2bf, "b25d_animation_step_alt3",
+            "B25D animation-step branch.");
+        function(0x0b2c4, "b25d_effect_action_call",
+            "B25D action/effect call site.");
+        function(0x0b303, "b25d_callback_tail",
+            "B25D callback tail and return path.");
+        function(0x0b33b, "update_b33b_owner",
+            "B33B phased owner callback; advances linked records and creates the B84D/B87B transition.");
+        function(0x0b84c, "prepare_b87b_transition",
+            "B84C transition helper associated with the B84D/B87B linked lifecycle.");
+        function(0x0b84d, "initialize_b87b_transition",
+            "B84D replaces the current callback with B87B and initializes its transition state.");
+        function(0x0b87b, "update_b87b_transition",
+            "B87B moving transition callback with strict camera gate and MAP descriptor probes.");
+        function(0x0487f, "initialize_late_owner",
+            "Late-phase owner initializer reached after the B33B phase-5 conversion.");
+        function(0x0489c, "update_late_owner",
+            "Steady late-phase owner callback reached after the 487F initializer.");
         function(0x08c9, "release_map_buffer",
             "Releases the current MAP buffer through the runtime helper and clears DS:657A/657C when it is present.");
         function(0x0a43, "initialize_game_state",
