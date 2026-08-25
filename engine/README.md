@@ -21,8 +21,9 @@ The current iteration supports:
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - a shared SDL audio mixer that combines gameplay music with confirmed pickup SFX;
 - ARE-backed level streaming with the scoped W1L1 object-family inventory;
-  collectible, enemy, environmental, and transition contracts remain explicit
-  at their recovered boundaries;
+  the shared collectible callback `01F7:8D20` is now executed through the
+  scheduler, while enemy, environmental, and transition contracts remain
+  explicit at their recovered boundaries;
 - source-less high-effect rendering from the recovered `4B70 -> 4C74` chain:
   world-specific `PUFF.BOB`/`PUFFW2.BOB`, slots `611/612/613`, and the
   31-update terminal lifecycle;
@@ -63,6 +64,25 @@ The active frontend and scene tools consume `SimulationOutput` and
 `player_update.h` keeps the recovered callback stages and unresolved external
 boundaries explicit. The runtime does not silently fall back to guessed
 grounding or jump behavior.
+
+## W1L1 scheduler status
+
+The first gameplay-object slice is the recovered shared collectible callback
+`01F7:8D20`. ARE records for ammo, health, invulnerability, lives, and puzzle
+letters publish their address-qualified callback identity through
+`ObjectScheduler` in stable slot order. On overlap, the level session records
+the exact subtype-driven player/global writes (`DS:880A`, `DS:880C`,
+`DS:8810`, `DS:881C`, `DS:8822`, `DS:8824`, `DS:60D8`, and `DS:612E`) in the
+collected event and clears the scheduled object. The invulnerability path also
+writes the recovered player-record timer at `+0x34`; subsequent countdown and
+gate clearing remain owned by the player callback.
+
+This slice is statically closed for callback identity and state effects and is
+covered by native contract tests. The overlap predicate remains the explicit
+`8D31 -> 393C` boundary until its exact fixed-point geometry is promoted from
+the DOS trace evidence. Natural puzzle completion/transition behavior,
+ordinary enemy callbacks, and script-created platforms are not implemented by
+this slice.
 
 ## Unified player callback status
 

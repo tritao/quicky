@@ -265,16 +265,31 @@ void testLevelSessionUsesSimulationBoundary() {
     simulation.setExperimentalPlayerUpdater(&updater);
     quiky::SimulationOutput output;
     session.reset(simulation);
-    session.updateStreaming(simulation.state().player.positionX.floorPixels(),
-                             simulation.state().player.positionY.floorPixels());
+    session.updateStreaming(simulation,
+                            simulation.state().player.positionX.floorPixels(),
+                            simulation.state().player.positionY.floorPixels());
     assert(session.entities()[0].active);
     assert(session.entities()[0].spriteSlot == 607);
     assert(session.entities()[1].phase == quiky::EntityPhase::Dormant);
 
     const quiky::WorldCollisionView world(map);
     session.tick(simulation, world, quiky::InputState(), output);
-    assert(session.consumeEvent().type == quiky::LevelEventType::Collected);
-    assert(session.score() == 10);
+    const quiky::LevelEvent collected = session.consumeEvent();
+    assert(collected.type == quiky::LevelEventType::Collected);
+    assert(collected.entityType == 0x6f);
+    assert(collected.stateWrites.size() == 3);
+    assert(collected.stateWrites[0].address == 0x880c);
+    assert(collected.stateWrites[0].after == 10);
+    assert(collected.stateWrites[1].address == 0x612e);
+    assert(collected.stateWrites[1].after == 9);
+    assert(collected.stateWrites[2].address == 0x881c);
+    assert(collected.stateWrites[2].after == 50);
+    assert(session.score() == 50);
+    assert(session.gameplayState().ammo880c == 10);
+    assert(session.gameplayState().pendingEvent612e == 9);
+    assert(output.schedulerCallbacks.size() == 1);
+    assert(output.schedulerCallbacks[0].callback.segment == 0x01f7);
+    assert(output.schedulerCallbacks[0].callback.offset == 0x8d20);
     assert(output.player.toBytes() == simulation.state().player.toBytes());
 
     quiky::LevelSessionConfig exitConfig = config;
@@ -289,6 +304,68 @@ void testLevelSessionUsesSimulationBoundary() {
     assert(exitEvent.targetLevel == "W1L2.MAP");
 }
 
+void testRecoveredCollectibleStateContracts() {
+    const quiky::Map map = makeMap(16, 8);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+
+    quiky::LevelSession healthMax("W1L1.MAP", map, makeSingleArea(0x70), config);
+    healthMax.reset(simulation);
+    healthMax.gameplayStateForSetup().currentHealth8822 = 3;
+    healthMax.gameplayStateForSetup().maximumHealth8824 = 3;
+    healthMax.updateStreaming(simulation, 16, 16);
+    healthMax.tick(simulation, world, quiky::InputState(), output);
+    quiky::LevelEvent event = healthMax.consumeEvent();
+    assert(event.type == quiky::LevelEventType::Collected);
+    assert(healthMax.gameplayState().currentHealth8822 == 4);
+    assert(healthMax.gameplayState().maximumHealth8824 == 4);
+    assert(healthMax.score() == 250);
+
+    quiky::LevelSession health("W1L1.MAP", map, makeSingleArea(0x71), config);
+    health.reset(simulation);
+    health.gameplayStateForSetup().currentHealth8822 = 3;
+    health.gameplayStateForSetup().maximumHealth8824 = 5;
+    health.updateStreaming(simulation, 16, 16);
+    health.tick(simulation, world, quiky::InputState(), output);
+    event = health.consumeEvent();
+    assert(event.type == quiky::LevelEventType::Collected);
+    assert(health.gameplayState().currentHealth8822 == 4);
+    assert(health.gameplayState().maximumHealth8824 == 5);
+    assert(health.score() == 100);
+
+    quiky::LevelSession invulnerability("W1L1.MAP", map,
+                                        makeSingleArea(0x72), config);
+    invulnerability.reset(simulation);
+    invulnerability.updateStreaming(simulation, 16, 16);
+    invulnerability.tick(simulation, world, quiky::InputState(), output);
+    event = invulnerability.consumeEvent();
+    assert(event.type == quiky::LevelEventType::Collected);
+    assert(invulnerability.gameplayState().invulnerabilityGate8810 == 0xffff);
+    assert(invulnerability.gameplayState().playerTimer0034 == 0x02bc);
+    assert(invulnerability.gameplayState().pendingEvent612e == 12);
+    assert(simulation.state().player.timer34 == 0x02bc);
+    assert(invulnerability.score() == 150);
+
+    quiky::LevelSession letter("W1L1.MAP", map, makeSingleArea(0x79), config);
+    letter.reset(simulation);
+    letter.updateStreaming(simulation, 16, 16);
+    letter.tick(simulation, world, quiky::InputState(), output);
+    event = letter.consumeEvent();
+    assert(event.type == quiky::LevelEventType::Collected);
+    assert(letter.gameplayState().puzzleMask60d8 == 1);
+    assert(letter.score() == 100);
+}
+
 } // namespace
 
 int main() {
@@ -300,6 +377,7 @@ int main() {
         testAreaAndBob();
         testFaithfulRecordWorldAndAnimation();
         testLevelSessionUsesSimulationBoundary();
+        testRecoveredCollectibleStateContracts();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;

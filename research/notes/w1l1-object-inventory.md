@@ -49,11 +49,13 @@ as an ARE object.
 
 ## Implementation order
 
-The first W1L1 scheduler additions should be the two shared collectible
-callbacks, because their interaction contracts are already explicit and feed
-directly into player-visible globals:
+The first W1L1 scheduler addition is now the shared `8D20` collectible
+callback. Its interaction contracts are explicit and feed directly into
+player-visible globals. The native implementation records the callback
+identity, subtype writes, sound-action global, player timer write, and deferred
+object release:
 
-1. `8D20` with subtype tables for pickups and puzzle letters.
+1. `8D20` with subtype tables for pickups and puzzle letters — implemented.
 2. `6DC4`/`68C0` normal enemy callbacks and their existing `4AB3` contact
    boundary.
 3. `8E4B` environmental state machine, keeping `1AAA` as an explicit

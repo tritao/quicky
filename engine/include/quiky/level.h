@@ -2,6 +2,7 @@
 #define QUIKY_LEVEL_H
 
 #include "quiky/area.h"
+#include "quiky/scheduler.h"
 #include "quiky/simulation.h"
 
 #include <cstdint>
@@ -37,16 +38,49 @@ enum class LevelEventType {
     LevelExit,
 };
 
+struct LevelStateWrite {
+    std::uint16_t address;
+    std::uint8_t width;
+    std::uint32_t before;
+    std::uint32_t after;
+
+    LevelStateWrite(std::uint16_t addressValue = 0,
+                    std::uint8_t widthValue = 0,
+                    std::uint32_t beforeValue = 0,
+                    std::uint32_t afterValue = 0)
+        : address(addressValue), width(widthValue), before(beforeValue),
+          after(afterValue) {}
+};
+
 struct LevelEvent {
     LevelEventType type;
     std::uint32_t entityId;
     std::uint16_t entityType;
     std::uint16_t tileId;
     std::string targetLevel;
+    std::vector<LevelStateWrite> stateWrites;
 
     LevelEvent()
         : type(LevelEventType::None), entityId(0), entityType(0), tileId(0xffff),
-          targetLevel() {}
+          targetLevel(), stateWrites() {}
+};
+
+// The fields below are the confirmed external state writes made by the
+// shared 01F7:8D20 collectible callback. They remain separate from the
+// recovered 0x78 player record because the retail callback writes DS globals
+// and the persistent player-object timer.
+struct LevelGameplayState {
+    std::uint16_t ammo880c;
+    std::uint16_t lives880a;
+    std::uint32_t score881c;
+    std::uint16_t currentHealth8822;
+    std::uint16_t maximumHealth8824;
+    std::uint16_t invulnerabilityGate8810;
+    std::uint16_t pendingEvent612e;
+    std::uint16_t playerTimer0034;
+    std::uint16_t puzzleMask60d8;
+
+    LevelGameplayState();
 };
 
 struct LevelSessionConfig {
@@ -109,6 +143,10 @@ struct LevelEntity {
     std::string spriteResource;
     std::uint16_t effectSlot;
     std::string effectResource;
+    CallbackIdentity updateCallback;
+    SchedulerHandle schedulerHandle;
+    std::uint8_t contactSubtype;
+    std::uint8_t collectionBit;
     std::uint16_t collisionWidth;
     std::uint16_t collisionHeight;
     std::uint16_t animationFrame;
@@ -121,6 +159,7 @@ struct LevelEntity {
         : id(0), recordOffset(0), type(0), regionX(0), regionY(0), x(0), y(0),
           kind(EntityKind::Unknown), phase(EntityPhase::Dormant),
           spriteSlot(0xffff), spriteResource(), effectSlot(0xffff), effectResource(),
+          updateCallback(), schedulerHandle(), contactSubtype(0), collectionBit(0),
           collisionWidth(0), collisionHeight(0),
           animationFrame(0), activeFrames(0),
           active(false), collected(false), pooledInteractionTriggered(false) {}
@@ -137,6 +176,8 @@ public:
               const InputState &input, SimulationOutput &output);
 
     bool updateStreaming(std::int32_t playerX, std::int32_t playerY);
+    bool updateStreaming(Simulation &simulation, std::int32_t playerX,
+                         std::int32_t playerY);
     // Emit the source-less high-address effect recovered from the 4B70/4C74
     // callback chain. sourceX/sourceY are the hit object's coordinates; the
     // pooled effect is positioned at sourceY + 10 pixels.
@@ -147,10 +188,15 @@ public:
     LevelEvent consumeEvent();
     std::uint32_t score() const { return _score; }
     std::uint32_t deaths() const { return _deaths; }
+    const LevelGameplayState &gameplayState() const { return _gameplayState; }
+    LevelGameplayState &gameplayStateForSetup() { return _gameplayState; }
     const std::string &mapName() const { return _mapName; }
 
 private:
     static EntityKind classify(std::uint16_t type);
+    static CallbackIdentity callbackFor(std::uint16_t type);
+    static std::uint8_t collectibleSubtypeFor(std::uint16_t type);
+    static std::uint8_t collectionBitFor(std::uint16_t type);
     static std::uint16_t spriteSlotFor(std::uint16_t type);
     std::uint16_t effectSlotFor(std::uint16_t type) const;
     static std::uint16_t collisionWidthFor(std::uint16_t type);
@@ -160,7 +206,18 @@ private:
     std::string highEffectSpriteResource() const;
     static std::uint32_t collectibleValue(std::uint16_t type);
     static std::string nextLevelName(const std::string &mapName);
-    void resetPlayer(Simulation &simulation) const;
+    void resetPlayer(Simulation &simulation);
+    bool updateStreamingImpl(ObjectScheduler *scheduler,
+                             std::int32_t playerX, std::int32_t playerY);
+    void dispatchCollectibleCallbacks(Simulation *simulation,
+                                      PlayerRecord &player);
+    void applyCollectibleCallback(LevelEntity &entity, PlayerRecord &player,
+                                  std::vector<LevelStateWrite> &writes);
+    void releaseScheduledEntity(ObjectScheduler *scheduler,
+                                LevelEntity &entity);
+    void appendCollectedEvent(const LevelEntity &entity,
+                              const std::vector<LevelStateWrite> &writes);
+    void syncPlayerTimer(const PlayerRecord &player);
     void advanceActiveEntities();
     void advanceActiveEffects();
     bool emitWorldEffectsForActiveEntities();
@@ -188,6 +245,7 @@ private:
     std::deque<LevelEvent> _events;
     std::uint32_t _score;
     std::uint32_t _deaths;
+    LevelGameplayState _gameplayState;
     bool _alternateActionActive;
 };
 

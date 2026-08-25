@@ -75,7 +75,27 @@ std::uint16_t worldEffectSlotFor(const std::string &world,
     return 0;
 }
 
+void appendStateWrite(std::vector<LevelStateWrite> &writes,
+                      std::uint16_t address, std::uint8_t width,
+                      std::uint32_t before, std::uint32_t after) {
+    if (before != after) {
+        writes.push_back(LevelStateWrite(address, width, before, after));
+    }
+}
+
 } // namespace
+
+LevelGameplayState::LevelGameplayState()
+    : ammo880c(0),
+      lives880a(4),
+      score881c(0),
+      currentHealth8822(5),
+      maximumHealth8824(5),
+      invulnerabilityGate8810(0),
+      pendingEvent612e(0),
+      playerTimer0034(0),
+      puzzleMask60d8(0) {
+}
 
 LevelSessionConfig::LevelSessionConfig()
     : streamRadiusRegions(1),
@@ -99,6 +119,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _events(),
       _score(0),
       _deaths(0),
+      _gameplayState(),
       _alternateActionActive(false) {
     const std::vector<AreaPlacement> placements = _area.placements();
     _entities.reserve(placements.size());
@@ -117,6 +138,9 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.spriteResource = spriteResourceFor(entity.type);
         entity.effectSlot = effectSlotFor(entity.type);
         entity.effectResource = effectResourceFor(entity.type);
+        entity.updateCallback = callbackFor(entity.type);
+        entity.contactSubtype = collectibleSubtypeFor(entity.type);
+        entity.collectionBit = collectionBitFor(entity.type);
         entity.collisionWidth = collisionWidthFor(entity.type);
         entity.collisionHeight = collisionHeightFor(entity.type);
         _entities.push_back(entity);
@@ -142,6 +166,7 @@ void LevelSession::reset(Simulation &simulation) {
     _events.clear();
     _score = 0;
     _deaths = 0;
+    _gameplayState = LevelGameplayState();
     _alternateActionActive = false;
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
@@ -151,12 +176,16 @@ void LevelSession::reset(Simulation &simulation) {
         entity.active = false;
         entity.collected = false;
         entity.pooledInteractionTriggered = false;
+        entity.schedulerHandle = SchedulerHandle();
+        entity.updateCallback = callbackFor(entity.type);
+        entity.contactSubtype = collectibleSubtypeFor(entity.type);
+        entity.collectionBit = collectionBitFor(entity.type);
     }
     _effects.clear();
     resetPlayer(simulation);
 }
 
-void LevelSession::resetPlayer(Simulation &simulation) const {
+void LevelSession::resetPlayer(Simulation &simulation) {
     const SpawnPoint spawn = spawnPoint();
     simulation.reset();
     PlayerRecord &player = simulation.stateForSetup().player;
@@ -171,6 +200,19 @@ void LevelSession::resetPlayer(Simulation &simulation) const {
     player.verticalResponse3A = 0;
     player.sideResponse3B = 1;
     player.syncToRaw();
+
+    // Simulation::reset clears the object pool as part of the player respawn.
+    // Invalidate the corresponding ARE-side handles so a later streaming pass
+    // can publish each visible callback exactly once.
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        entity.schedulerHandle = SchedulerHandle();
+        if (!entity.collected) {
+            entity.phase = EntityPhase::Dormant;
+            entity.active = false;
+            entity.pooledInteractionTriggered = false;
+        }
+    }
 }
 
 EntityKind LevelSession::classify(std::uint16_t type) {
@@ -183,13 +225,64 @@ EntityKind LevelSession::classify(std::uint16_t type) {
     if (type == 0x34) {
         return EntityKind::Hazard;
     }
-    if ((type >= 0x6f && type <= 0x72) || (type >= 0x79 && type <= 0x7f)) {
+    if (type == 0x2c || (type >= 0x6f && type <= 0x72) ||
+        (type >= 0x79 && type <= 0x7f)) {
         return EntityKind::Collectible;
     }
     if (type >= 0x3d && type <= 0x40) {
         return EntityKind::MovingPlatform;
     }
     return EntityKind::Unknown;
+}
+
+CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
+    // These identities are the recovered ARE callback targets. Only the
+    // collectible family is executed by this slice; the other identities are
+    // published for scheduler order and remain external contracts.
+    if (type == 0x6f || type == 0x70 || type == 0x71 || type == 0x72 ||
+        type == 0x2c || (type >= 0x79 && type <= 0x7f)) {
+        return CallbackIdentity(0x01f7, 0x8d20, "collectible_8d20");
+    }
+    if (type >= 0x3d && type <= 0x40) {
+        return CallbackIdentity(0x01f7, 0x9dc7, "moving_platform_9dc7");
+    }
+    if (type == 0x34) {
+        return CallbackIdentity(0x01f7, 0x9c0c, "bump_9c0c");
+    }
+    if (type == 0x01) {
+        return CallbackIdentity(0x01f7, 0x6dc4, "entity_wurm2_6dc4");
+    }
+    if (type == 0x03 || type == 0x04) {
+        return CallbackIdentity(0x01f7, 0x68c0, "entity_biene_68c0");
+    }
+    if (type >= 0x1f && type <= 0x21) {
+        return CallbackIdentity(0x01f7, 0x8e4b, "world_effect_8e4b");
+    }
+    if (type == 0x28) {
+        return CallbackIdentity(0x01f7, 0x9269, "cloud_9269");
+    }
+    if (type >= 0x29 && type <= 0x2b) {
+        return CallbackIdentity(0x01f7, 0x47e7, "falling_leaf_47e7");
+    }
+    return CallbackIdentity();
+}
+
+std::uint8_t LevelSession::collectibleSubtypeFor(std::uint16_t type) {
+    switch (type) {
+    case 0x6f: return 1;
+    case 0x70: return 2;
+    case 0x71: return 3;
+    case 0x72: return 4;
+    case 0x2c: return 5;
+    default: return 0;
+    }
+}
+
+std::uint8_t LevelSession::collectionBitFor(std::uint16_t type) {
+    if (type >= 0x79 && type <= 0x7f) {
+        return static_cast<std::uint8_t>(1u << (type - 0x79));
+    }
+    return 0;
 }
 
 std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
@@ -359,19 +452,18 @@ bool LevelSession::isPooledInteractionType(std::uint16_t type) {
 }
 
 std::uint32_t LevelSession::collectibleValue(std::uint16_t type) {
-    if (type == 0x6f) {
-        return 10;
+    switch (type) {
+    case 0x2c: return 500;
+    case 0x6f: return 50;
+    case 0x70: return 250;
+    case 0x71: return 100;
+    case 0x72: return 150;
+    default: break;
     }
-    if (type == 0x70) {
-        return 25;
-    }
-    if (type == 0x71) {
-        return 50;
-    }
-    if (type == 0x72) {
+    if (type >= 0x79 && type <= 0x7f) {
         return 100;
     }
-    return 1;
+    return 0;
 }
 
 std::string LevelSession::nextLevelName(const std::string &mapName) {
@@ -426,6 +518,19 @@ bool LevelSession::atRightExit(const PlayerRecord &player) const {
 }
 
 bool LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
+    return updateStreamingImpl(0, playerX, playerY);
+}
+
+bool LevelSession::updateStreaming(Simulation &simulation,
+                                   std::int32_t playerX,
+                                   std::int32_t playerY) {
+    return updateStreamingImpl(&simulation.stateForSetup().scheduler,
+                               playerX, playerY);
+}
+
+bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
+                                       std::int32_t playerX,
+                                       std::int32_t playerY) {
     const std::int32_t regionX = floorRegion(playerX);
     const std::int32_t regionY = floorRegion(playerY);
     bool spawnedTransient = false;
@@ -435,6 +540,7 @@ bool LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
             entity.phase = EntityPhase::Collected;
             entity.active = false;
             entity.pooledInteractionTriggered = false;
+            releaseScheduledEntity(scheduler, entity);
             removeTransientEffectsFor(entity.id);
             continue;
         }
@@ -446,13 +552,171 @@ bool LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
         entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
         entity.active = visible;
         if (visible && !wasActive) {
+            if (scheduler != 0 && entity.updateCallback.offset != 0) {
+                entity.schedulerHandle = scheduler->queueSpawn(
+                    entity.updateCallback, entity.id, false);
+            }
             spawnedTransient = spawnTransientEffect(entity) || spawnedTransient;
         } else if (!visible) {
+            releaseScheduledEntity(scheduler, entity);
             entity.pooledInteractionTriggered = false;
             removeTransientEffectsFor(entity.id);
         }
     }
     return spawnedTransient;
+}
+
+void LevelSession::releaseScheduledEntity(ObjectScheduler *scheduler,
+                                          LevelEntity &entity) {
+    if (scheduler != 0 && entity.schedulerHandle.valid()) {
+        scheduler->queueRelease(entity.schedulerHandle);
+    }
+    entity.schedulerHandle = SchedulerHandle();
+}
+
+void LevelSession::dispatchCollectibleCallbacks(Simulation *simulation,
+                                                PlayerRecord &player) {
+    ObjectScheduler *scheduler = simulation == 0
+        ? 0 : &simulation->stateForSetup().scheduler;
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        if (!entity.active || entity.collected ||
+            entity.kind != EntityKind::Collectible ||
+            entity.updateCallback.offset != 0x8d20) {
+            continue;
+        }
+
+        // A queued ARE object becomes callable at beginTick(). The legacy
+        // overload has no scheduler and remains useful for setup-only callers.
+        if (scheduler != 0) {
+            if (!entity.schedulerHandle.valid() ||
+                entity.schedulerHandle.slot >= scheduler->objects().size() ||
+                !scheduler->objects()[entity.schedulerHandle.slot].active) {
+                continue;
+            }
+        }
+
+        // The static 8D31 -> 393C bounds contract is represented at this
+        // boundary by the existing player/entity overlap predicate. The
+        // predicate is intentionally kept in one place until the exact DOS
+        // fixed-point bounds trace is promoted from research evidence.
+        if (!overlaps(player, entity, _config.collectibleRadius)) {
+            continue;
+        }
+
+        std::vector<LevelStateWrite> writes;
+        applyCollectibleCallback(entity, player, writes);
+        entity.collected = true;
+        entity.active = false;
+        entity.phase = EntityPhase::Collected;
+        entity.pooledInteractionTriggered = false;
+        releaseScheduledEntity(scheduler, entity);
+        removeTransientEffectsFor(entity.id);
+        appendCollectedEvent(entity, writes);
+    }
+}
+
+void LevelSession::applyCollectibleCallback(
+    LevelEntity &entity, PlayerRecord &player,
+    std::vector<LevelStateWrite> &writes) {
+    const std::uint32_t scoreBefore = _score;
+    std::uint16_t soundAction = 0;
+
+    switch (entity.contactSubtype) {
+    case 1: {
+        soundAction = 9;
+        const std::uint16_t before = _gameplayState.ammo880c;
+        const std::uint16_t after = static_cast<std::uint16_t>(
+            std::min<std::uint32_t>(99, static_cast<std::uint32_t>(before) + 10));
+        _gameplayState.ammo880c = after;
+        appendStateWrite(writes, 0x880c, 2, before, after);
+        break;
+    }
+    case 2: {
+        soundAction = 9;
+        const std::uint16_t maximumBefore = _gameplayState.maximumHealth8824;
+        const std::uint16_t maximumAfter = static_cast<std::uint16_t>(
+            std::min<std::uint32_t>(5,
+                                    static_cast<std::uint32_t>(maximumBefore) + 1));
+        _gameplayState.maximumHealth8824 = maximumAfter;
+        appendStateWrite(writes, 0x8824, 2, maximumBefore, maximumAfter);
+
+        const std::uint16_t currentBefore = _gameplayState.currentHealth8822;
+        _gameplayState.currentHealth8822 = maximumAfter;
+        appendStateWrite(writes, 0x8822, 2, currentBefore, maximumAfter);
+        break;
+    }
+    case 3: {
+        soundAction = 10;
+        const std::uint16_t before = _gameplayState.currentHealth8822;
+        const std::uint16_t after = before < _gameplayState.maximumHealth8824
+            ? static_cast<std::uint16_t>(before + 1) : before;
+        _gameplayState.currentHealth8822 = after;
+        appendStateWrite(writes, 0x8822, 2, before, after);
+        break;
+    }
+    case 4: {
+        soundAction = 12;
+        const std::uint16_t before = _gameplayState.invulnerabilityGate8810;
+        _gameplayState.invulnerabilityGate8810 = 0xffff;
+        appendStateWrite(writes, 0x8810, 2, before, 0xffff);
+        const std::uint16_t timerBefore = player.timer34;
+        player.timer34 = 0x02bc;
+        appendStateWrite(writes, 0x0034, 2, timerBefore, player.timer34);
+        _gameplayState.playerTimer0034 = 0x02bc;
+        break;
+    }
+    case 5: {
+        soundAction = 12;
+        const std::uint16_t before = _gameplayState.lives880a;
+        const std::uint16_t after = static_cast<std::uint16_t>(
+            std::min<std::uint32_t>(9, static_cast<std::uint32_t>(before) + 1));
+        _gameplayState.lives880a = after;
+        appendStateWrite(writes, 0x880a, 2, before, after);
+        break;
+    }
+    default:
+        if (entity.collectionBit != 0) {
+            soundAction = 11;
+            const std::uint16_t before = _gameplayState.puzzleMask60d8;
+            const std::uint16_t after = static_cast<std::uint16_t>(
+                before | entity.collectionBit);
+            _gameplayState.puzzleMask60d8 = after;
+            appendStateWrite(writes, 0x60d8, 2, before, after);
+        }
+        break;
+    }
+
+    if (soundAction != 0) {
+        const std::uint16_t before = _gameplayState.pendingEvent612e;
+        _gameplayState.pendingEvent612e = soundAction;
+        appendStateWrite(writes, 0x612e, 2, before, soundAction);
+    }
+
+    const std::uint32_t value = collectibleValue(entity.type);
+    const std::uint32_t scoreAfter = scoreBefore + value;
+    _score = scoreAfter;
+    _gameplayState.score881c = scoreAfter;
+    appendStateWrite(writes, 0x881c, 4, scoreBefore, scoreAfter);
+}
+
+void LevelSession::appendCollectedEvent(
+    const LevelEntity &entity, const std::vector<LevelStateWrite> &writes) {
+    LevelEvent event;
+    event.type = LevelEventType::Collected;
+    event.entityId = entity.id;
+    event.entityType = entity.type;
+    event.stateWrites = writes;
+    _events.push_back(event);
+}
+
+void LevelSession::syncPlayerTimer(const PlayerRecord &player) {
+    if (player.timer34 != 0) {
+        _gameplayState.playerTimer0034 = player.timer34;
+    } else if (_gameplayState.playerTimer0034 != 0) {
+        _gameplayState.playerTimer0034 = 0;
+        _gameplayState.invulnerabilityGate8810 = 0;
+    }
 }
 
 void LevelSession::emitHighEffect(std::int32_t sourceX, std::int32_t sourceY) {
@@ -617,11 +881,13 @@ void LevelSession::tick(Simulation &simulation,
     PlayerRecord &player = simulation.stateForSetup().player;
     const bool alternatePressed = input.alternate && !_alternateActionActive;
     _alternateActionActive = input.alternate;
-    bool spawnedTransient = updateStreaming(player.positionX.floorPixels(),
-                                            player.positionY.floorPixels());
+    bool spawnedTransient = updateStreaming(
+        simulation, player.positionX.floorPixels(), player.positionY.floorPixels());
     simulation.tick(input, world, output);
-    spawnedTransient = updateStreaming(player.positionX.floorPixels(),
-                                       player.positionY.floorPixels()) || spawnedTransient;
+    syncPlayerTimer(player);
+    spawnedTransient = updateStreaming(
+        simulation, player.positionX.floorPixels(), player.positionY.floorPixels()) ||
+        spawnedTransient;
     advanceActiveEntities();
     advanceActiveEffects();
     const bool emittedTileEffect = emitWorldEffectsForActiveEntities();
@@ -637,19 +903,14 @@ void LevelSession::tick(Simulation &simulation,
         enqueueEvent(LevelEventType::AlternateActionObject);
     }
 
+    dispatchCollectibleCallbacks(&simulation, player);
+
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         if (!entity.active || entity.collected) {
             continue;
         }
-        if (entity.kind == EntityKind::Collectible &&
-            overlaps(player, entity, _config.collectibleRadius)) {
-            entity.collected = true;
-            entity.active = false;
-            entity.phase = EntityPhase::Collected;
-            _score += collectibleValue(entity.type);
-            enqueueEvent(LevelEventType::Collected, entity.id, entity.type);
-        } else if (entity.kind == EntityKind::Hazard &&
+        if (entity.kind == EntityKind::Hazard &&
                    isPooledInteractionType(entity.type)) {
             const bool pooledContact = pooledInteractionOverlaps(player, entity);
             if (!pooledContact) {
@@ -663,7 +924,7 @@ void LevelSession::tick(Simulation &simulation,
                 resetPlayer(simulation);
                 ++_deaths;
                 enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-                updateStreaming(player.positionX.floorPixels(),
+                updateStreaming(simulation, player.positionX.floorPixels(),
                                 player.positionY.floorPixels());
                 output.player = player;
                 output.player.syncToRaw();
@@ -674,7 +935,7 @@ void LevelSession::tick(Simulation &simulation,
             resetPlayer(simulation);
             ++_deaths;
             enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-            updateStreaming(player.positionX.floorPixels(),
+            updateStreaming(simulation, player.positionX.floorPixels(),
                             player.positionY.floorPixels());
             output.player = player;
             output.player.syncToRaw();

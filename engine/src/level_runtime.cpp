@@ -93,7 +93,7 @@ void LevelRuntime::loadEntityBobs(const Archive &archive) {
 void LevelRuntime::reset(Simulation &simulation) {
     _session.reset(simulation);
     const PlayerRecord &player = simulation.state().player;
-    _session.updateStreaming(player.positionX.floorPixels(),
+    _session.updateStreaming(simulation, player.positionX.floorPixels(),
                              player.positionY.floorPixels());
 }
 
