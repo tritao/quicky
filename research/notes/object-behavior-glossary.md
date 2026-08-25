@@ -160,7 +160,10 @@ The five high tails are statically grouped as dedicated steady callbacks
 `D55A -> D563`. Their match path clears target X, increments the separate
 `+0x2C` hit counter, calls `4B70`, sets scheduler phase `+0x17=2`, and then
 continues into the effect-specific state update. Their gameplay identities
-remain intentionally unnamed pending a live camera-centered spawn trace.
+remain intentionally unnamed pending target-hit coverage. Existing live
+scheduler traces reach `B25D` in W1L3 and `D55A` in W5L3; both are phase-2,
+source-less (`+0x1A=FFFF`) transient objects using sprite slots around
+`0x3DE`-`0x3E0`. `BB17`, `C331`, and `CDAC` still need live spawn coverage.
 
 | shared | `01F7:44FF` | `reset_target_list` | confirmed | Sets target capacity to four, clears the active count, and zeroes target slots. |
 | shared | `01F7:4519` | `init_target_emitter` | confirmed | Reserves a shared target-list slot and installs callback `45AB`. |

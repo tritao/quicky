@@ -558,9 +558,19 @@ is reached by a dedicated steady callback and has the same contract:
 
 On a match, each clears target X, increments `+0x2C`, calls `4B70`, sets
 `object+0x17=2`, and continues through the family-specific effect update.
-No gameplay names are assigned until one of these handlers is reached in a
-camera-centered live spawn; the static contract is sufficient to model the
-shared target handoff without conflating it with normal ARE sprites.
+Independent live scheduler traces already reach `B25D` in W1L3 and `D55A` in
+W5L3. Those objects have `+0x1A=FFFF` (no ARE source), phase `2`, and sprite
+slots in the `0x3DE`-`0x3E0` range, confirming that at least these handlers are
+transient effect objects spawned by gameplay rather than normal ARE sprites.
+The machine-readable evidence is `research/build/traces/player-w1l3-sfx-
+position.json` and `research/build/traces/player-W5L3-right-pickups.json` in
+the main research build.
+
+The target-hit branch itself still needs a dedicated high-object probe, and
+`BB17`, `C331`, and `CDAC` have not yet been reached in a live trace. No
+gameplay names are assigned until that coverage exists; the static contract is
+sufficient to model the shared target handoff without conflating it with
+normal ARE sprites.
 
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction
