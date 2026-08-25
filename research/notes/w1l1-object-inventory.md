@@ -21,7 +21,7 @@ inventory; repeated declarations are intentionally retained in the count.
 | --- | ---: | --- | --- | --- |
 | `01` | 10 | normal pool via `01F7:0E06`; initializer `6DA3/6DB1`; callback `6DC4` | enemy contact routes to `4AB3/4C5D`; off-camera removal clears the callback and source marker | gameplay family closed for classification |
 | `03`, `04` | 7, 3 | normal pool via `0E06`; initializers `689F/68AD`; callback `68C0` | enemy contact routes to `4AB3/4C5D`; fixed-point patrol and MAP blocking affect future contact | gameplay family closed for classification |
-| `1F`, `20` | 1, 1 | parent state setup `8B3D/8B50`; shared state machine `8E4B`; child effects `16CE -> 10B5` | MAP-driven emissions publish `DS:8828/882A`; transition routine `1AAA` can consume that state and reposition the player | gameplay-relevant environmental path; authored selector still open |
+| `1F`, `20` | 1, 1 | parent state setup `8B3D/8B50`; shared state machine `8E4B`; child effects `16CE -> 10B5` | MAP-driven emissions publish `DS:8828/882A`; transition routine `1AAA` can consume that state and reposition the player | state/effect closure implemented; authored selector still open |
 | `28` | 1 | special class-0 object; initializer/callback `9256 -> 9269` | aligned overlap can write `DS:89E6=FFFF` behind the `DS:89EA` and player `+0x37` gates | transition-gate side effect closed; special renderer remains open |
 | `29`, `2A`, `2B` | 5, 12, 39 | leaf source through `0E06`; child initializer `474D`; child callback `47E7` | no persistent player/entity collision; MAP blocking only changes pooled leaf motion | presentation-only for player simulation |
 | `65`, `67` | 66, 14 | dedicated handlers `178D/17A3 -> 1749`; transient event child `16CE -> 10B5` | no standard player collision or persistent gameplay write observed; event ring and short-lived ICO effects | presentation-only; semantic subtype names remain unresolved |
@@ -59,8 +59,8 @@ object release:
 2. `6DC4`/`68C0` normal enemy callbacks and their existing `4AB3` contact
    boundary — state-zero WURM2/BIENE patrol and lifecycle are implemented;
    `1C4D` polarity and vertical/PRNG phases remain address-qualified.
-3. `8E4B` environmental state machine, keeping `1AAA` as an explicit
-   transition contract.
+3. `8E4B` environmental state machine and `16CE -> 10B5` child effects —
+   implemented; `1AAA` remains an explicit transition contract.
 4. `9269` cloud gate and `DS:89E6` transition publication.
 5. Leaf and dedicated-event families as deterministic presentation objects.
 

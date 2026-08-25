@@ -21,10 +21,10 @@ The current iteration supports:
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - a shared SDL audio mixer that combines gameplay music with confirmed pickup SFX;
 - ARE-backed level streaming with the scoped W1L1 object-family inventory;
-  the shared collectible callback `01F7:8D20` and W1 normal-enemy callbacks
-  `01F7:6DC4/68C0` are now executed through the scheduler, while other
-  environmental and transition contracts remain explicit at their recovered
-  boundaries;
+  the shared collectible callback `01F7:8D20`, W1 normal-enemy callbacks
+  `01F7:6DC4/68C0`, and animated world-ICO callback `01F7:8E4B` are now
+  executed through the scheduler, while other transition contracts remain
+  explicit at their recovered boundaries;
 - source-less high-effect rendering from the recovered `4B70 -> 4C74` chain:
   world-specific `PUFF.BOB`/`PUFFW2.BOB`, slots `611/612/613`, and the
   31-update terminal lifecycle;
@@ -92,6 +92,15 @@ the `+0x20` Y initializer offset, raw MAP `0x4000` probing through the
 Their `1C4D` object-helper polarity and vertical/PRNG phases remain
 address-qualified. Player contact records the timed `4AB3/4C5D` response and
 does not invoke the provisional player-death path.
+
+The W1 animated-tile slice executes the shared `01F7:8E4B` closure for ARE
+types `0x1F`-`0x21`. It preserves the initializer selector at `object+0x2E`,
+advances the callback state at `object+0x32`, performs the exact five-cell
+MAP/`DS:6986` probe order at states `4/6/8/10`, and creates three-tick ICO
+children through the recovered `16CE -> 10B5` contract. State 10 clears the
+parent and publishes the address-qualified terminal coordinates
+`DS:8828/DS:882A`; the indexed `01F7:1AAA` transition consumer and authored
+selector population remain explicit unresolved boundaries.
 
 ## Unified player callback status
 

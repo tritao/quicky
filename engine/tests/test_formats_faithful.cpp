@@ -428,6 +428,92 @@ void testRecoveredW1L1EnemyFamilies() {
     assert(!session.entities()[1].active);
 }
 
+void testRecoveredAnimatedTileEffectStateMachine() {
+    quiky::Map map = makeMap(16, 8);
+    // W1 DS:6986 evidence: source tiles 200..204 select ICO effects
+    // 120..124. State 4 has the special [16,0,32,48,64] order; states
+    // 6/8/10 use [16,32,48,64,80].
+    const std::uint16_t state4Tiles[] = {200, 201, 202, 203, 204};
+    const std::uint16_t laterTiles[] = {200, 201, 202, 203, 204};
+    const int rows[] = {1, 2, 3, 4};
+    for (int rowIndex = 0; rowIndex < 4; ++rowIndex) {
+        const std::uint16_t *tiles = rowIndex == 0 ? state4Tiles : laterTiles;
+        for (int column = 0; column < 5; ++column) {
+            map.cells[static_cast<std::size_t>(rows[rowIndex]) * map.width +
+                      (rowIndex == 0 ? 1 : 2) + column] = tiles[column];
+        }
+    }
+
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L1.MAP", map, makeSingleArea(0x1f), config);
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 16);
+
+    assert(session.entities()[0].kind == quiky::EntityKind::EnvironmentalEffect);
+    assert(session.entities()[0].environmentSelector == 1);
+    assert(session.entities()[0].environmentState == 0);
+    assert(session.entities()[0].effectResource == "W1.ICO");
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(output.schedulerCallbacks.size() == 1);
+    assert(output.schedulerCallbacks[0].callback.offset == 0x8e4b);
+    assert(session.entities()[0].environmentState == 1);
+    assert(session.effects().empty());
+
+    for (int frame = 0; frame < 3; ++frame) {
+        session.tick(simulation, world, quiky::InputState(), output);
+    }
+    assert(session.entities()[0].environmentState == 4);
+    assert(session.effects().size() == 5);
+    assert(session.effects()[0].effectSlot == 121);
+    assert(session.effects()[1].effectSlot == 120);
+    assert(session.effects()[2].effectSlot == 122);
+    assert(session.effects()[4].x == 80);
+    assert(session.effects()[0].effectResource == "W1.ICO");
+    assert(session.consumeEvent().type == quiky::LevelEventType::TileInteraction);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(session.entities()[0].environmentState == 6);
+    assert(session.effects().size() == 10);
+    assert(session.consumeEvent().type == quiky::LevelEventType::TileInteraction);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(session.entities()[0].environmentState == 8);
+    assert(session.consumeEvent().type == quiky::LevelEventType::TileInteraction);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(session.entities()[0].environmentState == 10);
+    assert(!session.entities()[0].active);
+    assert(session.entities()[0].streamSuppressed);
+    assert(session.gameplayState().terminalX8828 == 41);
+    assert(session.gameplayState().terminalY882a == 86);
+    // The state-8 children are still in their third native tick when state
+    // 10 creates its children; they are removed at the following 10B5 pass.
+    assert(session.effects().size() == 10);
+    assert(session.effects()[5].effectSlot == 120);
+    assert(session.effects()[9].effectSlot == 124);
+    assert(session.consumeEvent().type == quiky::LevelEventType::TileInteraction);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(output.schedulerCallbacks.empty());
+    assert(!session.entities()[0].active);
+    assert(session.effects().size() == 5);
+}
+
 } // namespace
 
 int main() {
@@ -441,6 +527,7 @@ int main() {
         testLevelSessionUsesSimulationBoundary();
         testRecoveredCollectibleStateContracts();
         testRecoveredW1L1EnemyFamilies();
+        testRecoveredAnimatedTileEffectStateMachine();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;

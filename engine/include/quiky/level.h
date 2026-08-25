@@ -17,6 +17,7 @@ enum class EntityKind {
     Hazard,
     Collectible,
     MovingPlatform,
+    EnvironmentalEffect,
 };
 
 enum class EntityPhase {
@@ -79,6 +80,11 @@ struct LevelGameplayState {
     std::uint16_t pendingEvent612e;
     std::uint16_t playerTimer0034;
     std::uint16_t puzzleMask60d8;
+    // State-10 8E4B publication. These are int32 coordinates at DS:8828
+    // and DS:882A; the indexed row selection consumed by 1AAA remains an
+    // external transition contract.
+    std::int32_t terminalX8828;
+    std::int32_t terminalY882a;
 
     LevelGameplayState();
 };
@@ -158,6 +164,9 @@ struct LevelEntity {
     std::int16_t enemyState;
     std::uint8_t mapBlocked;
     std::uint16_t enemyAnimationDelay;
+    // 8E4B: object+0x2E variant selector and object+0x32 callback state.
+    std::uint16_t environmentSelector;
+    std::uint16_t environmentState;
     bool streamSuppressed;
     bool enemyContactPending;
     CallbackIdentity contactCallback;
@@ -177,7 +186,8 @@ struct LevelEntity {
           spriteSlot(0xffff), spriteResource(), effectSlot(0xffff), effectResource(),
           updateCallback(), schedulerHandle(), contactSubtype(0), collectionBit(0),
           enemyPhaseTimer(0), enemyTimer(0), enemyState(0), mapBlocked(0),
-          enemyAnimationDelay(0), streamSuppressed(false),
+          enemyAnimationDelay(0), environmentSelector(0),
+          environmentState(0), streamSuppressed(false),
           enemyContactPending(false), contactCallback(), responseTimer(0),
           collisionWidth(0), collisionHeight(0),
           animationFrame(0), activeFrames(0),
@@ -236,7 +246,10 @@ private:
     void dispatchEnemyCallbacks(Simulation *simulation,
                                 const WorldCollisionView &world,
                                 const PlayerRecord &player);
+    bool dispatchWorldEffectCallbacks(Simulation *simulation);
     void initializeEnemy(LevelEntity &entity);
+    void initializeWorldEffect(LevelEntity &entity);
+    bool updateWorldEffect(Simulation *simulation, LevelEntity &entity);
     void updateWurm2(LevelEntity &entity, const WorldCollisionView &world);
     void updateBiene(LevelEntity &entity, const WorldCollisionView &world);
     bool enemyMapBlocked(const LevelEntity &entity,
@@ -252,7 +265,6 @@ private:
     void syncPlayerTimer(const PlayerRecord &player);
     void advanceActiveEntities();
     void advanceActiveEffects();
-    bool emitWorldEffectsForActiveEntities();
     bool emitWorldEffects(const LevelEntity &entity, std::uint16_t state);
     bool spawnTransientEffect(const LevelEntity &entity);
     void removeTransientEffectsFor(std::uint32_t entityId);

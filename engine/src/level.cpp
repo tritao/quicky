@@ -94,7 +94,9 @@ LevelGameplayState::LevelGameplayState()
       invulnerabilityGate8810(0),
       pendingEvent612e(0),
       playerTimer0034(0),
-      puzzleMask60d8(0) {
+      puzzleMask60d8(0),
+      terminalX8828(0),
+      terminalY882a(0) {
 }
 
 LevelSessionConfig::LevelSessionConfig()
@@ -154,6 +156,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.collisionWidth = collisionWidthFor(entity.type);
         entity.collisionHeight = collisionHeightFor(entity.type);
         initializeEnemy(entity);
+        initializeWorldEffect(entity);
         _entities.push_back(entity);
     }
 }
@@ -200,6 +203,7 @@ void LevelSession::reset(Simulation &simulation) {
         entity.contactCallback = CallbackIdentity();
         entity.responseTimer = 0;
         initializeEnemy(entity);
+        initializeWorldEffect(entity);
     }
     _effects.clear();
     resetPlayer(simulation);
@@ -252,6 +256,9 @@ EntityKind LevelSession::classify(std::uint16_t type) {
     if (type >= 0x3d && type <= 0x40) {
         return EntityKind::MovingPlatform;
     }
+    if (type >= 0x1f && type <= 0x21) {
+        return EntityKind::EnvironmentalEffect;
+    }
     return EntityKind::Unknown;
 }
 
@@ -290,6 +297,19 @@ void LevelSession::initializeEnemy(LevelEntity &entity) {
     entity.enemyContactPending = false;
     entity.contactCallback = CallbackIdentity();
     entity.responseTimer = 0;
+}
+
+void LevelSession::initializeWorldEffect(LevelEntity &entity) {
+    entity.environmentSelector = 0;
+    entity.environmentState = 0;
+    if (!isWorldEffectType(entity.type)) {
+        return;
+    }
+
+    // 01F7:8B3D/8B50/8B63 set object+0x2E to 1/2/3 and converge on
+    // 01F7:8E4B. The separate +0x32 callback state starts at zero.
+    entity.environmentSelector = static_cast<std::uint16_t>(
+        entity.type - 0x1e);
 }
 
 CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
@@ -483,7 +503,8 @@ std::string LevelSession::spriteResourceFor(std::uint16_t type) const {
 
 std::string LevelSession::effectResourceFor(std::uint16_t type) const {
     if (type >= 0x1f && type <= 0x21) {
-        return "WORLD";
+        const std::string world = worldForMap(_mapName);
+        return world.empty() ? "WORLD.ICO" : world + ".ICO";
     }
     if (type >= 0x65 && type <= 0x67) {
         return "LOOP_" + worldForMap(_mapName) + ".ICO";
@@ -607,11 +628,13 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
         const std::int32_t distanceY = std::abs(static_cast<std::int32_t>(entity.regionY) - regionY);
         const bool visible = distanceX <= _config.streamRadiusRegions &&
                              distanceY <= _config.streamRadiusRegions;
-        if (visible && isNormalEnemyType(entity.type) &&
+        if (visible && (isNormalEnemyType(entity.type) ||
+                        isWorldEffectType(entity.type)) &&
             entity.streamSuppressed && !wasActive) {
-            // 01F7:1DEE clears the object and the ARE claim. A loaded-region
-            // sweep does not revisit that declaration; reconstruction belongs
-            // to the level reload path, not to this visibility pass.
+            // 01F7:1DEE and the state-10 8E4B path clear the object and its
+            // active claim. A loaded-region sweep does not revisit that
+            // declaration; reconstruction belongs to the level reload path,
+            // not to this visibility pass.
             entity.phase = EntityPhase::Dormant;
             entity.active = false;
             continue;
@@ -625,7 +648,8 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
             }
             spawnedTransient = spawnTransientEffect(entity) || spawnedTransient;
         } else if (!visible) {
-            if (isNormalEnemyType(entity.type) && wasActive) {
+            if ((isNormalEnemyType(entity.type) ||
+                 isWorldEffectType(entity.type)) && wasActive) {
                 entity.streamSuppressed = true;
             }
             releaseScheduledEntity(scheduler, entity);
@@ -840,6 +864,66 @@ void LevelSession::dispatchEnemyCallbacks(
     }
 }
 
+bool LevelSession::dispatchWorldEffectCallbacks(Simulation *simulation) {
+    ObjectScheduler *scheduler = simulation == 0
+        ? 0 : &simulation->stateForSetup().scheduler;
+    bool emitted = false;
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        if (!entity.active || entity.kind != EntityKind::EnvironmentalEffect ||
+            entity.updateCallback.offset != 0x8e4b) {
+            continue;
+        }
+        if (scheduler != 0 &&
+            (!entity.schedulerHandle.valid() ||
+             entity.schedulerHandle.slot >= scheduler->objects().size() ||
+             !scheduler->objects()[entity.schedulerHandle.slot].active)) {
+            continue;
+        }
+        emitted = updateWorldEffect(simulation, entity) || emitted;
+    }
+    return emitted;
+}
+
+bool LevelSession::updateWorldEffect(Simulation *simulation,
+                                      LevelEntity &entity) {
+    // The 8E4B zero-state path has already passed through the scheduler's
+    // camera/loaded-region gate. Its remaining 393C bounds gate is an
+    // external persistent-player contract; keeping the object dormant until
+    // it is streamed is the native state available to this engine boundary.
+    if (entity.environmentState == 0) {
+        entity.environmentState = 1;
+        return false;
+    }
+
+    // 01F7:8E4B increments object+0x32 before dispatching states 4, 6, 8,
+    // and 10. All other intermediate states return without side effects.
+    ++entity.environmentState;
+    const std::uint16_t state = entity.environmentState;
+    bool emitted = false;
+    if (state == 4 || state == 6 || state == 8 || state == 10) {
+        emitted = emitWorldEffects(entity, state);
+    }
+
+    if (state == 10) {
+        // The callback clears object+0x18 and publishes two int32 values at
+        // DS:8828/DS:882A. 01F7:1AAA's indexed consumer is intentionally
+        // outside this closure; these writes are retained as named state.
+        const std::int32_t afterX = entity.x + 0x19;
+        const std::int32_t afterY = entity.y + 0x46;
+        _gameplayState.terminalX8828 = afterX;
+        _gameplayState.terminalY882a = afterY;
+
+        entity.active = false;
+        entity.phase = EntityPhase::Dormant;
+        entity.streamSuppressed = true;
+        releaseScheduledEntity(
+            simulation == 0 ? 0 : &simulation->stateForSetup().scheduler,
+            entity);
+    }
+    return emitted;
+}
+
 void LevelSession::updateWurm2(LevelEntity &entity,
                                const WorldCollisionView &world) {
     const bool blocked = enemyMapBlocked(entity, world);
@@ -948,7 +1032,7 @@ void LevelSession::advanceActiveEntities() {
             continue;
         }
         ++entity.activeFrames;
-        if (!isNormalEnemyType(entity.type)) {
+        if (!isNormalEnemyType(entity.type) && !isWorldEffectType(entity.type)) {
             entity.animationFrame = static_cast<std::uint16_t>(
                 (entity.animationFrame + 1) & 0x00ff);
         }
@@ -1020,24 +1104,6 @@ void LevelSession::advanceActiveEffects() {
     }
 }
 
-bool LevelSession::emitWorldEffectsForActiveEntities() {
-    bool emitted = false;
-    for (std::size_t index = 0; index < _entities.size(); ++index) {
-        const LevelEntity &entity = _entities[index];
-        if (entity.phase != EntityPhase::Active ||
-            !isWorldEffectType(entity.type)) {
-            continue;
-        }
-        if (entity.activeFrames == 4 || entity.activeFrames == 6 ||
-            entity.activeFrames == 8 || entity.activeFrames == 10) {
-            emitted = emitWorldEffects(
-                          entity,
-                          static_cast<std::uint16_t>(entity.activeFrames)) || emitted;
-        }
-    }
-    return emitted;
-}
-
 bool LevelSession::emitWorldEffects(const LevelEntity &entity,
                                     std::uint16_t state) {
     bool emitted = false;
@@ -1073,7 +1139,7 @@ bool LevelSession::emitWorldEffects(const LevelEntity &entity,
         effect.x = x;
         effect.y = y;
         effect.effectSlot = effectSlot;
-        effect.effectResource = "WORLD";
+        effect.effectResource = entity.effectResource;
         effect.animationFrame = 0;
         effect.lifetime = 3;
         effect.active = true;
@@ -1099,7 +1165,7 @@ void LevelSession::tick(Simulation &simulation,
         spawnedTransient;
     advanceActiveEntities();
     advanceActiveEffects();
-    const bool emittedTileEffect = emitWorldEffectsForActiveEntities();
+    const bool emittedTileEffect = dispatchWorldEffectCallbacks(&simulation);
 
     if (spawnedTransient) {
         enqueueEvent(LevelEventType::WorldObjectInteraction);
