@@ -60,6 +60,10 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x399e, "load_bob_resource", "Builds/loads a BOB resource after the .BOB path fragments.");
         label(0x3bae, "path_template_ico", "Pascal fragments: GAMEDATA\\ + .ICO");
         function(0x3bbd, "load_ico_resource", "Builds/loads an ICO resource after the .ICO path fragments.");
+        function(0x4009, "load_initial_map_and_assets",
+            "Primary level setup: calls 01D7:365B, then loads ICO/BOB assets selected by DS:85D4.");
+        function(0x48b5, "transition_scheduler_loop",
+            "Transition scheduler: waits on DS:819E, dispatches DS:89E6 events, and calls 01D7:3861 for third-level selectors 2/5/8/11/14 when DS:89EA and DS:880A permit.");
 
         label(0x491d, "level_selector_cheat_branch", "Runtime trace: checks the cheat-enabled level selector state.");
         function(0x01ac, "menu_input_action_pending",
@@ -132,6 +136,8 @@ public class AnnotateQuiky extends GhidraScript {
             relocationTarget(target, String.format("seg3_target_%04x", target),
                 "NE relocation target in segment 3; semantics not assigned yet.");
         }
+        function(0x33bf, "map_low_id_normalizer",
+            "Whole-MAP pass: for low IDs 2, 3, and 4, preserves upper property bits and reinserts the ID.");
         function(0x1cda, "stream_are_regions",
             "Streams ARE declarations for newly visible 64-pixel regions using camera coordinates and the reference grid.");
         function(0x0e66, "object_pool_count_active",
@@ -195,10 +201,18 @@ public class AnnotateQuiky extends GhidraScript {
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
         function(0x3376, "map_tile_id_lookup_16px",
             "Converts 16-pixel coordinates in AX/BX to a MAP cell address using DS:657A/657E and returns only the low 9-bit tile ID.");
+        function(0x16ce, "map_effect_tile_rewrite",
+            "Rewrites one loaded MAP cell as (word & 0xfe00) | (DX & 0x01ff), unless DX bit 0x8000 requests the non-MAP path; called by tile-effect state updates.");
+        function(0x339a, "map_low_id_writer",
+            "Coordinate-selected loaded-MAP writer: preserves upper property bits, then ORs unmasked CX; caller supplies the low-ID bits.");
+        function(0x340a, "map_property_writer",
+            "Coordinate-selected loaded-MAP writer: preserves the low nine-bit tile ID, then ORs unmasked CX; caller supplies the upper-property bits.");
         function(0x5c27, "map_tile_descriptor_query_5c27",
             "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and tests descriptor flags against coordinate bit 3.");
         function(0x5cc3, "map_tile_descriptor_query_5cc3",
             "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and returns the descriptor word in DX.");
+        function(0x5c9d, "map_cell_word_store",
+            "Stores a complete CX word into one loaded MAP cell using the row stride and coordinate-derived byte offset.");
         function(0x5d00, "map_cell_descriptor_5d00",
             "Builds a nearby MAP-cell descriptor used by player movement; exact field meanings remain under analysis.");
         function(0x5d38, "map_cell_descriptor_5d38",

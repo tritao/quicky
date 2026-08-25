@@ -49,12 +49,33 @@ public class DumpQuikyDecomp extends GhidraScript {
                 Address address = toAddr(offset);
                 Function function = currentProgram.getFunctionManager().getFunctionAt(address);
                 if (function == null) {
+                    // Raw segmented imports sometimes identify a state-machine
+                    // entry only as an interior label.  Decompile the containing
+                    // function so the control flow around the requested address
+                    // is still available for static attribution.
+                    function = currentProgram.getFunctionManager().getFunctionContaining(address);
+                }
+                if (function == null) {
+                    // Some hand-entered transition labels are not reached by
+                    // Ghidra's initial analysis.  Decode and create a local
+                    // function at the requested entry in the disposable
+                    // analysis project, then decompile that recovered body.
+                    try {
+                        disassemble(address);
+                        function = createFunction(address, expectedName);
+                    } catch (Exception ignored) {
+                        // Keep the explicit MISSING marker below if decoding
+                        // cannot establish a valid function boundary.
+                    }
+                }
+                if (function == null) {
                     writer.println("/* MISSING 0x" + target[0] + " " + expectedName + " */");
                     writer.println();
                     continue;
                 }
 
-                writer.println("/* " + expectedName + " at 0x" + target[0] + " */");
+                writer.println("/* " + expectedName + " at 0x" + target[0] +
+                    "; containing function " + function.getEntryPoint() + " */");
                 DecompileResults result = decompiler.decompileFunction(function, 120, monitor);
                 if (result.decompileCompleted() && result.getDecompiledFunction() != null) {
                     writer.println(result.getDecompiledFunction().getC());
@@ -86,15 +107,43 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"34c8", "load_are_resource"},
                 {"365b", "load_map_resource_primary"},
                 {"3861", "load_map_resource_secondary"},
+                {"3808", "descriptor_world_dispatch"},
+                {"4009", "primary_loader_callsite"},
                 {"399e", "load_bob_resource"},
                 {"3bbd", "load_ico_resource"},
                 {"313d", "seg1_target_313d"},
                 {"47f0", "reset_game_input_flags"},
                 {"4ac2", "level_selector_input_loop"},
+                {"4859", "transition_main_loop_entry"},
+                {"48b5", "transition_wait_gate_clear"},
+                {"48bb", "transition_wait_gate_test"},
+                {"48c2", "transition_post_wait_entry"},
+                {"48cc", "transition_post_wait_state_check"},
+                {"48dc", "transition_post_wait_branch"},
+                {"48e6", "transition_post_wait_event_gate"},
+                {"493e", "transition_write_event_flag"},
+                {"4968", "transition_dispatch"},
+                {"4ba4", "transition_scheduler_gate"},
+                {"4bae", "transition_scheduler_dispatch"},
+                {"4b8d", "transition_dispatch_tail"},
+                {"4bd8", "transition_secondary_loader_gate"},
+                {"4ea0", "transition_pending_gate"},
+                {"4eaa", "transition_pending_setup"},
+                {"4edd", "transition_pending_wait_a"},
+                {"4ee6", "transition_pending_wait_b"},
+                {"4f0d", "transition_pending_intro"},
+                {"5010", "transition_main_loop_event"},
+                {"504f", "transition_main_loop_dispatch"},
             };
         }
         if ("SEG02".equals(segment)) {
             return new String[][] {
+                {"36ed", "startup_audio_or_timer_setup"},
+                {"382b", "descriptor_table_constructor"},
+                {"3874", "descriptor_table_allocate"},
+                {"387c", "descriptor_table_publish_base"},
+                {"387f", "descriptor_table_publish_selector"},
+                {"3883", "descriptor_table_zero_fill"},
                 {"085e", "load_sam_tfx_resource"},
                 {"0caa", "seg2_target_0caa"},
             };
@@ -113,6 +162,9 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"106a", "seg3_target_106a"},
                 {"1cda", "stream_are_regions"},
                 {"1ec4", "seg3_target_1ec4"},
+                {"1892", "dedicated_event_tile_rewrite_callsite"},
+                {"1944", "dedicated_event_tile_rewrite_callsite_b"},
+                {"6359", "short_tile_animation_rewrite_callsite"},
                 {"1ed7", "update_camera_scroll"},
                 {"1dca", "object_camera_visibility_gate"},
                 {"1dee", "deactivate_object_outside_camera"},
@@ -120,10 +172,14 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"2cb2", "render_map_strip"},
                 {"332c", "seg3_target_332c"},
                 {"335e", "seg3_target_335e"},
-                {"33bf", "seg3_target_33bf"},
+                {"33bf", "map_low_id_normalizer"},
+                {"16ce", "map_effect_tile_rewrite"},
+                {"339a", "map_low_id_writer"},
+                {"340a", "map_property_writer"},
                 {"3376", "map_tile_id_lookup_16px"},
                 {"5c27", "map_tile_descriptor_query_5c27"},
                 {"5cc3", "map_tile_descriptor_query_5cc3"},
+                {"5c9d", "map_cell_word_store"},
                 {"5d00", "map_cell_descriptor_5d00"},
                 {"5d38", "map_cell_descriptor_5d38"},
                 {"5d60", "map_cell_state_decay_5d60"},
@@ -143,14 +199,30 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"648e", "player_collision_helper_648e"},
                 {"69ff", "player_bounds_or_collision_69ff"},
                 {"44dc", "player_control_transition_44dc"},
+                {"19a3", "write_scheduler_gate_start"},
+                {"19e6", "scheduler_gate_overlap_path"},
+                {"1a3d", "write_scheduler_gate_state"},
+                {"1ae6", "clear_scheduler_gate"},
+                {"199d", "write_scheduler_gate_callback"},
+                {"1bc4", "scheduler_gate_overlap_callsite"},
+                {"3ab3", "scheduler_gate_motion_callsite"},
+                {"43d0", "player_boundary_gate_callsite"},
+                {"43d1", "player_boundary_gate_entry"},
                 {"8e4b", "update_tile_effect_state_machine"},
                 {"f17f", "keyboard_irq1_handler"},
                 {"f1a8", "poll_keyboard_ring_to_input_flags"},
                 {"f21b", "read_normalized_input_flags"},
+                {"f049", "timer_irq_entry"},
             };
         }
         if ("SEG04".equals(segment)) {
             return new String[][] {
+                {"0002", "wait_frames_on_timer_flag"},
+                {"0014", "clear_timer_wait_flag"},
+                {"001e", "timer_wait_yield_callsite"},
+                {"101f", "timer_routine_clear_wait_flag"},
+                {"10a3", "timer_routine_recursive_callsite"},
+                {"10a9", "pit_timer_wait_helper"},
                 {"022a", "seg4_target_022a"},
                 {"125b", "seg4_target_125b"},
                 {"170a", "seg4_target_170a"},

@@ -114,6 +114,7 @@ class QuikyTraceTests(unittest.TestCase):
             state_machine=StateMachineTraceConfig(
                 samples=3, camera_x=0, camera_y=0, position_x=0,
                 position_y=0, force_emission=True, patch_map_run=True,
+                force_state=3, warmup_frames=12, map_patch_y_offset=16,
             ),
             select_level='W4L1',
         )
@@ -123,6 +124,9 @@ class QuikyTraceTests(unittest.TestCase):
         source = "TRACE_CONFIG = " + lua_literal(payload)
         self.assertIn('["state_machine"]', source)
         self.assertIn('["patch_map_run"]=true', source)
+        self.assertIn('["force_state"]=3', source)
+        self.assertIn('["warmup_frames"]=12', source)
+        self.assertIn('["map_patch_y_offset"]=16', source)
         self.assertNotIn("TRACE_STATE_MACHINE_", source)
 
     def test_entity_trace_loader_uses_structured_config(self):
@@ -255,6 +259,16 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertEqual(
             player_trace_lua_config(config)["branch_patch_tile"], 0x160
+        )
+
+    def test_player_branch_patch_flags_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, branch_focus=True,
+            branch_patch_flags=0x20,
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["branch_patch_flags"], 0x20
         )
 
     def test_player_trace_uses_selector_safe_map_reads(self):

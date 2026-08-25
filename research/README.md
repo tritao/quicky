@@ -261,6 +261,361 @@ per-tile descriptor flags, not by `value >> 9`. The loader's separate
 `OR 0x10` into one runtime row remains a confirmed mutation whose higher-level
 purpose is still open.
 
+The targeted renderer audit agrees: `20C8` and `2CB2` also mask MAP words with
+`0x01ff` before selecting imagery. The upper MAP field is therefore preserved
+by mutation helpers but has no identified direct render/collision consumer;
+indirect-reader status remains open. Selector-safe W1L1 traces confirm the
+dataflow: `0x002e`/`0x002d` reach descriptor `0x000c`, while jump samples reach
+tiles `0x001`/`0x01a` with descriptor `0`. Controlled tile substitutions give a
+positive `0x02a`/`0x0070` branch through `3DF1` and a negative
+`0x02b`/`0x0030` branch through `3DE4`; side-probe substitutions similarly
+establish the `3DF2` short-circuit polarity. These are controlled evidence,
+not final gameplay names for the high descriptor bits.
+
+A fresh current-worktree DOSBox control pair makes the X-retry gate explicit:
+W1 tile `0x028` (`flags=0x10`) and tile `0x029` (`flags=0x50`) both follow
+`3D02 -> 3D1E -> 3D45 -> 3DD0 -> 3DE4`, while no-flag tile `0x160` follows
+`3D02 -> 3D1E -> 3D36 -> 3D40 -> 3D44`. The `0x40` bit therefore does not
+override `0x10` suppression. The exact traces and hashes are in the curated
+evidence JSON.
+
+Descriptor-only controls on the unchanged `0x02e` MAP tile further isolate the
+vertical bits: `0x20` alone returns through `3DE4`, `0x40` alone executes the
+retry and returns through `3D44`, and `0x60` reaches the positive `3DF1`
+branch. The positive branch therefore requires the combined descriptor bits,
+not a hidden MAP upper-field property.
+
+Normal held-right W1L1 gameplay independently reaches tile `0x02a` at probe
+`(1575,354)`: raw MAP `0x202a` (upper field `0x10`) maps to descriptor
+`0x70` and returns through `3DF1`. This confirms the upper field remains
+present in live MAP words without entering the direct collision lookup.
+The same natural pass reaches tile `0x028` (`raw=0x2028`, descriptor `0x10`)
+at `(1080,380)` and also returns through `3DF1`; `0x10` is therefore not
+intrinsically a negative result.
+
+The curated selector-safe cases and source hashes are recorded in
+[`notes/descriptor-collision-evidence.json`](notes/descriptor-collision-evidence.json).
+
+The descriptor flag roles are mechanically resolved: the low nibble is a
+four-way occupancy mask; `0x10` or `0x20` suppresses the `3D02` eight-pixel X
+retry; `0x20` selects the vertical response polarity; and `0x40` selects the
+eight-pixel Y alignment. Only `01F7:3D19/3D31` directly call `5CC3`; the many
+other `5C27` callers use only the low nibble. A standalone gameplay name for
+`0x10` is still not justified.
+
+The low-nibble helper's quadrant mapping is now explicit from its target
+disassembly. With `AX` as the 16-pixel row coordinate and `BX` as the
+8-pixel-aligned column coordinate, the tested subquadrant is selected by bit 3:
+`AX.bit3/BX.bit3 = 11, 10, 01, 00` selects descriptor bits `0x02`, `0x01`,
+`0x04`, and `0x08`, respectively. A zero low nibble returns clear; otherwise
+only the selected occupancy bit is tested. This is the concrete bit-to-quadrant
+mapping needed by a faithful collision implementation.
+
+A trajectory-matched control strengthens the `0x10` result. At sequence 6 of
+the held-right W1L1 run, the player is descending (`y=356`, vertical velocity
+`0x00009000`) into tile `0x02a`; the natural descriptor `0x70` reaches `3DF1`.
+Patching only that live descriptor record to `0x10` leaves the incoming `3D02`
+register stale at `0x70`, but the descriptor lookup and subsequent branch
+events carry `0x10` and reach `3DE4`. The retry suppression is therefore
+attributable to the consumed descriptor word during vertical motion, not to a
+stationary probe artifact. The exact trace and hash are in
+[`notes/descriptor-collision-evidence.json`](notes/descriptor-collision-evidence.json).
+
+Target decompilation also closes the nearby player-state ambiguity: `3D02`
+clears object `+0x3a`, sets it to `0x01` or `0xff` for the two `0x20` response
+branches, and clears it on a rejected target-Y comparison. `3DF2` is the only
+identified consumer and tests the byte only as zero/nonzero before the X snap.
+So `+0x3a` is a transient accepted-vertical-response latch, not a persistent
+floor/ceiling or surface-type field.
+
+### Runtime descriptor construction — confirmed
+
+The descriptor allocation/publication path is `01E7:382B` (`0x800` bytes at
+`01E7:3874`, published through `DS:6582/6584`), with runtime stride
+`DS:30D4 = 4`. `01D7:3808` dispatches to one world-specific initializer; each
+initializer fills 512 records at `DS:6582 + tile_id * 4`, writing the identity
+`tile_id` at `+0` and a world-specific flags word at `+2` (default `0`). The
+collision consumers in segment `01F7` use the direct mapping
+`tile_id = raw_map_cell & 0x01ff`, then read the descriptor word at `+2`.
+The renderers load `+0` and shift it by eight to select the corresponding
+`0x100`-byte ICO/image block, proving that the identity field is a resource
+index as well as a preserved tile ID.
+Selector-safe DOSBox construction traces match the static W1 and W2 tables for
+all 512 records. The full address ledger, flag evidence, and trace commands
+are in [`notes/runtime-descriptor-construction.md`](notes/runtime-descriptor-construction.md).
+
+The target decompiler confirms that `01E7:382B` is a startup constructor: it
+publishes and zero-fills the descriptor table, then allocates unrelated runtime
+buffers. The world dispatcher `01D7:3808` selects the initializer from
+`DS:85D8` and clears a separate `DS:6D86:DS:6D88` `0x800`-byte buffer; that
+buffer is not a descriptor remap. The generated pseudocode is retained outside
+Git and its paths are recorded in the evidence JSON.
+
+Fresh live traces now cover W3L1, W4L1, and W5L1 as well: all five worlds
+match their corrected static tables 512/512, with MAP strides/heights
+`540/30`, `540/40`, `500/50`, `490/52`, and `300/86`, respectively. W3 also
+exposed duplicate compare cases for tile IDs `0xda`/`0xdb`; the first ladder
+matches (`0x0c`/`0x08`) win over later unreachable (`0x10`/`0x50`) cases.
+The machine-readable census is in
+[`notes/descriptor-construction-evidence.json`](notes/descriptor-construction-evidence.json).
+
+The primary MAP loader is `01D7:365B`; its post-copy loop covers the first row
+(`DS:657E / 2` cells) and performs `OR byte [MAP + 2*cell + 1], 0x10`.
+Runtime checkpoints show this changes the CPU-visible word by `0x1000`
+(`0x0001→0x1001` on W1L1 and `0x005c→0x105c` on W2L1), leaving the low-nine-bit
+tile ID unchanged. The secondary loader at `01D7:3861` has the same static
+mutation pattern. Target decompilation now attributes it precisely: the
+transition scheduler at `01D7:48B5` reaches `4BD8` only when `DS:89EA != 0`
+and `DS:880A > 0`, then calls `3861` for selectors `2`, `5`, `8`, `0x0b`,
+and `0x0e` (`4BF1/4BFB/4C05/4C0F/4C19`). These are the zero-based third
+levels W1L3 through W5L3. The primary setup callsite at `01D7:4009` calls
+`365B` before the level-specific ICO/BOB setup. A normal W1L3 lifecycle probe
+still remains at the `01D7:48BB`
+transition wait: `01F7:1AE6` repeatedly clears `DS:89EA` while `DS:880A` is
+`4`, and its call sites are not claimed as naturally observed. A
+corrected `--secondary` construction probe with a 128-lookup guard likewise
+times out before entering `3861`; the negative artifact is listed in the
+construction evidence JSON.
+A controlled trampoline reaches `3861` and observes the same `0x0001→0x1001`
+(`+0x1000`) first-cell mutation. The MAP writer helper `01F7:5C9D` is also
+covered by a controlled W1L3 call: `(x=0x45,y=0x123,CX=0xa55a)` writes selector
+`887`, offset `0x07c4`, changing `0x5001→0xa55a` at `5CBE`. These injected
+calls prove code semantics, not normal-gameplay attribution.
+
+The complete static MAP-write audit finds three additional cell-writer
+families. `01F7:33BF` runs immediately after both loader returns (`37CB` and
+`396D`) and conditionally rewrites every cell whose low-nine-bit ID is 2, 3,
+or 4; the mask/reinsert operation is idempotent for a well-formed MAP word.
+`01F7:16CE` rewrites one effect cell as `(word & 0xfe00) | (DX & 0x01ff)` and
+has 23 direct NE callers: two transient-event paths, one short animation path,
+and the 20 calls from the `8E4B` tile-effect state machine.
+`01F7:339A` and `01F7:340A` are coordinate-selected low-ID and upper-property
+writers, respectively, but have no NE relocation record or literal target-offset
+reference in the file-backed segments. They preserve the complementary MAP bits
+and OR the caller-supplied `CX` unmasked, so an indirect/runtime-generated caller
+would have to construct the target at runtime. The same stronger static negative
+applies to `01F7:5C9D`. No other store through the loaded `DS:657A/DS:657C`
+pointer was found; the full table and static caller counts are in the
+runtime-descriptor note and the JSON emitted by
+`research/tools/descriptor_static_report.py`.
+
+The focused transition diagnostic explains the wait: `01D7:4B6E` calls
+`01F7:1AAA`, whose `01F7:1AE6` instruction clears `DS:89EA` before returning
+to `01D7:4B73`; the main loop's `4BA4` zero branch therefore bypasses `4BD8`
+and the five `3861` call sites. W1L3 and W2L3 both show this launch chain,
+`DS:880A=4`, then `48B5/48BB` waiting on `DS:819E`. The diagnostic records
+stack return addresses and all identified writes to the four transition
+globals; the raw JSON artifacts are under `research/build/runtime-descriptor/`.
+An extended W1L3 run also watched `19E6`/`199D`, `44DC`, `4BD8`, `3861`, and
+`5C9D`; none fired. Skipping the `48BB` compare/JZ as a debugger-only test
+still did not reach those paths, so the surrounding asynchronous transition is
+also a barrier. That patched run is not treated as lifecycle evidence.
+The wait flag's owner is now known: timer IRQ `01F7:F049` writes `DS:819E=1`,
+while `0207:0014` and `0207:101F` clear/wait on it; `01D7:48B5` performs the
+level-loop clear. W1L3 and W2L3 capture the same order, but an unmodified run
+without a `48BB` breakpoint still times out there, so the automated transition
+does not complete far enough to exercise `4BD8` or `3861`.
+Allowing `48BB` to run reaches `01D7:48C2` and then `01F7:3062`, but not the
+later main-loop gate; this post-wait boundary is recorded in
+`secondary-post-wait-w1l3-v3.json`.
+The post-wait branch is `48E6`, which checks `DS:89E6`; automated W1L3 launch
+leaves it at `0`, so `4968` is skipped. Static `0xffff` writers are
+`01D7:493E` and `01F7:4996/4AAC/92A9`. The input-triggered and controlled
+consumer paths below distinguish the event flag from the separate scheduler
+gate.
+
+The segment-3 keyboard consumer at `01F7:F1A8` stores raw make bytes in
+`DS:88BA`, so `DS:88BA=3` is the `2` key. Queuing a real `KBD_2` after W1L3
+launch reaches `01D7:493E`, writes `DS:89E6=0xffff`, and enters `4968`. With
+the scheduler gate held at its consumer, the same event reaches
+`4BA4 -> 4BAE -> 4BD8 -> 3861`; a separate controlled run that forces
+`DS:89E6` at `48E6` reproduces the downstream path without input. These
+diagnostic gate holds are not unmodified lifecycle attribution. The raw runs
+are under `research/artifacts/runtime-descriptor-construction/`.
+
+Holding real `KBD_right` input from launch and after the `KBD_2` event did not
+fire `01F7:19E6`, `19A3`, `1A3D`, `199D`, or `44DC`; `DS:89EA` stayed zero and
+the unmodified run stopped at `4BA4`. This bounds the missing restoration more
+narrowly: it is not caused by the tested player-input path during automated
+W1L3 launch. The result is negative lifecycle evidence, not proof that no
+other state or level-completion path can set the gate.
+
+The expanded W1L3 flow probe reaches the natural post-wait sequence
+`48E6 -> 493E -> 4968 -> 4BA4 -> 4C43 -> 4CFC -> 4EA0 -> 4EAA` with
+`DS:89EA=0`, `DS:89E6` briefly `0xffff`, and `DS:880A=4`; it then times out
+without `19E6`, `19A3`, `1A3D`, `199D`, `44DC`, `4BD8`, `3861`, or `5C9D`.
+This narrows the current blocker to the pending-state/asynchronous path after
+the post-wait branch. The artifact is
+`w1l3-next-natural-flow.json` under
+`research/artifacts/runtime-descriptor-construction/`.
+
+The pending-focused trace bounds that path further. After `4EA0` sees
+`DS:89E6=0xffff`, `4EAA` enters a transition handler that calls the timed wait
+at `0207:0002` (`4EDD`), then `4F0D` enters the local intro routine at `14E1`.
+The intro executes its draw/text/timer sequence through `15C5` and reaches a
+second `0207:0002` wait (`0207:0017`) without returning to `504F`; no
+`4BD8/3861` dispatch is observed. The staged artifact is
+`w1l3-pending-focus-kbd2-right-v15.json`. The probe's timer-release memory
+patch is debugger-only and is retained solely to locate the transition
+handler's boundary.
+
+Static decompilation now explains the whole pending branch: `4EA0` gates on
+`DS:89E6`, `4EAA` performs transition setup, `4EDD/4EE6` call the frame-wait
+routine `0207:0002`, `4F0D` enters local intro routine `14E1`, and `5010/504F`
+consume `DS:89E0`/`DS:89EC` before either dispatching or returning to the
+ordinary loop. The wait routine clears `DS:819E` and spins until the timer IRQ
+sets it. The exact pseudocode and relocation ledger are in the research notes.
+
+A less intrusive controlled-input run held real `KBD_2` from level dispatch
+until the actual event writer `01D7:493E`, released it there, and then waited
+120 seconds with only the secondary-loader call/entry breakpoints armed. The
+event writer was reached, but `4BD8/3861` were not; the final CPU remained in
+the timed-wait routine at `01D7:0207:0023`. This confirms that the pending timer
+barrier survives input consumption and is not just a breakpoint-heavy trace
+artifact. It remains controlled-input evidence rather than normal-completion
+attribution; the hash is in `notes/descriptor-construction-evidence.json`.
+
+The corrected timer-focused variant armed `01F7:F049` during the same wait and
+observed 16 IRQ hits before and 16 after `493E`, yet still did not reach
+`4BD8/3861`; its final CPU sample was `0207:10C8`, inside the PIT-delay path.
+Targeted segment-4 decompilation shows `0207:0002` clearing `DS:819E` and
+yielding until the IRQ makes it nonzero, while `0207:101F` clears the flag and
+polls PIT channel 0 and `0207:10A9` samples/reprograms the PIT divisor. The
+timer audit therefore rules out “no IRQ delivery” as the sole cause; the
+remaining gap is the timed-wait/PIT flag-sampling interaction. Details are in
+`notes/descriptor-construction-evidence.json`.
+
+The IRQ target itself is also decompiled: `01F7:F049` writes
+`DS:819E=1`, writes the transition timer flag `DS:5014=0xffff`, conditionally
+calls the optional far callback at `DS:8952:DS:8954`, sends the PIC
+end-of-interrupt, and returns with `IRET`. Follow-up target decompilation ties
+that callback pair to the audio/resource startup (`36ED`/`SCORE.DAT` and the
+SAM/TFX loader), while transition code disables its segment at `4853/496F`.
+This makes the wait-flag producer unambiguous without misclassifying the audio
+callback as the transition-state channel.
+
+A post-`48BB` isolation run then waited only on `F049` and observed 16 real
+IRQ entries. Every sample had `DS:8952:8954 = FFFF:FFFF`, the disabled
+audio/resource callback sentinel, with `DS:89EA`/`DS:89E6` still zero. The
+barrier therefore has live timer delivery; this sample does not identify a
+missing transition callback. The remaining gap is the independent transition
+state/setter path, not missing IRQs. This controlled result is
+`timer_post_wait_audit` in the evidence JSON.
+
+Unmodified instruction-level state traces now cover all five third-level
+selectors. W1L3 through W5L3 all show
+`F049 -> F04F -> 504F -> 10A3 -> 101F -> 0002 -> 0014 -> 0017 -> 001E ->
+48B5 -> 48BB`; `DS:819E` is `0x0001` before the wait clear and `0x0000` at
+the subsequent test. None reaches `4BD8/3861`. This is the strongest current
+normal-lifecycle evidence for a shared timer/transition barrier; the raw
+hashes are in the evidence JSON.
+
+The player-focused W1L1 trace confirms the normal overlap path: repeated
+`01F7:1BC4 -> 01F7:19E6` events occur under held `KBD_right`, while
+`DS:89EA` remains zero. No `19A3`, `1A3D`, `44DC`, `43D0`, or `199D` writer
+fires; downward and Space-input comparisons are also negative. This rules out
+the tested player collision/state path as the scheduler-gate restoration.
+
+The MAP-writer audit was extended to include gameplay effect writer
+`01F7:16CE` in addition to `339A`, `340A`, and `5C9D`. A 96-event normal W1L1
+held-right window traversed camera X `0..2309` while the object count changed
+from 4 to 2, yet recorded no hits for any of the four writers. This is a
+stronger bounded negative for ordinary movement; event-rich effect playback
+and runtime-constructed callers remain open.
+
+Those non-blocking follow-ups have explicit methods, acceptance criteria, and
+stopping rules in the [optional follow-up plan](notes/runtime-descriptor-construction-plan.md#optional-follow-up-plan):
+the historical `0x10` label, natural W1L3-W5L3 trigger, runtime-generated
+callers for `339A/340A/5C9D`, and an optional live state-10 termination trace.
+
+The optional follow-ups are now executed and curated in
+`notes/descriptor-construction-evidence.json`: the `0x10` archive matrix keeps
+the historical name unresolved, fresh W1L3-W5L3 runs confirm the shared natural
+timer barrier, the three helper writers remain implemented-but-unobserved, and
+the forced state-10 probe is explicitly tooling-limited before a sample.
+Artifacts are under `research/build/optional/` with SHA-256 records in the
+plan's [execution results](notes/runtime-descriptor-construction-plan.md#optional-execution-results).
+
+The same four-writer probe also captured a normal `16CE` mutation in every
+world's W1L1 launch. The common caller continuation is `01F7:1897`; the
+rewritten cells are `(23,19) 0x0002→0x01d7` in W1, `(16,19) 0x0003→0x01e5`
+in W2, `(23,14) 0x0002→0x01d8` in W3, `(32,19) 0x0002→0x01d9` in W4, and
+`(40,29) 0x0002→0x01d8` in W5. The register convention is AX=column,
+BX=row; `DX & 0x01ff` is the new tile ID. This confirms a real gameplay MAP
+mutation path rather than only a static writer definition.
+
+Target decompilation explains the trigger: `1892` consumes visible
+`DS:6586` event records and calls `16CE` with event coordinates plus an
+animation/subtype-derived tile ID; `1944` is a second event path selecting
+IDs `0x1ee..0x1f0`; `6359` is a short animation callback that supplies a
+rounded object coordinate and an animation-derived ID. The complete callsite
+ledger is in `effect_writer_callsite_decomp`.
+
+A W1L1 controlled Y-boundary test reaches `3FF8 -> 43D0 -> 199D -> 19A3 ->
+44DC`; `DS:89EA=0xffff` at `44DC`, and `DS:880A` drops from `4` to `3`. This
+proves the candidate gate-restoration path at runtime, while the forced Y
+value keeps it explicitly outside normal-gameplay attribution.
+
+A sustained unmodified W1L1 run with held `KBD_right` now reaches a normal
+state-machine transition naturally. After a 1409-frame warm-up it observes
+`1BC4 -> 19E6`, then `01F7:1A3D` writes `DS:89EA=0xffff` at camera `x=1943`;
+the next player callback enters with `0xffff`, `44DC` decrements it, and
+`DS:880A` is `3` (down from `4`). A longer natural-right trace reaches
+`01D7:4BD8` while the countdown is still nonzero (`DS:89EA=0xfea2`, object
+count `3`). This is distinct from the debugger-forced `43D0 -> 199D -> 19A3`
+boundary path; it provides normal-gameplay evidence for the `1A3D -> 44DC`
+countdown path. The exact writer and gate artifacts are
+`w1l1-transition-right-natural-warmup1409.json` and
+`w1l1-transition-right-natural-probe10.json` under
+`research/artifacts/runtime-descriptor-construction/`. This closes the prior
+uncertainty about whether the W1L1 state-machine countdown can occur without
+debugger memory injection; the `43D0 -> 199D` boundary path remains separately
+controlled, and the W1L3 launch still has a separate asynchronous barrier.
+
+NE relocation filtering narrows the direct state callers: `01F7:1BC4` and
+`3AB3` call `19E6`, while `01F7:43D0` calls `199D`. The `1BC4` path is an
+overlap test gated by `DS:8810`; `3AB3` follows tile IDs `0x0b/0x0c/0x0d`;
+and `43D0` is the player boundary check against `DS:81C4 + DS:81CC`.
+Target decompilation confirms `199D` sets `DS:89EA=0xffff`, clears
+`DS:8950`, resets motion fields, and decrements `DS:880A`; `19E6` sets the
+same gate when its overlap counter reaches zero. These are the confirmed
+setter paths. A controlled player-Y injection reached the player callback but
+not `43D0/199D` before the secondary-loader wait.
+
+The descriptor flag matrix was repeated under the player tracer. Tiles
+`0x028/0x029/0x02a/0x02b` carry flags `0x10/0x50/0x70/0x30`; only `0x70`
+returns `AL=1` through `3DF1`, while the other three return `AL=0` through
+`3DE4`. This isolates the combined `0x20 | 0x40` requirement. The original
+MAP word is restored after each run. Raw artifacts and exact breakpoint
+metadata are in `research/build/runtime-descriptor/`.
+
+The controlled `5C9D` write remains the only runtime proof for that helper.
+Static relocations find no direct caller or embedded target, and a normal-right
+W1L1 probe armed it for 220 passes without a hit; no W1L3 post-wait hit was
+observed. The same no-direct-caller boundary applies to `339A` and `340A`,
+while `16CE` and the loader-return `33BF` have static direct callers. Indirect
+or runtime-generated callers remain possible for the three uncalled entries,
+but none is currently evidenced by normal gameplay. A dedicated 30-second
+W1L1 writer-focus run held real `KBD_right` from launch while watching only
+`339A`, `340A`, and `5C9D`; none fired. At timeout the run had three active
+objects, `DS:89EA=0xff41`, and no pending transition event. This is bounded
+negative evidence, not a proof against later/runtime-generated calls; the raw
+artifact is `research/build/writer-focus-w1l1-right-30s-20260825.json`.
+The same 30-second writer-focus window on W1L3 also saw no hits, but ended at
+the known launch barrier (`DS:85D4=2`, `DS:880A=4`, `DS:89EA=0`, `DS:819E=1`),
+so it does not cover later third-level gameplay; its artifact is
+`research/build/writer-focus-w1l3-right-30s-20260825.json`.
+A controlled 60-second W1L3 comparison held `DS:89EA` open past the launch
+clear and still saw no hits after the object count fell to three; this rules
+out the three writers in that exercised post-gate window but is not normal
+gameplay attribution. Artifact:
+`research/build/writer-focus-w1l3-force-gate-60s-20260825.json`.
+Thirty-second normal held-right writer-focus windows on W2L1, W3L1, W4L1, and
+W5L1 also recorded zero hits for all three uncalled writers. This broadens the
+bounded negative to one level in each world family; later event-specific and
+runtime-generated callers remain open. The four artifact hashes are curated in
+`notes/descriptor-construction-evidence.json`.
+
 ### ARE — structure now mechanically decoded; semantics still inferred
 
 There is no validated magic header. Simon's article reports a fixed-layout
@@ -385,6 +740,14 @@ skipped, while nonzero entries call `01F7:16CE` with the queried coordinates
 and effect value. At state 10 the callback clears `object+0x18` and publishes
 the terminal coordinates at `DS:8828/DS:882A`.
 
+A controlled archive variant now captures the MAP mutation side of this path
+directly. States 4, 6, and 8 each rewrite five adjacent cells: source IDs
+`0xc8..0xcc` are looked up in `DS:6986` as `0x78..0x7c`, then written through
+`16CE` with the upper MAP field preserved. This is debugger-seeded state/MAP
+evidence rather than a normal-gameplay trigger; exact offsets and trace hashes
+are recorded under `state_machine_effect_probes` in
+[`notes/descriptor-construction-evidence.json`](notes/descriptor-construction-evidence.json).
+
 The helper's exact address calculation is
 `DS:657A + (AX >> 4) * DS:657E + (BX >> 4) * 2`, followed by a word read in
 the segment selected by `DS:657C` and `& 0x01FF`. Here `AX` is Y, `BX` is X,
@@ -420,6 +783,30 @@ python3 research/tools/quikytrace.py --launch --headless \
   --player-samples 3 --player-input-key KBD_right --player-input-frames 30 \
   --player-frames-between 5 --output research/build/traces/player-right.json
 ~~~
+
+For scheduler-state callers, add `--player-transition-focus`; it watches
+`19E6`, `199D`, `43D0`, `1BC4`, `3AB3`, and the `DS:89EA` state while holding
+the selected input key across transition barriers.
+
+To reproduce the bounded all-writer runtime check, use the secondary lifecycle
+runner's writer-only mode:
+
+~~~sh
+python3 research/tools/run_secondary_lifecycle_trace.py \
+  --level W1L1 --writer-focus --gameplay-key KBD_right \
+  --gameplay-at-launch --timeout 30 \
+  --output research/build/writer-focus-w1l1-right.json
+~~~
+
+`--writer-focus` arms only `339A`, `340A`, and `5C9D`; a timeout records the
+global state at the end of the bounded window and is negative evidence only
+for that window.
+
+For long movement runs, `--player-transition-probe-frames` advances between
+breakpoint passes; `--player-transition-probe-tail-frames` with
+`--player-transition-probe-tail-camera-x` switches to a finer interval near a
+chosen camera position, and `--player-transition-warmup-frames` lets a run
+reach a natural transition before arming the writer probes.
 
 The corresponding `--player-collision-focus` and `--player-map-focus` modes
 break on the candidate collision helpers or `01F7:3376`; the structured output
@@ -513,6 +900,12 @@ window, `--player-branch-patch-tile 0x160` temporarily replaces only the
 low-nine-bit tile at the live `3D02` probe, records the original word, and
 restores it when the branch returns. This is debugger-only state and does not
 modify the archive or executable.
+
+For a bit-isolated control on the unchanged tile, pair
+`--player-branch-focus` with `--player-branch-patch-flags 0x20`, `0x40`, or
+`0x60`. The tracer patches only descriptor record `+2` and restores it after
+the return; the resulting branch matrix is retained in
+`notes/descriptor-collision-evidence.json`.
 
 ### Dedicated transient event types `0x65`-`0x67`
 

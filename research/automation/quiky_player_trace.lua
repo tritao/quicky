@@ -13,6 +13,7 @@ local property_focus = trace_config.property_focus or false
 local property_helper_offset = trace_config.property_helper_offset or 0
 local branch_focus = trace_config.branch_focus or false
 local branch_patch_tile = trace_config.branch_patch_tile
+local branch_patch_flags = trace_config.branch_patch_flags
 local descriptor_census = trace_config.descriptor_census or false
 local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
@@ -20,6 +21,14 @@ local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
+local transition_focus = trace_config.transition_focus or false
+local transition_steps = trace_config.transition_steps or 48
+local transition_hold_events = trace_config.transition_hold_events or 48
+local transition_force_player_fall = trace_config.transition_force_player_fall or false
+local transition_probe_frames = trace_config.transition_probe_frames or 0
+local transition_probe_tail_frames = trace_config.transition_probe_tail_frames or 0
+local transition_probe_tail_camera_x = trace_config.transition_probe_tail_camera_x or 0
+local transition_warmup_frames = trace_config.transition_warmup_frames or 0
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local trace_event_counter = 0
@@ -247,6 +256,37 @@ local function map_property_snapshot(hit)
     }
 end
 
+local function branch_descriptor_snapshot(hit)
+    local lookup = map_lookup_snapshot(hit)
+    local tile_id = lookup.tile_id
+    if tile_id == nil then return {map_lookup = lookup} end
+    local base = dosbox.mem_read_word("ds", 0x6582)
+    local selector = dosbox.mem_read_word("ds", 0x6584)
+    local stride = dosbox.mem_read_word("ds", 0x30d4)
+    local record_offset = base + tile_id * stride
+    local ok, raw_or_error = pcall(
+        dosbox.mem_read_selector, selector, record_offset, 4
+    )
+    if not ok or not raw_or_error or #raw_or_error < 4 then
+        return {
+            map_lookup = lookup,
+            descriptor_selector = selector,
+            descriptor_offset = record_offset,
+            descriptor_read_error = ok and "short descriptor record" or tostring(raw_or_error),
+        }
+    end
+    return {
+        map_lookup = lookup,
+        descriptor_selector = selector,
+        descriptor_base = base,
+        descriptor_stride = stride,
+        descriptor_offset = record_offset,
+        tile_id = tile_id,
+        tile_index = word(raw_or_error, 1),
+        descriptor_word = word(raw_or_error, 3),
+    }
+end
+
 local function static_globals()
     return {
         input_action_flags = dosbox.mem_read_word("ds", 0x8196),
@@ -258,6 +298,10 @@ local function static_globals()
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
+        transition_state = dosbox.mem_read_word("ds", 0x8810),
+        object_count = dosbox.mem_read_word("ds", 0x880a),
+        transition_event = dosbox.mem_read_word("ds", 0x89e6),
+        transition_error = dosbox.mem_read_word("ds", 0x89ec),
     }
 end
 
@@ -407,7 +451,7 @@ end
 local callback_object_snapshot
 
 local function patch_branch_probe_cell(sample, hit)
-    if not branch_patch_tile then return nil end
+    if not branch_patch_tile and branch_patch_flags == nil then return nil end
     local object = callback_object_snapshot(hit)
     local position = object and object.position
     if not position then return nil end
@@ -419,10 +463,13 @@ local function patch_branch_probe_cell(sample, hit)
     local offset = map_base + (y >> 4) * row_stride + ((x >> 3) & 0xfffe)
     local ok, original = pcall(selector_word, map_selector, offset)
     if not ok then return nil end
-    local patched = (original & 0xfe00) | (branch_patch_tile & 0x1ff)
-    dosbox.mem_write_selector(map_selector, offset,
-                              string.char(patched & 0xff,
-                                          (patched >> 8) & 0xff))
+    local patched = original
+    if branch_patch_tile then
+        patched = (patched & 0xfe00) | (branch_patch_tile & 0x1ff)
+        dosbox.mem_write_selector(map_selector, offset,
+                                  string.char(patched & 0xff,
+                                              (patched >> 8) & 0xff))
+    end
     local readback = selector_word(map_selector, offset)
     local patch = {
         selector = map_selector,
@@ -430,16 +477,45 @@ local function patch_branch_probe_cell(sample, hit)
         x = x,
         y = y,
         original = original,
-        tile_id = branch_patch_tile & 0x1ff,
+        tile_id = readback & 0x1ff,
         patched = patched,
         readback = readback,
     }
+    if branch_patch_flags ~= nil then
+        local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
+        local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
+        local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
+        local descriptor_offset = descriptor_base + (readback & 0x1ff) *
+                                  descriptor_stride + 2
+        local descriptor_original = selector_word(descriptor_selector,
+                                                   descriptor_offset)
+        local descriptor_patched = branch_patch_flags & 0xffff
+        dosbox.mem_write_selector(descriptor_selector, descriptor_offset,
+                                  string.char(descriptor_patched & 0xff,
+                                              (descriptor_patched >> 8) & 0xff))
+        patch.descriptor = {
+            base = descriptor_base,
+            selector = descriptor_selector,
+            stride = descriptor_stride,
+            tile_id = readback & 0x1ff,
+            offset = descriptor_offset,
+            original = descriptor_original,
+            patched = descriptor_patched,
+            readback = selector_word(descriptor_selector, descriptor_offset),
+        }
+    end
     sample.branch_patch = patch
     return patch
 end
 
 local function restore_branch_probe_cell(patch)
     if patch == nil then return end
+    if patch.descriptor ~= nil then
+        local descriptor = patch.descriptor
+        dosbox.mem_write_selector(descriptor.selector, descriptor.offset,
+                                  string.char(descriptor.original & 0xff,
+                                              (descriptor.original >> 8) & 0xff))
+    end
     dosbox.mem_write_selector(patch.selector, patch.offset,
                               string.char(patch.original & 0xff,
                                           (patch.original >> 8) & 0xff))
@@ -531,6 +607,9 @@ local function record_branch(sample, hit)
         globals = static_globals(),
     }
     sample.branch_events = sample.branch_events or {}
+    if hit.offset == branch_entry_offset then
+        event.descriptor_lookup = branch_descriptor_snapshot(hit)
+    end
     sample.branch_events[#sample.branch_events + 1] = event
     sample.branch_event = event
 end
@@ -663,6 +742,138 @@ else
     dosbox.key("KBD_space", true)
     dosbox.wait_frames(4)
     dosbox.key("KBD_space", false)
+end
+
+if transition_focus then
+    local watched = {
+        {offset = 0x1ae6, name = "write_89ea_clear"},
+        {offset = 0x19e6, name = "state_update_entry", repeat_target = true},
+        {offset = 0x19a3, name = "write_89ea_start", repeat_target = true},
+        {offset = 0x1a3d, name = "write_89ea_state", repeat_target = true},
+        {offset = 0x199d, name = "write_89ea_callback", repeat_target = true},
+        {offset = 0x1bc4, name = "overlap_to_19e6", repeat_target = true},
+        {offset = 0x3ab3, name = "motion_to_19e6", repeat_target = true},
+        {offset = 0x3ff8, name = "player_callback", repeat_target = true},
+        {offset = 0x43d0, name = "player_boundary_check", repeat_target = true},
+        {offset = 0x44dc, name = "decrement_89ea", repeat_target = true},
+        {offset = 0x339a, name = "map_low_id_writer", repeat_target = true},
+        {offset = 0x340a, name = "map_property_writer", repeat_target = true},
+        {offset = 0x5c9d, name = "map_cell_store_helper", repeat_target = true},
+        {offset = 0x16ce, name = "map_effect_tile_rewrite", repeat_target = true},
+        {offset = 0x4ba4, name = "scheduler_gate_test", segment = 0x01d7},
+        {offset = 0x4bd8, name = "secondary_gate_test", segment = 0x01d7},
+        {offset = 0x3861, name = "secondary_loader_entry", segment = 0x01d7},
+    }
+    local seen = {}
+    local events = {}
+    local input_active = false
+    local input_event_count = 0
+    local blocked_repeat_name = nil
+    local forced_player_fall = false
+    local function arm_transition_targets()
+        for _, item in ipairs(watched) do
+            if (item.repeat_target and item.name ~= blocked_repeat_name) or
+                    (not item.repeat_target and not seen[item.name]) then
+                dosbox.breakpoint_set(item.segment or 0x01f7, item.offset, {once = true})
+            end
+        end
+    end
+    if input_key ~= "" then
+        dosbox.key(input_key, true)
+        input_active = true
+    end
+    if transition_warmup_frames > 0 then
+        dosbox.wait_frames(transition_warmup_frames)
+    end
+    for sequence = 1, transition_steps do
+        if sequence > 1 and transition_probe_frames > 0 then
+            -- Run ordinary gameplay between breakpoint passes. Remove the
+            -- one-shot probes first so wait_frames can advance freely.
+            for _, item in ipairs(watched) do
+                dosbox.breakpoint_remove(item.segment or 0x01f7, item.offset)
+            end
+            blocked_repeat_name = nil
+            local probe_frames = transition_probe_frames
+            if transition_probe_tail_frames > 0 and
+                    transition_probe_tail_camera_x > 0 and
+                    dosbox.mem_read_word("ds", 0x81c0) >= transition_probe_tail_camera_x then
+                probe_frames = transition_probe_tail_frames
+            end
+            dosbox.wait_frames(probe_frames)
+        end
+        arm_transition_targets()
+        dosbox.debug_continue()
+        local hit, err = dosbox.wait_for_breakpoint(5000)
+        if not hit then
+            events[#events + 1] = {sequence = sequence, timeout = err or "timeout"}
+            break
+        end
+        local name = "unknown"
+        for _, item in ipairs(watched) do
+            if (item.segment or 0x01f7) == hit.segment and item.offset == hit.offset then
+                name = item.name
+                break
+            end
+        end
+        local registers = hit.registers or {}
+        local stack = dosbox.mem_read("ss", (registers.esp or 0) & 0xffff, 8) or ""
+        local event = {
+            sequence = sequence,
+            name = name,
+            breakpoint = {segment = hit.segment, offset = hit.offset},
+            registers = registers,
+            caller = {stack_hex = hex(stack)},
+            globals = static_globals(),
+        }
+        if #stack >= 4 then
+            event.caller.return_address = {offset = word(stack, 1), segment = word(stack, 3)}
+        end
+        events[#events + 1] = event
+        if transition_force_player_fall and not forced_player_fall and
+                hit.segment == 0x01f7 and hit.offset == 0x3ff8 then
+            local registers = hit.registers or {}
+            local selector = registers.es or 0
+            local object_offset = (registers.edi or 0) & 0xffff
+            dosbox.mem_write_selector(selector, object_offset + 8, "\xff\x7f")
+            forced_player_fall = true
+            event.action = "force_player_y=0x7fff"
+        end
+        local hit_item = nil
+        for _, item in ipairs(watched) do
+            if (item.segment or 0x01f7) == hit.segment and item.offset == hit.offset then
+                hit_item = item
+                break
+            end
+        end
+        if hit_item == nil or not hit_item.repeat_target then
+            seen[name] = true
+        end
+        blocked_repeat_name = hit_item and hit_item.repeat_target and name or nil
+        input_event_count = input_event_count + 1
+        if input_active and transition_hold_events > 0 and
+                input_event_count >= transition_hold_events then
+            dosbox.key(input_key, false)
+            input_active = false
+            event.action = "release_" .. input_key
+        end
+    end
+    if input_active then dosbox.key(input_key, false) end
+    dosbox.output.player_trace = {
+        trace_schema_version = trace_config.schema_version or 1,
+        transition_trace = {
+            steps = transition_steps,
+            hold_events = transition_hold_events,
+            input_key = input_key,
+            force_player_fall = transition_force_player_fall,
+            probe_frames = transition_probe_frames,
+            probe_tail_frames = transition_probe_tail_frames,
+            probe_tail_camera_x = transition_probe_tail_camera_x,
+            warmup_frames = transition_warmup_frames,
+            events = events,
+        },
+        final_globals = static_globals(),
+    }
+    return
 end
 
 local samples = {}

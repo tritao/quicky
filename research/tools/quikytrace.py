@@ -44,6 +44,9 @@ class StateMachineTraceConfig:
     position_y: int | None = None
     force_emission: bool = False
     patch_map_run: bool = False
+    force_state: int | None = None
+    warmup_frames: int = 0
+    map_patch_y_offset: int = 0
 
 
 @dataclass(frozen=True)
@@ -90,6 +93,7 @@ class PlayerTraceConfig:
     property_helper_offset: int | None = None
     branch_focus: bool = False
     branch_patch_tile: int | None = None
+    branch_patch_flags: int | None = None
     descriptor_census: bool = False
     descriptor_count: int = 512
     map_width: int = 270
@@ -97,6 +101,14 @@ class PlayerTraceConfig:
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
+    transition_focus: bool = False
+    transition_steps: int = 48
+    transition_hold_events: int = 48
+    transition_force_player_fall: bool = False
+    transition_probe_frames: int = 0
+    transition_probe_tail_frames: int = 0
+    transition_probe_tail_camera_x: int = 0
+    transition_warmup_frames: int = 0
     select_level: str | None = None
     selector_frames: int = 60
     screenshot: Path | None = None
@@ -148,6 +160,9 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
             "position_y": state_machine.position_y,
             "force_emission": state_machine.force_emission,
             "patch_map_run": state_machine.patch_map_run,
+            "force_state": state_machine.force_state,
+            "warmup_frames": state_machine.warmup_frames,
+            "map_patch_y_offset": state_machine.map_patch_y_offset,
         },
         "sprite_init_offset": config.sprite_init_offset,
         "capture_frames": config.capture_frames,
@@ -172,6 +187,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "property_helper_offset": config.property_helper_offset,
         "branch_focus": config.branch_focus,
         "branch_patch_tile": config.branch_patch_tile,
+        "branch_patch_flags": config.branch_patch_flags,
         "descriptor_census": config.descriptor_census,
         "descriptor_count": config.descriptor_count,
         "map_width": config.map_width,
@@ -179,6 +195,14 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
+        "transition_focus": config.transition_focus,
+        "transition_steps": config.transition_steps,
+        "transition_hold_events": config.transition_hold_events,
+        "transition_force_player_fall": config.transition_force_player_fall,
+        "transition_probe_frames": config.transition_probe_frames,
+        "transition_probe_tail_frames": config.transition_probe_tail_frames,
+        "transition_probe_tail_camera_x": config.transition_probe_tail_camera_x,
+        "transition_warmup_frames": config.transition_warmup_frames,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
     }
@@ -658,6 +682,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="trace the 01F7:3D02 descriptor branch masks and return path")
     parser.add_argument("--player-branch-patch-tile", type=lambda value: int(value, 0),
                         help="debugger-only: substitute this low-9-bit tile at the 3D02 probe")
+    parser.add_argument("--player-branch-patch-flags", type=lambda value: int(value, 0),
+                        help="debugger-only: substitute descriptor +2 flags at the 3D02 probe")
     parser.add_argument("--player-descriptor-census", action="store_true",
                         help="dump the loaded descriptor table and MAP cells")
     parser.add_argument("--player-descriptor-count", type=int, default=512,
@@ -672,6 +698,22 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-transition-focus", action="store_true",
+                        help="trace DS:89EA transition callers 19E6/199D/43D0/1BC4/3AB3")
+    parser.add_argument("--player-transition-steps", type=int, default=48,
+                        help="number of transition breakpoints to observe")
+    parser.add_argument("--player-transition-hold-events", type=int, default=48,
+                        help="keep --player-input-key held across this many transition events")
+    parser.add_argument("--player-transition-force-fall", action="store_true",
+                        help="debugger-only: set player Y below the 43D0 boundary")
+    parser.add_argument("--player-transition-probe-frames", type=int, default=0,
+                        help="guest frames to advance between transition breakpoint passes")
+    parser.add_argument("--player-transition-probe-tail-frames", type=int, default=0,
+                        help="when the tail camera threshold is reached, use this probe interval")
+    parser.add_argument("--player-transition-probe-tail-camera-x", type=int, default=0,
+                        help="camera X threshold that switches to --player-transition-probe-tail-frames")
+    parser.add_argument("--player-transition-warmup-frames", type=int, default=0,
+                        help="guest frames to run with transition input held before arming probes")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -696,6 +738,12 @@ def build_parser() -> argparse.ArgumentParser:
                         help="temporarily widen the bounds helper for a controlled 0x1f-0x21 emission probe")
     parser.add_argument("--state-machine-patch-map-run", action="store_true",
                         help="debugger-only: patch five live MAP cells to the first effect run")
+    parser.add_argument("--state-machine-force-state", type=lambda value: int(value, 0),
+                        help="debugger-only: seed object +0x32 update-state once before dispatch")
+    parser.add_argument("--state-machine-warmup-frames", type=int, default=0,
+                        help="guest frames to run after object creation before sampling 0x8e4b")
+    parser.add_argument("--state-machine-map-patch-y-offset", type=int, default=0,
+                        help="debugger-only: add this pixel offset to the five-cell MAP patch row")
     parser.add_argument("--sprite-init-offset", type=lambda value: int(value, 0),
                         default=0, help="break at a type-specific sprite initializer")
     parser.add_argument("--capture-frames", type=int, default=1,
@@ -719,6 +767,20 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-frames cannot be negative")
     if args.player_input_samples < 0:
         raise TraceError("--player-input-samples cannot be negative")
+    if args.player_transition_steps < 1:
+        raise TraceError("--player-transition-steps must be positive")
+    if args.player_transition_hold_events < 0:
+        raise TraceError("--player-transition-hold-events cannot be negative")
+    if args.player_transition_probe_frames < 0:
+        raise TraceError("--player-transition-probe-frames cannot be negative")
+    if args.player_transition_probe_tail_frames < 0:
+        raise TraceError("--player-transition-probe-tail-frames cannot be negative")
+    if args.player_transition_probe_tail_camera_x < 0:
+        raise TraceError("--player-transition-probe-tail-camera-x cannot be negative")
+    if args.player_transition_probe_tail_frames and not args.player_transition_probe_tail_camera_x:
+        raise TraceError("--player-transition-probe-tail-frames requires --player-transition-probe-tail-camera-x")
+    if args.player_transition_warmup_frames < 0:
+        raise TraceError("--player-transition-warmup-frames cannot be negative")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
     if args.player_map_focus and args.player_collision_focus:
@@ -730,8 +792,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-branch-focus cannot be combined with another player focus mode")
     if args.player_branch_patch_tile is not None and not args.player_branch_focus:
         raise TraceError("--player-branch-patch-tile requires --player-branch-focus")
+    if args.player_branch_patch_flags is not None and not args.player_branch_focus:
+        raise TraceError("--player-branch-patch-flags requires --player-branch-focus")
     if args.player_branch_patch_tile is not None and not 0 <= args.player_branch_patch_tile <= 0x1ff:
         raise TraceError("--player-branch-patch-tile must be between 0 and 511")
+    if args.player_branch_patch_flags is not None and not 0 <= args.player_branch_patch_flags <= 0xffff:
+        raise TraceError("--player-branch-patch-flags must be between 0 and 0xffff")
     if args.player_descriptor_count < 1 or args.player_descriptor_count > 512:
         raise TraceError("--player-descriptor-count must be between 1 and 512")
     if args.player_map_width < 1 or args.player_map_height < 1:
@@ -747,6 +813,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--lifetime-samples cannot be negative")
     if args.state_machine_samples < 0:
         raise TraceError("--state-machine-samples cannot be negative")
+    if args.state_machine_warmup_frames < 0:
+        raise TraceError("--state-machine-warmup-frames cannot be negative")
+    if args.state_machine_map_patch_y_offset % 16:
+        raise TraceError("--state-machine-map-patch-y-offset must be a multiple of 16")
+    if args.state_machine_force_state is not None and not 0 <= args.state_machine_force_state <= 0xffff:
+        raise TraceError("--state-machine-force-state must be between 0 and 65535")
     if args.state_machine_camera_x is not None and not 0 <= args.state_machine_camera_x <= 0xffff:
         raise TraceError("--state-machine-camera-x must be between 0 and 65535")
     if args.state_machine_camera_y is not None and not 0 <= args.state_machine_camera_y <= 0xffff:
@@ -860,6 +932,7 @@ def main(argv: list[str] | None = None) -> int:
                 property_helper_offset=args.player_property_helper,
                 branch_focus=args.player_branch_focus,
                 branch_patch_tile=args.player_branch_patch_tile,
+                branch_patch_flags=args.player_branch_patch_flags,
                 descriptor_census=args.player_descriptor_census,
                 descriptor_count=args.player_descriptor_count,
                 map_width=args.player_map_width,
@@ -867,6 +940,14 @@ def main(argv: list[str] | None = None) -> int:
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
+                transition_focus=args.player_transition_focus,
+                transition_steps=args.player_transition_steps,
+                transition_hold_events=args.player_transition_hold_events,
+                transition_force_player_fall=args.player_transition_force_fall,
+                transition_probe_frames=args.player_transition_probe_frames,
+                transition_probe_tail_frames=args.player_transition_probe_tail_frames,
+                transition_probe_tail_camera_x=args.player_transition_probe_tail_camera_x,
+                transition_warmup_frames=args.player_transition_warmup_frames,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,
@@ -909,6 +990,9 @@ def main(argv: list[str] | None = None) -> int:
                     position_y=args.state_machine_position_y,
                     force_emission=args.state_machine_force_emission,
                     patch_map_run=args.state_machine_patch_map_run,
+                    force_state=args.state_machine_force_state,
+                    warmup_frames=args.state_machine_warmup_frames,
+                    map_patch_y_offset=args.state_machine_map_patch_y_offset,
                 ),
                 sprite_init_offset=args.sprite_init_offset,
                 capture_frames=args.capture_frames,

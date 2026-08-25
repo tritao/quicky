@@ -30,6 +30,158 @@ Run the annotation pass with:
 Decompiler output from the current run is in
 `/home/joao/quiky-ghidra-decomp-20260823/` and is intentionally outside Git.
 
+## Targeted MAP-writer decompilation (2026-08-24)
+
+The raw-segment project was re-annotated with the MAP writer targets and
+decompiled headlessly. The targeted output is intentionally outside Git:
+
+```text
+/home/joao/dev/quiky-ghidra-decomp-mapwriters-20260824-v2/QUIKY_SEG03.bin.c
+```
+
+Reproduce the targeted dump with:
+
+```sh
+/home/joao/dev/ghidra-12.1.3/support/analyzeHeadless \
+  /home/joao/dev/quiky-ghidra-project-20260824 QuikySegments \
+  -process QUIKY_SEG03.bin -noanalysis \
+  -postScript DumpQuikyDecomp.java \
+  /home/joao/dev/quiky-ghidra-decomp-mapwriters-20260824-v2 \
+  -scriptPath /home/joao/dev/quicky-runtime-descriptor-construction/research/tools
+```
+
+The pass adds `16CE`, `339A`, `340A`, and `5C9D` to the existing `33BF` and
+descriptor-query targets. Its pseudocode confirms the exact write shapes:
+
+| Entry | Decompiler-confirmed operation |
+| ---: | --- |
+| `01F7:33BF` | Walks `(DS:657E >> 1) * DS:6580` words; for low IDs `2`, `3`, and `4`, stores `(word & 0xfe00) \| ID`. |
+| `01F7:16CE` | If `DX & 0x8000` is clear, selects `(BX >> 4, AX >> 4)`, preserves `word & 0xfe00`, and stores `DX & 0x01ff`; the surrounding routine then initializes the effect object. |
+| `01F7:339A` | Selects one `(AX >> 4, BX >> 4)` cell, preserves `word & 0xfe00`, and ORs **unmasked** `CX`; the caller supplies the low-ID bits. |
+| `01F7:340A` | Selects one cell, preserves `word & 0x01ff`, and ORs **unmasked** `CX`; the caller supplies the upper-property bits. |
+| `01F7:5C9D` | Stores the full `CX` word at the 8-pixel-aligned offset `((x >> 3) & 0xfffe) + (y >> 4) * stride`. |
+
+This resolves an ambiguity left by the instruction-level summary: `339A` and
+`340A` do not perform the complementary `CX` masks themselves. Their callers
+must provide already-masked values. The decompiler also makes the `33BF`
+post-loader pass and the `16CE` effect-state path easier to follow, although
+the raw segmented import still leaves the `5CC3` register return unresolved
+and emits malformed output for an unrelated `f21b` region. Those cases remain
+covered by the manual disassembly and relocation reports rather than being
+treated as decompiler failures of the MAP logic.
+
+The transition follow-up uses the same headless project and the updated dump
+script (which can decode hand-entered transition entries in a disposable
+analysis copy):
+
+```sh
+/home/joao/dev/ghidra-12.1.3/support/analyzeHeadless \
+  /home/joao/dev/quiky-ghidra-project-20260824 QuikySegments \
+  -process QUIKY_SEG01.bin -noanalysis \
+  -postScript DumpQuikyDecomp.java \
+  /home/joao/dev/quiky-ghidra-decomp-transition-20260825-d \
+  -scriptPath /home/joao/dev/quicky-runtime-descriptor-construction/research/tools
+```
+
+The resulting segment-1 report contains the `4009` primary callsite and the
+`48B5` scheduler/`4BD8` selector ladder described below.
+
+### Descriptor-constructor and pending-wait target passes (2026-08-26)
+
+The descriptor-construction targets were added to `DumpQuikyDecomp.java` and
+decompiled headlessly. The segment-2 output is kept outside Git at
+`/home/joao/dev/quiky-ghidra-decomp-descriptor-20260826-b/QUIKY_SEG02.bin.c`;
+the segment-1 world-dispatch output is at
+`/home/joao/dev/quiky-ghidra-decomp-descriptor1-20260826-b/QUIKY_SEG01.bin.c`.
+The generated source confirms the allocation/publication sequence at
+`01E7:382B`: a `0x800`-byte allocation is published through
+`DS:6582:DS:6584`, zero-filled, and followed by separate runtime-buffer
+allocations. `01D7:3808` dispatches on `DS:85D8` to the five existing world
+initializers and then clears a separate `DS:6D86:DS:6D88` `0x800`-byte buffer.
+That second allocation is therefore not a descriptor remap table.
+
+The pending-loader audit also triggered a segment-5 stop at selector `0x0227`,
+offset `0x05D0`. A targeted segment-5 decompilation at
+`/home/joao/dev/quiky-ghidra-decomp-pending-20260826-a/QUIKY_SEG05.bin.c`
+identifies `0x05D0` as the interior of `0x05CD`, a stack-space probe used
+before a large local frame. It is not a MAP or geometry consumer; the
+diagnostic detour therefore provides no evidence for another descriptor path.
+
+### Timed-wait/PIT decompilation (2026-08-25)
+
+The segment-4 target pass was extended with `0207:0002`, `0014`, `001e`,
+`101f`, `10a3`, and `10a9`; output is kept outside Git at
+`/home/joao/dev/quiky-ghidra-decomp-timer-20260825-a/QUIKY_SEG04.bin.c`.
+The decompiler confirms that `0002` clears `DS:819E` once per requested frame
+and yields until the timer IRQ makes it nonzero. `101F` clears the flag and
+polls PIT channel 0, while `10A9` samples/reprograms the PIT divisor. This
+static loop explains why the controlled W1L3 event probe can receive repeated
+`01F7:F049` IRQ hits yet remain inside the pending transition wait.
+
+### Timer callback-pair ownership (2026-08-27)
+
+The follow-up target pass decompiled segment-2 `01E7:36ED` and the containing
+startup constructor `01E7:382B`, plus the segment-2 SAM/TFX loader at `01E7:085E`.
+The constructor clears `DS:8952` and `DS:8954` before calling `36ED`, whose
+embedded resource string is the `.\\Score.DAT` audio payload. The SAM/TFX loader
+saves `DS:8954`, clears it while replacing the audio resource, and restores it
+afterward. This identifies the pair as an optional audio/resource far callback,
+not a transition-state callback.
+
+The transition loop independently disables that callback segment: raw segment-1
+bytes at `01D7:4853` write `DS:8952=0xffff` before the frame wait, and
+`01D7:496F` clears the segment during dispatch. Therefore the timer IRQ's
+`DS:8952 != 0xffff && DS:8954 != 0` branch is an optional audio callback gate.
+The W1L3 post-wait observation of `FFFF:FFFF` proves that callback is disabled;
+it does not establish a missing transition callback or explain the separate
+`DS:89EA`/`DS:89E6` state gap. The decompiler output is retained at
+`/home/joao/dev/quiky-ghidra-decomp-lifecycle-20260827-b/QUIKY_SEG02.bin.c` and
+`/home/joao/dev/quiky-ghidra-decomp-lifecycle1-20260827-b/QUIKY_SEG01.bin.c`.
+
+### Upper MAP field and collision-reader audit
+
+The targeted decompilation identifies the complete direct MAP-reader set used
+by the renderer and player collision path. `3376`, `5C27`, and `5CC3` all mask
+the raw cell with `0x01ff` before descriptor use; `20C8` and `2CB2` do the same
+before selecting tile imagery. `16CE`, `33BF`, `339A`, and `340A` preserve or
+replace the complementary upper bits, while `5C9D` stores a complete word.
+The NE relocation table contains no record of any source type targeting
+`339A`, `340A`, or `5C9D`, and the file-backed segments contain no literal
+target-offset byte pair for those entries. A caller that constructs a target
+at runtime is still theoretically possible, but there is no static pointer
+evidence for one. No identified raw-segment reader gives bits 9..15 an
+independent gameplay meaning. The remaining caveat is therefore limited to
+runtime-generated readers/writers.
+
+The selector-safe W1L1 evidence is consistent with that result. Baseline and
+corrected wall samples map `0x002e`/`0x002d` to descriptors `0x000c`, while
+jump samples map `0x001`/`0x01a` to descriptor `0`. Controlled `3D02` tile
+substitution produces a positive `0x02a`/`0x0070` path through `3DF1` and a
+negative `0x02b`/`0x0030` path through `3DE4`, with `AL` and `object+0x3a`
+matching the branch outcome. Controlled `3DF2` side probes further show that
+an unpatched `0x02d` returns the blocking `ZF=0` result and short-circuits the
+right probe, while patched `0x02a`/`0x02b` return `ZF=1` and allow it. These
+traces establish dataflow and polarity, not final gameplay names such as
+floor, ceiling, or one-way platform.
+
+The current-worktree control pair supplies an additional branch-level check.
+At the same W1L1 probe coordinate, patched tile `0x028` (W1 descriptor
+`0x0010`) and patched tile `0x029` (descriptor `0x0050`) both take
+`3D02 -> 3D1E -> 3D45 -> 3DD0 -> 3DE4`; a no-flag tile `0x160` instead takes
+`3D02 -> 3D1E -> 3D36 -> 3D40 -> 3D44`. The first two runs therefore confirm
+that `DX & 0x30` suppresses the retry, while the third confirms the retry is
+actually executable when the gate is clear. The `0x50` case also demonstrates
+that `0x40` does not override an active `0x10` suppression. Full hashes and
+selector/offset metadata are in `notes/descriptor-collision-evidence.json`.
+
+The descriptor-only control makes the bit combination explicit without a MAP
+tile substitution. Patching the live `0x02e` record from `0x000c` to `0x0020`
+keeps the retry suppressed but returns through `3DE4`; patching to `0x0040`
+executes `3D36/3D40` and returns through `3D44`; patching to `0x0060` keeps
+the retry suppressed and reaches the positive `3DF1` return (`AL=1`). Thus
+the positive branch requires `0x20 | 0x40`, while each bit's separate control
+effect remains observable.
+
 ## Confirmed from the decompiler output
 
 ### MAP loading
@@ -60,8 +212,36 @@ behavior in the executable, but its semantic role still needs runtime/source
 correlation before being called a collision bit.
 
 The secondary routine performs the same cell-copy and `0x10` operation using
-the already-established dimensions. Whether this is a second layer, reload,
-or another MAP role remains unknown.
+the already-established dimensions. Its transition-scheduler caller and
+third-level selector conditions are documented below.
+
+### Transition-scheduler decompilation (2026-08-25)
+
+The transition routine at `01D7:48B5` is now decoded far enough to identify
+the secondary-loader role. Its main path waits on `DS:819E`, consumes the
+transition/event words, and reaches the scheduler branch at `4BA4` only when
+`DS:89EA != 0` and `DS:880A > 0`. After the reset/dispatch work, the gate at
+`4BD8` repeats the object-count test and compares `DS:85D4` against exactly
+`2`, `5`, `8`, `0x0b`, and `0x0e`; each match calls `01D7:3861` (`4BF1`,
+`4BFB`, `4C05`, `4C0F`, `4C19`). These are the zero-based third-level
+selectors for W1L3 through W5L3, not an arbitrary reload or second-layer
+loader. The primary callsite at `01D7:4009` calls `01D7:365B` before the
+level-specific ICO/BOB asset setup. Thus the two MAP routines have distinct
+roles: primary construction during initial level setup, secondary reload on
+the third-level transition path. The gate/state restoration needed for an
+unmodified automated W1L3 run remains a runtime-lifecycle question, but the
+static attribution is no longer open.
+
+The adjacent segment-3 gate producers are also statically resolved. `01F7:199D`
+sets `DS:89EA=0xffff` at `19A3`, resets the player-motion fields, and
+decrements `DS:880A`; its only direct caller is the player-boundary check at
+`43D0`. `01F7:19E6` sets the same gate at `1A3D` after `DS:8822` reaches zero
+and likewise decrements `DS:880A`; its direct callers are `1BC4` (the
+`DS:8810` overlap path) and `3AB3` (the tile-ID `0x0b/0x0c/0x0d` motion
+path). `01F7:1AE6` clears `DS:89EA` during player initialization/state reset.
+This makes the W1L3 runtime gap specific: the automated launch reaches the
+clearer and the `4BA4` consumer, but has not naturally observed any of the
+three setter call paths before the `3861` branch.
 
 ### ARE loading
 
@@ -629,7 +809,8 @@ uint16_t descriptor = read_word(
 ```
 
 `5C27` tests `descriptor & 0x0f` and then selects one of four low-nibble
-bits based on `AX bit 3` and `BX bit 3`: `0x02`, `0x01`, `0x04`, or `0x08`.
+bits based on `AX bit 3` and `BX bit 3`: pairs `11`, `10`, `01`, and `00`
+select `0x02`, `0x01`, `0x04`, and `0x08`, respectively.
 It communicates the classification via return flags. `5CC3` returns the
 descriptor word in `DX`; its caller at `3D02` tests descriptor flags directly.
 That caller probes again after an eight-pixel X adjustment when `DX & 0x30`
@@ -648,19 +829,31 @@ if (descriptor & 0x20) {
 
 target_y = (object->y & 0xfff0) + phase;
 if (!(descriptor & 0x40))
-    target_y -= 8;
+    target_y += 8;
 ```
 
 Thus `0x20` is precisely the vertical-response polarity/state selector and
 `0x40` is precisely the eight-pixel vertical-alignment selector. They are not
 independent MAP upper-property bits, and `0x40` is not itself a floor/ceiling
-type. The source supports the usual y-down interpretation that the `0x20`
+type. The raw `SUB BX,0xFFF8` is an effective `+8` because the immediate is
+sign-extended `-8` (`01F7:3DD6`, bytes `83 EB F8`). The source supports the usual y-down interpretation that the `0x20`
 clear branch reverses the vertical response, but the gameplay names
 “ceiling” and “floor” remain provisional until both boundary orientations
 are observed.
-The descriptor table is also used by the renderer, which indexes tile imagery
-by the same nine-bit tile ID, but the collision helpers consume the descriptor
-word's low flags instead of the MAP upper field. Runtime property-focused
+
+The same target decompilation resolves the nearby player byte at
+`object+0x3a`. `3D02` clears it on entry, stores `0x01` or `0xff` while
+selecting the two `0x20` response branches, and clears it again when the
+target-Y comparison rejects the response. The only identified consumer is
+`3DF2`, whose zero/nonzero test gates the eight-pixel X snap. This makes
+`+0x3a` a transient accepted-vertical-response latch; it is not a persistent
+surface-type field, and the two nonzero values are branch-polarity values
+rather than separate surface classes.
+The descriptor table is also used by the renderer. `20C8` and `2CB2` load
+record `+0`, zero-extend it, and shift it left by eight before adding the tile
+resource base; the `+0` identity field therefore selects the `0x100`-byte ICO
+image block directly. The collision helpers consume the descriptor word's low
+flags instead of the MAP upper field. Runtime property-focused
 traces now use protected-mode selector reads for the far MAP and descriptor
 buffers. Earlier generated property artifacts used `mem_read_word` with a
 protected selector and must not be treated as MAP evidence; the guest `DX`
