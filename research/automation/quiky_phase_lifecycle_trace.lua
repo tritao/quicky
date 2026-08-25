@@ -38,6 +38,39 @@ local function little_dword(value)
     return little_word(value & 0xffff) .. little_word((value >> 16) & 0xffff)
 end
 
+local function map_word_snapshot(x, y)
+    local stride = dosbox.mem_read_word("ds", 0x657e)
+    local map_offset = dosbox.mem_read_word("ds", 0x657a)
+    local map_selector = dosbox.mem_read_word("ds", 0x657c)
+    local cell_x = ((x & 0xffff) >> 4)
+    local cell_y = ((y & 0xffff) >> 4)
+    local offset = map_offset + cell_y * stride + cell_x * 2
+    local raw = dosbox.mem_read_selector(map_selector, offset, 2) or ""
+    if #raw < 2 then return {x = x, y = y, error = "MAP cell truncated"} end
+    local value = word(raw, 1)
+    return {
+        x = x,
+        y = y,
+        cell_x = cell_x,
+        cell_y = cell_y,
+        offset = offset,
+        raw = value,
+        tile_id = value & 0x1ff,
+        has_4000 = (value & 0x4000) ~= 0,
+    }
+end
+
+local function b33b_map_probes(raw, x, y)
+    local mode = string.byte(raw, 0x28 + 1) or 0
+    local horizontal = mode >= 0x80 and -0x32 or 0x32
+    local opposite = mode >= 0x80 and 0x32 or -0x32
+    return {
+        map_word_snapshot(x + horizontal, y - 0x01),
+        map_word_snapshot(x + horizontal, y - 0x11),
+        map_word_snapshot(x + opposite, y - 0x0c),
+    }
+end
+
 local function hex(s)
     return (s:gsub(".", function(c)
         return string.format("%02x", string.byte(c))
@@ -115,6 +148,11 @@ local function object_snapshot(selector, offset, index)
         linked_child = word(raw, 0x36 + 1),
         phase_timer = word(raw, 0x38 + 1),
         emission_counter = word(raw, 0x44 + 1),
+        direction_mode = string.byte(raw, 0x28 + 1),
+        direction_byte = string.byte(raw, 0x29 + 1),
+        map_probes = word(raw, 0x18 + 1) == 0xb33b and
+            b33b_map_probes(raw, signed_word((x_fixed >> 16) & 0xffff),
+                            signed_word((y_fixed >> 16) & 0xffff)) or nil,
     }
 end
 

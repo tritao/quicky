@@ -238,13 +238,23 @@ the inactive record.
 
 An unforced W1L3 pool sample now captures the natural edge. With the original
 owner position and global state untouched, B33B drifts left from approximately
-`(405,565)` at game frame `401` to `(386,553)` at frame `445`. At that frame
-the first-free record `0x01E0` receives initializer callback B84D; on frame
-`446` the same record is callback B87B with slot `0x0386`. Its strict gate
-rejects `y=553` in camera `(0,358)` (`y-camera+0x10 = 0xD3`), so by frame
-`447` the callback is cleared and the same pool record is reused by `10B5`.
-The owner remains B33B and the global phase remains `1`; this is a natural
-contact/timer handoff, not the forced phase-2 sequence above.
+`(405,565)` at game frame `401` to `(386,553)` at frame `445`. The owner reaches
+the handoff with its phase timer at `0xDC`; on the next callback it sets
+`+0x34 = 1`, resets `+0x38`, and the first-free record `0x01E0` receives
+initializer callback B84D. On frame `446` the same record is callback B87B with
+slot `0x0386`. Its strict gate rejects `y=553` in camera `(0,358)`
+(`y-camera+0x10 = 0xD3`), so by frame `447` the callback is cleared and the
+same pool record is reused by `10B5`. The owner remains B33B and the global
+phase remains `1`.
+
+The lightweight sampler also reads the three B33B `1C6E` probe cells at each
+frame. At the transition boundary the owner is `(386,553)`, direction mode is
+`0xff`, and the probes are `(336,552) -> 0x018e`, `(336,536) -> 0x017a`, and
+`(436,541) -> 0x0001`; none has raw bit `0x4000`. The same bit remains clear
+through the surrounding 50-frame sample. This means the observed frame-445
+handoff is timer-driven in this run, not a direct `0x4000` MAP hit at the
+three B33B probe points. It does not yet name the bit or exclude an earlier
+action/context side effect through `1B77 -> 393C/19E6`.
 
 ### Controlled late-phase boundary
 
@@ -267,8 +277,8 @@ breakpoints:
   linked record.
 
 This closes the natural timing and deactivation edge for the controlled phase
-sequence, while the unforced gameplay trigger and the eventual B25D reclaim
-remain open.
+sequence, while the remaining action/context path and the eventual B25D
+reclaim remain open.
 
 ## Linked callback `B84D -> B87B`
 
@@ -298,9 +308,10 @@ at the same boundary or one scheduler pass later.
 1. Sample a natural B226/B25D creation at one-frame cadence to associate the
    sequence-table entries with gameplay frames and confirm terminal callback
    clearing under ordinary (non-probed) phase changes.
-2. Trace the natural `B33B` action/context path (`1B77 -> 393C/19E6`) and sample
-   MAP cells with raw bit `0x4000` to assign the exact gameplay meaning of the
-   contact that precedes the observed frame-445 handoff.
+2. Trace the natural `B33B` action/context path (`1B77 -> 393C/19E6`) and
+   deliberately capture a run in which one of the `1C6E` probes returns raw
+   bit `0x4000`; the frame-445 sample shows that this bit is not the direct
+   cause of the timer-driven handoff.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
    and `0x487F`, so object deletion and reactivation are not guessed.
 4. Resolve the remaining full-frame palette/timing residuals after the
