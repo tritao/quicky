@@ -36,6 +36,23 @@ std::string worldForMap(const std::string &mapName) {
     return world;
 }
 
+std::string completedGoalTarget(const std::string &mapName,
+                                std::uint16_t puzzleMask) {
+    if (upperAscii(mapName) != "W1L1.MAP") {
+        return std::string();
+    }
+    // The focused 5010/18C7 evidence distinguishes the ordinary completion
+    // route from the all-seven-letter bonus route. Keep other masks outside
+    // the transition until their selector mapping is recovered.
+    if (puzzleMask == 0) {
+        return "W1L2.MAP";
+    }
+    if (puzzleMask == 0x007f) {
+        return "W1L4.MAP";
+    }
+    return std::string();
+}
+
 std::uint16_t worldEffectSlotFor(const std::string &world,
                                  std::uint16_t tile) {
     if (world == "W1") {
@@ -1431,6 +1448,18 @@ void LevelSession::tick(Simulation &simulation,
     advanceActiveEntities();
     advanceActiveEffects();
     dispatchCloudCallbacks(&simulation, player);
+    if (_gameplayState.cloudSignal89e6 == 0xffff &&
+        _gameplayState.transitionGate89ea == 0) {
+        const std::string target = completedGoalTarget(
+            _mapName, _gameplayState.puzzleMask60d8);
+        if (!target.empty()) {
+            // 89EA is the outer transition gate consumed by 5010. Latching
+            // it here prevents a second LevelExit while the frontend performs
+            // the reload closure.
+            _gameplayState.transitionGate89ea = 0xffff;
+            enqueueEvent(LevelEventType::LevelExit, 0, 0, target);
+        }
+    }
     const bool emittedTileEffect = dispatchWorldEffectCallbacks(&simulation);
 
     if (spawnedTransient) {

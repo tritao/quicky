@@ -97,6 +97,47 @@ void LevelRuntime::reset(Simulation &simulation) {
                              player.positionY.floorPixels());
 }
 
+std::unique_ptr<LevelRuntime> LevelRuntime::reload(
+    const Archive &archive, const std::string &targetMapName,
+    Simulation &simulation, const LevelSessionConfig &config,
+    LevelReloadTrace *trace) const {
+    if (trace != 0) {
+        trace->targetMap = targetMapName;
+        trace->stages.clear();
+        trace->stages.push_back(LevelReloadStage::TransitionGate5010);
+    }
+
+    // 0908/0931 release the old pooled records before the new resource
+    // lookup. Simulation::reset is the native object-pool ownership boundary.
+    simulation.reset();
+    if (trace != 0) {
+        trace->stages.push_back(LevelReloadStage::ObjectTeardown0908);
+        trace->stages.push_back(LevelReloadStage::ResourceLookup18C7);
+    }
+
+    // LevelRuntime::load performs the archive lookup and parses the target
+    // MAP/ARE/PCC/ICO set. The transition-buffer copy is represented by the
+    // parsed resource handoff; no presentation-only copy routine is exposed
+    // as gameplay state.
+    std::unique_ptr<LevelRuntime> next = LevelRuntime::load(
+        archive, targetMapName, _playerBobName, config);
+    if (trace != 0) {
+        trace->stages.push_back(LevelReloadStage::TransitionBufferCopy0D5A);
+        trace->stages.push_back(LevelReloadStage::PlayerReposition1AAA);
+    }
+
+    // reset reconstructs the target session, initializes the 0x78 player
+    // record, and publishes the target region's scheduler entries.
+    next->reset(simulation);
+    if (trace != 0) {
+        trace->stages.push_back(LevelReloadStage::AnimationLoader5D38);
+        trace->stages.push_back(LevelReloadStage::CameraRebuild321F);
+        trace->stages.push_back(LevelReloadStage::WorldDispatch313D);
+        trace->stages.push_back(LevelReloadStage::Cleanup504F);
+    }
+    return next;
+}
+
 void LevelRuntime::tick(Simulation &simulation,
                         const InputState &input,
                         SimulationOutput &output) {

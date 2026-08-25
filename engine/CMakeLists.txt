@@ -158,3 +158,9 @@ add_test(NAME quiky-player-callback-tests COMMAND quiky-player-callback-tests)
 add_executable(quiky-sfx-event-tests tests/test_sfx_events.cpp)
 target_link_libraries(quiky-sfx-event-tests PRIVATE quiky_core)
 add_test(NAME quiky-sfx-event-tests COMMAND quiky-sfx-event-tests)
+
+add_executable(quiky-transition-reload-tests tests/test_transition_reload.cpp)
+target_link_libraries(quiky-transition-reload-tests PRIVATE quiky_core)
+add_test(NAME quiky-transition-reload-tests
+    COMMAND quiky-transition-reload-tests
+            ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT)

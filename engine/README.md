@@ -90,6 +90,24 @@ the DOS trace evidence. Natural puzzle completion/transition behavior,
 the remaining enemy vertical/PRNG branches, and script-created platforms are
 not implemented by this slice.
 
+## Focused 5010 reload boundary
+
+The recovered high-level reload orchestration is now implemented by
+`LevelRuntime::reload`. It records the auditable stage sequence
+
+```text
+5010 -> 0908/0931 -> 18C7 -> 0D5A -> 1AAA -> 5D38
+     -> 321F -> 313D -> 504F
+```
+
+The call releases the old simulation scheduler, loads the target MAP/ARE and
+world resources, reconstructs the target player/session, and republishes its
+streamed scheduler entries. `LevelReloadTrace` preserves the address-qualified
+stage order for parity tests. The real-archive test exercises the W1L1 to W1L4
+route observed in the native v23 trace. Presentation-only fade and renderer
+helpers remain outside this API; natural selector routing and authored spawn
+table selection remain explicit data boundaries.
+
 The W1 normal-enemy slice now executes the closed initialization and state-zero
 patrol behavior for WURM2 (`6DC4`) and BIENE (`68C0`): fixed-point direction,
 the `+0x20` Y initializer offset, raw MAP `0x4000` probing through the

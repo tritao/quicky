@@ -551,6 +551,19 @@ void testRecoveredW1L1AmbientAndDedicatedContracts() {
     assert(cloud.entities()[0].spriteResource == "WOLKE.BOB");
     cloud.tick(simulation, world, quiky::InputState(), output);
     assert(cloud.gameplayState().cloudSignal89e6 == 0xffff);
+    const quiky::LevelEvent ordinaryGoal = cloud.consumeEvent();
+    assert(ordinaryGoal.type == quiky::LevelEventType::LevelExit);
+    assert(ordinaryGoal.targetLevel == "W1L2.MAP");
+
+    quiky::LevelSession bonusCloud("W1L1.MAP", map,
+                                   makeSingleArea(0x28), config);
+    bonusCloud.reset(simulation);
+    bonusCloud.updateStreaming(simulation, 16, 16);
+    bonusCloud.gameplayStateForSetup().puzzleMask60d8 = 0x007f;
+    bonusCloud.tick(simulation, world, quiky::InputState(), output);
+    const quiky::LevelEvent bonusGoal = bonusCloud.consumeEvent();
+    assert(bonusGoal.type == quiky::LevelEventType::LevelExit);
+    assert(bonusGoal.targetLevel == "W1L4.MAP");
 
     quiky::LevelSession leaves("W1L1.MAP", map, makeSingleArea(0x2a), config);
     leaves.reset(simulation);

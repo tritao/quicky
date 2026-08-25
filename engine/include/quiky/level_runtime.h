@@ -16,6 +16,28 @@
 
 namespace quiky {
 
+// Address-annotated orchestration stages recovered from the focused
+// 01D7:5010 transition closure. These are engine boundaries, not guesses
+// about the presentation-only helpers inside each stage.
+enum class LevelReloadStage {
+    TransitionGate5010,
+    ObjectTeardown0908,
+    ResourceLookup18C7,
+    TransitionBufferCopy0D5A,
+    PlayerReposition1AAA,
+    AnimationLoader5D38,
+    CameraRebuild321F,
+    WorldDispatch313D,
+    Cleanup504F,
+};
+
+struct LevelReloadTrace {
+    std::string targetMap;
+    std::vector<LevelReloadStage> stages;
+
+    LevelReloadTrace() : targetMap(), stages() {}
+};
+
 // Owns all resources and runtime state needed to play one MAP/ARE level.
 // Instances are heap-owned because LevelSession keeps references to the map
 // and area members; keeping the bundle at a stable address makes transitions
@@ -52,6 +74,16 @@ public:
     void reset(Simulation &simulation);
     void tick(Simulation &simulation, const InputState &input,
               SimulationOutput &output);
+
+    // Execute the closed high-level equivalent of the native 5010 reload
+    // boundary. The returned runtime owns the newly loaded MAP/ARE/resource
+    // set; simulation is reset before object reconstruction and then
+    // initialized from the target level's player declaration.
+    std::unique_ptr<LevelRuntime> reload(
+        const Archive &archive, const std::string &targetMapName,
+        Simulation &simulation,
+        const LevelSessionConfig &config = LevelSessionConfig(),
+        LevelReloadTrace *trace = 0) const;
 
 private:
     LevelRuntime(const std::string &mapName, const std::string &areaName,

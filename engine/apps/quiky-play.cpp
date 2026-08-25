@@ -588,9 +588,16 @@ int main(int argc, char **argv) {
                                         : "exit->" + event.targetLevel;
                         eventUntil = now + 5000000000ULL;
                         if (!event.targetLevel.empty()) {
+                            quiky::LevelSessionConfig transitionConfig = levelConfig;
+                            // Explicit coordinates are a fixture/startup
+                            // override, not a replacement for 1AAA's target
+                            // level spawn declaration.
+                            transitionConfig.hasSpawn = false;
+                            quiky::LevelReloadTrace reloadTrace;
                             std::unique_ptr<quiky::LevelRuntime> next =
-                                quiky::LevelRuntime::load(
-                                    archive, event.targetLevel, bobName);
+                                runtime->reload(archive, event.targetLevel,
+                                                simulation, transitionConfig,
+                                                &reloadTrace);
                             const quiky::IndexedSurface nextWorld =
                                 quiky::renderMap(next->map(), next->tileset());
                             const quiky::IndexedSurface nextSurface =
@@ -600,7 +607,6 @@ int main(int argc, char **argv) {
                             carriedScore += runtime->session().score();
                             carriedDeaths += runtime->session().deaths();
                             runtime.swap(next);
-                            runtime->reset(simulation);
                             output.player = simulation.state().player;
                             playerAnimation.reset();
                             playerAnimation.advance(player);
