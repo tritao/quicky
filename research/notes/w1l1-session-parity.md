@@ -26,9 +26,9 @@ The comparison established the following boundary on 2026-08-25:
 | --- | --- | --- |
 | Player pre/post records | exact for all four samples | recovered `3F27` initializer plus `3FF8` callback; verified by the session comparator and existing `player_callback_parity.py` fixture |
 | Input word and camera | exact for all four samples | DOS globals and native W1L1 anchor `(0,262)` |
-| Scheduler order | first divergence: DOS `47E7,47E7,8D20,47E7,47E7,47E7,47E7`; native `47E7,47E7,47E7,47E7,47E7,47E7,8D20` | native pool append order is observable; family-specific insertion/stream ordering remains to be closed |
-| Active leaf position/slot | diverges at sample 1 | DOS positions include `y=257/209/225` and slots `700/703`; native retains declaration anchors and slot `700`; `47E7` PRNG perturbation and animation cadence are explicitly unresolved in the static closure |
-| WERBE position | diverges at sample 1 | DOS `(257,366)` versus native `(256,368)`; `8D20` initializer/position publication remains a separate object-family boundary |
+| Scheduler order | exact for all four samples after the focused closure | Ghidra `1CDA -> 1E04` edge scans plus the native callback pool establish descending region-X/ascending region-Y append order; camera-anchored C++ streaming now follows it |
+| WERBE position | exact for all four samples | Ghidra `8BC2` initializer projection `(x+1,y-2)` now publishes DOS `(257,366)`, slot `607`, subtype `1` |
+| Active leaf position/slot | remaining first gameplay-object divergence | Ghidra `4727/47E7` closes fixed-point movement and the `DS:6468/646C` random ring contract; the player tracer now publishes the ring, but C++ replay injection and the two animation-table seed choices remain unresolved |
 | Probes/global writes/effects | DOS capture coverage gap | `player-frame-full-v1.json` does not publish those arrays; the comparator reports the gap instead of treating it as an empty equal list |
 
 The first player-state mismatch was removed by applying the mechanically

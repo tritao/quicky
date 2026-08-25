@@ -309,6 +309,7 @@ private:
                                              &dependencyOrder);
     bool dispatchWorldEffectCallbacks(Simulation *simulation);
     void initializeEnemy(LevelEntity &entity);
+    void initializeCollectible(LevelEntity &entity);
     void initializeWorldEffect(LevelEntity &entity);
     void initializeAmbientVisual(LevelEntity &entity);
     void initializeMovingPlatform(LevelEntity &entity);

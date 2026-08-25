@@ -71,6 +71,16 @@ void testW1L1Inventory(const std::string &archivePath) {
         const quiky::LevelEntity &entity = runtime->session().entities()[index];
         ++actual[entity.type];
 
+        if (entity.type == 0x6f) {
+            // 01F7:8BC2 is an initializer, not a renderer-time offset.
+            assert(entity.x == static_cast<std::int32_t>(
+                entity.initialX + 1));
+            assert(entity.y == static_cast<std::int32_t>(
+                entity.initialY - 2));
+            assert(entity.spriteSlot == 607);
+            assert(entity.contactSubtype == 1);
+        }
+
         const FamilyContract contract = contractFor(entity.type);
         assert(contract.kind != quiky::EntityKind::Unknown);
         assert(entity.kind == contract.kind);

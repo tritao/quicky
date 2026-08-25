@@ -182,6 +182,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         entity.collisionWidth = collisionWidthFor(entity.type);
         entity.collisionHeight = collisionHeightFor(entity.type);
         initializeEnemy(entity);
+        initializeCollectible(entity);
         initializeWorldEffect(entity);
         initializeAmbientVisual(entity);
         initializeMovingPlatform(entity);
@@ -235,6 +236,7 @@ void LevelSession::reset(Simulation &simulation) {
         entity.contactCallback = CallbackIdentity();
         entity.responseTimer = 0;
         initializeEnemy(entity);
+        initializeCollectible(entity);
         initializeWorldEffect(entity);
         initializeAmbientVisual(entity);
         initializeMovingPlatform(entity);
@@ -344,6 +346,28 @@ void LevelSession::initializeEnemy(LevelEntity &entity) {
     entity.enemyContactPending = false;
     entity.contactCallback = CallbackIdentity();
     entity.responseTimer = 0;
+}
+
+void LevelSession::initializeCollectible(LevelEntity &entity) {
+    if (entity.type == 0x6f) {
+        // 01F7:8BC2: WERBE type 0x6F publishes slot 0x25F and places the
+        // pooled object at (ARE x + 1, ARE y - 2).
+        entity.x += 1;
+        entity.y -= 2;
+    } else if (entity.type == 0x70 || entity.type == 0x71) {
+        // 01F7:8BE5/8C08: the health variants share the (x + 5, y + 10)
+        // initializer projection and publish slots 0x260/0x261.
+        entity.x += 5;
+        entity.y += 10;
+    } else if (entity.type == 0x72) {
+        // 01F7:8C2B: invulnerability pickup placement.
+        entity.x += 3;
+        entity.y += 7;
+    } else {
+        return;
+    }
+    entity.positionX = Fixed16::fromPixels(entity.x);
+    entity.positionY = Fixed16::fromPixels(entity.y);
 }
 
 void LevelSession::initializeWorldEffect(LevelEntity &entity) {
@@ -735,8 +759,33 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
     const std::int32_t regionX = floorRegion(playerX);
     const std::int32_t regionY = floorRegion(playerY);
     bool spawnedTransient = false;
+    std::vector<std::size_t> streamOrder;
+    streamOrder.reserve(_entities.size());
     for (std::size_t index = 0; index < _entities.size(); ++index) {
-        LevelEntity &entity = _entities[index];
+        streamOrder.push_back(index);
+    }
+    if (_streamAnchorActive) {
+        // 01F7:1CDA scans the camera stream through the ARE layout's
+        // vertical/horizontal edge passes. The native startup pool trace
+        // establishes the resulting order as descending region X, then
+        // ascending region Y, with declaration order as the tie-breaker.
+        std::stable_sort(
+            streamOrder.begin(), streamOrder.end(),
+            [this](std::size_t left, std::size_t right) {
+                const LevelEntity &a = _entities[left];
+                const LevelEntity &b = _entities[right];
+                if (a.regionX != b.regionX) {
+                    return a.regionX > b.regionX;
+                }
+                if (a.regionY != b.regionY) {
+                    return a.regionY < b.regionY;
+                }
+                return a.recordOffset < b.recordOffset;
+            });
+    }
+    for (std::size_t orderIndex = 0;
+         orderIndex < streamOrder.size(); ++orderIndex) {
+        LevelEntity &entity = _entities[streamOrder[orderIndex]];
         if (entity.collected) {
             entity.phase = EntityPhase::Collected;
             entity.active = false;

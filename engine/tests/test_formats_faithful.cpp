@@ -337,6 +337,8 @@ void testRecoveredCollectibleStateContracts() {
     quiky::SimulationOutput output;
 
     quiky::LevelSession healthMax("W1L1.MAP", map, makeSingleArea(0x70), config);
+    assert(healthMax.entities()[0].x == 21);
+    assert(healthMax.entities()[0].y == 26);
     healthMax.reset(simulation);
     healthMax.gameplayStateForSetup().currentHealth8822 = 3;
     healthMax.gameplayStateForSetup().maximumHealth8824 = 3;
@@ -349,6 +351,8 @@ void testRecoveredCollectibleStateContracts() {
     assert(healthMax.score() == 250);
 
     quiky::LevelSession health("W1L1.MAP", map, makeSingleArea(0x71), config);
+    assert(health.entities()[0].x == 21);
+    assert(health.entities()[0].y == 26);
     health.reset(simulation);
     health.gameplayStateForSetup().currentHealth8822 = 3;
     health.gameplayStateForSetup().maximumHealth8824 = 5;
@@ -362,6 +366,8 @@ void testRecoveredCollectibleStateContracts() {
 
     quiky::LevelSession invulnerability("W1L1.MAP", map,
                                         makeSingleArea(0x72), config);
+    assert(invulnerability.entities()[0].x == 19);
+    assert(invulnerability.entities()[0].y == 23);
     invulnerability.reset(simulation);
     invulnerability.updateStreaming(simulation, 16, 16);
     invulnerability.tick(simulation, world, quiky::InputState(), output);

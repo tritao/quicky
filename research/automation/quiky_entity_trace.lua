@@ -802,17 +802,21 @@ for attempt = 1, 4096 do
                 local update_selector = rr.es
                 local update_offset = rr.edi & 0xffff
                 local update_state = dosbox.mem_read_selector(
-                    update_selector, update_offset, 52)
+                    update_selector, update_offset, 64)
                 lifetime_samples[#lifetime_samples + 1] = {
                     sequence = #lifetime_samples + 1,
                     object = {selector = update_selector,
                               offset = update_offset},
                     matches_entity_object = update_selector == object_selector and
                                             update_offset == object_offset,
+                    position = {x = dword(update_state, 3) >> 16,
+                                y = dword(update_state, 7) >> 16},
+                    velocity_y_fixed = dword(update_state, 0x0e + 1),
                     slot = word(update_state, 0x12 + 1),
                     animation_delay = word(update_state, 0x20 + 1),
                     animation_cursor = word(update_state, 0x24 + 1),
                     variant_flag = string.byte(update_state, 0x28 + 1),
+                    state_hex = hex(update_state),
                 }
                 -- Step past the current callback entry before re-arming it.
                 dosbox.breakpoint_set(0x01f7, 0x47ec, {once = true})

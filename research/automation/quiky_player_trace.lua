@@ -488,6 +488,12 @@ local function static_globals()
         transition_state = dosbox.mem_read_word("ds", 0x8810),
         object_count = dosbox.mem_read_word("ds", 0x880a),
         transition_event = dosbox.mem_read_word("ds", 0x89e6),
+        -- 01F7:4727/47E7 consume the byte ring at DS:646C through the
+        -- wrapping index DS:6468. Keep both values in the trace so leaf
+        -- velocity/animation initialization can be replayed without
+        -- guessing a random seed.
+        leaf_prng_index = dosbox.mem_read_word("ds", 0x6468),
+        leaf_prng_ring_hex = hex(dosbox.mem_read("ds", 0x646c, 0x100) or ""),
         transition_error = dosbox.mem_read_word("ds", 0x89ec),
         target_active_count = dosbox.mem_read_word("ds", 0x8806),
         target_capacity = target_capacity,

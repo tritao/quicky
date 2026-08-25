@@ -523,6 +523,16 @@ The origins at `DS:3714` and `DS:3716` are aligned to 64 pixels. Types `0x65`,
 `0x66`, and `0x67` take dedicated creation paths rather than the normal dispatch
 table.
 
+The focused Ghidra export now includes the complete streaming edge around
+`01F7:1CDA`/`1E04`. The camera update performs a six-cell vertical pass and an
+eight-cell horizontal pass; each pass calls `1E04`, which marks the declaration
+before invoking the factory. In the native W1L1 startup capture the resulting
+live callback pool order is record-buffer offsets
+`0x1612, 0x16C2, 0x1802, 0x160A, 0x16BA, 0x1602, 0x16B2`—descending region X,
+ascending region Y, with declaration order within a cell. The engine uses that
+ordering only for camera-anchored streaming; setup-only coordinate streaming
+retains its decoded placement order.
+
 The live W1L1 sample stopped with `FS:BX = 037F:1632`, region origin `(768,192)`,
 and record words `(type=0x2B, x=0, y=32)`. Since the loaded buffer starts at ARE
 offset `0x160`, this is the record at disk offset `0x1792`; its archived bytes
