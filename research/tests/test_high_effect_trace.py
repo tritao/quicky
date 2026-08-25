@@ -24,6 +24,9 @@ class HighEffectTraceTests(unittest.TestCase):
             input_samples=4,
             target_y_delta=-10,
             target_cursor_offset=0x2A,
+            force_object_x=250,
+            force_object_y=500,
+            stop_at_cursor=0x14,
         )
         payload = lua_config(config)
         self.assertEqual(payload["frames"], 8)
@@ -31,6 +34,9 @@ class HighEffectTraceTests(unittest.TestCase):
         self.assertEqual(payload["select_level"], "W5L3")
         self.assertEqual(payload["input_key"], "KBD_right")
         self.assertEqual(payload["target_cursor_offset"], 0x2A)
+        self.assertEqual(payload["force_object_x"], 250)
+        self.assertEqual(payload["force_object_y"], 500)
+        self.assertEqual(payload["stop_at_cursor"], 0x14)
         self.assertNotIn("focus_callback_offset", payload)
         self.assertNotIn("screenshot", payload)
 

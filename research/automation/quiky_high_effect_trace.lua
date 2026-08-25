@@ -15,6 +15,9 @@ local input_samples = trace_config.input_samples or 0
 local target_x_delta = trace_config.target_x_delta or 0
 local target_y_delta = trace_config.target_y_delta or -10
 local target_cursor_offset = trace_config.target_cursor_offset or 0x2a
+local force_object_x = trace_config.force_object_x
+local force_object_y = trace_config.force_object_y
+local stop_at_cursor = trace_config.stop_at_cursor
 local callback_segments = {0x01f7, 0x1997}
 local watched_effect_callbacks = {}
 local watched_effect_objects = {}
@@ -53,6 +56,10 @@ end
 
 local function little_word(value)
     return string.char(value & 0xff, (value >> 8) & 0xff)
+end
+
+local function little_dword(value)
+    return little_word(value & 0xffff) .. little_word((value >> 16) & 0xffff)
 end
 
 local function hex(s)
@@ -296,12 +303,30 @@ local function trace_high_callback(hit)
     local selector = hit.registers.es
     local offset = hit.registers.edi & 0xffff
     local before = object_snapshot(selector, offset, -1)
+    local forced_position = nil
+    if force_object_x ~= nil or force_object_y ~= nil then
+        if force_object_x ~= nil then
+            -- ES:DI is the callback's object view; its position words are
+            -- two bytes before the logical +0x04/+0x08 names used in notes.
+            dosbox.mem_write_selector(selector, offset + 0x02,
+                                      little_dword(force_object_x << 16))
+        end
+        if force_object_y ~= nil then
+            dosbox.mem_write_selector(selector, offset + 0x06,
+                                      little_dword(force_object_y << 16))
+        end
+        forced_position = {
+            x = force_object_x, y = force_object_y,
+        }
+        before = object_snapshot(selector, offset, -1)
+    end
     local event = {
         callback_entry = {segment = hit.segment, offset = callback,
                           registers = hit.registers},
         family = family.name,
         tail = family.tail,
         object_before = before,
+        forced_position = forced_position,
         globals_before = globals_snapshot(),
         target_override = inject_target(before),
         related_hits = {},
@@ -480,6 +505,7 @@ end
 local frames = {}
 local callback_events = {}
 local spawned_effect_events = {}
+local stopped_at_cursor = nil
 for frame = 1, frame_count do
     if frame > 1 and input_key ~= "" and input_frames > 0 and
        (input_samples == 0 or frame <= input_samples + 1) then
@@ -499,7 +525,13 @@ for frame = 1, frame_count do
     local event = nil
     if hit.offset == 0x4b70 or watched_effect_callbacks[hit.offset] then
         event = trace_spawned_effect_callback(hit)
-        if event ~= nil then spawned_effect_events[#spawned_effect_events + 1] = event end
+        if event ~= nil then
+            spawned_effect_events[#spawned_effect_events + 1] = event
+            if stop_at_cursor ~= nil and event.object_after ~= nil and
+               event.object_after.target_cursor >= stop_at_cursor then
+                stopped_at_cursor = event.object_after.target_cursor
+            end
+        end
     else
         event = trace_high_callback(hit)
         if event ~= nil then callback_events[#callback_events + 1] = event end
@@ -511,6 +543,7 @@ for frame = 1, frame_count do
         globals = globals_snapshot(),
         scheduled_high = scheduled_high_snapshot(),
     }
+    if stopped_at_cursor ~= nil then break end
 end
 if input_key ~= "" then dosbox.key(input_key, false) end
 dosbox.output.high_effect_trace = {
@@ -525,5 +558,10 @@ dosbox.output.high_effect_trace = {
         y_delta = target_y_delta,
         cursor_offset = target_cursor_offset,
     },
+    stop_at_cursor = stop_at_cursor,
+    stopped_at_cursor = stopped_at_cursor,
 }
-dosbox.debug_continue()
+-- Leave the emulator paused at the selected callback so the API client can
+-- capture the exact sprite state.  The normal path resumes once the complete
+-- trace has been published.
+if stopped_at_cursor == nil then dosbox.debug_continue() end

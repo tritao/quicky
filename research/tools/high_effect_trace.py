@@ -37,6 +37,10 @@ class HighEffectConfig:
     target_cursor_offset: int = 0x2A
     screenshot: Path | None = None
     screenshot_mode: str = "rendered"
+    screenshot_format: str = "png"
+    force_object_x: int | None = None
+    force_object_y: int | None = None
+    stop_at_cursor: int | None = None
 
 
 def lua_config(config: HighEffectConfig) -> dict[str, Any]:
@@ -53,6 +57,9 @@ def lua_config(config: HighEffectConfig) -> dict[str, Any]:
         "target_x_delta": config.target_x_delta,
         "target_y_delta": config.target_y_delta,
         "target_cursor_offset": config.target_cursor_offset,
+        "force_object_x": config.force_object_x,
+        "force_object_y": config.force_object_y,
+        "stop_at_cursor": config.stop_at_cursor,
     }
 
 
@@ -144,7 +151,8 @@ def trace_high_effect(
                 time.sleep(0.05)
                 config.screenshot.parent.mkdir(parents=True, exist_ok=True)
                 config.screenshot.write_bytes(api.get_binary(
-                    "/api/v1/video/frame?format=png&mode=" + config.screenshot_mode
+                    "/api/v1/video/frame?format=" + config.screenshot_format +
+                    "&mode=" + config.screenshot_mode
                 ))
             return normalized
         if status.get("state") == "completed":
@@ -173,6 +181,13 @@ def build_parser() -> argparse.ArgumentParser:
                         help="capture the final DOSBox frame after the trace")
     parser.add_argument("--screenshot-mode", choices=("rendered", "raw"),
                         default="rendered")
+    parser.add_argument("--screenshot-format", choices=("png", "raw"),
+                        default="png",
+                        help="capture PNG pixels or the DOSBox raw frame/palette")
+    parser.add_argument("--force-object-x", type=int)
+    parser.add_argument("--force-object-y", type=int)
+    parser.add_argument("--stop-at-cursor", type=lambda value: int(value, 0),
+                        help="stop on a spawned-effect callback after this cursor")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -200,6 +215,12 @@ def main(argv: list[str] | None = None) -> int:
             raise TraceError(f"--{name.replace('_', '-')} must be signed 16-bit")
     if not 0 <= args.target_cursor_offset <= 0xffff:
         raise TraceError("--target-cursor-offset must be between 0 and 65535")
+    for name in ("force_object_x", "force_object_y"):
+        value = getattr(args, name)
+        if value is not None and not -0x8000 <= value <= 0x7fff:
+            raise TraceError(f"--{name.replace('_', '-')} must be signed 16-bit")
+    if args.stop_at_cursor is not None and not 0 <= args.stop_at_cursor <= 0xffff:
+        raise TraceError("--stop-at-cursor must be between 0 and 65535")
 
     repo_root = Path(__file__).resolve().parents[2]
     startup_recording = args.startup_recording
@@ -268,6 +289,10 @@ def main(argv: list[str] | None = None) -> int:
             target_cursor_offset=args.target_cursor_offset,
             screenshot=screenshot,
             screenshot_mode=args.screenshot_mode,
+            screenshot_format=args.screenshot_format,
+            force_object_x=args.force_object_x,
+            force_object_y=args.force_object_y,
+            stop_at_cursor=args.stop_at_cursor,
         )
         trace = trace_high_effect(api, script_path, config)
         envelope = {

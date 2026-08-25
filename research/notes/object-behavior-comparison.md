@@ -54,9 +54,11 @@ PYTHONPATH=research/tools python3 research/tools/object_behavior_compare.py \
   --family high-effect
 ```
 
-The comparator is intentionally callback-level. It does not yet compare the
-renderer bitmap output or choose between `PUFF.BOB` and `PUFFW2.BOB`; those are
-the scene-comparison inputs. The BOB decoder itself has now been cross-checked
-between the C++ and Python renderers for every opaque pixel in both resources;
-scene-level comparison remains open because the DOSBox captures contain other
-active sprites and cloud layers.
+The comparator remains intentionally callback-level for object ledgers. The
+separate forced-position render pass now compares the decoded BOB crop against
+DOSBox for all three W1 frames and the W2 slot-611 frame, including the
+world-specific `PUFF.BOB`/`PUFFW2.BOB` choice and draw origins. The remaining
+scene-comparison input is the active VGA palette: DOSBox's raw RGB output is a
+few values below the source PCC colors, so a full-frame comparator must either
+capture the runtime DAC/fade table or explicitly compare in palette-index
+space before judging recreation colors.

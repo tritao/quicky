@@ -609,10 +609,29 @@ records `0`, `1`, and `2` in both BOB resources. `PUFF.BOB` records are
 `decode_bob_record` output for every opaque pixel in slots `611..614` of both
 resources, with zero mismatches. The recreation now carries the source-less
 effect through its BOB renderer path, applies the recovered `sourceY+10`
-position, and selects the W2 resource separately. Short DOSBox video captures
-are stored with the ignored high-effect build artifacts; a full scene-level
-pixel comparison is still open because the effect must be isolated from the
-other active cloud/object layers.
+position, and selects the W2 resource separately.
+
+The high-effect probe has force-position and stop-at-cursor controls for this
+exact purpose. Forced W1L3 runs at `(300,500)` produce the effect at `(300,510)`
+and match all three DOSBox sprite crops at screen origin `(284,120)`: slots
+`611`, `612`, and `613` have respectively `(593,468,176)` matching opaque
+pixels, with zero missing pixels and IoU `0.985`, `0.979`, and `1.0` after
+excluding surrounding scene pixels. The W2L3 slot-611 run uses the different
+origin and resource and matches `(248,0,0)` opaque pixels exactly (IoU `1.0`)
+at crop `(283,50)`. This closes the isolated sprite-shape and position
+comparison; the ignored build directory retains the captures and ledgers.
+
+The remaining color difference is a display-pipeline issue, not a BOB decode
+issue. For W1, source palette colors `(151,151,151)`, `(183,183,183)`, and
+`(227,227,227)` appear in DOSBox's raw RGB frame as `(146,146,146)`,
+`(178,178,178)`, and `(223,223,223)`; W2 gives the same mapping for its
+shared colors. Static decoding of `0207:061D` shows that the game reduces
+8-bit PCC channels with `>> 2` before storing its VGA palette, while
+`0207:052C`/`0207:0536` writes the active 768-byte table to VGA DAC port
+`3C9`. DOSBox then expands the 6-bit DAC values with its `rgb6_to_8` LUT. The observed
+one-DAC-step offset is therefore evidence about the game's active/fade palette
+state, and should not be baked into the BOB renderer until a settled gameplay
+palette capture distinguishes the runtime table from the source PCC file.
 
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction
@@ -622,9 +641,9 @@ high-effect factory, position offset, sprite sequence, and terminal clear
 contract are now represented by `step_high_effect` in the C++ model. The frame
 comparator also accepts the high-effect trace schema (`--family high-effect`)
 and checks each `4B70`/`4C74` event against the same cursor, callback, and
-sprite rules. The remaining engine-recreation work is to connect this contract
-to the renderer's resource lookup and run a real recreated-vs-DOSBox frame
-comparison.
+sprite rules. The remaining engine-recreation work is a palette-state probe
+and a full recreated-vs-DOSBox frame comparator; the object lifecycle and
+isolated BOB compositing contracts are now established.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`

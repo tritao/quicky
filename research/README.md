@@ -337,6 +337,24 @@ PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
   --output research/build/high-effect/w3l3-tail.json
 ~~~
 
+For a visual isolation capture, force the source object onto a clear part of
+the scene and request the raw DOSBox frame:
+
+~~~sh
+DOSBOX_AUTOMATION_BIN=/path/to/dosbox_with_debugger \
+PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
+  --launch --headless --runtime-dir game --select-level W1L3 \
+  --frames 40 --frame-step 1 --force-object-x 300 --force-object-y 500 \
+  --stop-at-cursor 20 \
+  --screenshot-mode raw --screenshot research/build/high-effect/w1l3-puff.png \
+  --output research/build/high-effect/w1l3-puff.json
+~~~
+
+`--stop-at-cursor` leaves DOSBox paused on the selected `4C74` update before
+the host captures the frame, which makes later animation records reproducible.
+Use `--screenshot-format raw` when the uncompressed DOSBox frame container is
+more useful than PNG pixels.
+
 The one-frame cadence is intentional: the first steady callback consumes the
 target before its state gate advances the transient object to the next phase.
 All five high tails now have live target-hit evidence. Their static
