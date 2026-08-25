@@ -80,6 +80,26 @@ change is an animation boundary, not a visibility transition. The exact
 slot-duration table and the initial fixed-point values still need a shorter
 cadence trace from object creation.
 
+The creation/animation helper edge is now decoded statically. B142 allocates
+the B226 child through B1F0, then allocates the B25D child through B20B. Both
+initializers call `01F7:5D38`, which reads the sequence at the supplied `SI`
+cursor and initializes:
+
+```text
++0x1E/+0x20 = sequence delay/reload
++0x22/+0x24 = sequence start/current cursors
++0x12       = first sprite slot (with the -1 direction bank offset)
+```
+
+The per-callback helper `01F7:5D60` decrements `+0x20`; when it reaches zero,
+it advances `+0x24` by two bytes, skips negative table entries by rewinding
+over their encoded span, selects the next slot, and reloads `+0x20` from
+`+0x1E`. The controlled B226 record starts with delay/reload `8` and cursor
+`0x3426`, so its slot boundaries are eight callback passes apart. This
+replaces the earlier “roughly one pixel/slot” description with the actual
+record-local animation contract; creation cadence and the table's semantic
+frame names remain open.
+
 The gate is conditional on the global phase byte. A controlled debugger probe
 with `DS:88AE=4` confirms the strict boundary at the live initial camera:
 
@@ -238,8 +258,9 @@ at the same boundary or one scheduler pass later.
 
 ## What remains before changing the recreation
 
-1. Capture `B226` from creation at one-frame cadence to recover its exact
-   initial fixed-point state, slot durations, and terminal callback behavior.
+1. Sample a natural B226/B25D creation at one-frame cadence to associate the
+   sequence-table entries with gameplay frames and confirm terminal callback
+   clearing under ordinary (non-probed) phase changes.
 2. Trace the natural `B33B` action/context path (`1B77 -> 393C/19E6`) and sample
    MAP cells with raw bit `0x4000` to assign its gameplay meaning.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
