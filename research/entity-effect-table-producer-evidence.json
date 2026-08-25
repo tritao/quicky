@@ -139,10 +139,26 @@
     ],
     "interpretation": "The controlled gate pass closes the spawn -> update callback chain. It is debugger-only evidence of the state machine, not evidence that DS:88AE is set by this W1L1 player path."
   },
+  "werbe_pending_budget_probe": {
+    "trace": "research/build/entity-6f-pending-effect-chain-w1l1-v2.json",
+    "trace_sha256": "49e084c6c0aa9ddc06e62738bde610a0363498479ed55ed2c6ba41097a4dd0d5",
+    "trace_script_sha256": "6b2e2f69fd750ca3372e5f17ac8b901225ef3924b7d9f12ace785502afcbf44b",
+    "fixture": "W1L1 main-tree executable with an isolated baseline archive variant; native type 0x6F record 0x1838 stream-redirected to the near-camera anchor",
+    "samples": {
+      "overlap": 1,
+      "effect_table_watch_attempts": 128
+    },
+    "observed": [
+      "The native 01F7:8D20 -> 01F7:8D70 subtype-1 overlap raises DS:880C from 0 to 10 and writes action DS:612E=9; the pickup callback is then cleared.",
+      "The next 127 watched producer-tail hits at 01F7:38EC all see DS:880C=10, DS:88AE=0, DS:8806=0, action word 9, player action flags 0, and keyboard flags 0.",
+      "No 01F7:0E06, 01F7:4519, 01F7:45AB, 01F7:470C, 01D7:14E1, 01F7:8D70, or 01F7:1950 event occurs; DS:880C remains 10 and DS:87DE rows remain empty at the bounded barrier."
+    ],
+    "interpretation": "The WERBE pending increment is real and persists through a bounded player-loop window, but it does not itself produce a pooled 4519 row in this fixture. The missing condition remains the authored player action/state transition (bit 0x10) or another consumer path; this is bounded fixture evidence, not proof that 880C is never consumed during normal completion or boss play."
+  },
   "remaining": [
     "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
     "Which authored completion/boss transition advances DS:88AE and which end-stage callback consumes each stage value.",
-    "How the known DS:880C producers (WERBE subtype 1 at 01F7:8D70 and dedicated-effect processing at 01F7:1950) feed the 01F7:38EC -> 4519 path, and whether other pending-effect producers exist.",
+    "Which non-keyboard state transition sets player flags bit 0x10, whether DS:880C is consumed by 01D7:14E1 or another path after completion, and whether other pending-effect producers exist beyond WERBE subtype 1 at 01F7:8D70 and dedicated-effect processing at 01F7:1950.",
     "Whether Wind/UFO authored declarations use the player-state producer or another producer path, and how their paths seed DS:87DE rows independently of both gates.",
     "The semantic names and level/reload triggers of the two reset callsites."
   ]

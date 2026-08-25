@@ -102,6 +102,19 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertTrue(payload["force_contact_gate"])
         self.assertEqual(payload["align_x_offset"], -8)
 
+    def test_effect_table_probe_options_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1838,
+            entity_type=0x6F,
+            samples=1,
+            startup_recording=Path("startup.json"),
+            trace_effect_table=True,
+            effect_table_attempts=32,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["trace_effect_table"])
+        self.assertEqual(payload["effect_table_attempts"], 32)
+
     def test_normalizes_lua_numeric_tables(self):
         trace = normalize_behavior_trace({
             "samples": {
@@ -114,6 +127,21 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual([sample["sequence"] for sample in trace["samples"]], [1, 2])
         self.assertEqual(trace["samples"][1]["changed_bytes"][0]["offset"], 1)
         self.assertEqual(trace["samples"][1]["changed_bytes"][1]["offset"], 4)
+
+    def test_normalizes_effect_table_events(self):
+        trace = normalize_behavior_trace({
+            "samples": [],
+            "effect_table_probe": {
+                "events": {
+                    "2": {"sequence": 2},
+                    "1": {"sequence": 1},
+                },
+            },
+        })
+        self.assertEqual(
+            [event["sequence"] for event in trace["effect_table_probe"]["events"]],
+            [1, 2],
+        )
 
     def test_direct_callback_mode_and_inert_capture_are_present(self):
         source = (Path(__file__).resolve().parents[1] / "automation" /

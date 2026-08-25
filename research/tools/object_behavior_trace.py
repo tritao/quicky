@@ -45,6 +45,8 @@ class ObjectBehaviorConfig:
     trace_platform: bool = False
     trace_bump: bool = False
     trace_contact: bool = False
+    trace_effect_table: bool = False
+    effect_table_attempts: int = 64
     trace_stream_lifecycle: bool = False
     lifecycle_return_camera_x: int = 700
     lifecycle_return_camera_y: int = 350
@@ -89,6 +91,8 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_platform": config.trace_platform,
         "trace_bump": config.trace_bump,
         "trace_contact": config.trace_contact,
+        "trace_effect_table": config.trace_effect_table,
+        "effect_table_attempts": config.effect_table_attempts,
         "trace_stream_lifecycle": config.trace_stream_lifecycle,
         "lifecycle_return_camera_x": config.lifecycle_return_camera_x,
         "lifecycle_return_camera_y": config.lifecycle_return_camera_y,
@@ -157,6 +161,11 @@ def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
                 sample.get("changed_bytes", [])
             )
     trace["samples"] = samples
+    effect_probe = trace.get("effect_table_probe")
+    if isinstance(effect_probe, dict):
+        effect_probe["events"] = ordered_lua_array(
+            effect_probe.get("events", [])
+        )
     cloud_probe = trace.get("cloud_consumer_probe")
     if isinstance(cloud_probe, dict):
         cloud_probe["reader_offsets"] = ordered_lua_array(
@@ -249,6 +258,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trace-contact", action="store_true",
         help="capture normal-enemy player-contact response branches",
+    )
+    parser.add_argument(
+        "--trace-effect-table", action="store_true",
+        help="after the traced callback, watch pending-effect, player-producer, and 4519/45AB table events",
+    )
+    parser.add_argument(
+        "--effect-table-attempts", type=int, default=64,
+        help="maximum breakpoint events for --trace-effect-table (default 64)",
     )
     parser.add_argument(
         "--trace-stream-lifecycle", action="store_true",
@@ -367,6 +384,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--reload-after-collect requires --select-level or --reload-level")
     if args.reload_wait_frames < 0:
         raise TraceError("--reload-wait-frames must be non-negative")
+    if args.effect_table_attempts < 1:
+        raise TraceError("--effect-table-attempts must be positive")
     if args.force_tile_mask is not None and not 0 <= args.force_tile_mask <= 0xffff:
         raise TraceError("--force-tile-mask must be between 0 and 65535")
     if args.puzzle_probe_frames < 0:
@@ -457,6 +476,8 @@ def main(argv: list[str] | None = None) -> int:
         trace_platform=args.trace_platform,
         trace_bump=args.trace_bump,
         trace_contact=args.trace_contact,
+        trace_effect_table=args.trace_effect_table,
+        effect_table_attempts=args.effect_table_attempts,
         trace_stream_lifecycle=args.trace_stream_lifecycle,
         lifecycle_return_camera_x=args.lifecycle_return_camera_x,
         lifecycle_return_camera_y=args.lifecycle_return_camera_y,

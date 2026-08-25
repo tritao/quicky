@@ -18,6 +18,8 @@ local trace_collision = trace_config.trace_collision or false
 local trace_platform = trace_config.trace_platform or false
 local trace_bump = trace_config.trace_bump or false
 local trace_contact = trace_config.trace_contact or false
+local trace_effect_table = trace_config.trace_effect_table or false
+local effect_table_attempts = trace_config.effect_table_attempts or 64
 local trace_stream_lifecycle = trace_config.trace_stream_lifecycle or false
 local lifecycle_return_camera_x = trace_config.lifecycle_return_camera_x or 700
 local lifecycle_return_camera_y = trace_config.lifecycle_return_camera_y or 350
@@ -109,6 +111,100 @@ local function changed_bytes(before_hex, after_hex)
     return changed
 end
 
+local function effect_table_globals()
+    return {
+        pending_effect_count = dosbox.mem_read_word("ds", 0x880c),
+        active_effect_count = dosbox.mem_read_word("ds", 0x8806),
+        effect_capacity = dosbox.mem_read_word("ds", 0x8808),
+        effect_stage_gate = string.byte(
+            dosbox.mem_read("ds", 0x88ae, 1) or "\0", 1) or 0,
+        action_word = dosbox.mem_read_word("ds", 0x612e),
+        action_flags = dosbox.mem_read_word("ds", 0x8196),
+        keyboard_flags = dosbox.mem_read_word("ds", 0x88bc),
+        rows_hex = hex(dosbox.mem_read("ds", 0x87de, 16) or ""),
+    }
+end
+
+local function effect_table_object(hit)
+    if not hit.registers or hit.registers.es == nil or hit.registers.edi == nil then
+        return nil
+    end
+    local selector = hit.registers.es
+    local offset = hit.registers.edi & 0xffff
+    local ok, raw_or_error = pcall(
+        dosbox.mem_read_selector, selector, offset, 64)
+    if not ok then
+        return {
+            selector = selector,
+            offset = offset,
+            read_error = tostring(raw_or_error),
+        }
+    end
+    local raw = raw_or_error or ""
+    return {
+        selector = selector,
+        offset = offset,
+        callback = word(raw, 0x18 + 1),
+        state = word(raw, 0x2e + 1),
+        x = dword(raw, 3) >> 16,
+        y = dword(raw, 7) >> 16,
+        sprite_slot = word(raw, 0x12 + 1),
+    }
+end
+
+local function run_effect_table_probe()
+    local points = {
+        {segment = 0x01d7, offset = 0x14e1},
+        {segment = 0x01f7, offset = 0x38ec},
+        {segment = 0x01f7, offset = 0x0e06},
+        {segment = 0x01f7, offset = 0x4519},
+        {segment = 0x01f7, offset = 0x45ab},
+        {segment = 0x01f7, offset = 0x470c},
+        {segment = 0x01f7, offset = 0x8d70},
+        {segment = 0x01f7, offset = 0x1950},
+    }
+    local probe = {
+        attempts = effect_table_attempts,
+        events = {},
+    }
+    local function arm_all()
+        for _, point in ipairs(points) do
+            dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+        end
+    end
+    arm_all()
+    dosbox.debug_continue()
+    for attempt = 1, effect_table_attempts do
+        local hit = dosbox.wait_for_breakpoint(1000)
+        if not hit then break end
+        local stack = dosbox.mem_read(
+            "ss", hit.registers.esp & 0xffff, 12) or ""
+        probe.events[#probe.events + 1] = {
+            sequence = #probe.events + 1,
+            attempt = attempt,
+            hit = {
+                segment = hit.segment,
+                offset = hit.offset,
+                registers = hit.registers,
+            },
+            stack_hex = hex(stack),
+            globals = effect_table_globals(),
+            object = effect_table_object(hit),
+        }
+        arm_all()
+        dosbox.debug_continue()
+    end
+    for _, point in ipairs(points) do
+        dosbox.breakpoint_remove(point.segment, point.offset)
+    end
+    local current = dosbox.cpu_state()
+    dosbox.breakpoint_set(current.cs, current.eip, {once = true})
+    local barrier = wait_hit("effect table probe barrier")
+    probe.barrier = {segment = barrier.segment, offset = barrier.offset}
+    probe.final_globals = effect_table_globals()
+    return probe
+end
+
 local function stack_return(hit)
     -- Normal ARE dispatch entries store a near offset in DS:81D2 and the
     -- callback returns with a near RET. The callback still has a full CS in
@@ -167,6 +263,8 @@ local function static_globals(object_selector)
         object_global_880c = dosbox.mem_read_word("ds", 0x880c),
         object_global_8806 = dosbox.mem_read_word("ds", 0x8806),
         object_global_8808 = dosbox.mem_read_word("ds", 0x8808),
+        object_global_88ae = string.byte(
+            dosbox.mem_read("ds", 0x88ae, 1) or "\0", 1) or 0,
         object_global_880a = dosbox.mem_read_word("ds", 0x880a),
         effect_table_87de_hex = hex(dosbox.mem_read("ds", 0x87de, 16) or ""),
         contact_player_x = dosbox.mem_read_word("ds", 0x87de),
@@ -856,6 +954,10 @@ end
 
 assert(#samples > 0,
        "captured no callbacks for the initialized object")
+local effect_table_probe = nil
+if trace_effect_table then
+    effect_table_probe = run_effect_table_probe()
+end
 local puzzle_completion_probe = nil
 if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 then
     -- The final-letter callback has returned and cleared the live object. Let
@@ -1278,6 +1380,7 @@ dosbox.output.behavior_trace = {
     cloud_consumer_probe = cloud_consumer_probe,
     cloud_outer_renderer_probe = cloud_outer_renderer_probe,
     cloud_hardware_renderer_probe = cloud_hardware_renderer_probe,
+    effect_table_probe = effect_table_probe,
     reload_probe = reload_probe,
     samples = samples,
 }
