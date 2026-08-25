@@ -236,6 +236,16 @@ edge. It is a controlled transition, so it does not yet identify the
 natural B33B trigger or prove whether a later pool pass reclaims/reactivates
 the inactive record.
 
+An unforced W1L3 pool sample now captures the natural edge. With the original
+owner position and global state untouched, B33B drifts left from approximately
+`(405,565)` at game frame `401` to `(386,553)` at frame `445`. At that frame
+the first-free record `0x01E0` receives initializer callback B84D; on frame
+`446` the same record is callback B87B with slot `0x0386`. Its strict gate
+rejects `y=553` in camera `(0,358)` (`y-camera+0x10 = 0xD3`), so by frame
+`447` the callback is cleared and the same pool record is reused by `10B5`.
+The owner remains B33B and the global phase remains `1`; this is a natural
+contact/timer handoff, not the forced phase-2 sequence above.
+
 ### Controlled late-phase boundary
 
 The same lightweight sampler, forcing only the initial global phase to `2` and
@@ -289,7 +299,8 @@ at the same boundary or one scheduler pass later.
    sequence-table entries with gameplay frames and confirm terminal callback
    clearing under ordinary (non-probed) phase changes.
 2. Trace the natural `B33B` action/context path (`1B77 -> 393C/19E6`) and sample
-   MAP cells with raw bit `0x4000` to assign its gameplay meaning.
+   MAP cells with raw bit `0x4000` to assign the exact gameplay meaning of the
+   contact that precedes the observed frame-445 handoff.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
    and `0x487F`, so object deletion and reactivation are not guessed.
 4. Resolve the remaining full-frame palette/timing residuals after the

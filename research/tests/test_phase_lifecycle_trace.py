@@ -31,6 +31,13 @@ class PhaseLifecycleTraceTests(unittest.TestCase):
         self.assertEqual(payload["scan_limit"], 20)
         self.assertEqual(payload["force_transition"], 1)
 
+    def test_config_can_leave_natural_state_unmodified(self):
+        config = PhaseLifecycleConfig(startup_recording=Path("startup.json"))
+        payload = lua_config(config)
+        self.assertIsNone(payload["force_phase"])
+        self.assertIsNone(payload["force_x"])
+        self.assertIsNone(payload["force_y"])
+
 
 if __name__ == "__main__":
     unittest.main()

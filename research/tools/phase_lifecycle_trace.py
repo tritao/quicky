@@ -29,10 +29,10 @@ class PhaseLifecycleConfig:
     select_level: str = "W1L3"
     selector_frames: int = 60
     scan_limit: int = 16
-    force_phase: int = 2
+    force_phase: int | None = None
     force_transition: int | None = None
-    force_x: int | None = 300
-    force_y: int | None = 500
+    force_x: int | None = None
+    force_y: int | None = None
 
 
 def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
@@ -92,10 +92,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--sample-interval", type=int, default=1)
     parser.add_argument("--warmup-frames", type=int, default=0)
     parser.add_argument("--scan-limit", type=int, default=16)
-    parser.add_argument("--force-phase", type=lambda value: int(value, 0), default=2)
+    parser.add_argument("--force-phase", type=lambda value: int(value, 0))
     parser.add_argument("--force-transition", type=lambda value: int(value, 0))
-    parser.add_argument("--force-x", type=int, default=300)
-    parser.add_argument("--force-y", type=int, default=500)
+    parser.add_argument("--force-x", type=int)
+    parser.add_argument("--force-y", type=int)
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--headless", action="store_true")
     return parser
@@ -107,10 +107,16 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("sample counts and intervals must be positive; warmup cannot be negative")
     if not 1 <= args.scan_limit <= 64:
         raise TraceError("--scan-limit must be between 1 and 64")
-    if not 0 <= args.force_phase <= 0xff:
+    if args.force_phase is not None and not 0 <= args.force_phase <= 0xff:
         raise TraceError("--force-phase must be between 0 and 255")
     if args.force_transition is not None and not 0 <= args.force_transition <= 0xff:
         raise TraceError("--force-transition must be between 0 and 255")
+    if (args.force_x is None) != (args.force_y is None):
+        raise TraceError("--force-x and --force-y must be used together")
+    for name in ("force_x", "force_y"):
+        value = getattr(args, name)
+        if value is not None and not -0x8000 <= value <= 0x7fff:
+            raise TraceError(f"--{name.replace('_', '-')} must be signed 16-bit")
     repo_root = Path(__file__).resolve().parents[2]
     output = args.output if args.output.is_absolute() else repo_root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
