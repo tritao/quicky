@@ -308,6 +308,19 @@ void testLevelSessionUsesSimulationBoundary() {
     assert(exitEvent.targetLevel == "W1L2.MAP");
 }
 
+void testW1L1NativeDefaultSpawn() {
+    const quiky::Map map = makeMap(270, 30);
+    quiky::LevelSessionConfig config;
+    config.enableEdgeExit = false;
+    quiky::LevelSession session("w1l1.map", map, makeSingleArea(0), config);
+    quiky::Simulation simulation;
+
+    session.reset(simulation);
+
+    assert(simulation.state().player.positionX.floorPixels() == 128);
+    assert(simulation.state().player.positionY.floorPixels() == 400);
+}
+
 void testRecoveredCollectibleStateContracts() {
     const quiky::Map map = makeMap(16, 8);
     const quiky::WorldCollisionView world(map);
@@ -672,6 +685,7 @@ int main() {
         testAreaAndBob();
         testFaithfulRecordWorldAndAnimation();
         testLevelSessionUsesSimulationBoundary();
+        testW1L1NativeDefaultSpawn();
         testRecoveredCollectibleStateContracts();
         testRecoveredW1L1EnemyFamilies();
         testRecoveredAnimatedTileEffectStateMachine();

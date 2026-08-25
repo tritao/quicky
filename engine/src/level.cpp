@@ -174,10 +174,14 @@ SpawnPoint LevelSession::spawnPoint() const {
         return SpawnPoint(_config.spawnX, _config.spawnY);
     }
 
-    // No player declaration has been correlated in ARE yet. W1L1's 100,100
-    // anchor is the existing runtime smoke-test point; other levels use the
-    // same conservative fallback until a live player trace identifies their
-    // true spawn records.
+    // The native W1L1 player initializer and the complete jump/property
+    // traces begin at (128,400). Keep this evidence-backed level default
+    // separate from explicit test/frontend overrides; other levels retain
+    // the conservative fallback until their player declarations are closed.
+    if (upperAscii(_mapName) == "W1L1.MAP") {
+        return SpawnPoint(128, 400);
+    }
+
     const std::int32_t mapWidth = static_cast<std::int32_t>(_map.width) * 16;
     const std::int32_t mapHeight = static_cast<std::int32_t>(_map.height) * 16;
     return SpawnPoint(std::min<std::int32_t>(_config.spawnX, std::max(0, mapWidth - 32)),

@@ -25,6 +25,11 @@ The current iteration supports:
   `01F7:6DC4/68C0`, and animated world-ICO callback `01F7:8E4B` are now
   executed through the scheduler, while other transition contracts remain
   explicit at their recovered boundaries;
+
+The default W1L1 session now starts the player at the native traced
+initializer position `(128,400)`. Explicit start-coordinate overrides remain
+available for fixtures and controlled experiments; levels without a closed
+player declaration retain the conservative fallback.
 - source-less high-effect rendering from the recovered `4B70 -> 4C74` chain:
   world-specific `PUFF.BOB`/`PUFFW2.BOB`, slots `611/612/613`, and the
   31-update terminal lifecycle;
