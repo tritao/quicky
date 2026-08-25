@@ -1,6 +1,7 @@
 #include "quiky/archive.h"
 #include "quiky/bob.h"
 #include "quiky/level_runtime.h"
+#include "quiky/player_animation.h"
 #include "quiky/renderer.h"
 
 #include <algorithm>
@@ -167,21 +168,10 @@ void drawTransientEffects(quiky::IndexedSurface &surface,
 }
 
 const quiky::BobRecord &choosePlayerFrame(const quiky::Bob &bob,
-                                          const quiky::PlayerState &player,
-                                          std::uint64_t frame) {
-    const std::uint16_t base = player.facingRight ? 0 : 50;
-    const std::int32_t speed = player.velocityX.raw < 0
-                                   ? -player.velocityX.raw
-                                   : player.velocityX.raw;
-    std::uint16_t slot = base;
-    if (!player.grounded) {
-        slot = static_cast<std::uint16_t>(base + 20);
-    } else if (speed > quiky::Fixed16::kOne / 4) {
-        slot = static_cast<std::uint16_t>(base + ((frame / 6) % 10));
-    }
-    const quiky::BobRecord *record = findSlot(bob, slot);
+                                          const quiky::PlayerAnimation &animation) {
+    const quiky::BobRecord *record = findSlot(bob, animation.slot());
     if (record == nullptr) {
-        record = findSlot(bob, base);
+        record = findSlot(bob, animation.slot() >= 50 ? 50 : 0);
     }
     if (record == nullptr) {
         throw quiky::FormatError("player BOB resource is missing the selected frame");
@@ -312,6 +302,9 @@ int main(int argc, char **argv) {
             quiky::LevelRuntime::load(archive, mapName, playerBobName, config);
         quiky::PlayerState player;
         runtime->reset(player, simulation);
+        quiky::PlayerAnimation playerAnimation;
+        playerAnimation.reset();
+        playerAnimation.advance(player);
 
         if (hasHighEffect) {
             runtime->session().emitHighEffect(highEffectX, highEffectY);
@@ -319,6 +312,7 @@ int main(int argc, char **argv) {
         const quiky::InputState input = quiky::InputState::fromActionFlags(actionFlags);
         for (long frame = 0; frame < frames; ++frame) {
             runtime->tick(player, simulation, input);
+            playerAnimation.advance(player);
         }
 
         quiky::IndexedSurface scene = quiky::renderMap(runtime->map(), runtime->tileset());
@@ -330,7 +324,7 @@ int main(int argc, char **argv) {
         }
         if (drawPlayer) {
             const quiky::BobRecord &record = choosePlayerFrame(
-                runtime->playerBob(), player, static_cast<std::uint64_t>(frames));
+                runtime->playerBob(), playerAnimation);
             quiky::drawBobRecord(scene, record,
                                  player.x.floorPixels(), player.y.floorPixels());
         }
