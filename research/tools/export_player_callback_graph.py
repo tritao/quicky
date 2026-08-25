@@ -14,20 +14,16 @@ import argparse
 import json
 from pathlib import Path
 
+from quiky_ne import parse_address as parse_quiky_address
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "research/ghidra/player-callback-closure.json"
 
 
 def address(value: str) -> tuple[int, int]:
-    selectors = {
-        "01D7": 1, "01E7": 2, "01F7": 3,
-        "0207": 4, "0227": 5, "0237": 6,
-    }
-    selector, offset = value.split(":", 1)
-    selector = selector.upper()
-    segment = int(selector, 10) if selector.isdigit() and len(selector) <= 2 else selectors[selector]
-    return segment, int(offset, 16)
+    parsed = parse_quiky_address(value)
+    return parsed.segment, parsed.offset
 
 
 def export(manifest: dict) -> dict:

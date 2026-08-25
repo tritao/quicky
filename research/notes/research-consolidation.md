@@ -129,3 +129,14 @@ The first follow-up is now in place:
   symbol set in an existing annotated raw-segment project.
 - Trace configuration and ledgers use centralized schema constants; schema
   version 1 remains compatible with existing captures.
+
+The Ghidra mechanics are now factored without collapsing the research probes:
+
+- `research/tools/quiky_ne.py` owns NE header/segment parsing, raw versus
+  allocated segment images, selector/address conversion, and relocation
+  records. The segment extractor, relocation printer, Capstone target tool,
+  closure generators, baseline, graph export, and verifier consume that model.
+- `research/tools/QuikyGhidra.java` contains only reusable Ghidra project
+  mechanics used by the callback dump and near-call export. Generated
+  preparation remains self-contained, and hard-coded `Find*`, `Inspect*`,
+  and `Dump*` probes remain explicit investigations.

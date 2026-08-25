@@ -25,7 +25,7 @@ public class DumpPlayerCallbackClosure extends GhidraScript {
             throw new Exception("Could not create output directory: " + outputDirectory);
 
         String program = currentProgram.getName();
-        String filename = program.replaceAll("[^A-Za-z0-9_.-]", "_");
+        String filename = QuikyGhidra.safeProgramFilename(program);
         File report = new File(outputDirectory, filename + ".c");
         File inventory = new File(outputDirectory, filename + ".functions.json");
         DecompInterface decompiler = new DecompInterface();
@@ -37,7 +37,8 @@ public class DumpPlayerCallbackClosure extends GhidraScript {
             writer.println("/* Entries are selected mechanically from player-callback-closure.json. */");
             writer.println();
             inventoryWriter.println("{");
-            inventoryWriter.println("  \"program\": \"" + escape(program) + "\",");
+            inventoryWriter.println("  \"program\": \"" +
+                QuikyGhidra.jsonEscape(program) + "\",");
             inventoryWriter.println("  \"functions\": [");
             boolean firstInventoryRow = true;
 
@@ -52,7 +53,7 @@ public class DumpPlayerCallbackClosure extends GhidraScript {
                 if (rangeStart >= rangeEnd || offset < rangeStart || offset >= rangeEnd)
                     throw new Exception("invalid function range: " + args[i]);
 
-                Address address = toAddr(offset);
+                Address address = QuikyGhidra.address(currentProgram, offset);
                 Function function = currentProgram.getFunctionManager().getFunctionAt(address);
                 if (function == null || !function.getEntryPoint().equals(address))
                     throw new Exception("missing exact function entry 0x" + raw);
@@ -79,7 +80,8 @@ public class DumpPlayerCallbackClosure extends GhidraScript {
                 if (!firstInventoryRow) inventoryWriter.println(",");
                 firstInventoryRow = false;
                 inventoryWriter.print("    {\"entry\":\"" + raw +
-                    "\",\"name\":\"" + escape(function.getName()) +
+                    "\",\"name\":\"" +
+                    QuikyGhidra.jsonEscape(function.getName()) +
                     "\",\"range\":[\"" + parts[1] + "\",\"" + parts[2] +
                     "\"],\"body_min\":\"" + String.format("%04X", bodyMin) +
                     "\",\"body_max\":\"" + String.format("%04X", bodyMax) +
@@ -96,8 +98,4 @@ public class DumpPlayerCallbackClosure extends GhidraScript {
         println("Wrote " + inventory.getAbsolutePath());
     }
 
-    private String escape(String value) {
-        if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

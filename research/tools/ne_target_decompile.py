@@ -11,25 +11,17 @@ with the runtime selector/offset used by the debugger traces.
 from __future__ import annotations
 
 import argparse
-import struct
 import sys
 from dataclasses import dataclass
 from pathlib import Path
+import struct
+
+from quiky_ne import SEGMENT_SELECTORS, read_ne, read_ne_bytes
 
 try:
     from capstone import CS_ARCH_X86, CS_MODE_16, Cs
 except ImportError as exc:  # pragma: no cover - diagnostic for fresh checkouts
     raise SystemExit("ne_target_decompile.py requires the capstone package") from exc
-
-
-RUNTIME_SELECTORS = {
-    1: "01D7",
-    2: "01E7",
-    3: "01F7",
-    4: "0207",
-    5: "0227",
-    6: "0237",
-}
 
 
 @dataclass(frozen=True)
@@ -41,48 +33,36 @@ class Segment:
 
 
 def ne_segments(blob: bytes) -> tuple[int, int, list[Segment]]:
-    """Return (NE header offset, alignment shift, segment metadata)."""
-    if blob[0:2] != b"MZ":
-        raise ValueError("not an MZ executable")
-    ne_offset = struct.unpack_from("<I", blob, 0x3C)[0]
-    if blob[ne_offset:ne_offset + 2] != b"NE":
-        raise ValueError("MZ executable has no NE header")
-    segment_count = struct.unpack_from("<H", blob, ne_offset + 0x1C)[0]
-    segment_table = struct.unpack_from("<H", blob, ne_offset + 0x22)[0]
-    resource_table = struct.unpack_from("<H", blob, ne_offset + 0x24)[0]
-    align_shift = struct.unpack_from("<H", blob, ne_offset + 0x32)[0]
-    segment_table_abs = ne_offset + segment_table
-    segments: list[Segment] = []
-    for number in range(1, segment_count + 1):
-        entry = segment_table_abs + (number - 1) * 8
-        sector, length, _flags, _min_alloc = struct.unpack_from("<HHHH", blob, entry)
-        # A zero-length segment is legal (QUIKY has one at the end of its
-        # table) and has no image or relocation records.
-        if length == 0:
-            segments.append(Segment(number, 0, 0, ()))
-            continue
-        file_offset = sector << align_shift
-        data_end = file_offset + length
-        if data_end > len(blob):
-            raise ValueError(f"segment {number} extends past end of file")
-        # Relocations are appended to the physical segment image.  The NE
-        # segment table length excludes them, so the count is immediately
-        # after the segment bytes and records are 8 bytes each.
-        reloc_count = struct.unpack_from("<H", blob, data_end)[0]
-        reloc_start = data_end + 2
-        reloc_end = reloc_start + reloc_count * 8
-        if reloc_end > len(blob):
-            raise ValueError(f"segment {number} relocation table is truncated")
-        relocs = tuple(
-            struct.unpack_from("<BBHHH", blob, reloc_start + i * 8)
-            for i in range(reloc_count)
+    """Return ``(NE header offset, alignment shift, segment metadata)``.
+
+    Keep this compatibility-shaped function for callers of the original
+    Capstone tool, but source all parsing from the shared NE model.
+    """
+    image = read_ne_bytes(blob)
+    segments = [
+        Segment(
+            segment.number,
+            segment.file_offset if segment.file_length else 0,
+            segment.file_length,
+            tuple(
+                (
+                    record.source_type,
+                    record.flags,
+                    record.source,
+                    record.target_segment,
+                    record.target_offset,
+                )
+                for record in image.relocations(segment.number)
+            ),
         )
-        segments.append(Segment(number, file_offset, length, relocs))
-    return ne_offset, align_shift, segments
+        for segment in image.segments
+    ]
+    return image.ne_offset, image.segment_shift, segments
 
 
 def selector(segment: int) -> str:
-    return RUNTIME_SELECTORS.get(segment, f"seg{segment}")
+    runtime_selector = SEGMENT_SELECTORS.get(segment)
+    return f"{runtime_selector:04X}" if runtime_selector is not None else f"seg{segment}"
 
 
 def disassemble(blob: bytes, segment: Segment, start: int, end: int,

@@ -13,26 +13,16 @@ import argparse
 import json
 from pathlib import Path
 
+from quiky_ne import parse_address as parse_quiky_address
+
 
 def java_string(value: str) -> str:
     return json.dumps(value, ensure_ascii=True)
 
 
 def parse_address(value: str) -> tuple[int, int]:
-    segment, offset = value.split(":", 1)
-    selector_to_segment = {
-        0x01D7: 1,
-        0x01E7: 2,
-        0x01F7: 3,
-        0x0207: 4,
-        0x0227: 5,
-        0x0237: 6,
-    }
-    selector = int(segment, 16)
-    try:
-        return selector_to_segment[selector], int(offset, 16)
-    except KeyError as exc:
-        raise ValueError(f"unknown runtime selector {segment}") from exc
+    address = parse_quiky_address(value)
+    return address.segment, address.offset
 
 
 def generate(manifest: dict) -> str:

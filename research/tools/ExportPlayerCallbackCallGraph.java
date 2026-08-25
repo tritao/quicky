@@ -10,8 +10,6 @@ import java.io.File;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.address.Address;
@@ -20,8 +18,6 @@ import ghidra.program.model.listing.Instruction;
 import ghidra.program.model.listing.Listing;
 
 public class ExportPlayerCallbackCallGraph extends GhidraScript {
-    private static final Pattern SEGMENT_NAME = Pattern.compile(".*_SEG(\\d+)(?:\\..*)?");
-
     private static class Edge {
         String source;
         String sourceName;
@@ -45,7 +41,7 @@ public class ExportPlayerCallbackCallGraph extends GhidraScript {
             printerr("Usage: ExportPlayerCallbackCallGraph.java <output.json> <offset> ...");
             return;
         }
-        int segment = segmentNumber();
+        int segment = QuikyGhidra.segmentNumber(currentProgram.getName());
         List<Long> selected = new ArrayList<>();
         for (int i = 1; i < args.length; i++)
             selected.add(Long.parseLong(args[i], 16));
@@ -54,7 +50,7 @@ public class ExportPlayerCallbackCallGraph extends GhidraScript {
         List<Unresolved> unresolved = new ArrayList<>();
         Listing listing = currentProgram.getListing();
         for (Long offset : selected) {
-            Address entry = toAddr(offset);
+            Address entry = QuikyGhidra.address(currentProgram, offset);
             Function function = currentProgram.getFunctionManager().getFunctionAt(entry);
             if (function == null) {
                 printerr(String.format("No function at %04X", offset));
@@ -86,19 +82,22 @@ public class ExportPlayerCallbackCallGraph extends GhidraScript {
         try (PrintWriter writer = new PrintWriter(output, "UTF-8")) {
             writer.println("{");
             writer.println("  \"schema\": \"quiky.player-callback-ghidra-callgraph.v2\",");
-            writer.println("  \"program\": \"" + escape(currentProgram.getName()) + "\",");
+            writer.println("  \"program\": \"" +
+                QuikyGhidra.jsonEscape(currentProgram.getName()) + "\",");
             writer.println("  \"segment\": " + segment + ",");
             writer.println("  \"graph_kind\": \"ghidra-near-calls\",");
             writer.println("  \"edges\": [");
             for (int i = 0; i < edges.size(); i++) {
                 Edge edge = edges.get(i);
                 writer.print("    {\"source\":\"" + edge.source +
-                    "\",\"source_name\":\"" + escape(edge.sourceName) +
+                    "\",\"source_name\":\"" +
+                    QuikyGhidra.jsonEscape(edge.sourceName) +
                     "\",\"call_site\":\"" + edge.callSite +
                     "\",\"target\":\"" + edge.target +
                     "\",\"call_kind\":\"near\"");
                 if (edge.targetName != null)
-                    writer.print(",\"target_name\":\"" + escape(edge.targetName) + "\"");
+                    writer.print(",\"target_name\":\"" +
+                        QuikyGhidra.jsonEscape(edge.targetName) + "\"");
                 writer.print("}");
                 if (i + 1 < edges.size()) writer.print(",");
                 writer.println();
@@ -108,7 +107,8 @@ public class ExportPlayerCallbackCallGraph extends GhidraScript {
             for (int i = 0; i < unresolved.size(); i++) {
                 Unresolved call = unresolved.get(i);
                 writer.print("    {\"source\":\"" + call.source +
-                    "\",\"source_name\":\"" + escape(call.sourceName) +
+                    "\",\"source_name\":\"" +
+                    QuikyGhidra.jsonEscape(call.sourceName) +
                     "\",\"call_site\":\"" + call.callSite +
                     "\",\"classification\":\"" + call.classification +
                     "\",\"opcode\":\"" + String.format("%02X", call.opcode) + "\"}");
@@ -151,15 +151,4 @@ public class ExportPlayerCallbackCallGraph extends GhidraScript {
         return String.format("%d:%04X", segment, address.getOffset());
     }
 
-    private int segmentNumber() {
-        Matcher matcher = SEGMENT_NAME.matcher(currentProgram.getName());
-        if (!matcher.matches())
-            throw new IllegalArgumentException("program name has no _SEGNN suffix: " + currentProgram.getName());
-        return Integer.parseInt(matcher.group(1));
-    }
-
-    private String escape(String value) {
-        if (value == null) return "";
-        return value.replace("\\", "\\\\").replace("\"", "\\\"");
-    }
 }

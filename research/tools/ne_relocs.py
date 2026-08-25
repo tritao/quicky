@@ -11,60 +11,13 @@ from __future__ import annotations
 
 import argparse
 import json
-import struct
 from pathlib import Path
 
-
-SELECTORS = {
-    1: 0x01D7,
-    2: 0x01E7,
-    3: 0x01F7,
-    4: 0x0207,
-    5: 0x0227,
-    6: 0x0237,
-}
+from quiky_ne import read_ne
 
 
 def read_relocations(path: Path) -> list[dict[str, int | None]]:
-    data = path.read_bytes()
-    if data[:2] != b"MZ":
-        raise ValueError("not an MZ executable")
-    ne = struct.unpack_from("<I", data, 0x3C)[0]
-    if data[ne : ne + 2] != b"NE":
-        raise ValueError("MZ executable does not contain an NE header")
-    shift = struct.unpack_from("<H", data, ne + 0x32)[0]
-    count = struct.unpack_from("<H", data, ne + 0x1C)[0]
-    table = ne + struct.unpack_from("<H", data, ne + 0x22)[0]
-    records: list[dict[str, int | None]] = []
-
-    for segment in range(1, count + 1):
-        sector_offset, length, _flags, _min_alloc = struct.unpack_from(
-            "<HHHH", data, table + (segment - 1) * 8
-        )
-        if length == 0:
-            continue
-        raw = sector_offset << shift
-        relocation_table = raw + length
-        relocation_count = struct.unpack_from("<H", data, relocation_table)[0]
-        for index in range(relocation_count):
-            offset = relocation_table + 2 + index * 8
-            source_type, flags, source, target_segment, target_offset = struct.unpack_from(
-                "<BBHHH", data, offset
-            )
-            instruction = source - 1 if source and data[raw + source - 1] == 0x9A else None
-            records.append(
-                {
-                    "segment": segment,
-                    "source": source,
-                    "instruction": instruction,
-                    "source_type": source_type,
-                    "flags": flags,
-                    "target_segment": target_segment,
-                    "target_offset": target_offset,
-                    "target_selector": SELECTORS.get(target_segment),
-                }
-            )
-    return records
+    return read_ne(path).relocation_dicts()
 
 
 def main() -> int:

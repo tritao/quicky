@@ -8,23 +8,15 @@ import json
 from pathlib import Path
 from typing import Any
 
+from quiky_ne import parse_address as parse_quiky_address
+
 
 ROOT = Path(__file__).resolve().parents[2]
 CLOSURE = ROOT / "research/ghidra/player-callback-closure.json"
 
-SELECTORS = {
-    "01D7": 1,
-    "01E7": 2,
-    "01F7": 3,
-    "0207": 4,
-    "0227": 5,
-    "0237": 6,
-}
-
-
 def parse_address(value: str) -> tuple[int, int]:
-    selector, offset = value.split(":", 1)
-    return SELECTORS[selector.upper()], int(offset, 16)
+    address = parse_quiky_address(value)
+    return address.segment, address.offset
 
 
 def symbol(segment: int, offset: int, kind: str, name: str,

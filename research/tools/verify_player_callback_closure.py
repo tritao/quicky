@@ -11,8 +11,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from ghidra_ne_segments import read_segments
-from ne_relocs import read_relocations
+from quiky_ne import NeImage, parse_address as parse_quiky_address, read_ne
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "research/ghidra/player-callback-closure.json"
@@ -32,14 +31,10 @@ def sha256(path: Path) -> str:
 
 
 def address(value: str) -> tuple[int, int]:
-    selector, offset = value.split(":", 1)
-    selectors = {"01D7": 1, "01E7": 2, "01F7": 3, "0207": 4,
-                 "0227": 5, "0237": 6}
-    selector = selector.upper()
     try:
-        segment = int(selector, 10) if selector.isdigit() and len(selector) <= 2 else selectors[selector]
-        return segment, int(offset, 16)
-    except (KeyError, ValueError) as exc:
+        parsed = parse_quiky_address(value)
+        return parsed.segment, parsed.offset
+    except ValueError as exc:
         raise ClosureError(f"invalid address {value}") from exc
 
 
@@ -175,14 +170,10 @@ def check_callgraph(payload: dict[str, Any], path: Path,
 
 
 def segment_bytes(executable: Path, number: int) -> bytes:
-    blob = executable.read_bytes()
     try:
-        segment = read_segments(executable)[number - 1]
-    except IndexError as exc:
-        raise ClosureError(f"executable has no segment {number}") from exc
-    start = int(segment["file_offset"])
-    length = int(segment["file_length"])
-    return blob[start:start + length]
+        return read_ne(executable).raw_bytes(number)
+    except ValueError as exc:
+        raise ClosureError(str(exc)) from exc
 
 
 def expected_call_edges(payload: dict[str, Any]) -> list[tuple[tuple[int, int], int, tuple[int, int], str]]:
@@ -200,7 +191,8 @@ def expected_call_edges(payload: dict[str, Any]) -> list[tuple[tuple[int, int], 
 
 def classify_expected_call(executable: Path,
                            source: tuple[int, int], site: int,
-                           target: tuple[int, int]) -> str:
+                           target: tuple[int, int],
+                           image: NeImage | None = None) -> str:
     """Classify a ledger call from raw bytes and the independent NE ledger.
 
     Historical ledger rows use three nearby conventions for far-call sites:
@@ -208,15 +200,16 @@ def classify_expected_call(executable: Path,
     relocation record remains the authority; the small window only normalizes
     that representation and never supplies a target itself.
     """
-    code = segment_bytes(executable, source[0])
-    relocations = read_relocations(executable)
+    image = image or read_ne(executable)
+    code = image.raw_bytes(source[0])
+    relocations = image.relocations()
     for record in relocations:
-        if record["segment"] != source[0] or record["source_type"] != 0x03:
+        if record.segment != source[0] or record.source_type != 0x03:
             continue
-        if record["target_segment"] != target[0] or record["target_offset"] != target[1]:
+        if record.target_segment != target[0] or record.target_offset != target[1]:
             continue
-        instruction = record["instruction"]
-        relocation_source = record["source"]
+        instruction = record.instruction
+        relocation_source = record.source
         if instruction is None:
             continue
         if min(abs(instruction - site), abs(relocation_source - site)) <= 1:
@@ -237,12 +230,13 @@ def check_independent_callgraph(payload: dict[str, Any], executable: Path,
         raise ClosureError("unsupported Ghidra-derived call graph schema")
 
     functions = {address(item["address"]): item for item in payload["functions"]}
+    image = read_ne(executable)
     expected_near: set[tuple[tuple[int, int], tuple[int, int], tuple[int, int]]] = set()
     expected_far_sites: set[tuple[tuple[int, int], tuple[int, int]]] = set()
     expected_far = 0
     expected_unresolved: list[str] = []
     for source, site, target, name in expected_call_edges(payload):
-        kind = classify_expected_call(executable, source, site, target)
+        kind = classify_expected_call(executable, source, site, target, image)
         if kind == "near":
             expected_near.add((source, (source[0], site), target))
         elif kind == "far":

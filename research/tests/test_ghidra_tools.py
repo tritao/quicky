@@ -10,6 +10,8 @@ sys.path.insert(0, str(ROOT / "research" / "tools"))
 
 from generate_player_closure_ghidra import generate  # noqa: E402
 from ghidra_ne_segments import read_segments  # noqa: E402
+from ne_relocs import read_relocations  # noqa: E402
+from quiky_ne import parse_address, read_ne  # noqa: E402
 from verify_player_callback_closure import (  # noqa: E402
     classify_expected_call,
     check_hashes,
@@ -20,6 +22,36 @@ from verify_player_callback_closure import (  # noqa: E402
 
 
 class GhidraToolTests(unittest.TestCase):
+    def test_shared_address_model_accepts_runtime_and_raw_forms(self):
+        runtime = parse_address("01F7:3ff8")
+        raw = parse_address("3:3FF8")
+        self.assertEqual(runtime, raw)
+        self.assertEqual(runtime.segment, 3)
+        self.assertEqual(runtime.offset, 0x3FF8)
+        self.assertEqual(runtime.as_runtime(), "01F7:3FF8")
+
+    def test_shared_ne_image_matches_segment_and_relocation_adapters(self):
+        executable = ROOT / "game/QUIKY.EXE"
+        image = read_ne(executable)
+        segment = image.segment(3)
+        self.assertEqual(segment.runtime_selector, 0x01F7)
+        blob = executable.read_bytes()
+        self.assertEqual(
+            image.raw_bytes(3),
+            blob[segment.file_offset:segment.file_offset + segment.file_length],
+        )
+        self.assertEqual(read_segments(executable), image.segment_dicts())
+        self.assertEqual(
+            image.memory_bytes(6)[:image.segment(6).file_length],
+            image.raw_bytes(6),
+        )
+        self.assertTrue(image.memory_bytes(6)[-1:] == b"\0")
+        self.assertEqual(
+            image.relocation_dicts(3),
+            [record for record in read_relocations(executable)
+             if record["segment"] == 3],
+        )
+
     def test_ne_segment_table_uses_header_relative_offset(self):
         blob = bytearray(0x120)
         blob[0:2] = b"MZ"

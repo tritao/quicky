@@ -19,6 +19,8 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from quiky_ne import parse_address
+
 
 ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "research/ghidra/player-callback-closure.json"
@@ -68,9 +70,10 @@ def load_ranges() -> list[str]:
     payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
     ranges: list[str] = []
     for item in payload["functions"]:
-        selector, offset = item["address"].split(":", 1)
-        if selector.upper() != "01F7" or item.get("range") is None:
+        address = parse_address(item["address"])
+        if address.segment != 3 or item.get("range") is None:
             continue
+        offset = f"{address.offset:04X}"
         start, end = item["range"]
         ranges.append(f"{offset.upper()}:{start.upper()}:{end.upper()}")
     return ranges
