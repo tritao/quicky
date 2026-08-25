@@ -718,6 +718,14 @@ void integrateHorizontalMotion(PlayerRecord &player,
             player.animationState36 = 0;
         }
     } else {
+        // Static 01F7:3AB9: while the callback is ordinary and the idle
+        // counter has not reached its long-idle boundary, reload sequence
+        // 3156 before the common-tail 5D60 advance.  This is observable after
+        // landing: native keeps +0x20 at 3 on each following no-input pass
+        // instead of letting the countdown continue to 2, 1, ... .
+        if (player.mode37 == 0 && globals.idleCounter4FEE < 0x00d2) {
+            loadAnimationDescriptor(player, 0x3156, trace);
+        }
         if (player.animationState36 == 0) {
             player.animationState36 = 1;
         }

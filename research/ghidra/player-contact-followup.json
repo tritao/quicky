@@ -16,7 +16,7 @@
     "factory_0E06": "allocator_contract_closed_family_selection_is_caller_owned",
     "input_dispatch": "normalized_word_closed_callback_precedence_closed",
     "moving_platform": "carry_contract_and_static_scheduler_order_closed_combined_runtime_edge_cases_open",
-    "full_cpp_parity": "gate_ready_but_runtime_callback_not_yet_implemented"
+    "full_cpp_parity": "partial_runtime_callback_implemented_animation_boundary_closed_probe_and_external_data_gates_open"
   },
   "contracts": [
     {
@@ -193,6 +193,16 @@
       "static_response": "427F clears +0x0E and +0x37, conditionally loads animation sequence 3156, sets +0x36=1, then enters the common tail",
       "observed_callback_write_offsets": ["0x07","0x08","0x0F","0x10","0x12","0x1E","0x20","0x22","0x24","0x36","0x37","0x3E","0x45","0x46"],
       "attribution": "the offset list is the complete callback record diff for the natural landing sample; animation and common-tail writes are not falsely attributed to 3D02/3DF2 individually"
+    },
+    "animation_boundary": {
+      "native_helper": "01F7:5D60",
+      "reload_site": "01F7:3AB9",
+      "sequence": "3156",
+      "condition": "mode==0 and DS:4FEE < 0x00D2 during the no-input horizontal branch",
+      "landing_observation": "+0x1E/+0x20 load 4 before 5D60; callback returns with +0x20=3",
+      "following_observation": "each following ordinary no-input callback reloads 3156 before 5D60 and returns with +0x20=3",
+      "confidence": "confirmed_static_and_dynamic",
+      "evidence": ["raw:3AB9 callsite", "dynamic:player-scoped-5D60-dense-landing-trace"]
     },
     "ceiling_or_vertical_boundary": {
       "static_response": "negative mode detects occupied 3986 before or after integration and joins 41C1; 41C1 writes +0x3E=0x03E7, then 41CF writes +0x37=1, +0x0E=0 and loads animation 3186",

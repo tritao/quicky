@@ -136,6 +136,8 @@ class QuikyTraceTests(unittest.TestCase):
         trace = normalize_player_trace({"samples": {"1": {
             "breakpoint_owners": {"2": "watch", "1": "callback"},
             "execute_watch": {"owners": {"1": "watch"}},
+            "execute_watches": {"2": {"offset": 0x5D60},
+                                 "1": {"offset": 0x5D38}},
             "related_breakpoints": {"1": {
                 "owners": {"1": "return"},
             }},
@@ -143,6 +145,8 @@ class QuikyTraceTests(unittest.TestCase):
         sample = trace["samples"][0]
         self.assertEqual(sample["breakpoint_owners"], ["callback", "watch"])
         self.assertEqual(sample["execute_watch"]["owners"], ["watch"])
+        self.assertEqual([item["offset"] for item in sample["execute_watches"]],
+                         [0x5D38, 0x5D60])
         self.assertEqual(sample["related_breakpoints"][0]["owners"], ["return"])
 
     def test_player_trace_normalizes_factory_window(self):

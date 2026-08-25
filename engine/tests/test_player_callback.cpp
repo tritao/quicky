@@ -86,6 +86,14 @@ void testLandingAndCeilingResponses() {
     assert(landing.field24 == 0x3158);
     assert(landing.statusWord12 == 0);
 
+    // 3AB9 reloads the idle descriptor before 5D60 while the idle counter is
+    // below its long-idle boundary. The following ordinary callback therefore
+    // preserves the native post-landing delay of 3.
+    updater.updatePlayer(landing, quiky::InputState(), landingWorld, 0);
+    assert(landing.field1E == 4);
+    assert(landing.animationDelay20 == 3);
+    assert(landing.animationCursor22 == 0x3158);
+
     quiky::Map ceilingMap = makeMap();
     setCell(ceilingMap, 2, 22, 1, 0x1000);
     const quiky::WorldCollisionView ceilingWorld(ceilingMap, &descriptors);

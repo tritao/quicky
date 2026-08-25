@@ -67,6 +67,16 @@ loads sequence `3156`. A natural landing callback diff additionally writes
 `+0x07/+0x08/+0x0F/+0x10/+0x3E/+0x45/+0x46`; these are recorded as complete
 callback observations, not incorrectly attributed to the landing helper.
 
+A dense player-scoped execute trace at `5D60` closes the adjacent animation
+boundary. On the natural landing callback, the falling state is replaced by
+sequence `3156` (`+0x1E/+0x20=4`, cursor `3158`) before `5D60` runs; the watch
+sees delay `4` and the callback returns with delay `3`. On each following
+ordinary no-input callback, the callback again loads `3156` while `DS:4FEE <
+0xD2`, then `5D60` returns the delay to `3`. This explains the former
+late-release candidate mismatch and is implemented in the C++ no-input branch
+at the statically recovered `3AB9` load site. It does not close missing probe
+arrays or external effect data in the archived replay fixtures.
+
 The negative-mode blocked-probe response at `41C1` writes `+0x3E=0x03E7`,
 then `41CF` writes `+0x37=1`, `+0x0E=0`, and loads sequence `3186`. The
 controlled low-Y run reaches this path, but its coordinate patch makes it

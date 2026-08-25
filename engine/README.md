@@ -92,6 +92,9 @@ Dynamically parity-validated:
   vectors;
 - the standing DOS replay's complete `0x78` post-records and observed global
   mutations across all eight callbacks;
+- a player-scoped dense `5D60` trace through natural landing and the following
+  ordinary callbacks, confirming the `3156` idle reload before `5D60` and
+  exact post-record parity through that animation boundary;
 - candidate-to-candidate full-record/probe/global/effect comparison through
   `player_parity_compare.py`.
 
@@ -108,8 +111,6 @@ Explicit unresolved boundaries:
   active;
 - the input-dispatch capture at `F21B/F21C`, including the malformed computed
   jump tail and scripted-input overrides;
-- the late-release replay's post-landing animation-delay discrepancy, pending
-  a trace with the exact callback phase and native probe publication;
 - natural ceiling validation, descriptor semantic labels/one-way policy, and
   moving-platform scheduler/culling behavior;
 - the no-descriptor-table fallback, which remains a deliberate research

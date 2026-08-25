@@ -247,6 +247,12 @@ local function object_snapshot(raw, selector, offset, index)
         lifetime = word(raw, 0x2c + 1),
         state_field = word(raw, 0x2e + 1),
         state_field_signed = signed32(dword(raw, 0x2e + 1)),
+        animation_reload = word(raw, 0x1e + 1),
+        animation_delay = word(raw, 0x20 + 1),
+        animation_sequence = word(raw, 0x22 + 1),
+        animation_cursor = word(raw, 0x24 + 1),
+        animation_mode = string.byte(raw, 0x28 + 1),
+        animation_direction = string.byte(raw, 0x29 + 1),
         vertical_step = vertical_step,
         vertical_step_signed = vertical_step and signed16(vertical_step) or nil,
         target_cursor = word(raw, 0x30 + 1),
@@ -742,7 +748,13 @@ local function arm_targets()
         -- rewrites object+0 before reaching it, so 3FF8 is too early.
         arm_breakpoint("spawn-emitter", 0x01f7, 0x38ec)
     end
-    patch_watch.arm_execute_watches(breakpoint_controller, execute_watches)
+    -- Execute watches are global code addresses shared by many object
+    -- callbacks.  When the player callback is focused, arm them only after
+    -- the player entry barrier so a different object's 5D60 does not get
+    -- attributed to the player sample.
+    if not focus_callback then
+        patch_watch.arm_execute_watches(breakpoint_controller, execute_watches)
+    end
     if focus_callback or map_focus or collision_focus or property_focus or branch_focus or
        (descriptor_census and not descriptor_census_done) or #execute_watches > 0 then
         return
@@ -1186,6 +1198,27 @@ local function record_collision(sample, hit)
     return collision
 end
 
+local function record_execute_watch(sample, hit)
+    local index = patch_watch.is_execute_watch(
+        execute_watches, hit.segment, hit.offset)
+    if index == nil then return false end
+    sample.execute_watches = sample.execute_watches or {}
+    sample.execute_watches[#sample.execute_watches + 1] = {
+        event_index = next_trace_event(),
+        frame_index = sample.frame_index,
+        index = index,
+        segment = hit.segment,
+        offset = hit.offset,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        registers = hit.registers,
+        object = callback_object_snapshot(hit),
+        globals = static_globals(),
+    }
+    sample.execute_watch = sample.execute_watches[
+        #sample.execute_watches]
+    return true
+end
+
 local function restore_collision_patch(collision)
     if collision == nil then return end
     local patches = collision.patches
@@ -1517,16 +1550,7 @@ for sequence = 1, sample_count do
             ignored_callbacks = ignored_object_callbacks,
         }
     end
-    local execute_watch_index = patch_watch.is_execute_watch(
-        execute_watches, hit.segment, hit.offset)
-    if execute_watch_index ~= nil then
-        sample.execute_watch = {
-            index = execute_watch_index,
-            segment = hit.segment,
-            offset = hit.offset,
-            owners = hit.breakpoint_owners,
-        }
-    end
+    record_execute_watch(sample, hit)
     if not lean_player_capture or sequence == 1 then
         sample.pool = pool_snapshot()
         sample.scheduler = scheduler_snapshot()
@@ -1658,6 +1682,8 @@ for sequence = 1, sample_count do
             local repeated_breakpoint_count = 0
             local helper_tracing_aborted = false
 
+            patch_watch.arm_execute_watches(breakpoint_controller, execute_watches)
+
             local function mark_unresolved_target(candidate, reason)
                 local key = address_key(candidate)
                 unresolved_targets[key] = true
@@ -1718,6 +1744,7 @@ for sequence = 1, sample_count do
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
                 event_count = event_count + 1
+                record_execute_watch(sample, candidate)
                 local candidate_key = address_key(candidate)
                 if candidate_key == last_breakpoint then
                     repeated_breakpoint_count = repeated_breakpoint_count + 1

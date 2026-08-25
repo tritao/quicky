@@ -810,6 +810,10 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             execute_watch["owners"] = ordered_lua_array(
                 execute_watch.get("owners", [])
             )
+        if "execute_watches" in sample:
+            sample["execute_watches"] = ordered_lua_array(
+                sample.get("execute_watches", [])
+            )
         factory_event = sample.get("factory_event")
         if isinstance(factory_event, dict):
             factory_event["created_objects"] = ordered_lua_array(
