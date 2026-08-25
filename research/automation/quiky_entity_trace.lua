@@ -15,6 +15,9 @@ local state_machine_position_x = state_machine_config.position_x or -1
 local state_machine_position_y = state_machine_config.position_y or -1
 local state_machine_force_emission = state_machine_config.force_emission or false
 local state_machine_patch_map_run = state_machine_config.patch_map_run or false
+local state_machine_force_state = state_machine_config.force_state or nil
+local state_machine_warmup_frames = state_machine_config.warmup_frames or 0
+local state_machine_map_patch_y_offset = state_machine_config.map_patch_y_offset or 0
 local sprite_init_offset = trace_config.sprite_init_offset or 0
 local capture_frame_count = trace_config.capture_frames or 1
 local capture_frame_step = trace_config.frame_step or 30
@@ -213,14 +216,16 @@ local function patch_state_machine_map_run(x, y, base_tile)
     local cells = {}
     for index = 0, 4 do
         local offset = base_offset + index * 2
-        local before = dosbox.mem_read_word(map_selector, offset)
+        local before = word(dosbox.mem_read_selector(map_selector, offset, 2), 1)
         local after = base_tile + index
         dosbox.mem_write_selector(map_selector, offset, little_word(after))
+        local readback = word(dosbox.mem_read_selector(map_selector, offset, 2), 1)
         cells[#cells + 1] = {
             selector = map_selector,
             offset = offset,
             before = before,
             after = after,
+            readback = readback,
         }
     end
     return {
@@ -778,6 +783,13 @@ for attempt = 1, 4096 do
         local state_machine_emitted_objects = {}
         if entity_type >= 0x1f and entity_type <= 0x21 and
                 state_machine_sample_count > 0 then
+            if state_machine_warmup_frames > 0 then
+                -- Let the normal startup/streaming path finish before the
+                -- controlled callback samples.  This is especially useful
+                -- for relocated ARE records: their object callback can run
+                -- while the MAP buffer is still being published.
+                dosbox.wait_frames(state_machine_warmup_frames)
+            end
             local saved_camera_x = nil
             local saved_camera_y = nil
             local saved_bounds_bytes = nil
@@ -837,7 +849,9 @@ for attempt = 1, 4096 do
                 local map_run_base = state_machine_patch_map_run and
                     state_machine_effect_run_base() or nil
                 local map_run_patch = patch_state_machine_map_run(
-                    probe_position_x, probe_position_y, map_run_base)
+                    probe_position_x,
+                    probe_position_y + state_machine_map_patch_y_offset,
+                    map_run_base)
                 local sample = {
                     sequence = sequence,
                     breakpoint = {segment = update_entry.segment,
@@ -866,6 +880,7 @@ for attempt = 1, 4096 do
                             x = state_machine_position_x,
                             y = state_machine_position_y,
                         } or nil),
+                        map_patch_y_offset = state_machine_map_patch_y_offset,
                     },
                     static_slice_globals = static_slice_globals(),
                     tile_effect_table = tile_effect_table,
@@ -921,6 +936,16 @@ for attempt = 1, 4096 do
                         right = right,
                         top = top,
                     }
+                end
+                if sequence == 1 and state_machine_force_state ~= nil then
+                    -- Controlled state-machine reachability probe: seed the
+                    -- object's update-state field once, then let the
+                    -- original increment/dispatch logic advance it.  This
+                    -- does not alter the MAP or descriptor table.
+                    dosbox.mem_write_selector(
+                        object_selector, object_offset + 0x32,
+                        little_word(state_machine_force_state & 0xffff))
+                    sample.globals.update_state_override = state_machine_force_state
                 end
                 sample.armed_breakpoints = arm_state_machine_breakpoints()
                 dosbox.debug_continue()
@@ -988,8 +1013,33 @@ for attempt = 1, 4096 do
                                     selector = map_selector,
                                     offset = map_offset,
                                     register_offset = nested.registers.esi & 0xffff,
-                                    word = dosbox.mem_read_word(
-                                        map_selector, map_offset),
+                                    word = word(dosbox.mem_read_selector(
+                                        map_selector, map_offset, 2), 1),
+                                }
+                            end
+                            if nested.offset == 0x16ce then
+                                -- 16CE receives AX=column/X and BX=row/Y,
+                                -- opposite the register order used by the
+                                -- 3376 lookup helper.  Capture the exact MAP
+                                -- word before and after the writer so a
+                                -- state-machine call is a mutation proof,
+                                -- not only an inferred DX argument.
+                                local pointer = dword(
+                                    dosbox.mem_read("ds", 0x657a, 4), 1)
+                                local map_base = pointer & 0xffff
+                                local map_selector = (pointer >> 16) & 0xffff
+                                local row_stride = dosbox.mem_read_word("ds", 0x657e)
+                                local map_offset = map_base +
+                                    ((nested.registers.ebx & 0xffff) >> 4) * row_stride +
+                                    ((nested.registers.eax & 0xffff) >> 4) * 2
+                                call.map_pointer = {
+                                    selector = map_selector,
+                                    offset = map_offset,
+                                    row_stride = row_stride,
+                                    x = nested.registers.eax & 0xffff,
+                                    y = nested.registers.ebx & 0xffff,
+                                    word_before = word(dosbox.mem_read_selector(
+                                        map_selector, map_offset, 2), 1),
                                 }
                             end
                             if nested.offset == 0x393c then
@@ -1113,6 +1163,14 @@ for attempt = 1, 4096 do
                                 end
                             end
                             call.return_registers = nested_return.registers
+                            if nested.offset == 0x16ce and call.map_pointer ~= nil then
+                                call.map_pointer.word_after = word(
+                                    dosbox.mem_read_selector(
+                                        call.map_pointer.selector,
+                                        call.map_pointer.offset, 2), 1)
+                                call.map_pointer.delta = call.map_pointer.word_after -
+                                    call.map_pointer.word_before
+                            end
                             if internal_creator_call ~= nil then
                                 local final_creator_state = dosbox.mem_read_selector(
                                     internal_creator_call.object.selector,

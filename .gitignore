@@ -9,9 +9,14 @@ research/extracted/safe-assets/
 
 # Generated binaries, renders, logs, and analysis inventories.
 research/build/
+research/artifacts/
 research/notes/
 !research/notes/
 research/notes/*
+!research/notes/runtime-descriptor-construction-plan.md
+!research/notes/runtime-descriptor-construction.md
+!research/notes/descriptor-collision-evidence.json
+!research/notes/descriptor-construction-evidence.json
 !research/notes/cheat-trace.md
 !research/notes/ghidra-analysis.md
 !research/notes/type-2b-falling-leaf-slot-700.png

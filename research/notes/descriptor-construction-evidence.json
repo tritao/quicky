@@ -1,0 +1,696 @@
+{
+  "schema": "quiky-runtime-descriptor-construction-evidence-v1",
+  "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+  "static_rule": "first matching compare-ladder assignment wins; later duplicate tile cases are unreachable",
+  "field_consumers": {
+    "record_plus_0": {
+      "entries": ["01F7:20C8", "01F7:2CB2"],
+      "operation": "load tile_index, zero-extend, shift left 8",
+      "meaning": "selects the 0x100-byte ICO/image resource block"
+    },
+    "record_plus_2": {
+      "entries": ["01F7:5C27", "01F7:5CC3"],
+      "operation": "low-nibble quadrant query or full-word collision flags",
+      "meaning": "descriptor collision behavior",
+      "quadrant_bit_map": {
+        "AX_bit3=1,BX_bit3=1": "0x02",
+        "AX_bit3=1,BX_bit3=0": "0x01",
+        "AX_bit3=0,BX_bit3=1": "0x04",
+        "AX_bit3=0,BX_bit3=0": "0x08"
+      }
+    },
+    "collision_state_latch": {
+      "field": "player object +0x3a",
+      "producer": "01F7:3D02 sets 0x01/0xff from descriptor bit 0x20 and clears on reject",
+      "consumer": "01F7:3DF2 tests zero/nonzero before the X snap",
+      "meaning": "transient accepted-vertical-response latch, not a persistent surface type"
+    }
+  },
+  "map_writer_call_audit": {
+    "01F7:16CE": {
+      "direct_relocation_call_count": 23,
+      "direct_callers": [
+        "01F7:1892", "01F7:1944", "01F7:6359",
+        "01F7:8EE5", "01F7:8F11", "01F7:8F3D", "01F7:8F69",
+        "01F7:8F95", "01F7:8FC4", "01F7:8FF0", "01F7:901C",
+        "01F7:9048", "01F7:9074", "01F7:90A3", "01F7:90CF",
+        "01F7:90FB", "01F7:9127", "01F7:9153", "01F7:9182",
+        "01F7:91AE", "01F7:91DA", "01F7:9206", "01F7:9232"
+      ],
+      "role_summary": "two transient-event paths, one short animation path, and 20 calls from the 8E4B tile-effect state machine"
+    },
+    "01F7:339A": {
+      "direct_relocation_call_count": 0,
+      "relocation_record_count": 0,
+      "embedded_target_offset_occurrences": 0
+    },
+    "01F7:340A": {
+      "direct_relocation_call_count": 0,
+      "relocation_record_count": 0,
+      "embedded_target_offset_occurrences": 0
+    },
+    "01F7:5C9D": {
+      "direct_relocation_call_count": 0,
+      "relocation_record_count": 0,
+      "embedded_target_offset_occurrences": 0
+    }
+  },
+  "map_writer_call_form_audit": {
+    "source": "research/tools/AuditQuikyCallForms.java",
+    "segment": "01F7",
+    "indirect_call_forms": [
+      {"entry": "01F7:040F", "operand": "[BP + -0x12]"},
+      {"entry": "01F7:0598", "operand": "[BP + -0x12]"}
+    ],
+    "target_entries": ["01F7:16CE", "01F7:339A", "01F7:340A", "01F7:5C9D"],
+    "target_writer_indirect_hits": [],
+    "interpretation": "The analyzed segment-3 instruction listing has two indirect CALL forms, both through a local BP stack slot; neither resolves to a MAP writer. The 16CE calls remain the 23 NE-relocated far calls, while 339A, 340A, and 5C9D have no static call form."
+  },
+  "effect_writer_callsite_decomp": {
+    "source": "/home/joao/dev/quiky-ghidra-decomp-effectcall-20260825-c/QUIKY_SEG03.bin.c",
+    "writer": "01F7:16CE",
+    "callers": {
+      "01F7:1892": "consume visible DS:6586 event records; increment the queued animation byte modulo 8; set CX=DX=animation+subtype+0x1d6; pass event X in AX and event Y in BX",
+      "01F7:1944": "consume a nearby event record; select CX=DX from 0x1ee/0x1ef/0x1f0 based on the event subtype; pass event coordinates in AX/BX",
+      "01F7:6359": "round the short-lived object's X/Y to 16-pixel coordinates; derive CX=DX from the object's animation offset and direction"
+    },
+    "writer_operation": "if DX bit 0x8000 is clear, preserve MAP upper bits and store DX & 0x01ff at cell row=(BX>>4), column=(AX>>4), then create/update the transient object"
+  },
+  "descriptor_constructor_static_decomp": {
+    "source": "/home/joao/dev/quiky-ghidra-decomp-descriptor-20260826-b/QUIKY_SEG02.bin.c",
+    "entry": "01E7:382B",
+    "operations": [
+      "allocates 0x800 bytes and publishes the far pointer as DS:6582:DS:6584",
+      "zero-fills the published 0x800-byte descriptor table",
+      "initializes DS:8952 and DS:8954 to zero before resource setup"
+    ],
+    "separate_buffer": "allocates another 0x800-byte buffer at DS:6D86:DS:6D88; this is not the descriptor table"
+  },
+  "descriptor_world_dispatch_static_decomp": {
+    "source": "/home/joao/dev/quiky-ghidra-decomp-descriptor1-20260826-b/QUIKY_SEG01.bin.c",
+    "entry": "01D7:3808",
+    "selector_global": "DS:85D8",
+    "world_initializers": {
+      "1": "01D7:1734",
+      "2": "01D7:19E4",
+      "3": "01D7:1BF1",
+      "4": "01D7:28ED",
+      "5": "01D7:2D9F"
+    },
+    "post_initializer": "zero-fills a separate 0x800-byte DS:6D86:DS:6D88 buffer"
+  },
+  "secondary_probe": {
+    "level": "W1L3",
+    "source": "/home/joao/dev/quicky-runtime-descriptor-construction/research/build/runtime-descriptor/construction-w1l3-secondary-current-v3.json.failure.json",
+    "sha256": "5fdb41fd2c804852e571edfbc37beb4873478f5b0267fbac996be372c1427e4e",
+    "requested_loader": "01D7:3861",
+    "attempt_limit": 128,
+    "loader_reached": false,
+    "failure": "timed out at the resource-lookup loop before the secondary MAP loader call/entry",
+    "interpretation": "The natural W1L3 launch does not reach the secondary loader in this automated lifecycle; controlled trampoline evidence remains separate."
+  },
+  "secondary_event_uninstrumented_probe": {
+    "level": "W1L3",
+    "input": "controlled real KBD_2 held from level dispatch until 01D7:493E",
+    "timeout_seconds": 120,
+    "source": "research/build/secondary-w1l3-event-until-493e-120s-20260825.json.failure.json",
+    "sha256": "1da08c5eba682c79ee1dca24eccbc02429d8fa5586d5ed0c5b1abc9ee89131bf",
+    "script_sha256": "40a959b71ddd644b618b0b491eef7ac02ff8aca240684db0b272971f4c44290f",
+    "controlled": true,
+    "event_writer": "01D7:493E",
+    "event_writer_hit": true,
+    "secondary_loader_reached": false,
+    "final_cpu": {"cs": "0x0207", "eip": "0x0023"},
+    "interpretation": "The real event writer is reached and the key is released there, but an otherwise uninstrumented 120-second run remains inside the 0207:0002 timed-wait path and never reaches 4BD8/3861. This isolates the remaining lifecycle gap to the pending transition/timer state; it is controlled-input evidence, not normal-completion attribution."
+  },
+  "timer_wait_static_decomp": {
+    "source": "/home/joao/dev/quiky-ghidra-decomp-timer-20260825-a/QUIKY_SEG04.bin.c",
+    "wait_entry": "0207:0002",
+    "wait_operation": "for each count: DS:819E=0; call yield helper while DS:819E==0",
+    "flag_clear_entry": "0207:101F",
+    "flag_clear_operation": "DS:819E=0; poll PIT channel 0 until the sampled value changes; return only after the IRQ writer makes DS:819E nonzero",
+    "pit_helper": "0207:10A9",
+    "pit_helper_operation": "sample PIT channel 0 and update DS:97F4, reprogramming the divisor when unchanged"
+  },
+  "timer_irq_static_decomp": {
+    "source": "/home/joao/dev/quiky-ghidra-decomp-timerirq-20260825-b/QUIKY_SEG03.bin.c",
+    "entry": "01F7:F049",
+    "flag_write": "DS:819E=1",
+    "transition_flag_write": "DS:5014=0xffff",
+    "conditional_callback": "if DS:8952 != 0xffff and DS:8954 != 0, call the optional far callback",
+    "end_operation": "send PIC EOI via OUT 0x20,0x20 and return with IRET"
+  },
+  "timer_callback_pair_static_decomp": {
+    "source": "/home/joao/dev/quiky-ghidra-decomp-lifecycle-20260827-b/QUIKY_SEG02.bin.c and /home/joao/dev/quiky-ghidra-decomp-lifecycle1-20260827-b/QUIKY_SEG01.bin.c",
+    "pair": "DS:8952:DS:8954",
+    "constructor": "01E7:382B clears both words before calling 01E7:36ED",
+    "startup_resource": "01E7:36ED validates and transforms the .\\Score.DAT audio resource",
+    "audio_loader": "01E7:085E saves DS:8954, clears it during SAM/TFX loading, then restores it",
+    "transition_disable": "01D7:4853 writes DS:8952=0xffff before the frame wait; 01D7:496F clears DS:8952 during dispatch",
+    "interpretation": "The pair is an optional audio/resource far callback consumed by the timer IRQ. Its FFFF:FFFF value at the W1L3 post-wait audit proves that callback is disabled there; it is not evidence that a transition-state callback should have set DS:89EA or DS:89E6. The unresolved W1L3 gate remains the independent 89EA/89E6 setter path."
+  },
+  "timer_callback_pair_runtime_probe": {
+    "level": "W1L3",
+    "source": "research/build/secondary-w1l3-timer-callback-pair-audit-20260827.json",
+    "sha256": "4dfa9dbbc0663c29778d591fbbc148773bbd3c31937209645c84ada6eb4e3526",
+    "script_sha256": "ea5e2cdbeac04c32dfa4013f19b7755f2b7e4b58f97fc9258157becf209c30e9",
+    "controlled": false,
+    "trace_kind": "timer_state_trace",
+    "events": [
+      {"sequence": 1, "entry": "01F7:F049", "callback": "0xffff:0xffff"},
+      {"sequence": 2, "entry": "01F7:F04F", "callback": "0x0000:0xffff"},
+      {"sequence": 3, "entry": "01D7:504F", "callback": "0x0000:0xffff"},
+      {"sequence": 4, "entry": "0207:10A3", "callback": "0x0000:0xffff"},
+      {"sequence": 5, "entry": "0207:101F", "callback": "0x0000:0xffff"},
+      {"sequence": 6, "entry": "0207:0002", "callback": "0x0000:0xffff"},
+      {"sequence": 7, "entry": "0207:0014", "callback": "0x0000:0xffff"},
+      {"sequence": 8, "entry": "0207:0017", "callback": "0x0000:0xffff"},
+      {"sequence": 9, "entry": "0207:001E", "callback": "0x0000:0xffff"},
+      {"sequence": 10, "entry": "01D7:48B5", "callback": "0xffff:0xffff"},
+      {"sequence": 11, "entry": "01D7:48BB", "callback": "0xffff:0xffff"}
+    ],
+    "transition_state_at_final_event": {"scheduler_gate": "0x0000", "transition_event": "0x0000", "wait_gate": "0x0000"},
+    "interpretation": "The unmodified W1L3 timer trace sees the callback pair as 0x0000:0xffff through the timer/PIT sequence, then 0xffff:0xffff at 48B5/48BB when the transition loop disables the callback segment. The scheduler and transition gates remain zero; the trace independently confirms that the callback pair is not the missing 89EA/89E6 transition channel."
+  },
+  "secondary_timer_audit_probe": {
+    "level": "W1L3",
+    "source": "research/build/secondary-w1l3-event-timer-audit-v2-30s-20260825.json",
+    "sha256": "a5a0e0ac8a301757f879ab9a7f6e061bd5a08f76bdd6a2a967f142d0378c477e",
+    "script_sha256": "71054ae8af89fac01020b5e80630d63e88ed3f7ebd9709dc2673256cb379d93c",
+    "controlled": true,
+    "event_writer": "01D7:493E",
+    "event_writer_hit": true,
+    "timer_irq_entry": "01F7:F049",
+    "timer_irq_hits": 32,
+    "timer_irq_pre_event_hits": 16,
+    "timer_irq_post_event_hits": 16,
+    "event_generation": 20,
+    "secondary_loader_reached": false,
+    "final_cpu": {"cs": "0x0207", "eip": "0x10c8"},
+    "globals": {"level_index": "0x0002", "wait_gate": "0x0000", "scheduler_gate": "0x0000", "object_count": "0x0004", "transition_event": "0xffff"},
+    "interpretation": "The timer IRQ executes 16 times before and 16 times after the real event writer, but the pending transition still does not return to 4BD8/3861. This rules out absent IRQ delivery as the sole explanation; the unresolved behavior is the timed-wait/PIT flag-sampling path under this controlled launch. The audit is controlled and bounded."
+  },
+  "timer_post_wait_audit": {
+    "level": "W1L3",
+    "source": "research/build/secondary-w1l3-timer-post-wait-audit-15s-v2-20260825.json",
+    "sha256": "6ebeee408b4d34859346f6b7c062dcf360811bb34e27868a98e6bcb3b65d69b0",
+    "script_sha256": "e588edc1413c39df15ccdb4e52dd5749298b14dd2010885774508a2b9d16ce59",
+    "controlled": true,
+    "barrier": "01D7:48BB",
+    "timer_irq_entry": "01F7:F049",
+    "post_wait_irq_hits": 16,
+    "all_samples": {
+      "timer_flag_before_entry": "0x0000",
+      "timer_transition_flag": "0xffff",
+      "timer_callback_segment": "0xffff",
+      "timer_callback_offset": "0xffff",
+      "scheduler_gate": "0x0000",
+      "transition_event": "0x0000"
+    },
+    "secondary_loader_reached": false,
+    "interpretation": "The unmodified W1L3 barrier is not missing timer interrupts: F049 executes repeatedly after 48BB. At every sampled IRQ entry DS:8952:8954 is the disabled FFFF:FFFF audio/resource callback sentinel, so the handler raises DS:819E and DS:5014 without invoking that optional callback. This does not explain or disprove the independent DS:89EA/DS:89E6 transition setters; the remaining lifecycle gap is the consumer/state path, not absent IRQ delivery."
+  },
+  "timer_state_trace_probes": [
+    {
+      "level": "W1L3",
+      "source": "research/build/secondary-w1l3-timer-state-trace-80-v2-20260825.json",
+      "sha256": "56407185ba8967e8c34fea7920d9f39a9109a7ba1136dfa1c6c4636819c418c6",
+      "script_sha256": "8d12f2d46e19e4aaa1e807a5b5711f2739798ece75dfe9d86b16225cd960ffca",
+      "controlled": false,
+      "event_count": 11,
+      "sequence": [
+        "01F7:F049",
+        "01F7:F04F",
+        "01D7:504F",
+        "0207:10A3",
+        "0207:101F",
+        "0207:0002",
+        "0207:0014",
+        "0207:0017",
+        "0207:001E",
+        "01D7:48B5",
+        "01D7:48BB"
+      ],
+      "wait_gate_samples": {
+        "irq_before_write": "0x0001",
+        "irq_after_write": "0x0001",
+        "wait_entry": "0x0001",
+        "wait_clear_instruction_before": "0x0001",
+        "wait_test_after_clear": "0x0000",
+        "transition_clear_instruction_before": "0x0001",
+        "transition_test_after_clear": "0x0000"
+      },
+      "interpretation": "The unmodified W1L3 launch reaches the same timer/transition sequence as the earlier lifecycle traces: the timer IRQ is active, the frame wait clears DS:819E before testing it, and the level-loop gate then clears it again before 48BB. No secondary loader entry occurs in this bounded trace."
+    },
+    {
+      "level": "W2L3",
+      "source": "research/build/secondary-w2l3-timer-state-trace-80-20260825.json",
+      "sha256": "61969322ee3459919284083df49d1609276e597b4f98aa6a730cf0b9b4396337",
+      "script_sha256": "8d12f2d46e19e4aaa1e807a5b5711f2739798ece75dfe9d86b16225cd960ffca",
+      "controlled": false,
+      "event_count": 11,
+      "sequence": [
+        "01F7:F049",
+        "01F7:F04F",
+        "01D7:504F",
+        "0207:10A3",
+        "0207:101F",
+        "0207:0002",
+        "0207:0014",
+        "0207:0017",
+        "0207:001E",
+        "01D7:48B5",
+        "01D7:48BB"
+      ],
+      "wait_gate_samples": {
+        "irq_before_write": "0x0001",
+        "irq_after_write": "0x0001",
+        "wait_entry": "0x0001",
+        "wait_clear_instruction_before": "0x0001",
+        "wait_test_after_clear": "0x0000",
+        "transition_clear_instruction_before": "0x0001",
+        "transition_test_after_clear": "0x0000"
+      },
+      "interpretation": "W2L3 reproduces the W1L3 timer/transition ordering and the same absence of a secondary loader entry, strengthening the conclusion that this is a shared launch barrier rather than a W1-only MAP case."
+    }
+  ],
+  "timer_state_trace_additional_probes": [
+    {
+      "level": "W3L3",
+      "source": "research/build/secondary-w3l3-timer-state-trace-80-20260825.json",
+      "sha256": "3691598abadc020ae81c18c795d2c3332d6b255b85ab74df4b6d50db1be7b50f",
+      "script_sha256": "8d12f2d46e19e4aaa1e807a5b5711f2739798ece75dfe9d86b16225cd960ffca",
+      "controlled": false,
+      "event_count": 11,
+      "sequence_matches_w1l3": true,
+      "wait_test_after_clear": "0x0000",
+      "secondary_loader_reached": false
+    },
+    {
+      "level": "W4L3",
+      "source": "research/build/secondary-w4l3-timer-state-trace-80-20260825.json",
+      "sha256": "d59da246c3648611170ec645e846dd1f657fa6715dbe6dcfa143772b362f9a48",
+      "script_sha256": "8d12f2d46e19e4aaa1e807a5b5711f2739798ece75dfe9d86b16225cd960ffca",
+      "controlled": false,
+      "event_count": 11,
+      "sequence_matches_w1l3": true,
+      "wait_test_after_clear": "0x0000",
+      "secondary_loader_reached": false
+    },
+    {
+      "level": "W5L3",
+      "source": "research/build/secondary-w5l3-timer-state-trace-80-20260825.json",
+      "sha256": "ede8e6b12bf0093487c93ae180f62d86d9e6d10fea33517e52b79a9a2cd5ae5d",
+      "script_sha256": "8d12f2d46e19e4aaa1e807a5b5711f2739798ece75dfe9d86b16225cd960ffca",
+      "controlled": false,
+      "event_count": 11,
+      "sequence_matches_w1l3": true,
+      "wait_test_after_clear": "0x0000",
+      "secondary_loader_reached": false
+    }
+  ],
+  "loader_callsite_decomp": {
+    "primary": {
+      "entry": "01D7:365B",
+      "callsite": "01D7:4009",
+      "role": "initial level MAP construction before level-specific ICO/BOB asset setup"
+    },
+    "secondary": {
+      "entry": "01D7:3861",
+      "scheduler": "01D7:48B5",
+      "gate": "4BA4 requires DS:89EA != 0 and DS:880A > 0; 4BD8 repeats DS:880A > 0",
+      "selectors": ["0x0002", "0x0005", "0x0008", "0x000b", "0x000e"],
+      "call_sites": ["01D7:4BF1", "01D7:4BFB", "01D7:4C05", "01D7:4C0F", "01D7:4C19"],
+      "role": "third-level W1L3/W2L3/W3L3/W4L3/W5L3 transition/reload path"
+    },
+    "static_source": "/home/joao/dev/quiky-ghidra-decomp-transition-20260825-d/QUIKY_SEG01.bin.c"
+  },
+  "scheduler_gate_decomp": {
+    "global": "DS:89EA",
+    "setters": [
+      {
+        "entry": "01F7:199D",
+        "instruction": "01F7:19A3",
+        "value": "0xffff",
+        "role": "boundary/death reset; decrements DS:880A"
+      },
+      {
+        "entry": "01F7:19E6",
+        "instruction": "01F7:1A3D",
+        "value": "0xffff",
+        "role": "overlap reset after DS:8822 reaches zero; decrements DS:880A"
+      }
+    ],
+    "clearer": {
+      "entry": "01F7:1AE6",
+      "value": 0,
+      "role": "player initialization/state reset"
+    },
+    "direct_callers": {
+      "01F7:199D": ["01F7:43D0"],
+      "01F7:19E6": ["01F7:1BC4", "01F7:3AB3"]
+    },
+    "static_source": "/home/joao/dev/quiky-ghidra-decomp-gate-20260825-a/QUIKY_SEG03.bin.c"
+  },
+  "writer_focus_probe": {
+    "level": "W1L1",
+    "input": "KBD_right held from launch",
+    "window_seconds": 30,
+    "source": "research/build/writer-focus-w1l1-right-30s-20260825.json",
+    "sha256": "cb004f31fab393798403895351efc06d624c2e5f6efaf1b48acc184d06219814",
+    "watched_entries": ["01F7:339A", "01F7:340A", "01F7:5C9D"],
+    "hits": [],
+    "state_at_timeout": {
+      "level_index": "0x0000",
+      "object_count": "0x0003",
+      "scheduler_gate": "0xff41",
+      "wait_gate": "0x0000",
+      "transition_event": "0x0000"
+    },
+    "interpretation": "No watched coordinate/full-word MAP writer fired during this bounded normal-input window; this is runtime-negative evidence for the window, not a proof against later or runtime-generated callers."
+  },
+  "writer_focus_extended_probe": {
+    "level": "W1L1",
+    "input": "KBD_right held across 96 transition-focus events",
+    "source": "research/build/w1l1-transition-all-map-writers-right-96-20260825.json",
+    "sha256": "1f20fe34ead25662e3e718e1c947a132056dc07ed20b4838ae755c371991c426",
+    "script_sha256": "446e1e3c624b347543db86bced336185c17461ee517c3b0bc29eb1368381e20f",
+    "controlled": false,
+    "watched_entries": ["01F7:16CE", "01F7:339A", "01F7:340A", "01F7:5C9D"],
+    "transition_events": 96,
+    "camera_x_range": [0, 2309],
+    "object_count_range": [2, 4],
+    "hits": [],
+    "interpretation": "An extended normal W1L1 movement window covering camera X 0..2309 and object-count changes from 4 to 2 fired none of the four identified gameplay MAP writers. This strengthens the bounded negative for 16CE as well as the coordinate/full-word helpers, while leaving later event-rich gameplay and runtime-constructed callers open."
+  },
+  "normal_effect_writer_probes": [
+    {
+      "level": "W1L1",
+      "source": "research/build/writer-focus-w1l1-all-map-writers-v4-30s-20260825.json",
+      "sha256": "faa6a84d622704cbc18a736fa5afbd96caf5d7a5854025a0c8d8c8c037a19fee",
+      "script_sha256": "b22e4b93f4b1319199a28d20602b90f8de02e440cbad10768fcca607a008ba85",
+      "caller_return": "01F7:1897",
+      "map_selector": "0x0377",
+      "row_stride": 540,
+      "register_coordinates": {"AX": "0x0170", "BX": "0x0130", "CX": "0x01d7", "DX": "0x01d7"},
+      "cell": {"column": 23, "row": 19, "offset": 10306, "before": "0x0002", "after": "0x01d7"}
+    },
+    {
+      "level": "W2L1",
+      "source": "research/build/writer-focus-w2l1-all-map-writers-v3-30s-20260825.json",
+      "sha256": "fda82793727aed8f3083ea522455791af89521c5ae1645d601b63c01d8028e4f",
+      "script_sha256": "b22e4b93f4b1319199a28d20602b90f8de02e440cbad10768fcca607a008ba85",
+      "caller_return": "01F7:1897",
+      "map_selector": "0x0377",
+      "row_stride": 540,
+      "register_coordinates": {"AX": "0x0100", "BX": "0x0130", "CX": "0x01e5", "DX": "0x01e5"},
+      "cell": {"column": 16, "row": 19, "offset": 10292, "before": "0x0003", "after": "0x01e5"}
+    },
+    {
+      "level": "W3L1",
+      "source": "research/build/writer-focus-w3l1-all-map-writers-30s-20260825.json",
+      "sha256": "e1151fd2ebfbc3ea1f4a2586881f14e810ff3a3afb2e7c3403730a84fccc86c5",
+      "script_sha256": "b22e4b93f4b1319199a28d20602b90f8de02e440cbad10768fcca607a008ba85",
+      "caller_return": "01F7:1897",
+      "map_selector": "0x0377",
+      "row_stride": 500,
+      "register_coordinates": {"AX": "0x0170", "BX": "0x00e0", "CX": "0x01d8", "DX": "0x01d8"},
+      "cell": {"column": 23, "row": 14, "offset": 7046, "before": "0x0002", "after": "0x01d8"}
+    },
+    {
+      "level": "W4L1",
+      "source": "research/build/writer-focus-w4l1-all-map-writers-30s-20260825.json",
+      "sha256": "89cee8b4a1f6fa28d1b420b1eae4e13e41f307c247727c94af0c51ef9cbd7605",
+      "script_sha256": "b22e4b93f4b1319199a28d20602b90f8de02e440cbad10768fcca607a008ba85",
+      "caller_return": "01F7:1897",
+      "map_selector": "0x0377",
+      "row_stride": 490,
+      "register_coordinates": {"AX": "0x0200", "BX": "0x0130", "CX": "0x01d9", "DX": "0x01d9"},
+      "cell": {"column": 32, "row": 19, "offset": 9374, "before": "0x0002", "after": "0x01d9"}
+    },
+    {
+      "level": "W5L1",
+      "source": "research/build/writer-focus-w5l1-all-map-writers-30s-20260825.json",
+      "sha256": "87d30589dc56a12966b7ab2c27a6f61bab94e91cb4a23a58850b5b4e5f48dbda",
+      "script_sha256": "b22e4b93f4b1319199a28d20602b90f8de02e440cbad10768fcca607a008ba85",
+      "caller_return": "01F7:1897",
+      "map_selector": "0x0377",
+      "row_stride": 300,
+      "register_coordinates": {"AX": "0x0280", "BX": "0x01d0", "CX": "0x01d8", "DX": "0x01d8"},
+      "cell": {"column": 40, "row": 29, "offset": 8780, "before": "0x0002", "after": "0x01d8"}
+    }
+  ],
+  "writer_focus_w1l3_probe": {
+    "level": "W1L3",
+    "input": "KBD_right held from launch",
+    "window_seconds": 30,
+    "source": "research/build/writer-focus-w1l3-right-30s-20260825.json",
+    "sha256": "52c438a23c70e4d7f20670ea34ef1e513b057519eec157708e011a1016c948a3",
+    "watched_entries": ["01F7:339A", "01F7:340A", "01F7:5C9D"],
+    "hits": [],
+    "state_at_timeout": {
+      "level_index": "0x0002",
+      "object_count": "0x0004",
+      "scheduler_gate": "0x0000",
+      "wait_gate": "0x0001",
+      "transition_event": "0x0000"
+    },
+    "interpretation": "No watched writer fired during the W1L3 launch/wait window; the engine remained at the known scheduler barrier, so this does not test later third-level gameplay."
+  },
+  "writer_focus_w1l3_controlled_probe": {
+    "level": "W1L3",
+    "input": "KBD_right held from launch",
+    "window_seconds": 60,
+    "controlled": true,
+    "control": "hold DS:89EA at 1 and NOP the launch clear at 01F7:1AE6",
+    "source": "research/build/writer-focus-w1l3-force-gate-60s-20260825.json",
+    "sha256": "f56151def26f7ca54b1ac5c9a60135b6251c0d95e444e1a627e391632a73ca5e",
+    "watched_entries": ["01F7:339A", "01F7:340A", "01F7:5C9D"],
+    "hits": [],
+    "state_at_timeout": {
+      "level_index": "0x0002",
+      "object_count": "0x0003",
+      "scheduler_gate": "0xfef6",
+      "wait_gate": "0x0000",
+      "transition_event": "0x0000"
+    },
+    "interpretation": "Even with the secondary-loader scheduler gate held open and the object count reduced, no uncalled MAP writer fired in this controlled window; this does not establish normal-gameplay attribution."
+  },
+  "writer_focus_other_world_l1_probes": [
+    {
+      "level": "W2L1",
+      "source": "research/build/writer-focus-w2l1-right-30s-20260825.json",
+      "sha256": "847259af44ccd57f708319d0628de8ac51cec71e9aad6aa17763a838c665020b",
+      "window_seconds": 30,
+      "input": "KBD_right held from launch",
+      "hits": [],
+      "state_at_timeout": {"level_index": "0x0003", "object_count": "0x0004", "scheduler_gate": "0x0000", "wait_gate": "0x0000", "transition_event": "0x0000"}
+    },
+    {
+      "level": "W3L1",
+      "source": "research/build/writer-focus-w3l1-right-30s-20260825.json",
+      "sha256": "8db9b6a57aa2ee9d228d45182760a907caf65c1095694647b56711333d0408db",
+      "window_seconds": 30,
+      "input": "KBD_right held from launch",
+      "hits": [],
+      "state_at_timeout": {"level_index": "0x0006", "object_count": "0x0004", "scheduler_gate": "0x0000", "wait_gate": "0x0000", "transition_event": "0x0000"}
+    },
+    {
+      "level": "W4L1",
+      "source": "research/build/writer-focus-w4l1-right-30s-20260825.json",
+      "sha256": "ad4ac480fd055accc0511bc8fb7841852d9da8ae81e486190f56c019897b4843",
+      "window_seconds": 30,
+      "input": "KBD_right held from launch",
+      "hits": [],
+      "state_at_timeout": {"level_index": "0x0009", "object_count": "0x0003", "scheduler_gate": "0xffe1", "wait_gate": "0x0000", "transition_event": "0x0000"}
+    },
+    {
+      "level": "W5L1",
+      "source": "research/build/writer-focus-w5l1-right-30s-20260825.json",
+      "sha256": "adfbcadcb1d3fc7f32f93312ee4289441c5d5f9fdda484f78477e3efe0f47f83",
+      "window_seconds": 30,
+      "input": "KBD_right held from launch",
+      "hits": [],
+      "state_at_timeout": {"level_index": "0x000c", "object_count": "0x0003", "scheduler_gate": "0x0000", "wait_gate": "0x0000", "transition_event": "0x0000"}
+    }
+  ],
+  "state_machine_effect_probes": {
+    "level": "W1L1",
+    "entity_type": "0x20",
+    "entity_record_offset": "0x1930",
+    "runtime_record_offset": "0x17d0",
+    "archive_sha256": "205e81ae75ed60102839f9a0e302e12081190d3c50389f128a4559a76c65adaf",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "controlled": true,
+    "static_callback": "01F7:8E4B",
+    "tile_query": "01F7:3376",
+    "map_writer": "01F7:16CE",
+    "map_selector": "887",
+    "map_row_stride": 540,
+    "source_run": {
+      "tile_ids": [200, 201, 202, 203, 204],
+      "effect_values": [120, 121, 122, 123, 124],
+      "table": "DS:6986"
+    },
+    "probes": [
+      {
+        "state": 4,
+        "force_state": 3,
+        "position": {"x": 768, "y": 224},
+        "map_patch_y_offset": 0,
+        "source": "research/build/state-machine-target-variant/state-machine-select-force3-offset0-v4.json",
+        "sha256": "6c3b8ab85e9a593f846f364d0d3b45e05ae0d1ed946c5b1b1564daf4696b1e22",
+        "cells": [
+          {"x": 768, "y": 224, "offset": 7656, "before": "0x00c8", "after": "0x0078", "delta": -80},
+          {"x": 784, "y": 224, "offset": 7658, "before": "0x00c9", "after": "0x0079", "delta": -80},
+          {"x": 800, "y": 224, "offset": 7660, "before": "0x00ca", "after": "0x007a", "delta": -80},
+          {"x": 816, "y": 224, "offset": 7662, "before": "0x00cb", "after": "0x007b", "delta": -80},
+          {"x": 832, "y": 224, "offset": 7664, "before": "0x00cc", "after": "0x007c", "delta": -80}
+        ]
+      },
+      {
+        "state": 6,
+        "force_state": 5,
+        "position": {"x": 768, "y": 240},
+        "map_patch_y_offset": 16,
+        "source": "research/build/state-machine-target-variant/state-machine-select-force5-offset16-v3.json",
+        "sha256": "e49a4d2e2c2c033e9e1944e98ef70eac9c4ada2fbee9179807aa02b199360dca",
+        "cells": [
+          {"x": 768, "y": 256, "offset": 8736, "before": "0x00c8", "after": "0x0078", "delta": -80},
+          {"x": 784, "y": 256, "offset": 8738, "before": "0x00c9", "after": "0x0079", "delta": -80},
+          {"x": 800, "y": 256, "offset": 8740, "before": "0x00ca", "after": "0x007a", "delta": -80},
+          {"x": 816, "y": 256, "offset": 8742, "before": "0x00cb", "after": "0x007b", "delta": -80},
+          {"x": 832, "y": 256, "offset": 8744, "before": "0x00cc", "after": "0x007c", "delta": -80}
+        ]
+      },
+      {
+        "state": 8,
+        "force_state": 7,
+        "position": {"x": 768, "y": 256},
+        "map_patch_y_offset": 32,
+        "source": "research/build/state-machine-target-variant/state-machine-select-force7-offset32-v3.json",
+        "sha256": "246ce235f1ba15cc53ee593fe4a52f8a1edf2871e379a3416bc57741bb935c9a",
+        "cells": [
+          {"x": 768, "y": 288, "offset": 9816, "before": "0x00c8", "after": "0x0078", "delta": -80},
+          {"x": 784, "y": 288, "offset": 9818, "before": "0x00c9", "after": "0x0079", "delta": -80},
+          {"x": 800, "y": 288, "offset": 9820, "before": "0x00ca", "after": "0x007a", "delta": -80},
+          {"x": 816, "y": 288, "offset": 9822, "before": "0x00cb", "after": "0x007b", "delta": -80},
+          {"x": 832, "y": 288, "offset": 9824, "before": "0x00cc", "after": "0x007c", "delta": -80}
+        ]
+      }
+    ],
+    "interpretation": "In three debugger-controlled state-machine probes, states 4, 6, and 8 each query five adjacent cells, map source tile IDs 0xc8..0xcc through DS:6986 to effect values 0x78..0x7c, and pass those values to 01F7:16CE. Each writer preserves the MAP upper field and replaces the low nine bits; 01F7:171C then creates a transient effect object. The archive redirect and MAP seed are controlled instrumentation, so this closes the state/effect/MAP mutation mechanics but does not claim a normal-gameplay trigger for this exact record."
+  },
+  "optional_flag10_matrix": {
+    "source": "research/build/optional/flag-0x10-matrix.json",
+    "sha256": "7736888c52708f971c523d79e98e3eb250d460858ab22b49ea46e83f8bd97425",
+    "script": "research/tools/optional_flag10_matrix.py",
+    "script_sha256": "e926b7a225d609a208d5245ed71b903fbf84daa59d64a85632bd918c2270bb1c",
+    "historical_name_status": "unresolved",
+    "static_status": "mechanical_x_retry_suppression",
+    "flag10_map_occurrences": {"W1": 159, "W2": 0, "W3": 382, "W4": 156, "W5": 160},
+    "controlled_cases": [
+      "current_trace_flags_0x10",
+      "current_trace_flags_0x50",
+      "current_trace_flags_0x00",
+      "direct_descriptor_flags_0x20",
+      "direct_descriptor_flags_0x40",
+      "direct_descriptor_flags_0x60",
+      "vertical_motion_patch_flags_0x10",
+      "natural_right_tile_0x28"
+    ],
+    "interpretation": "Archive placement spans four worlds and cannot assign a unique gameplay name; preserve neutral suppress_x_retry_bit_10 until paired directional/vertical evidence exists."
+  },
+  "optional_secondary_lifecycle_matrix": {
+    "source": "research/build/optional/secondary-lifecycle-natural-matrix.json",
+    "sha256": "392b0a437279ce34a8f0e6bf10f103d769d0543e4c8967afa3c32afe9279b123",
+    "script": "research/tools/optional_lifecycle_matrix.py",
+    "script_sha256": "6a0f5bf63674335ec3760c95f6f561c9e4fef14328c26d3d88c5d500f185b4c7",
+    "levels": ["W1L3", "W2L3", "W3L3", "W4L3", "W5L3"],
+    "status": "all_stopped_at_timer_transition_barrier",
+    "secondary_loader_reached": false,
+    "interpretation": "Natural third-level launches reproduce the shared timer/transition barrier; no gameplay trigger can be assigned without a run reaching 01D7:3861."
+  },
+  "optional_map_writer_runtime_caller_audit": {
+    "source": "research/build/optional/map-writer-runtime-caller-audit.json",
+    "sha256": "e295704a6a7ef7291ca37dec09602ede22fcd751c70f578fc0ca8754f52303b4",
+    "script": "research/tools/optional_map_writer_audit.py",
+    "script_sha256": "1fe4192e764fbb2bcb36f13ccb549c8ef1704c596efcb9ce680ee622a7f1c291",
+    "event_trace": "research/build/optional/map-writer-event-w1l3-20260827.json",
+    "event_trace_sha256": "05d373edaa8226b64c7b3fcc7607778057bd00df4a40ceacc3e5c7eaa38038b7",
+    "helper_runtime_hits": {"01F7:339A": 0, "01F7:340A": 0, "01F7:5C9D": 0},
+    "status": "implemented_but_unobserved_runtime_apis",
+    "interpretation": "Static analysis finds no direct or resolvable indirect caller for the three helpers; bounded normal/event windows remain negative, while 01F7:16CE is proven through static event/state-machine callers and controlled probes."
+  },
+  "optional_state10_probe": {
+    "source": "research/build/optional/state-machine-state10.json",
+    "sha256": "28d3cfd274aaebb79d323d97da03bc249f6a57139a69371aaf107c066a2fb37b",
+    "script": "research/tools/optional_state10_probe.py",
+    "script_sha256": "c97342f1176b861286b542cf1b3eb1ba322c3734bf47731a83a5217974b6e74a",
+    "status": "tooling_limited",
+    "failure": "instruction_limit_exceeded before a state-machine sample",
+    "static_expectation": "five state-10 MAP-derived writes, clear object+0x18, publish DS:8828/DS:882A",
+    "interpretation": "The bounded live confirmation did not reach state 10; retain the static state-10 semantics and do not treat the debugger failure as a negative runtime result."
+  },
+  "worlds": [
+    {
+      "world": "W1",
+      "level": "W1L1",
+      "source": "/home/joao/dev/quicky-runtime-descriptor-construction/research/build/runtime-descriptor/construction-w1l1.json",
+      "sha256": "f6f3044610b23cdf6706f1457f0e015b4537336f591d51eb47fc636fd2f2aecc",
+      "descriptor_matches_static": 512,
+      "descriptor_count": 512,
+      "map_row_stride": 540,
+      "map_height": 30,
+      "map_mutation_delta": 4096
+    },
+    {
+      "world": "W2",
+      "level": "W2L1",
+      "source": "/home/joao/dev/quicky-runtime-descriptor-construction/research/build/runtime-descriptor/construction-w2l1.json",
+      "sha256": "92253f0ab5a68940156635348bd1a691c3deebf16575e74a966e8f51cc31d23f",
+      "descriptor_matches_static": 512,
+      "descriptor_count": 512,
+      "map_row_stride": 540,
+      "map_height": 40,
+      "map_mutation_delta": 4096
+    },
+    {
+      "world": "W3",
+      "level": "W3L1",
+      "source": "/home/joao/dev/quicky-runtime-descriptor-construction/research/build/runtime-descriptor/construction-w3l1-current.json",
+      "sha256": "3dffcb7b102b93f15cb5f12edd11b107e0566ccd2cacd9cf3df8de4f825f2699",
+      "descriptor_matches_static": 512,
+      "descriptor_count": 512,
+      "map_row_stride": 500,
+      "map_height": 50,
+      "map_mutation_delta": 4096,
+      "duplicate_tile_cases": [
+        {"tile_id": "0x0da", "first_flags": "0x000c", "duplicate_flags": "0x0010"},
+        {"tile_id": "0x0db", "first_flags": "0x0008", "duplicate_flags": "0x0050"}
+      ]
+    },
+    {
+      "world": "W4",
+      "level": "W4L1",
+      "source": "/home/joao/dev/quicky-runtime-descriptor-construction/research/build/runtime-descriptor/construction-w4l1-current.json",
+      "sha256": "c86c801bdb4165efaef7ee9a65c939271677ea9b4d59e3c9598a48d770243ad3",
+      "descriptor_matches_static": 512,
+      "descriptor_count": 512,
+      "map_row_stride": 490,
+      "map_height": 52,
+      "map_mutation_delta": 4096
+    },
+    {
+      "world": "W5",
+      "level": "W5L1",
+      "source": "/home/joao/dev/quicky-runtime-descriptor-construction/research/build/runtime-descriptor/construction-w5l1-current.json",
+      "sha256": "4586fd79573bd90fa448ce5eafeccfbae5f71a6338d30fa6102232ada56c2a77f",
+      "descriptor_matches_static": 512,
+      "descriptor_count": 512,
+      "map_row_stride": 300,
+      "map_height": 86,
+      "map_mutation_delta": 4096
+    }
+  ]
+}
