@@ -261,6 +261,20 @@ per-tile descriptor flags, not by `value >> 9`. The loader's separate
 `OR 0x10` into one runtime row remains a confirmed mutation whose higher-level
 purpose is still open.
 
+### Actual game state
+
+The first executable-backed state map is recorded in
+[`notes/actual-game-state.md`](notes/actual-game-state.md). It identifies the
+HUD-backed lives, ammo, score, current/max health, invulnerability timer,
+progression fields, pickup write semantics, damage/death paths, and the
+remaining checkpoint/completion/SCORE.DAT probes.
+
+`SCORE.DAT` can be validated and decoded without the original runtime:
+
+~~~sh
+python3 research/tools/score_dat.py game/SCORE.DAT --json
+~~~
+
 ### ARE — structure now mechanically decoded; semantics still inferred
 
 There is no validated magic header. Simon's article reports a fixed-layout

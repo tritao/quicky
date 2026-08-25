@@ -49,6 +49,9 @@ public class DumpQuikyDecomp extends GhidraScript {
                 Address address = toAddr(offset);
                 Function function = currentProgram.getFunctionManager().getFunctionAt(address);
                 if (function == null) {
+                    function = currentProgram.getFunctionManager().getFunctionContaining(address);
+                }
+                if (function == null) {
                     writer.println("/* MISSING 0x" + target[0] + " " + expectedName + " */");
                     writer.println();
                     continue;
@@ -81,6 +84,8 @@ public class DumpQuikyDecomp extends GhidraScript {
     private String[][] targetsFor(String segment) {
         if ("SEG01".equals(segment)) {
             return new String[][] {
+                {"0703", "high_score_insert"},
+                {"1084", "high_score_dispatch"},
                 {"01ac", "menu_input_action_pending"},
                 {"0203", "wait_for_input_release"},
                 {"34c8", "load_are_resource"},
@@ -91,6 +96,11 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"313d", "seg1_target_313d"},
                 {"47f0", "reset_game_input_flags"},
                 {"4ac2", "level_selector_input_loop"},
+                {"0470", "info_sound_quicky_exit_menu"},
+                {"04ba", "info_sound_quicky_exit_menu_input"},
+                {"3fad", "finalization_menu_update"},
+                {"50b1", "preserved_score_finalization"},
+                {"347a", "session_save_cleanup"},
             };
         }
         if ("SEG02".equals(segment)) {
@@ -139,6 +149,14 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"3d02", "player_collision_helper_3d02"},
                 {"3df2", "player_collision_helper_3df2"},
                 {"3e41", "player_collision_probe_3e41"},
+                {"487f", "alternate_completion_initializer"},
+                {"489c", "alternate_completion_callback"},
+                {"4968", "alternate_score_tally"},
+                {"b82b", "ending_caller_world_1"},
+                {"c0e2", "ending_caller_world_2"},
+                {"c933", "ending_caller_world_3"},
+                {"d2a8", "ending_caller_world_4"},
+                {"dbe9", "ending_caller_world_5"},
                 {"6484", "player_collision_helper_6484"},
                 {"648e", "player_collision_helper_648e"},
                 {"69ff", "player_bounds_or_collision_69ff"},

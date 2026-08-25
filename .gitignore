@@ -29,6 +29,7 @@ research/notes/*
 !research/notes/type-79-slot-600.png
 !research/notes/type-7a-slot-601.png
 !research/notes/type-7a-puzzle-sheet.png
+!research/notes/actual-game-state.md
 research/extracted/tools/QuikyLevelEditor/build/
 research/extracted/tools/QuikyLevelEditor/dist/
 research/extracted/tools/QuikyLevelEditor/nbproject/private/

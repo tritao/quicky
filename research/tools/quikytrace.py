@@ -82,6 +82,8 @@ class PlayerTraceConfig:
     poll_interval: float = 0.05
     samples: int = 8
     frames_between: int = 30
+    post_frames: int = 0
+    post_space: bool = False
     focus_callback: bool = False
     focus_callback_offset: int = 0x3FF8
     map_focus: bool = False
@@ -95,8 +97,35 @@ class PlayerTraceConfig:
     map_width: int = 270
     map_height: int = 30
     input_key: str | None = None
+    input_key_last: str | None = None
+    input_key_secondary: str | None = None
+    secondary_pulse_frames: int = 0
+    secondary_start_sample: int = 1
+    secondary_end_sample: int = 0
     input_frames: int = 0
+    input_frames_last: int | None = None
     input_samples: int = 0
+    state_events: bool = False
+    state_event_start_sample: int = 1
+    goal_probe: bool = False
+    alternate_probe: bool = False
+    menu_probe: bool = False
+    menu_probe_continue: bool = False
+    menu_auto_confirm: bool = True
+    menu_exit_probe: bool = False
+    high_score_probe: bool = False
+    high_score_early_probe: bool = False
+    high_score_insert_only: bool = False
+    high_score_force_gate: bool = False
+    checkpoint_probe: bool = False
+    goal_force_player_ready: bool = False
+    seed_health: int | None = None
+    seed_lives: int | None = None
+    seed_score: int | None = None
+    seed_position_x: int | None = None
+    seed_position_y: int | None = None
+    seed_camera_x: int | None = None
+    seed_camera_y: int | None = None
     select_level: str | None = None
     selector_frames: int = 60
     screenshot: Path | None = None
@@ -164,6 +193,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "timeout_ms": round(config.timeout * 1000),
         "samples": config.samples,
         "frames_between": config.frames_between,
+        "post_frames": config.post_frames,
+        "post_space": config.post_space,
         "focus_callback": config.focus_callback,
         "focus_callback_offset": config.focus_callback_offset,
         "map_focus": config.map_focus,
@@ -177,8 +208,35 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "map_width": config.map_width,
         "map_height": config.map_height,
         "input_key": config.input_key or "",
+        "input_key_last": config.input_key_last or "",
+        "input_key_secondary": config.input_key_secondary or "",
+        "secondary_pulse_frames": config.secondary_pulse_frames,
+        "secondary_start_sample": config.secondary_start_sample,
+        "secondary_end_sample": config.secondary_end_sample,
         "input_frames": config.input_frames,
+        "input_frames_last": config.input_frames_last,
         "input_samples": config.input_samples,
+        "state_events": config.state_events,
+        "state_event_start_sample": config.state_event_start_sample,
+        "goal_probe": config.goal_probe,
+        "alternate_probe": config.alternate_probe,
+        "menu_probe": config.menu_probe,
+        "menu_probe_continue": config.menu_probe_continue,
+        "menu_auto_confirm": config.menu_auto_confirm,
+        "menu_exit_probe": config.menu_exit_probe,
+        "high_score_probe": config.high_score_probe,
+        "high_score_early_probe": config.high_score_early_probe,
+        "high_score_insert_only": config.high_score_insert_only,
+        "high_score_force_gate": config.high_score_force_gate,
+        "checkpoint_probe": config.checkpoint_probe,
+        "goal_force_player_ready": config.goal_force_player_ready,
+        "seed_health": config.seed_health,
+        "seed_lives": config.seed_lives,
+        "seed_score": config.seed_score,
+        "seed_position_x": config.seed_position_x,
+        "seed_position_y": config.seed_position_y,
+        "seed_camera_x": config.seed_camera_x,
+        "seed_camera_y": config.seed_camera_y,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
     }
@@ -522,6 +580,10 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["branch_events"] = ordered_lua_array(
                 sample.get("branch_events", [])
             )
+        if "state_events" in sample:
+            sample["state_events"] = ordered_lua_array(
+                sample.get("state_events", [])
+            )
     census = trace.get("descriptor_census")
     if isinstance(census, dict):
         table = census.get("descriptor_table")
@@ -640,6 +702,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="number of player/object-pool samples")
     parser.add_argument("--player-frames-between", type=int, default=30,
                         help="guest frames between player/object-pool samples")
+    parser.add_argument("--player-post-frames", type=int, default=0,
+                        help="continue the guest for this many frames after the final sample")
+    parser.add_argument("--player-post-space", action="store_true",
+                        help="hold Space during --player-post-frames (debugger-only transition confirmation)")
     parser.add_argument("--player-focus-callback", action="store_true",
                         help="break directly on the selected player callback (default 01F7:3FF8)")
     parser.add_argument("--player-callback-offset", type=lambda value: int(value, 0),
@@ -668,10 +734,64 @@ def build_parser() -> argparse.ArgumentParser:
                         help="loaded MAP height for descriptor census (default 30)")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
+    parser.add_argument("--player-input-key-last",
+                        help="use this key for the final input sample, e.g. KBD_left")
+    parser.add_argument("--player-input-key-2",
+                        help="optionally hold a second key alongside --player-input-key, e.g. KBD_up")
+    parser.add_argument("--player-secondary-pulse-frames", type=int, default=0,
+                        help="toggle the secondary key every N frames during each input hold")
+    parser.add_argument("--player-secondary-start-sample", type=int, default=1,
+                        help="post-baseline sample at which the secondary key starts (default 1)")
+    parser.add_argument("--player-secondary-end-sample", type=int, default=0,
+                        help="last post-baseline sample receiving the secondary key (0 means no end)")
     parser.add_argument("--player-input-frames", type=int, default=0,
                         help="guest frames to hold --player-input-key before each post-baseline sample")
+    parser.add_argument("--player-input-frames-last", type=int,
+                        help="override the input hold length for the final sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-state-events", action="store_true",
+                        help="record damage, death, respawn, spawn-position, completion, and progression events")
+    parser.add_argument("--player-state-events-from-sample", type=int, default=1,
+                        help="switch to frame-stepped state-event capture at this sample")
+    parser.add_argument("--player-goal-probe", action="store_true",
+                        help="stop at the W1L1 goal callback (01F7:9269) and capture its pre-handler state")
+    parser.add_argument("--player-alternate-probe", action="store_true",
+                        help="arm alternate completion handlers 01F7:487F/489C/4968 and their five caller blocks")
+    parser.add_argument("--player-menu-probe", action="store_true",
+                        help="arm the post-death menu/overlay handlers 01D7:0470/04BA/0C2C/0D1F/1084")
+    parser.add_argument("--player-menu-probe-continue", action="store_true",
+                        help="keep tracing after a menu-helper hit so its restart/return path can be observed")
+    parser.add_argument("--player-menu-no-auto-confirm", action="store_true",
+                        help="do not synthesize Space during menu-probe input holds")
+    parser.add_argument("--player-menu-exit-probe", action="store_true",
+                        help="after the live GAME OVER helper, select the third menu choice and walk 50B1/high-score targets")
+    parser.add_argument("--player-high-score-probe", action="store_true",
+                        help="arm high-score insertion/display plus SCORE.DAT load/write handlers")
+    parser.add_argument("--player-high-score-early-probe", action="store_true",
+                        help="debugger-only: catch 01D7:50B1 before startup reset and walk the preserved-score insertion chain")
+    parser.add_argument("--player-high-score-force-gate", action="store_true",
+                        help="debugger-only: clear the 1084 high-score gate words")
+    parser.add_argument("--player-high-score-insert-only", action="store_true",
+                        help="skip the preceding high-score display entry and wait for insertion")
+    parser.add_argument("--player-checkpoint-probe", action="store_true",
+                        help="break on every statically identified write to DS:85d2")
+    parser.add_argument("--player-goal-force-ready", action="store_true",
+                        help="debugger-only: clear player byte +0x37 before stepped goal frames")
+    parser.add_argument("--player-seed-health", type=int,
+                        help="debugger-only initial current-health word")
+    parser.add_argument("--player-seed-lives", type=int,
+                        help="debugger-only initial lives word")
+    parser.add_argument("--player-seed-score", type=int,
+                        help="debugger-only initial score dword")
+    parser.add_argument("--player-seed-position-x", type=int,
+                        help="debugger-only initial player X in world pixels")
+    parser.add_argument("--player-seed-position-y", type=int,
+                        help="debugger-only initial player Y in world pixels")
+    parser.add_argument("--player-seed-camera-x", type=int,
+                        help="debugger-only camera X in world pixels after seeding the player")
+    parser.add_argument("--player-seed-camera-y", type=int,
+                        help="debugger-only camera Y in world pixels after seeding the player")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -715,12 +835,53 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-samples must be positive")
     if args.player_frames_between < 0:
         raise TraceError("--player-frames-between cannot be negative")
+    if args.player_post_frames < 0:
+        raise TraceError("--player-post-frames cannot be negative")
+    if args.player_post_space and args.player_post_frames == 0:
+        raise TraceError("--player-post-space requires --player-post-frames")
     if args.player_input_frames < 0:
         raise TraceError("--player-input-frames cannot be negative")
     if args.player_input_samples < 0:
         raise TraceError("--player-input-samples cannot be negative")
+    if args.player_input_frames_last is not None and args.player_input_frames_last < 0:
+        raise TraceError("--player-input-frames-last cannot be negative")
+    for name in ("player_seed_health", "player_seed_lives"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if args.player_seed_score is not None and not 0 <= args.player_seed_score <= 0xffffffff:
+        raise TraceError("--player-seed-score must be between 0 and 4294967295")
+    if (args.player_seed_position_x is None) != (args.player_seed_position_y is None):
+        raise TraceError("--player-seed-position-x and --player-seed-position-y must be used together")
+    for name in ("player_seed_position_x", "player_seed_position_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if (args.player_seed_camera_x is None) != (args.player_seed_camera_y is None):
+        raise TraceError("--player-seed-camera-x and --player-seed-camera-y must be used together")
+    for name in ("player_seed_camera_x", "player_seed_camera_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
+    if args.player_input_key_last and not args.player_input_key:
+        raise TraceError("--player-input-key-last requires --player-input-key")
+    if args.player_input_frames_last is not None and not args.player_input_key:
+        raise TraceError("--player-input-frames-last requires --player-input-key")
+    if args.player_input_key_2 and not args.player_input_key:
+        raise TraceError("--player-input-key-2 requires --player-input-key")
+    if args.player_secondary_pulse_frames < 0:
+        raise TraceError("--player-secondary-pulse-frames cannot be negative")
+    if args.player_secondary_start_sample < 1:
+        raise TraceError("--player-secondary-start-sample must be positive")
+    if args.player_secondary_end_sample < 0:
+        raise TraceError("--player-secondary-end-sample cannot be negative")
+    if (args.player_secondary_end_sample and
+            args.player_secondary_end_sample < args.player_secondary_start_sample):
+        raise TraceError("--player-secondary-end-sample must not precede the start sample")
+    if args.player_state_events_from_sample < 1:
+        raise TraceError("--player-state-events-from-sample must be positive")
     if args.player_map_focus and args.player_collision_focus:
         raise TraceError("--player-map-focus and --player-collision-focus are mutually exclusive")
     if args.player_property_focus and (args.player_map_focus or args.player_collision_focus):
@@ -852,6 +1013,8 @@ def main(argv: list[str] | None = None) -> int:
                 poll_interval=args.poll_interval,
                 samples=args.player_samples,
                 frames_between=args.player_frames_between,
+                post_frames=args.player_post_frames,
+                post_space=args.player_post_space,
                 focus_callback=args.player_focus_callback,
                 focus_callback_offset=args.player_callback_offset,
                 map_focus=args.player_map_focus,
@@ -865,8 +1028,35 @@ def main(argv: list[str] | None = None) -> int:
                 map_width=args.player_map_width,
                 map_height=args.player_map_height,
                 input_key=args.player_input_key,
+                input_key_last=args.player_input_key_last,
+                input_key_secondary=args.player_input_key_2,
+                secondary_pulse_frames=args.player_secondary_pulse_frames,
+                secondary_start_sample=args.player_secondary_start_sample,
+                secondary_end_sample=args.player_secondary_end_sample,
                 input_frames=args.player_input_frames,
+                input_frames_last=args.player_input_frames_last,
                 input_samples=args.player_input_samples,
+                state_events=args.player_state_events,
+                state_event_start_sample=args.player_state_events_from_sample,
+                goal_probe=args.player_goal_probe,
+                alternate_probe=args.player_alternate_probe,
+                menu_probe=args.player_menu_probe,
+                menu_probe_continue=args.player_menu_probe_continue,
+                menu_auto_confirm=not args.player_menu_no_auto_confirm,
+                menu_exit_probe=args.player_menu_exit_probe,
+                high_score_probe=args.player_high_score_probe,
+                high_score_early_probe=args.player_high_score_early_probe,
+                high_score_insert_only=args.player_high_score_insert_only,
+                high_score_force_gate=args.player_high_score_force_gate,
+                checkpoint_probe=args.player_checkpoint_probe,
+                goal_force_player_ready=args.player_goal_force_ready,
+                seed_health=args.player_seed_health,
+                seed_lives=args.player_seed_lives,
+                seed_score=args.player_seed_score,
+                seed_position_x=args.player_seed_position_x,
+                seed_position_y=args.player_seed_position_y,
+                seed_camera_x=args.player_seed_camera_x,
+                seed_camera_y=args.player_seed_camera_y,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,

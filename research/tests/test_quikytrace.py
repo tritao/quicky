@@ -205,14 +205,17 @@ class QuikyTraceTests(unittest.TestCase):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
         config = PlayerTraceConfig(
             startup_recording=recording, timeout=1, poll_interval=0.01,
-            samples=2, frames_between=4, select_level="W1L1",
+            samples=2, frames_between=4, post_frames=12, post_space=True, select_level="W1L1",
         )
         trace, screenshots = trace_player_lua(api, script, config)
         self.assertEqual(screenshots, [])
         self.assertEqual(player_trace_lua_config(config)["frames_between"], 4)
+        self.assertEqual(player_trace_lua_config(config)["post_frames"], 12)
+        self.assertTrue(player_trace_lua_config(config)["post_space"])
         self.assertEqual(player_trace_lua_config(config)["input_frames"], 0)
         self.assertEqual(player_trace_lua_config(config)["input_samples"], 0)
         self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
+        self.assertFalse(player_trace_lua_config(config)["state_events"])
         self.assertFalse(player_trace_lua_config(config)["collision_focus"])
         self.assertFalse(player_trace_lua_config(config)["map_focus"])
         self.assertFalse(player_trace_lua_config(config)["property_focus"])
@@ -239,6 +242,61 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["property_focus"])
         self.assertEqual(payload["property_helper_offset"], 0x5C27)
+
+    def test_player_menu_exit_probe_controls_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            input_key="KBD_right",
+            input_key_last="KBD_left",
+            menu_auto_confirm=False,
+            menu_exit_probe=True,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["input_key_last"], "KBD_left")
+        self.assertFalse(payload["menu_auto_confirm"])
+        self.assertTrue(payload["menu_exit_probe"])
+
+    def test_player_state_events_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, state_events=True,
+            input_key="KBD_right", input_key_secondary="KBD_up",
+            secondary_pulse_frames=20, secondary_start_sample=6,
+            secondary_end_sample=7, input_frames=400, input_frames_last=65,
+            state_event_start_sample=9, goal_probe=True,
+            alternate_probe=True,
+            menu_probe=True,
+            menu_probe_continue=True,
+            high_score_probe=True,
+            high_score_early_probe=True,
+            high_score_insert_only=True,
+            high_score_force_gate=True,
+            checkpoint_probe=True,
+            goal_force_player_ready=True,
+            seed_health=1000, seed_lives=99, seed_score=0x7ffff000,
+            seed_camera_x=1088, seed_camera_y=294,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertTrue(payload["state_events"])
+        self.assertEqual(payload["secondary_start_sample"], 6)
+        self.assertEqual(payload["secondary_end_sample"], 7)
+        self.assertEqual(payload["input_frames_last"], 65)
+        self.assertEqual(payload["state_event_start_sample"], 9)
+        self.assertTrue(payload["goal_probe"])
+        self.assertTrue(payload["alternate_probe"])
+        self.assertTrue(payload["menu_probe"])
+        self.assertTrue(payload["menu_probe_continue"])
+        self.assertTrue(payload["high_score_probe"])
+        self.assertTrue(payload["high_score_early_probe"])
+        self.assertTrue(payload["high_score_insert_only"])
+        self.assertTrue(payload["high_score_force_gate"])
+        self.assertTrue(payload["checkpoint_probe"])
+        self.assertTrue(payload["goal_force_player_ready"])
+        self.assertEqual(payload["seed_health"], 1000)
+        self.assertEqual(payload["seed_score"], 0x7ffff000)
+        self.assertEqual(payload["seed_camera_x"], 1088)
+        self.assertEqual(payload["seed_camera_y"], 294)
 
     def test_player_branch_focus_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
