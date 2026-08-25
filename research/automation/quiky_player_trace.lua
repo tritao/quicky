@@ -28,6 +28,8 @@ local input_samples = trace_config.input_samples or 0
 local input_hold_until_callback = trace_config.input_hold_until_callback or false
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
+local boss_stage_focus = trace_config.boss_stage_focus or false
+local boss_stage_events = trace_config.boss_stage_events or 64
 local trace_event_counter = 0
 local descriptor_census_done = false
 
@@ -795,6 +797,103 @@ local function scheduler_snapshot()
     return {base = 0x7566, stride = 8, entries = entries}
 end
 
+-- World-boss constructors and callbacks are pooled objects rather than ARE
+-- dispatch entries.  Keep both the selector used by the live scheduler
+-- (0x1997) and the alternate code selector used by direct calls (0x01f7):
+-- this lets one run capture constructor, callback, damage, and stage-writer
+-- boundaries without assuming that a decompiler's segment numbering is the
+-- same as the guest's current selector values.
+local boss_targets = {
+    {segment = 0x01f7, offset = 0xa101, kind = "stage_initializer", world = "W1"},
+    {segment = 0x01f7, offset = 0xb115, kind = "stage_initializer", world = "W1"},
+    {segment = 0x01f7, offset = 0xc25e, kind = "stage_initializer", world = "W3"},
+    {segment = 0x01f7, offset = 0xcc3b, kind = "stage_initializer", world = "W4"},
+    {segment = 0x01f7, offset = 0xd60b, kind = "stage_initializer", world = "W5"},
+    {segment = 0x01f7, offset = 0xb142, kind = "constructor", world = "W1"},
+    {segment = 0x01f7, offset = 0xb9f3, kind = "constructor", world = "W2"},
+    {segment = 0x01f7, offset = 0xc28a, kind = "constructor", world = "W3"},
+    {segment = 0x01f7, offset = 0xcc68, kind = "constructor", world = "W4"},
+    {segment = 0x01f7, offset = 0xd2f6, kind = "constructor", world = "W5"},
+    {segment = 0x01f7, offset = 0xb33b, kind = "main_callback", world = "W1"},
+    {segment = 0x01f7, offset = 0xbbec, kind = "main_callback", world = "W2"},
+    {segment = 0x01f7, offset = 0xc40b, kind = "main_callback", world = "W3"},
+    {segment = 0x01f7, offset = 0xce81, kind = "main_callback", world = "W4"},
+    {segment = 0x01f7, offset = 0xd63d, kind = "main_callback", world = "W5"},
+    {segment = 0x01f7, offset = 0xb25d, kind = "damage_callback", world = "W1"},
+    {segment = 0x01f7, offset = 0xbb0e, kind = "damage_callback", world = "W2"},
+    {segment = 0x01f7, offset = 0xc328, kind = "damage_callback", world = "W3"},
+    {segment = 0x01f7, offset = 0xcda3, kind = "damage_callback", world = "W4"},
+    {segment = 0x01f7, offset = 0xd55a, kind = "damage_callback", world = "W5"},
+    {segment = 0x01f7, offset = 0xb30e, kind = "stage_write", world = "W1"},
+    {segment = 0x01f7, offset = 0xb61a, kind = "stage_write", world = "W1"},
+    {segment = 0x01f7, offset = 0xb791, kind = "stage_write", world = "W1"},
+    {segment = 0x01f7, offset = 0xb824, kind = "stage_write", world = "W1"},
+    -- W1L4's authored END fixture uses these short callbacks rather than the
+    -- normal W1 boss entry.  They are the live child/effect state machine.
+    {segment = 0x01f7, offset = 0xa234, kind = "end_child", world = "W1"},
+    {segment = 0x01f7, offset = 0xa1f8, kind = "end_child", world = "W1"},
+    {segment = 0x01f7, offset = 0xa213, kind = "end_child", world = "W1"},
+    {segment = 0x01f7, offset = 0xa228, kind = "end_child", world = "W1"},
+    {segment = 0x01f7, offset = 0xa22e, kind = "end_child", world = "W1"},
+    {segment = 0x01f7, offset = 0xa39b, kind = "end_child", world = "W1"},
+    {segment = 0x01f7, offset = 0xa3cb, kind = "end_child", world = "W1"},
+}
+
+local function boss_target_for(hit)
+    for _, target in ipairs(boss_targets) do
+        if target.segment == hit.segment and target.offset == hit.offset then
+            return target
+        end
+    end
+    return nil
+end
+
+local function arm_boss_targets()
+    if not boss_stage_focus then return end
+    for _, target in ipairs(boss_targets) do
+        -- A constructor can be called once per pooled child.  Capture the
+        -- first entry, then leave its breakpoint disarmed so it cannot starve
+        -- the callback/stage events we are trying to reach.
+        local one_shot = target.kind == "constructor" or
+                         target.kind == "stage_initializer" or
+                         target.kind == "end_child" or
+                         target.kind == "main_callback" or
+                         target.kind == "stage_write"
+        if not (one_shot and target.seen) then
+            dosbox.breakpoint_set(target.segment, target.offset, {once = true})
+        end
+    end
+end
+
+local function clear_boss_targets()
+    for _, target in ipairs(boss_targets) do
+        dosbox.breakpoint_remove(target.segment, target.offset)
+    end
+end
+
+local function boss_event_snapshot(hit, target, event_index, previous_globals)
+    local globals = static_globals()
+    local event = {
+        event_index = event_index,
+        target = target,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        registers = hit.registers,
+        stack_hex = hex(dosbox.mem_read(
+            "ss", (hit.registers.esp or 0) & 0xffff, 12) or ""),
+        globals = globals,
+        object = callback_object_snapshot(hit),
+    }
+    if previous_globals ~= nil then
+        event.stage_delta = {
+            effect_gate_88ae = globals.effect_gate_88ae -
+                               previous_globals.effect_gate_88ae,
+            effect_pending_count = globals.effect_pending_count -
+                                   previous_globals.effect_pending_count,
+        }
+    end
+    return event, globals
+end
+
 dosbox.output.awaiting_startup_replay = true
 dosbox.wait_frames(350)
 if select_level ~= "" then
@@ -806,6 +905,59 @@ else
 end
 
 local samples = {}
+local boss_stage_trace = nil
+if boss_stage_focus then
+    local boss_events = {}
+    local initial_globals = static_globals()
+    local previous_globals = initial_globals
+    arm_boss_targets()
+    dosbox.debug_continue()
+    for sequence = 1, boss_stage_events do
+        local hit, err = dosbox.wait_for_breakpoint(timeout_ms)
+        if not hit then
+            boss_stage_trace = {
+                stop_reason = err or "timeout",
+                attempts = sequence - 1,
+                events = boss_events,
+                initial_globals = initial_globals,
+            }
+            break
+        end
+        local target = boss_target_for(hit)
+        if target ~= nil then
+            if target.kind == "constructor" or target.kind == "stage_initializer" or
+               target.kind == "end_child" or
+               target.kind == "main_callback" or target.kind == "stage_write" then
+                target.seen = true
+            end
+            local event
+            event, previous_globals = boss_event_snapshot(
+                hit, target, sequence, previous_globals
+            )
+            boss_events[#boss_events + 1] = event
+        end
+        if sequence < boss_stage_events then
+            arm_boss_targets()
+            dosbox.debug_continue()
+        else
+            boss_stage_trace = {
+                stop_reason = "event_limit",
+                attempts = sequence,
+                events = boss_events,
+                initial_globals = initial_globals,
+            }
+        end
+    end
+    clear_boss_targets()
+    if boss_stage_trace == nil then
+        boss_stage_trace = {
+            stop_reason = "event_limit",
+            attempts = boss_stage_events,
+            events = boss_events,
+            initial_globals = initial_globals,
+        }
+    end
+else
 local experiment_frame = 0
 for sequence = 1, sample_count do
     local held_input = false
@@ -1028,6 +1180,7 @@ for sequence = 1, sample_count do
     end
     samples[#samples + 1] = sample
 end
+end
 
 local capture = stop_for_capture()
 local result = {
@@ -1037,6 +1190,9 @@ local result = {
     final_globals = static_globals(),
     final_pool = pool_snapshot(),
 }
+if boss_stage_trace ~= nil then
+    result.boss_stage_trace = boss_stage_trace
+end
 for _, sample in ipairs(samples) do
     if sample.descriptor_census ~= nil then
         result.descriptor_census = sample.descriptor_census

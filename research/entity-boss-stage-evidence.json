@@ -1,0 +1,175 @@
+{
+  "schema": "quiky-entity-boss-stage-evidence-v1",
+  "purpose": "Recover pooled world-boss/end-stage constructors, callback state machines, and the DS:88AE stage gate used by faithful entity behavior recreation.",
+  "inputs": {
+    "executable": {
+      "path": "game/QUIKY.EXE",
+      "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
+    },
+    "archive": {
+      "path": "game/NESTLE.DAT",
+      "sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2"
+    },
+    "segment_01": {
+      "path": "/tmp/quiky-segments/QUIKY_SEG01.bin",
+      "sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6"
+    },
+    "segment_03": {
+      "path": "/tmp/quiky-segments/QUIKY_SEG03.bin",
+      "sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf"
+    },
+    "segment_03_decompile": {
+      "path": "/tmp/quiky-ghidra-boss-expanded-20260824/out/QUIKY_SEG03.bin-boss.c",
+      "sha256": "e642e140ddb8a4e1119918d9b68152f5523486f0d54542c293ebb9be7d0a15ed"
+    }
+  },
+  "static_recovery": {
+    "pool": {
+      "allocator": "01F7:0E06",
+      "scheduler_insert": "01F7:1036",
+      "stride": "0x78",
+      "interpretation": "World bosses are pooled callbacks. They do not appear as ordinary ARE dispatch entries; constructors allocate a record, install a callback, link child/helper records, and publish an END sprite slot."
+    },
+    "stage_gate": {
+      "global": "DS:88AE",
+      "reset": "01D7:3147",
+      "set_to_one_sites": ["01F7:A101", "01F7:B115", "01F7:C25E", "01F7:CC3B"],
+      "other_state_writes": ["01F7:B30E", "01F7:B61A", "01F7:B791", "01F7:B824", "01F7:D60B"],
+      "interpretation": "The byte is an authored boss/end-sequence stage gate. It is independent of the pending-effect budget DS:880C; 01F7:4519 accepts either gate, but the two values do not advance together."
+    },
+    "worlds": [
+      {
+        "world": "W1",
+        "constructor": "01F7:B142",
+        "main_callback": "01F7:B33B",
+        "damage_callback": "01F7:B25D",
+        "initializer": {
+          "main_slot": "0x3B7",
+          "child_links": ["+0x2A", "+0x36"],
+          "velocity_x_fixed": "-0x9000",
+          "damage_threshold": ">4 hits"
+        },
+        "states": {
+          "0-1": "movement/attack",
+          "2": "kill helper child, choose slot 900/0x3B6, write stage 3",
+          "3": "emit effects; after 16 cycles write stage 4",
+          "4": "vertical/exit and off-camera clearing",
+          "5": "spawn or reuse child"
+        }
+      },
+      {
+        "world": "W2",
+        "constructor": "01F7:B9F3",
+        "main_callback": "01F7:BBEC",
+        "damage_callback": "01F7:BB0E",
+        "initializer": {
+          "main_slot": "0x10E",
+          "velocity_x_fixed": "-0x7000",
+          "damage_threshold": ">4 hits"
+        },
+        "states": {
+          "0-1": "movement/attack",
+          "2-3": "transition and effect phase",
+          "4-5": "exit/replacement lifecycle"
+        }
+      },
+      {
+        "world": "W3",
+        "constructor": "01F7:C28A",
+        "main_callback": "01F7:C40B",
+        "damage_callback": "01F7:C328",
+        "initializer": {
+          "main_slot": "0x3B7",
+          "child_links": ["+0x36", "+0x46"],
+          "velocity_x_fixed": "-0x13000",
+          "damage_threshold": ">4 hits; stage increments by 1"
+        },
+        "states": {
+          "0-3": "movement/attack and transition",
+          "4": "destroy helper",
+          "5": "emit effects after 16 cycles",
+          "6": "exit/off-camera and spawn replacement"
+        }
+      },
+      {
+        "world": "W4",
+        "constructor": "01F7:CC68",
+        "main_callback": "01F7:CE81",
+        "damage_callback": "01F7:CDA3",
+        "initializer": {
+          "main_slot": "0x3B7",
+          "child_links": ["+0x2A", "+0x36"],
+          "velocity_x_fixed": "-0x9000",
+          "velocity_y_fixed": "-0x9000",
+          "damage_threshold": ">5 hits"
+        },
+        "states": {
+          "0-1": "movement/attack",
+          "2-4": "transition/effect phases",
+          "5": "exit/replacement lifecycle"
+        }
+      },
+      {
+        "world": "W5",
+        "constructor": "01F7:D2F6",
+        "main_callback": "01F7:D63D",
+        "damage_callback": "01F7:D55A",
+        "initializer": {
+          "main_slot": "0x3B6",
+          "child_links": ["+0x2A", "+0x36", "+0x48"],
+          "velocity_x_fixed": "-0x13000",
+          "velocity_y_fixed": "-0x370000",
+          "damage_threshold": ">3 hits; stage increments"
+        },
+        "states": {
+          "0-2": "movement/attack",
+          "4-5": "effect/transition phases",
+          "6": "exit and replacement children"
+        }
+      }
+    ],
+    "cross_world_variants": "World-specific constructors use different slots, velocities, child links, damage thresholds, and state counts; the shared pattern is a pooled callback with movement/attack, damage-triggered transition, effect emission, exit, and child replacement."
+  },
+  "runtime_w1l4_probe": {
+    "trace": "research/build/player-w1l4-boss-stage-focus-v5.json",
+    "trace_sha256": "4525ec8eae355156604fffb205dcf68a33caa00279073f7d8522b82af8829bea",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "9462720cc9f476d4223c18758f276ab16779c84a50cc30280257e325b76cecc4",
+    "fixture": "Native main-tree W1L4 selected through the in-game level selector",
+    "observed": {
+      "initial_globals": {
+        "DS:88AE": 0,
+        "DS:880C": 0,
+        "camera": [0, 262]
+      },
+      "stage_initializer_entry": "01F7:A101",
+      "callback_execution_segment": "01F7",
+      "scheduler_callback_segment": "0x1997",
+      "callback_events": [
+        {"callback": "01F7:A39B", "pool_offset": "0x1E0", "phase": 1, "slot": "0xFFFF", "position": [224, 386]},
+        {"callback": "01F7:A234", "pool_offset": "0x078", "phase": 1, "slot": "0x385", "position": [224, 216], "velocity_y_fixed": "0x6000", "bytes_36_37": [104, 1]},
+        {"callback": "01F7:A1F8", "pool_offset": "0x0F0", "phase": 2, "state_field": 10, "slot": "0xFFFF", "position": [230, 187]},
+        {"callback": "01F7:A213", "pool_offset": "0x168", "phase": 2, "slot": "0xFFFF", "position": [255, 216]},
+        {"callback": "01F7:A3CB", "pool_offset": "0x1E0", "phase": 1, "slot": "0x2C7", "position": [224, 386], "velocity_y_fixed": "-0x4000"},
+        {"callback": "01F7:A228", "pool_offset": "0x0F0", "phase": 2, "state_field": 10, "slot": "0x388", "position": [230, 187]},
+        {"callback": "01F7:A22E", "pool_offset": "0x168", "phase": 2, "slot": "0x3AC", "position": [255, 216]}
+      ],
+      "final_globals": {
+        "DS:88AE": 1,
+        "DS:880C": 0,
+        "camera": [144, 246],
+        "effect_active_count": 0,
+        "effect_capacity": 4
+      },
+      "stage_writer_hits": 0,
+      "interpretation": "The authored W1L4 fixture enters the END child callback set with DS:88AE=1. The bounded run did not reach a later stage-writer breakpoint, so it proves the active END callback topology and gate value, not the full timed transition sequence."
+    }
+  },
+  "remaining": [
+    "Capture a longer or damage-forced authored boss transition to observe DS:88AE values 2-6 and stage-writer timing.",
+    "Trace the completion handoff that changes DS:85DB/DS:85D4 and maps the end-stage selector into the world transition.",
+    "Correlate DS:880C pending-effect increments with Wind/UFO row producers and the player 01F7:38EC trigger.",
+    "Resolve WOLKE-specific rendering/descriptor selection after the 01D7:4EA0 consumer."
+  ],
+  "confidence": "Static world-specific state machines are high-confidence raw-segment recoveries. Runtime W1L4 confirms the pooled END callback topology and DS:88AE=1, while later authored stage timing remains an explicit open boundary."
+}

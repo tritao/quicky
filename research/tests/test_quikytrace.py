@@ -223,6 +223,8 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertFalse(player_trace_lua_config(config)["map_focus"])
         self.assertFalse(player_trace_lua_config(config)["property_focus"])
         self.assertIsNone(player_trace_lua_config(config)["property_helper_offset"])
+        self.assertFalse(player_trace_lua_config(config)["boss_stage_focus"])
+        self.assertEqual(player_trace_lua_config(config)["boss_stage_events"], 64)
         normalized = normalize_player_trace(trace)
         self.assertEqual(normalized["samples"], [{
             "pool": {"objects": [], "kind_0x64": []},
@@ -245,6 +247,27 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["property_focus"])
         self.assertEqual(payload["property_helper_offset"], 0x5C27)
+
+    def test_player_boss_stage_focus_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, boss_stage_focus=True,
+            boss_stage_events=12,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertTrue(payload["boss_stage_focus"])
+        self.assertEqual(payload["boss_stage_events"], 12)
+
+    def test_normalize_player_boss_stage_events(self):
+        trace = normalize_player_trace({
+            "boss_stage_trace": {
+                "events": {"2": {"event_index": 2}, "1": {"event_index": 1}},
+            },
+            "samples": [],
+        })
+        self.assertEqual(trace["boss_stage_trace"]["events"], [
+            {"event_index": 1}, {"event_index": 2},
+        ])
 
     def test_player_branch_focus_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
@@ -310,6 +333,13 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("selector_word, descriptor_selector", source)
         self.assertNotIn("mem_read_word, map_selector", source)
         self.assertNotIn("mem_read_word, descriptor_selector", source)
+
+    def test_player_trace_contains_boss_stage_probe(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("boss_stage_focus", source)
+        self.assertIn("boss_stage_trace", source)
+        self.assertIn("offset = 0xa234", source)
 
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

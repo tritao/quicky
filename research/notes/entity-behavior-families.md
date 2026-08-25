@@ -402,6 +402,20 @@ The same pass closes the branch-level behavior for the remaining effects:
   the stage, the non-keyboard bit-`0x10` producer, and a trace of the pending
   budget after that transition. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
+
+  The targeted boss pass now closes the pooled world-specific state machines
+  at the static level. Constructors `B142/B9F3/C28A/CC68/D2F6` install the W1-W5
+  main callbacks (`B33B/BBEC/C40B/CE81/D63D`) and damage callbacks, with distinct
+  slots, velocities, helper links, hit thresholds, and movement/effect/exit
+  state sequences. A native W1L4 selector run confirms the live END topology:
+  stage initializer `01F7:A101` is followed by child callbacks `A39B`, `A234`,
+  `A1F8`, `A213`, `A3CB`, `A228`, and `A22E`; the callbacks execute with CS
+  `01F7`, while their scheduler records retain callback segment `0x1997`. The
+  fixture ends with `DS:88AE=1`, `DS:880C=0`, and END slots `0x385`, `0x388`,
+  `0x3AC`, and `0x2C7` active. This is a bounded topology/gate observation,
+  not a claim that the later damage-forced stage values or completion handoff
+  have been timed. Full details and hashes are in
+  [`entity-boss-stage-evidence.json`](../entity-boss-stage-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
   while below 9), and clears the live callback. `01D7:1084` initializes the

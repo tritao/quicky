@@ -297,7 +297,7 @@
         {"type": "0x33", "fixture": "W4L1 native selector trace", "dispatch": "01F7:87D1", "post_initializer": "01F7:882E", "object_callback": "01F7:882F", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "y+0x20, direction/orientation, velocity -0xB000, timer 0x14", "native_world": "W4 WIND descriptor 33x29 origin 16,29"},
         {"type": "0x33", "fixture": "W1L2 synthetic current-build motion trace", "dispatch": "01F7:87D1", "post_initializer": "01F7:882E", "object_callback": "01F7:882F", "sprite_slot": 214, "callback_samples": 64, "trajectory": "x 240->225, y 544", "callback_active_all_samples": true, "evidence": "research/entity-effect-motion-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json", "research/notes/type-33-schnee-sheet.png", "research/entity-targeted-decompile-evidence.json", "research/entity-effect-table-producer-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json", "research/notes/type-33-schnee-sheet.png", "research/entity-targeted-decompile-evidence.json", "research/entity-boss-stage-evidence.json", "research/entity-effect-table-producer-evidence.json"],
     "open_questions": ["which gameplay state sets player flags bit 0x10 and triggers 01F7:38EC", "which authored completion/boss transition advances DS:88AE", "how the known DS:880C pending-effect producers feed 01F7:38EC -> 4519", "whether Wind declarations have a separate row producer and how they seed DS:87DE", "reset/respawn semantics at 01D7:3FC6 and 01D7:44E9"]
     },
     {
@@ -339,7 +339,7 @@
         {"type": "0x36", "fixture": "W5L1 native selector trace", "dispatch": "01F7:545A", "post_initializer": "01F7:546C", "object_callback": "01F7:546D", "sprite_slot": 214, "callback_samples": 1, "initializer_fields": "opposite direction with negated velocity", "native_world": "W5 UFO descriptor 31x31 origin 15,31"},
         {"type": "0x35/0x36", "fixture": "W1L2 synthetic current-build motion traces", "object_callback": "01F7:546D", "callback_samples": 64, "trajectories": {"0x35": "x 240->157, y 544", "0x36": "x 240->322, y 544"}, "callback_active_all_samples": true, "evidence": "research/entity-effect-motion-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json", "research/entity-targeted-decompile-evidence.json", "research/entity-effect-table-producer-evidence.json"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json", "research/entity-targeted-decompile-evidence.json", "research/entity-boss-stage-evidence.json", "research/entity-effect-table-producer-evidence.json"],
       "open_questions": ["which authored completion/boss transition advances DS:88AE", "how DS:880C pending-effect producers feed 01F7:38EC -> 4519", "whether UFO declarations use the player-state producer or another row producer and how they seed DS:87DE", "reset/respawn semantics at 01D7:3FC6 and 01D7:44E9"]
     },
     {
@@ -434,6 +434,26 @@
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-interaction-overlap-evidence.json", "research/entity-action-dispatch-evidence.json", "research/entity-collectible-persistence-evidence.json", "research/entity-level-reload-persistence-evidence.json", "research/entity-puzzle-completion-evidence.json", "research/notes/type-7a-puzzle-sheet.png", "engine/src/level.cpp"],
       "open_questions": ["dynamic timing of the 01D7 completion presentation in a fully authored all-seven-letter level"]
+    }
+  ],
+  "pooled_families": [
+    {
+      "id": "world_boss_end_stage",
+      "types": [],
+      "role": "pooled_boss_end_stage",
+      "worlds": ["W1", "W2", "W3", "W4", "W5"],
+      "dimensions": {
+        "initializer_fields": {"status": "confirmed", "known": "World-specific pooled constructors B142/B9F3/C28A/CC68/D2F6 install main callbacks, END sprite slots, fixed-point velocities, helper links, and per-world damage thresholds. These are not ordinary ARE dispatch types."},
+        "update_callback_state_machine": {"status": "confirmed", "known": "W1 0/1 movement -> 2 helper kill -> 3 effect loop -> 4 exit -> 5 replacement; W2 0/1 movement -> 2/3 transition/effect -> 4/5 exit; W3 0-3 movement/transition -> 4 helper destroy -> 5 effect -> 6 replacement; W4 0/1 movement -> 2-4 transition/effect -> 5 replacement; W5 0-2 movement -> 4/5 effect -> 6 replacement."},
+        "movement_ai": {"status": "confirmed", "known": "Boss callbacks integrate world-specific fixed-point velocities, use MAP/camera gates, and transition from attack movement into effect/exit phases after damage thresholds."},
+        "collision_shape_interaction": {"status": "partial", "known": "Damage callbacks and helper links are statically identified, but a native damage-forced run has not yet mapped every boss hit shape and helper collision branch."},
+        "animation_table": {"status": "partial", "known": "END archive slot families are correlated; full per-state frame timing remains to be measured."},
+        "death_removal": {"status": "partial", "known": "Exit states clear off-camera and spawn/reuse child records; exact removal ordering and authored level-reset persistence remain open."},
+        "cross_world_variants": {"status": "confirmed", "known": "W1-W5 use distinct constructors, callback state counts, velocities, slots, child links, and damage thresholds. Native W1L4 confirms the END child callback topology and DS:88AE=1; scheduler records store callback segment 0x1997 while execution uses CS 01F7."}
+      },
+      "verified_runs": [{"fixture": "Native W1L4 selector boss-stage focus", "stage_gate": "DS:88AE 0 -> 1", "callbacks": ["01F7:A39B", "01F7:A234", "01F7:A1F8", "01F7:A213", "01F7:A3CB", "01F7:A228", "01F7:A22E"], "evidence": "research/entity-boss-stage-evidence.json"}],
+      "evidence_refs": ["research/entity-boss-stage-evidence.json", "research/entity-targeted-decompile-evidence.json", "research/entity-puzzle-completion-evidence.json"],
+      "open_questions": ["damage-forced authored transition and later DS:88AE stage values", "completion handoff timing through DS:85DB/DS:85D4", "full per-state END animation timing", "exact boss collision/death ordering"]
     }
   ]
 }

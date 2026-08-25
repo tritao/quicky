@@ -108,6 +108,8 @@ class PlayerTraceConfig:
     selector_frames: int = 60
     screenshot: Path | None = None
     screenshot_mode: str = "rendered"
+    boss_stage_focus: bool = False
+    boss_stage_events: int = 64
 
 
 def lua_literal(value: Any) -> str:
@@ -195,6 +197,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_hold_until_callback": config.input_hold_until_callback,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "boss_stage_focus": config.boss_stage_focus,
+        "boss_stage_events": config.boss_stage_events,
     }
 
 
@@ -536,6 +540,11 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["branch_events"] = ordered_lua_array(
                 sample.get("branch_events", [])
             )
+    boss_stage_trace = trace.get("boss_stage_trace")
+    if isinstance(boss_stage_trace, dict):
+        boss_stage_trace["events"] = ordered_lua_array(
+            boss_stage_trace.get("events", [])
+        )
     census = trace.get("descriptor_census")
     if isinstance(census, dict):
         table = census.get("descriptor_table")
@@ -650,6 +659,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--entity-type", type=lambda value: int(value, 0), default=0x2B)
     parser.add_argument("--player-trace", action="store_true",
                         help="trace the live object pool and 16-pixel MAP lookups")
+    parser.add_argument(
+        "--boss-stage-focus", action="store_true",
+        help="capture pooled world-boss constructors/callbacks and DS:88AE stage transitions",
+    )
+    parser.add_argument(
+        "--boss-stage-events", type=int, default=64,
+        help="maximum pooled boss-stage breakpoint events (default 64)",
+    )
     parser.add_argument("--player-samples", type=int, default=8,
                         help="number of player/object-pool samples")
     parser.add_argument("--player-frames-between", type=int, default=30,
@@ -743,6 +760,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--count must be positive")
     if args.player_samples < 1:
         raise TraceError("--player-samples must be positive")
+    if args.boss_stage_events < 1:
+        raise TraceError("--boss-stage-events must be positive")
+    if args.boss_stage_focus and not args.player_trace:
+        raise TraceError("--boss-stage-focus requires --player-trace")
     if args.player_frames_between < 0:
         raise TraceError("--player-frames-between cannot be negative")
     if args.player_input_frames < 0:
@@ -911,6 +932,8 @@ def main(argv: list[str] | None = None) -> int:
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,
                 screenshot_mode=args.screenshot_mode,
+                boss_stage_focus=args.boss_stage_focus,
+                boss_stage_events=args.boss_stage_events,
             )
             player_trace, player_screenshots = trace_player_lua(
                 api, player_script_path, player_config,
