@@ -69,6 +69,19 @@
     "consumers_without_row_writes": ["01F7:882F Wind", "01F7:546D UFO", "01F7:4AB3/4BA0 normal-effect responses", "01F7:B25D/BB0E/C328/CDA3/D55A boss damage callbacks"],
     "interpretation": "The expanded segment decompile contains no second Wind/UFO-specific row producer: those callbacks only scan and clear DS:87DE entries. The authored row producer remains the player-state 01F7:38EC -> 01F7:0E06 -> 01F7:4519 path; the unresolved part is which gameplay state supplies player flag bit 0x10 and how pending DS:880C is consumed."
   },
+  "pending_counter_consumption_static": {
+    "consumer": "01D7:14E1",
+    "source": "/tmp/quiky-decomp-final.0ccmjH/QUIKY_SEG01.bin.c",
+    "source_sha256": "8deeda7c5ccb4523c48817dffc5735564c1ce788c5ed23c9ec0d63ca9ab43716",
+    "behavior": "When entered from the completion/effect presentation path, loops while DS:880C != 0, advances score by 0x14 per pending unit, emits action 0x0C on the first unit of each eight-unit display cycle, refreshes the HUD counter, and decrements DS:880C once per loop.",
+    "other_writers_or_reads": [
+      "01F7:8D70 adds 0x000A for shared collectible subtype 1",
+      "01F7:1950 increments the bounded dedicated-effect queue counter",
+      "01F7:4519 decrements one unit only when DS:88AE is zero and a shared row is spawned",
+      "01F7:5B9A reads the value for HUD display"
+    ],
+    "interpretation": "DS:880C is not an unexplained row-spawn queue: its confirmed bulk consumer is the completion/effect presentation routine, while 4519 treats it as an independent one-unit spawn budget. The remaining runtime task is to capture authored ordering between a pending increment, completion presentation, and any later 4519 allocation."
+  },
       "raw_word_occurrence": "The little-endian word 0x4519 occurs once in segment 3, at 01F7:3909, as the immediate AX operand."
     },
     "update_and_remove": {
@@ -198,7 +211,7 @@
     "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
     "Which authored completion/boss transition advances DS:88AE and which end-stage callback consumes each stage value.",
     "Which non-keyboard state transition sets player flags bit 0x10, whether DS:880C is consumed by 01D7:14E1 or another path after completion, and whether other pending-effect producers exist beyond WERBE subtype 1 at 01F7:8D70 and dedicated-effect processing at 01F7:1950.",
-    "How Wind/UFO declarations are scheduled into the shared player-state producer in authored play, and how pending DS:880C is consumed after that transition.",
+    "How authored play orders pending DS:880C increments, completion presentation at 01D7:14E1, and any later shared-row spawn.",
     "The semantic names and level/reload triggers of the two reset callsites."
   ]
 }
