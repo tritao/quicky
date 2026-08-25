@@ -335,6 +335,35 @@ leaf families `700` through `707` and `750` through `757`, all with origin
 This closes the live chain from ARE type `0x2B` through its callback and
 runtime object to the compiled sprite family.
 
+### Pool factory and scheduler-bank insertion
+
+The allocator behind these leaves and the high-effect children is now decoded
+from `01F7:0E06`. It scans 64 records from the far pointer at `DS:755E`,
+advancing by the live stride at `DS:30CE`, and selects the first record whose
+`+0x18` callback word is zero. On success it initializes the common header
+before invoking the requested initializer:
+
+```text
++0x18 = requested callback offset
++0x1C = 0x1997                 callback segment
++0x28 = 1                      default mode/variant
++0x17 = 1                      active scheduler phase
++0x12 = 0xffff                 no sprite selected yet
++0x1A = 0xffff                 no source ARE
++0x14 = 0                      default kind
+```
+
+The factory then calls `01F7:1036`. That helper appends the live callback
+offset/segment and object pointer to the current scheduler bank at
+`DS:7566 + (DS:7966 & 0x200)`, advances the eight-byte insertion cursor, and
+writes a `0xffff` callback terminator. Thus allocation order is pool-index
+first-free order, while dispatch order is the scheduler bank's append/phase
+organization. A record is reusable as soon as its callback word is cleared;
+the remaining position, source, animation, and callback-segment bytes are not
+zeroed by this allocator edge. This explains why the recreation's callback
+only deactivation model preserves stale record data and why a queue rebuild is
+required after an object callback clears.
+
 The relocated call at `01F7:4748` targets `01F7:5D38`. That helper reads an
 animation table from `DS:SI`, stores its delay at object offsets `+1E/+20`,
 its cursor at `+22/+24`, and its first slot at `+12`. The callback chooses
