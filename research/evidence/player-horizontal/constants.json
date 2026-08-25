@@ -1,0 +1,243 @@
+{
+  "schema": "quiky-player-horizontal-v1",
+  "source": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "callback": "01f7:3ff8",
+    "record_size": 120,
+    "fixed_point": "signed 16.16"
+  },
+  "movement": {
+    "acceleration_raw": 10240,
+    "acceleration_hex": "0x2800",
+    "release_step_raw": 8192,
+    "release_step_hex": "0x2000",
+    "maximum_speed_raw": 98304,
+    "maximum_speed_hex": "0x18000",
+    "maximum_speed_pixels_per_frame": 1.5,
+    "cap_reached_on_hold_frame": 10,
+    "reversal_step_raw": 10240,
+    "formula": {
+      "input": "v_next=clamp(v+sign(input)*0x2800,-0x18000,+0x18000)",
+      "release": "v_next=toward_zero(v,0x2000)",
+      "position": "x_next=x+v_before",
+      "integer_x": "x_fixed >> 16 on the captured nonnegative domain"
+    },
+    "update_order": [
+      "integrate x from old v",
+      "update v from input/release",
+      "run collision/state/animation tail"
+    ]
+  },
+  "input_action_words": {
+    "neutral": 0,
+    "right": 4,
+    "left": 8
+  },
+  "animation": {
+    "walk_delay": 4,
+    "right_slots": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "left_slots": [
+      50,
+      51,
+      52,
+      53,
+      54,
+      55,
+      56,
+      57
+    ],
+    "idle_slots": [
+      0,
+      16,
+      17,
+      18,
+      18,
+      19,
+      19,
+      19,
+      18,
+      17,
+      16
+    ],
+    "note": "The raw callback ledgers include the animation cursor/delay and slot; direction is represented by paired sprite records."
+  },
+  "record_fields": {
+    "action_word": {
+      "offset": 0,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "x_fixed": {
+      "offset": 2,
+      "width": 4,
+      "encoding": "s32"
+    },
+    "y_fixed": {
+      "offset": 6,
+      "width": 4,
+      "encoding": "s32"
+    },
+    "velocity_x_fixed": {
+      "offset": 10,
+      "width": 4,
+      "encoding": "s32"
+    },
+    "velocity_y_fixed": {
+      "offset": 14,
+      "width": 4,
+      "encoding": "s32"
+    },
+    "sprite_slot": {
+      "offset": 18,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "kind": {
+      "offset": 20,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "phase": {
+      "offset": 23,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "callback": {
+      "offset": 24,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "callback_data": {
+      "offset": 26,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "animation_delay": {
+      "offset": 32,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "animation_cursor": {
+      "offset": 34,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "animation_input_0": {
+      "offset": 40,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "animation_input_1": {
+      "offset": 41,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "counter_0x2a": {
+      "offset": 42,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "lifetime": {
+      "offset": 44,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "state_field": {
+      "offset": 46,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "state_counter_0x30": {
+      "offset": 48,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "update_state": {
+      "offset": 50,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "timer_0x34": {
+      "offset": 52,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "byte_0x36": {
+      "offset": 54,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "byte_0x37": {
+      "offset": 55,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "byte_0x38": {
+      "offset": 56,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "byte_0x39": {
+      "offset": 57,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "byte_0x3a": {
+      "offset": 58,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "byte_0x3b": {
+      "offset": 59,
+      "width": 1,
+      "encoding": "u8"
+    },
+    "word_0x3e": {
+      "offset": 62,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "callback_counter": {
+      "offset": 64,
+      "width": 2,
+      "encoding": "u16"
+    },
+    "saved_y_fixed": {
+      "offset": 68,
+      "width": 4,
+      "encoding": "s32"
+    },
+    "saved_x_fixed": {
+      "offset": 72,
+      "width": 4,
+      "encoding": "s32"
+    }
+  },
+  "boundaries": {
+    "left": {
+      "x_fixed": 4782080,
+      "x_hex": "0x48f800",
+      "x_integer": 72,
+      "velocity_x_fixed": 0
+    },
+    "right_checkpoint_reset": {
+      "x_fixed": 139728896,
+      "x_hex": "0x8541800",
+      "x_integer": 2132,
+      "velocity_x_fixed": 98304,
+      "y_fixed": 24117248,
+      "y_integer": 368,
+      "reset_timer": 1000
+    }
+  }
+}

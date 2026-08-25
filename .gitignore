@@ -41,6 +41,8 @@ research/notes/*
 !research/notes/actual-game-state.md
 !research/notes/player-collision-semantics.md
 !research/notes/research-consolidation.md
+!research/notes/player-horizontal.md
+research/evidence/player-horizontal/*.dosbox.log
 research/extracted/tools/QuikyLevelEditor/build/
 research/extracted/tools/QuikyLevelEditor/dist/
 research/extracted/tools/QuikyLevelEditor/nbproject/private/
