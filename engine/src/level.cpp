@@ -1003,13 +1003,18 @@ void LevelSession::dispatchCloudCallbacks(Simulation *simulation,
 
 void LevelSession::dispatchMovingPlatformCallbacks(
     Simulation *simulation, const WorldCollisionView &world,
-    PlayerRecord &player) {
+    PlayerRecord &player,
+    std::vector<SimulationCallbackStep> &dependencyOrder) {
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         if (!entity.active || entity.kind != EntityKind::MovingPlatform ||
             entity.updateCallback.offset != 0x9dc7) {
             continue;
         }
+
+        dependencyOrder.push_back(SimulationCallbackStep(
+            SimulationCallbackPhase::MovingPlatformBeforePlayer,
+            entity.id, entity.updateCallback));
 
         // 01F7:9DC7 clears DS:5006 before A075. Keep the local publication
         // visible even when no platform accepts the player this frame.
@@ -1405,8 +1410,16 @@ void LevelSession::tick(Simulation &simulation,
         simulation, player.positionX.floorPixels(), player.positionY.floorPixels());
     // 01D7/0E96 dispatches platform callbacks before the later player pass;
     // A0B2's carry globals must therefore be published before 3FF8 runs.
-    dispatchMovingPlatformCallbacks(&simulation, world, player);
+    std::vector<SimulationCallbackStep> dependencyOrder;
+    dispatchMovingPlatformCallbacks(&simulation, world, player,
+                                    dependencyOrder);
     simulation.tick(input, world, output);
+    if (simulation.playerUpdater() != 0) {
+        dependencyOrder.push_back(SimulationCallbackStep(
+            SimulationCallbackPhase::PlayerUpdate, 0,
+            CallbackIdentity(0x01f7, 0x3ff8, "update_player_3ff8")));
+    }
+    output.playerDependencyOrder = dependencyOrder;
     syncPlayerTimer(player);
     spawnedTransient = updateStreaming(
         simulation, player.positionX.floorPixels(), player.positionY.floorPixels()) ||

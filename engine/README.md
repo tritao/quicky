@@ -125,6 +125,10 @@ The moving-platform slice now executes the static `01F7:9DC7` / `A075` /
 player callback, applies the strict horizontal interval and 12-pixel contact
 band, publishes `DS:5006`, `DS:8816`, and `DS:8812`, and consumes the carry in
 the same callback while preserving the packed `0x78` record's subpixel state.
+`SimulationOutput::playerDependencyOrder` records the platform callback and
+the `01F7:3FF8` player callback as an ordered pair; the ordinary scheduler
+invocation list remains separate because the player update is not a pooled
+object callback in this native boundary.
 The confirmed `5DC3` raw-MAP `0x0800` stop/snap path and its `0x46` wait value
 are covered by a native contract test. Full DOS scheduler provenance,
 platform landing/jump detachment, and crushing remain explicit boundaries.

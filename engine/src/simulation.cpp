@@ -10,6 +10,7 @@ SimulationOutput::SimulationOutput()
       player(),
       renderObjects(),
       schedulerCallbacks(),
+      playerDependencyOrder(),
       gameEvents(),
       audioEvents() {
 }
@@ -20,6 +21,7 @@ void SimulationOutput::clearForTick(std::uint64_t tickValue,
     inputFlags = input.actionFlags();
     renderObjects.clear();
     schedulerCallbacks.clear();
+    playerDependencyOrder.clear();
     gameEvents.clear();
     audioEvents.clear();
 }

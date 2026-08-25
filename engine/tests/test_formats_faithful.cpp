@@ -598,6 +598,15 @@ void testRecoveredMovingPlatformCarryContract() {
     session.tick(simulation, world, quiky::InputState(), output);
     assert(output.schedulerCallbacks.size() == 1);
     assert(output.schedulerCallbacks[0].callback.offset == 0x9dc7);
+    assert(output.playerDependencyOrder.size() == 2);
+    assert(output.playerDependencyOrder[0].phase ==
+           quiky::SimulationCallbackPhase::MovingPlatformBeforePlayer);
+    assert(output.playerDependencyOrder[0].callback.offset == 0x9dc7);
+    assert(output.playerDependencyOrder[0].sourceId ==
+           session.entities()[0].id);
+    assert(output.playerDependencyOrder[1].phase ==
+           quiky::SimulationCallbackPhase::PlayerUpdate);
+    assert(output.playerDependencyOrder[1].callback.offset == 0x3ff8);
     assert(session.gameplayState().platformLatch5006 == 0xffff);
     assert(session.gameplayState().platformCarryX8816 == 1);
     assert(session.gameplayState().platformCarryY8812 == 1);

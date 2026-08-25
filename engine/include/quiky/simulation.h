@@ -54,12 +54,35 @@ struct RenderObjectState {
     bool cameraParticipating;
 };
 
+// Narrow ordering trace for callbacks that can feed player simulation. It is
+// separate from schedulerCallbacks because the player callback is invoked by
+// the simulation boundary while moving-platform callbacks are currently
+// executed by LevelSession before that boundary.
+enum class SimulationCallbackPhase {
+    MovingPlatformBeforePlayer,
+    PlayerUpdate,
+};
+
+struct SimulationCallbackStep {
+    SimulationCallbackPhase phase;
+    std::uint32_t sourceId;
+    CallbackIdentity callback;
+
+    SimulationCallbackStep(
+        SimulationCallbackPhase phaseValue =
+            SimulationCallbackPhase::PlayerUpdate,
+        std::uint32_t sourceIdValue = 0,
+        const CallbackIdentity &callbackValue = CallbackIdentity())
+        : phase(phaseValue), sourceId(sourceIdValue), callback(callbackValue) {}
+};
+
 struct SimulationOutput {
     std::uint64_t tick;
     std::uint16_t inputFlags;
     PlayerRecord player;
     std::vector<RenderObjectState> renderObjects;
     std::vector<SchedulerInvocation> schedulerCallbacks;
+    std::vector<SimulationCallbackStep> playerDependencyOrder;
     std::vector<SimulationEvent> gameEvents;
     std::vector<AudioEvent> audioEvents;
 

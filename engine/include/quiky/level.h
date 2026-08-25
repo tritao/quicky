@@ -295,7 +295,9 @@ private:
                                 const PlayerRecord &player);
     void dispatchMovingPlatformCallbacks(Simulation *simulation,
                                          const WorldCollisionView &world,
-                                         PlayerRecord &player);
+                                         PlayerRecord &player,
+                                         std::vector<SimulationCallbackStep>
+                                             &dependencyOrder);
     bool dispatchWorldEffectCallbacks(Simulation *simulation);
     void initializeEnemy(LevelEntity &entity);
     void initializeWorldEffect(LevelEntity &entity);
