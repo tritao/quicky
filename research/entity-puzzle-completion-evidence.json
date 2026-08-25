@@ -225,6 +225,25 @@
         "level_loop_state_after": 0
       },
       "interpretation": "The explicit census confirms the synthetic fixture executes the completion handoff and selector mapping but still produces no dynamic hit at 01D7:5010, 5017, 5038, 503D, 5042, 5047, 504F, 505D, or 5060. This is a stronger negative runtime boundary than the earlier unrecorded downstream result; the missing prerequisite is an authored transition/resource state, not an unidentified completion comparator."
+    },
+    "current_main_native_goal_fixture": {
+      "trace": "research/build/traces/player-w1l1-goal-current/native-goal-transition.json",
+      "trace_sha256": "758101aa1050c62c0189a5b6082f4090dfccbb6d5299e3f9c9afa737ebb7370e",
+      "trace_script": "research/automation/quiky_goal_transition_trace.lua",
+      "trace_script_sha256": "e85de2a750f575011efd579052685e02b3c2356eadf4cb6c21e2c0c06434bfd9",
+      "host_tool": "research/tools/quiky_goal_transition_trace.py",
+      "host_tool_sha256": "2f9cc5bb19fb22995363ab890f6046b8217981d0651e54e4d1641479575d08b4",
+      "fixture": "Current-main QUIKY.EXE with a compact W1L1 ARE variant containing all seven authored letter callbacks at the native player anchor.",
+      "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+      "archive_sha256": "35676884a4fdf5aafe8159b3c3535e850491caaa4a09466765e9247a6b9a5547",
+      "observed": {
+        "native_letter_mask": "0x007F",
+        "mask_reached_at": "goal-render-sync-wait",
+        "cloud_signal_89e6": 0,
+        "completion_gate_hits": [],
+        "transition_reload_hits": []
+      },
+      "interpretation": "The current-main runtime reaches the complete seven-letter mask through the native object callbacks, but the fixture does not place the player on the native cloud at (368,304). No 01F7:92A9/01D7:4EA0 completion path fires, so this validates native letter accumulation only and does not close the cloud-contact or downstream reload route."
     }
   },
   "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. The explicit transition census still observes no 01D7:5010 or downstream reload hit in the synthetic fixture, so exact retail timing and the resource/object rebuild require a fully authored completion or more faithful transition fixture."

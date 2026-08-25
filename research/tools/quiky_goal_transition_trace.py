@@ -114,9 +114,18 @@ def run(args: argparse.Namespace) -> int:
                 name = checkpoint.get("name", "checkpoint")
                 if name not in released:
                     frame_path = frame_dir / f"{name}.png"
-                    frame_path.write_bytes(api.get_binary(
-                        "/api/v1/video/frame?format=png&mode=rendered"))
-                    captured[name] = str(frame_path)
+                    # A headless run can reach the debugger checkpoint while
+                    # DOSBox has no presented frame.  The frame is optional
+                    # evidence; the guest-state checkpoint is not.  Preserve
+                    # the trace instead of turning a 503 from the video API
+                    # into a false negative for the completion path.
+                    try:
+                        frame_path.write_bytes(api.get_binary(
+                            "/api/v1/video/frame?format=png&mode=rendered"))
+                    except TraceError as exc:
+                        captured[name] = {"unavailable": str(exc)}
+                    else:
+                        captured[name] = str(frame_path)
                     released.add(name)
                     api.post("/api/v1/debug/continue")
             if status.get("state") == "completed":
