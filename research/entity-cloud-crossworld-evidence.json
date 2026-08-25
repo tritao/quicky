@@ -70,6 +70,21 @@
       "path": "research/build/entity-28-cloud-standard-renderer-v2.json",
       "sha256": "ea0f8afa161721798c433ed14886e35692515adf2fac4a43ec03fcc4f965f691"
     },
+    "hardware_renderer_probe": {
+      "trace": "research/build/entity-28-cloud-hardware-64-camera768.json",
+      "trace_script_sha256": "068cf031f57747876720177ba4c2b0ec3327f6de1c13d00dcfb3d29bf311a0c2",
+      "controls": "W1 synthetic type-0x28 cloud, forced player-state gate, camera=(768,192), 64 frame samples",
+      "observed": {
+        "sample_count": 64,
+        "logical_slot": 276,
+        "map_index": 124,
+        "flags": 0,
+        "return_offset": "01F7:35B8",
+        "cloud_global_89e6": 0,
+        "object_slot": "0xFFFF"
+      },
+      "interpretation": "The bounded hardware hook saw only an ordinary logical-slot draw (slot 276), not WOLKE slots 413-416. This is negative evidence against the special cloud draw being emitted by the normal per-frame queue in this fixture; it does not identify the low-level WOLKE caller."
+    },
     "conclusion": "The cloud callback contains no direct sprite/resource call. The normal object renderer is still explicitly bypassed (01F7:3529 sees the cloud object at ES:DI and object+0x12=FFFF), while the outer gameplay loop consumes DS:89E6 at 01D7:4EA0. This closes the special-state consumer; the exact WOLKE.BOB pixel-draw primitive remains outside the normal logical-slot queue."
   },
   "conclusion": "Type 0x28 is used in every world, but the cloud asset is one global WOLKE.BOB table rather than WOLKE_Wn.BOB variants. The player-state gate and the outer DS:89E6 consumer are directly evidenced; the normal logical-slot renderer is bypassed, leaving only the low-level WOLKE.BOB pixel-draw primitive to identify."
