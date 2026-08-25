@@ -261,6 +261,8 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["boss_stage_focus"])
         self.assertEqual(payload["boss_stage_events"], 12)
+        self.assertEqual(payload["boss_input_warmup_frames"], 0)
+        self.assertEqual(payload["boss_input_warmup_secondary_key"], "")
 
     def test_player_boss_damage_focus_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

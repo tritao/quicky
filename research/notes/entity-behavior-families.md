@@ -713,6 +713,17 @@ damage rows and the unforced completion handoff remain unresolved. See
 [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json)
 for the trace hash and exact watcher points.
 
+The first unmodified authored row-to-boss delivery is now captured on native
+W1L3. Holding left through a 550-frame warmup places the W1 boss over the
+player's left-alt row; the live `01F7:B25D` callback reaches `01F7:B2B0`
+(`damage_match_clear`) and `01F7:B2BA` (`damage_hit_increment`), clears the
+matching `DS:87DE` x word, and returns with the boss hit counter advanced from
+0 to 1. `DS:88AE` remains 1 and no stage writer fires in the bounded 256-event
+window. This proves the retail producer/delivery boundary for one hit, but
+repeated authored firing, the per-world thresholds, and the unforced
+completion/reload handoff still need separate traces; see
+[`entity-boss-stage-evidence.json`](../entity-boss-stage-evidence.json).
+
 For a level-specific representative, add `--select-level W2L1` and use the
 record offset from `quikyctl.py entity-catalog`. Use paired traces for each
 family variant, then run a one-record target-vs-inert mutation with

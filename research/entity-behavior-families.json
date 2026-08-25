@@ -459,10 +459,11 @@
         {"fixture": "Native W2L3 boss-stage focus", "constructor": "01F7:B9F3", "main_callback": "01F7:BBEC", "damage_callback": "01F7:BB0E", "stage_gate": "0 -> 1", "main_slot": "0x10E", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"},
         {"fixture": "Native W3L3 boss-stage focus", "constructor": "01F7:C28A", "main_callback": "01F7:C40B", "damage_callback": "01F7:C328", "stage_gate": "0 -> 1", "main_slot": "0x3B7", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"},
         {"fixture": "Native W4L3 boss-stage focus", "constructor": "01F7:CC68", "main_callback": "01F7:CE81", "damage_callback": "01F7:CDA3", "stage_gate": "0 -> 1", "main_slot": "0x3B7", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"},
-        {"fixture": "Native W5L3 boss-stage focus", "constructor": "01F7:D2F6", "main_callback": "01F7:D63D", "damage_callback": "01F7:D55A", "stage_gate": "0 -> 1", "main_slot": "0x3B6", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"}
+        {"fixture": "Native W5L3 boss-stage focus", "constructor": "01F7:D2F6", "main_callback": "01F7:D63D", "damage_callback": "01F7:D55A", "stage_gate": "0 -> 1", "main_slot": "0x3B6", "damage_slot": "0x3DE", "evidence": "research/entity-boss-stage-evidence.json"},
+        {"fixture": "Native W1L3 authored row-to-boss hit", "input": "KBD_left warmup 550 frames + held KBD_leftalt", "damage_callback": "01F7:B25D", "row_match": "01F7:B2B0", "hit_increment": "01F7:B2BA", "hits": 1, "stage_gate": "1", "evidence": "research/entity-boss-stage-evidence.json"}
       ],
       "evidence_refs": ["research/entity-boss-stage-evidence.json", "research/entity-targeted-decompile-evidence.json", "research/entity-puzzle-completion-evidence.json"],
-      "open_questions": ["authored damage-row producer and unforced boss transition", "downstream reload/resource timing after the controlled DS:85DB -> 01D7:4F10-4FAF handoff", "full per-state END animation timing", "exact boss collision/death ordering and per-world hit progression"]
+      "open_questions": ["repeated authored damage cycles and unforced boss transition", "downstream reload/resource timing after the controlled DS:85DB -> 01D7:4F10-4FAF handoff", "full per-state END animation timing", "exact boss collision/death ordering and per-world hit progression"]
     }
   ]
 }

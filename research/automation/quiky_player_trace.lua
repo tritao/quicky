@@ -32,6 +32,8 @@ local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local boss_stage_focus = trace_config.boss_stage_focus or false
 local boss_stage_events = trace_config.boss_stage_events or 64
+local boss_input_warmup_frames = trace_config.boss_input_warmup_frames or 0
+local boss_input_warmup_secondary_key = trace_config.boss_input_warmup_secondary_key or ""
 local boss_damage_focus = trace_config.boss_damage_focus or false
 local boss_damage_hits = trace_config.boss_damage_hits or 5
 local boss_damage_target_callback = trace_config.boss_damage_target_callback or 0xa234
@@ -1121,6 +1123,15 @@ if boss_stage_focus then
     local boss_input_held = false
     if input_key ~= "" and input_frames > 0 then
         dosbox.key(input_key, true)
+        if boss_input_warmup_secondary_key ~= "" then
+            dosbox.key(boss_input_warmup_secondary_key, true)
+        end
+        if boss_input_warmup_frames > 0 then
+            dosbox.wait_frames(boss_input_warmup_frames)
+        end
+        if boss_input_warmup_secondary_key ~= "" then
+            dosbox.key(boss_input_warmup_secondary_key, false)
+        end
         if input_secondary_key ~= "" then
             dosbox.key(input_secondary_key, true)
         end
