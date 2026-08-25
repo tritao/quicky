@@ -30,6 +30,7 @@ GLOBAL_FIELD_MAP = {
     "camera_x": (0x81C0, 2),
     "camera_y": (0x81C4, 2),
     "player_vertical_adjust": (0x8812, 4),
+    "horizontal_result_byte": (0x4FF0, 1),
 }
 
 

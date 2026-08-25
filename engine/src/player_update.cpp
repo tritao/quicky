@@ -10,7 +10,11 @@ void reportGlobalWrite(PlayerTraceSink *trace,
                        std::uint8_t width,
                        std::uint32_t before,
                        std::uint32_t after) {
-    if (trace != 0) {
+    // The DOS trace records mutations, not stores whose value is unchanged.
+    // Keeping no-op stores out of the publication is important for comparing
+    // the callback's observable global state rather than its instruction
+    // count.
+    if (trace != 0 && before != after) {
         trace->onGlobalWrite(PlayerGlobalWrite(address, width, before, after));
     }
 }
@@ -44,6 +48,16 @@ void writeGlobal32(std::uint16_t address,
                       static_cast<std::uint32_t>(field));
 }
 
+void writeGlobal16Signed(std::uint16_t address,
+                         std::int16_t &field,
+                         std::int16_t value,
+                         PlayerTraceSink *trace) {
+    const std::uint16_t before = static_cast<std::uint16_t>(field);
+    field = value;
+    reportGlobalWrite(trace, address, 2, before,
+                      static_cast<std::uint16_t>(field));
+}
+
 void captureWrites(const PlayerRawRecord &before,
                    const PlayerRawRecord &after,
                    PlayerTraceSink *trace) {
@@ -75,6 +89,81 @@ void captureProbe(const CollisionProbe &probe,
     if (trace != 0) {
         trace->onCollisionProbe(probe, occupied);
     }
+}
+
+struct AnimationSequenceWords {
+    std::uint16_t address;
+    const std::int16_t *words;
+    std::size_t count;
+};
+
+const std::int16_t kAnimation3156[] = {4, 0, 0, 0, -3};
+const std::int16_t kAnimation3160[] = {8, 10, 11, 12, -1};
+const std::int16_t kAnimation316a[] = {
+    14, 0, 16, 17, 18, 18, 19, 19, 19, 18, 17, 16, 0, -1};
+const std::int16_t kAnimation3186[] = {20, 13, 14, 15, -1};
+const std::int16_t kAnimation31a4[] = {
+    14, 20, 21, 22, 23, 24, 25, 26, 27, 28, -3};
+const std::int16_t kAnimation31ba[] = {
+    15, 30, 31, 32, 33, 33, 33, 33, 34, 34, 34, 35, 36, 37};
+
+const AnimationSequenceWords kAnimationSequences[] = {
+    {0x3156, kAnimation3156,
+     sizeof(kAnimation3156) / sizeof(kAnimation3156[0])},
+    {0x3160, kAnimation3160,
+     sizeof(kAnimation3160) / sizeof(kAnimation3160[0])},
+    {0x316a, kAnimation316a,
+     sizeof(kAnimation316a) / sizeof(kAnimation316a[0])},
+    {0x3186, kAnimation3186,
+     sizeof(kAnimation3186) / sizeof(kAnimation3186[0])},
+    {0x31a4, kAnimation31a4,
+     sizeof(kAnimation31a4) / sizeof(kAnimation31a4[0])},
+    {0x31ba, kAnimation31ba,
+     sizeof(kAnimation31ba) / sizeof(kAnimation31ba[0])},
+};
+
+bool animationWord(std::uint16_t address, std::int16_t &value) {
+    for (std::size_t sequenceIndex = 0;
+         sequenceIndex < sizeof(kAnimationSequences) /
+                              sizeof(kAnimationSequences[0]);
+         ++sequenceIndex) {
+        const AnimationSequenceWords &sequence =
+            kAnimationSequences[sequenceIndex];
+        const std::uint16_t end = static_cast<std::uint16_t>(
+            sequence.address + sequence.count * 2);
+        if (address < sequence.address || address >= end ||
+            ((address - sequence.address) & 1) != 0) {
+            continue;
+        }
+        value = sequence.words[(address - sequence.address) / 2];
+        return true;
+    }
+    return false;
+}
+
+bool loadAnimationDescriptor(PlayerRecord &player,
+                              std::uint16_t sequenceAddress,
+                              PlayerTraceSink *trace) {
+    std::int16_t delay = 0;
+    std::int16_t frame = 0;
+    if (!animationWord(sequenceAddress, delay) ||
+        !animationWord(static_cast<std::uint16_t>(sequenceAddress + 2),
+                       frame)) {
+        if (trace != 0) {
+            trace->onStage(PlayerUpdateStage::UnresolvedBoundary);
+        }
+        return false;
+    }
+
+    player.field1E = static_cast<std::uint16_t>(delay);
+    player.animationDelay20 = static_cast<std::uint16_t>(delay);
+    player.animationCursor22 = static_cast<std::uint16_t>(sequenceAddress + 2);
+    player.field24 = static_cast<std::uint16_t>(sequenceAddress + 2);
+    if (player.directionByte28 == 0xff) {
+        frame = static_cast<std::int16_t>(frame + 0x32);
+    }
+    player.statusWord12 = static_cast<std::uint16_t>(frame);
+    return true;
 }
 
 void stage(PlayerTraceSink *trace, PlayerUpdateStage value) {
@@ -422,6 +511,44 @@ void applyDescriptorCorrection(PlayerRecord &player,
     player.setYPixel(decision.finalY);
 }
 
+void advanceAnimationDescriptor(PlayerRecord &player,
+                                PlayerTraceSink *trace) {
+    // Static 01F7:5D60: the first path is fully closed.  When +0x20 is
+    // nonzero, the helper decrements it and returns before touching the
+    // resident animation table.  The zero path remains an explicit table
+    // boundary; following it here would require inventing table contents.
+    if (player.animationDelay20 != 0) {
+        player.animationDelay20 = static_cast<std::uint16_t>(
+            player.animationDelay20 - 1);
+        return;
+    }
+
+    std::uint16_t cursor = static_cast<std::uint16_t>(player.field24 + 2);
+    std::int16_t frame = 0;
+    if (!animationWord(cursor, frame)) {
+        if (trace != 0) {
+            trace->onStage(PlayerUpdateStage::UnresolvedBoundary);
+        }
+        return;
+    }
+    while (frame < 0) {
+        cursor = static_cast<std::uint16_t>(
+            cursor + static_cast<std::int32_t>(frame) * 2);
+        if (!animationWord(cursor, frame)) {
+            if (trace != 0) {
+                trace->onStage(PlayerUpdateStage::UnresolvedBoundary);
+            }
+            return;
+        }
+    }
+    player.field24 = cursor;
+    if (player.directionByte28 == 0xff) {
+        frame = static_cast<std::int16_t>(frame + 0x32);
+    }
+    player.statusWord12 = static_cast<std::uint16_t>(frame);
+    player.animationDelay20 = player.field1E;
+}
+
 void snapPlayerY(PlayerRecord &player,
                  const WorldCollisionView &world,
                  PlayerTraceSink *trace) {
@@ -538,6 +665,9 @@ void integrateHorizontalMotion(PlayerRecord &player,
     const std::int32_t oldVelocity = player.velocityX.raw;
     player.positionX.raw = Fixed16::wrapAddRaw(player.positionX.raw,
                                                oldVelocity);
+    // The original callback mutates the single ES:DI record.  Keep the raw
+    // trace view synchronized before coordinate probes observe the updated X.
+    player.syncToRaw();
     const std::int32_t motionSign = Fixed16::wrapAddRaw(
         oldVelocity, globals.externalXDelta8816);
     if (motionSign == 0 || motionSign == 1) {
@@ -565,6 +695,10 @@ void integrateHorizontalMotion(PlayerRecord &player,
                static_cast<std::int8_t>(player.motionDirectionByte29) < 0) {
         player.setYPixel(addPixel(player.yPixel(), 2));
     }
+
+    // External carry and the two-pixel contact adjustment precede the
+    // vertical probe below in the native record, so publish both fields first.
+    player.syncToRaw();
 
     const std::int32_t cap = player.horizontalSpeedCap5C.raw;
     if ((player.actionWord & 0x0004) != 0) {
@@ -642,8 +776,7 @@ void contactResponse(PlayerRecord &player,
     }
     player.mode37 = 1;
     player.velocityY.raw = 0;
-    // The animation table loader at 5D38 is intentionally not represented by
-    // a guessed table. Its address remains an unresolved trace boundary.
+    loadAnimationDescriptor(player, 0x3186, trace);
 }
 
 void groundedContact(PlayerRecord &player,
@@ -659,8 +792,7 @@ void groundedContact(PlayerRecord &player,
     player.velocityY.raw = 0;
     player.mode37 = 0;
     if (globals.idleCounter4FEE < 0x00d2) {
-        // 5D38 is an unresolved animation-table read; the state write at
-        // +36 below is independently established by the callback bytes.
+        loadAnimationDescriptor(player, 0x3156, trace);
     }
     player.animationState36 = 1;
 }
@@ -697,10 +829,18 @@ void commonCallbackTail(PlayerRecord &player,
 
     integrateHorizontalMotion(player, world, globals, trace);
 
-    if (trace != 0) {
-        trace->onStage(PlayerUpdateStage::UnresolvedBoundary);
-    }
+    // Static 01F7:438F: 5D60 follows horizontal integration and precedes
+    // 3A62.  Its nonzero-delay path is implemented above; its table reload
+    // path remains address-qualified.
+    advanceAnimationDescriptor(player, trace);
     actionContactSideEffect(player);
+
+    // Static 01F7:3E41: the closed portion copies DS:4FE4 to DS:4FE6 before
+    // the external view publisher.  The publisher's presentation globals are
+    // not part of the player simulation contract, so only this relevant copy
+    // is represented here.
+    writeGlobal16Signed(0x4fe6, globals.viewStateB4FE6,
+                        globals.viewStateA4FE4, trace);
 
     player.gate38 = 0;
     if (player.timer34 != 0) {
@@ -715,20 +855,21 @@ void commonCallbackTail(PlayerRecord &player,
     }
 
     if (player.mode37 == 0 && player.actionWord == 0) {
-        if (globals.idleCounter4FEE < 0x00d2) {
-            writeGlobal16(0x4fee, globals.idleCounter4FEE,
-                          static_cast<std::uint16_t>(
-                              globals.idleCounter4FEE + 1), trace);
-        } else if (trace != 0) {
-            trace->onStage(PlayerUpdateStage::UnresolvedBoundary);
+        // The Ghidra decompilation at 43D5 increments on every ordinary idle
+        // callback.  Only the equality-triggered 31BA table load is opaque;
+        // it must not suppress the observed 4FEE write.
+        writeGlobal16(0x4fee, globals.idleCounter4FEE,
+                      static_cast<std::uint16_t>(
+                          globals.idleCounter4FEE + 1), trace);
+        if (globals.idleCounter4FEE == 0x00d2) {
+            loadAnimationDescriptor(player, 0x31ba, trace);
         }
     } else {
         writeGlobal16(0x4fee, globals.idleCounter4FEE, 0, trace);
     }
 
-    if (player.mode37 == 0 && globals.actionSuppressor89E6 == -1 &&
-        trace != 0) {
-        trace->onStage(PlayerUpdateStage::UnresolvedBoundary);
+    if (player.mode37 == 0 && globals.actionSuppressor89E6 == -1) {
+        loadAnimationDescriptor(player, 0x316a, trace);
     }
 }
 
@@ -855,7 +996,10 @@ void TraceClosedPlayerUpdate::updatePlayer(
                 snapPlayerY(player, world, trace);
                 applyDescriptorCorrection(player, world, trace);
             } else if (player.verticalResponse3A == 0) {
-                contactResponse(player, 0, false, trace);
+                // Static 01F7:41C9 clears +0x3E before joining 41CF.  This
+                // is the ordinary no-response contact path, distinct from
+                // the already-timed early contact at 41C1.
+                contactResponse(player, 0, true, trace);
             } else {
                 snapPlayerY(player, world, trace);
                 applyDescriptorCorrection(player, world, trace);
@@ -870,6 +1014,7 @@ void TraceClosedPlayerUpdate::updatePlayer(
                 player.verticalResponse3A = 0;
                 player.mode37 = -1;
                 player.velocityY.raw = player.negativeYSpeed64.raw;
+                loadAnimationDescriptor(player, 0x3160, trace);
                 if (trace != 0) {
                     trace->onStage(PlayerUpdateStage::UnresolvedBoundary);
                 }
@@ -897,6 +1042,7 @@ void TraceClosedPlayerUpdate::updatePlayer(
                     player.velocityY.raw = nextVelocity;
                     player.positionY.raw = Fixed16::wrapAddRaw(
                         player.positionY.raw, player.velocityY.raw);
+                    player.syncToRaw();
                     if (!probeVerticalStep(player, world, trace)) {
                         stage(trace,
                               PlayerUpdateStage::CommonCallbackTail);
@@ -942,6 +1088,7 @@ void TraceClosedPlayerUpdate::updatePlayer(
                     }
                     player.positionY.raw = Fixed16::wrapAddRaw(
                         player.positionY.raw, player.velocityY.raw);
+                    player.syncToRaw();
                     if (!sideProbeClear(player, world, trace)) {
                         stage(trace,
                               PlayerUpdateStage::GroundedContactResponse);

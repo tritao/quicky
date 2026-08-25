@@ -80,7 +80,9 @@ Implemented from static evidence:
 - ordered side/vertical probes, `3D02` descriptor correction, and `3DF2`
   alignment;
 - jump initiation, grounded response, blocked ascent, landing-state writes,
-  common-tail timer/global writes, and the known pending jump sound dispatch;
+  common-tail timer/global writes, the known pending jump sound dispatch, and
+  the resident player animation loads/advancement at `5D38/5D60` for the
+  recovered callback sequences;
 - complete raw `0x78` pre/post records and ordered trace publication.
 
 Dynamically parity-validated:
@@ -88,19 +90,26 @@ Dynamically parity-validated:
 - the existing horizontal/free-space formula fixtures;
 - the C++ callback's synthetic jump, grounded, and blocked-ascent branch
   vectors;
+- the standing DOS replay's complete `0x78` post-records and observed global
+  mutations across all eight callbacks;
 - candidate-to-candidate full-record/probe/global/effect comparison through
   `player_parity_compare.py`.
 
 These checks do not yet constitute full DOS callback parity. The first
-captured-DOS replay set is intentionally reported as a diagnostic until its
-pre-state globals and descriptor observations are complete.
+captured-DOS replay set is intentionally reported as a diagnostic: its
+standing and jump fixtures omit native collision-probe arrays, and the late-
+release jump fixture stops matching after landing at the animation/contact
+boundary. The C++ replay now reports those omissions and mismatches explicitly.
 
 Explicit unresolved boundaries:
 
 - natural `648E/6484` contact behavior and the `0E06` contact-object family;
 - the direct gameplay contract of `5937` when the `DS:89EA` transition gate is
   active;
-- animation table reads at `5D38/5D60` and presentation-only callbacks;
+- the input-dispatch capture at `F21B/F21C`, including the malformed computed
+  jump tail and scripted-input overrides;
+- the late-release replay's post-landing animation-delay discrepancy, pending
+  a trace with the exact callback phase and native probe publication;
 - natural ceiling validation, descriptor semantic labels/one-way policy, and
   moving-platform scheduler/culling behavior;
 - the no-descriptor-table fallback, which remains a deliberate research
@@ -165,9 +174,10 @@ at `(x +/- 10, y - 1/-17/-33)`. Table boundaries, special descriptor values,
 and probe coordinates have direct engine tests.
 
 No compatibility player simulation remains. The C++ callback contains the
-static landing, ceiling-response, and jump writes, while natural ceiling
-parity, descriptor class names, one-way behavior, and moving-platform contact
-remain explicit research boundaries until targeted runtime traces close them.
+static landing, ceiling-response, jump, and recovered animation writes, while
+natural ceiling parity, descriptor class names, one-way behavior, and
+moving-platform contact remain explicit research boundaries until targeted
+runtime traces close them.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
 resources use TFMX, which needs a dedicated decoder. The engine includes an

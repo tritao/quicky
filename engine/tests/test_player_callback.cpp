@@ -49,6 +49,11 @@ void testJumpInitiationAndProbeOrder() {
     assert(player.mode37 == -1);
     assert(player.velocityY.raw == player.negativeYSpeed64.raw);
     assert(player.resetDeathTimer3E == 0x03e8);
+    assert(player.field1E == 8);
+    assert(player.animationDelay20 == 7);
+    assert(player.animationCursor22 == 0x3162);
+    assert(player.field24 == 0x3162);
+    assert(player.statusWord12 == 10);
     assert(!trace.effectDispatches.empty());
     assert(trace.effectDispatches[0].address == 0x01e70fcfU);
     assert(trace.collisionProbes.size() >= 3);
@@ -67,6 +72,7 @@ void testLandingAndCeilingResponses() {
 
     quiky::TraceClosedPlayerUpdate updater;
     quiky::PlayerRecord landing = playerAt();
+    updater.globalsForSetup().idleCounter4FEE = 0;
     landing.mode37 = 1;
     landing.velocityY.raw = 0x1000;
     landing.syncToRaw();
@@ -74,6 +80,11 @@ void testLandingAndCeilingResponses() {
     assert(landing.mode37 == 0);
     assert(landing.velocityY.raw == 0);
     assert(landing.verticalResponse3A == -1);
+    assert(landing.field1E == 4);
+    assert(landing.animationDelay20 == 3);
+    assert(landing.animationCursor22 == 0x3158);
+    assert(landing.field24 == 0x3158);
+    assert(landing.statusWord12 == 0);
 
     quiky::Map ceilingMap = makeMap();
     setCell(ceilingMap, 2, 22, 1, 0x1000);
@@ -86,6 +97,67 @@ void testLandingAndCeilingResponses() {
     assert(ceiling.mode37 == 1);
     assert(ceiling.velocityY.raw == 0);
     assert(ceiling.resetDeathTimer3E == 0x03e7);
+    assert(ceiling.field1E == 20);
+    assert(ceiling.animationDelay20 == 19);
+    assert(ceiling.animationCursor22 == 0x3188);
+    assert(ceiling.field24 == 0x3188);
+    assert(ceiling.statusWord12 == 13);
+}
+
+void testPostStepContactUsesCurrentRecordCoordinates() {
+    quiky::Map map = makeMap();
+    setCell(map, 2, 25, 45);
+    quiky::PlayerDescriptorTable descriptors;
+    descriptors.setWord(45, 0x000c);
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    quiky::PlayerRecord player = playerAt();
+    player.positionY.raw = (397 << 16) + 0x4000;
+    player.mode37 = 1;
+    player.velocityY.raw = 0x00039800;
+    player.syncToRaw();
+    updater.updatePlayer(player, quiky::InputState(), world, 0);
+
+    // The post-step side probe must see the newly integrated Y (around 401),
+    // then apply the native eight-pixel contact correction to 400.
+    assert(player.mode37 == 0);
+    assert(player.yPixel() == 400);
+    assert(player.velocityY.raw == 0);
+}
+
+void testCommonTailClosedAnimationAndViewCopy() {
+    quiky::Map map = makeMap();
+    setCell(map, 2, 25, 45);
+    quiky::PlayerDescriptorTable descriptors;
+    descriptors.setWord(45, 0x000c);
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    updater.globalsForSetup().viewStateA4FE4 = 0x1234;
+    updater.globalsForSetup().viewStateB4FE6 = 0;
+    updater.globalsForSetup().idleCounter4FEE = 0x00d3;
+
+    quiky::PlayerRecord player = playerAt();
+    player.field1E = 3;
+    player.animationDelay20 = 3;
+    player.animationCursor22 = 0x3162;
+    player.field24 = 0x3162;
+    player.syncToRaw();
+    quiky::PlayerUpdateTrace trace;
+    updater.updatePlayer(player, quiky::InputState(), world, &trace);
+
+    assert(player.animationDelay20 == 2);
+    assert(player.field24 == 0x3162);
+    assert(updater.globals().viewStateB4FE6 == 0x1234);
+    assert(updater.globals().idleCounter4FEE == 0x00d4);
+    assert(trace.globalWrites.size() == 2);
+    assert(trace.globalWrites[0].address == 0x4fe6);
+    assert(trace.globalWrites[0].before == 0);
+    assert(trace.globalWrites[0].after == 0x1234);
+    assert(trace.globalWrites[1].address == 0x4fee);
+    assert(trace.globalWrites[1].before == 0x00d3);
+    assert(trace.globalWrites[1].after == 0x00d4);
 }
 
 } // namespace
@@ -93,6 +165,8 @@ void testLandingAndCeilingResponses() {
 int main() {
     testJumpInitiationAndProbeOrder();
     testLandingAndCeilingResponses();
+    testPostStepContactUsesCurrentRecordCoordinates();
+    testCommonTailClosedAnimationAndViewCopy();
     std::cout << "player callback contact tests passed\n";
     return 0;
 }

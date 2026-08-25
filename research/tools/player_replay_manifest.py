@@ -48,9 +48,14 @@ FIELDS = (
 SOURCE_GLOBALS = {
     "deferred_y": "player_vertical_adjust",
     "input_run_counter": "horizontal_branch_counter",
-    "horizontal_accumulator": "horizontal_accumulator",
-    "horizontal_accel": "horizontal_aux",
+    # The trace names come from the existing capture schema; the address
+    # ledger is authoritative for replay.  4FE2 is the limit word, 4FE8 is
+    # the accumulator, and 4FE6 is the published auxiliary/view word.
+    "horizontal_accumulator": "horizontal_limit",
+    "view_state_b": "horizontal_aux",
+    "horizontal_accel": "horizontal_accumulator",
     "idle_counter": "horizontal_timer",
+    "action_low_copy": "horizontal_result_byte",
     "camera_x": "camera_x",
     "camera_y": "camera_y",
 }
