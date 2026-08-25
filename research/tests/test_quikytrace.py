@@ -490,7 +490,8 @@ class QuikyTraceTests(unittest.TestCase):
         script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
         source = script.read_text(encoding="utf-8")
         self.assertIn("local function collision_return_location", source)
-        self.assertIn("hit.offset ~= 0x3a1f and hit.offset ~= 0x3df2", source)
+        self.assertIn("hit.offset ~= 0x3986 and hit.offset ~= 0x3a1f and", source)
+        self.assertIn("hit.offset ~= 0x3df2", source)
         self.assertIn("collision_return_event.return_breakpoint", source)
         self.assertIn("collision.map_property = map_property_snapshot(hit)", source)
         host_source = (Path(__file__).resolve().parents[1] / "tools/quikytrace.py").read_text(
