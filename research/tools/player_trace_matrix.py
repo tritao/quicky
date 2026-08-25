@@ -408,6 +408,7 @@ def build_player_config(
         "transition_hold_events", "transition_force_player_fall",
         "transition_probe_frames", "transition_probe_tail_frames",
         "transition_probe_tail_camera_x", "transition_warmup_frames",
+        "descriptor_count", "map_width", "map_height",
     }
     for key in allowed:
         if key in options:
@@ -420,6 +421,9 @@ def build_player_config(
     ):
         if key in option_values and option_values[key] is not None:
             option_values[key] = _integer(option_values[key], key)
+    for key in ("descriptor_count", "map_width", "map_height"):
+        if key in option_values:
+            option_values[key] = _positive(option_values[key], key)
     if option_values.get("property_helper_offset") not in (None, 0x5C27, 0x5CC3):
         raise MatrixError("property_helper_offset must be 0x5c27 or 0x5cc3")
     for key, maximum in (("branch_patch_tile", 0x1FF), ("collision_patch_tile", 0x1FF), ("branch_patch_flags", 0xFFFF)):
@@ -602,6 +606,9 @@ def extract_trace_fields(samples: Sequence[Mapping[str, Any]]) -> list[dict[str,
             "frame_index": sample.get("frame_index"),
             "breakpoint": copy.deepcopy(sample.get("breakpoint")),
             "breakpoint_owners": copy.deepcopy(sample.get("breakpoint_owners", [])),
+            "related_breakpoints": copy.deepcopy(sample.get("related_breakpoints", [])),
+            "mutation_ledger": copy.deepcopy(sample.get("mutation_ledger", {})),
+            "branch_patch": copy.deepcopy(sample.get("branch_patch")),
             "position": {
                 "before": before_fields.get("position", {}),
                 "after": after_fields.get("position", {}),

@@ -1,0 +1,71 @@
+{
+  "schema": "quiky-player-vertical-timelines-v1",
+  "format": "signed 16.16 fixed-point values; rows retain before/after Y and vertical velocity",
+  "omitted_rows": "Only boundary, release, apex, and first descent rows are shown here. validation.json counts every checked value from the complete live normalized timelines.",
+  "timelines": {
+    "natural-fall-free-space": {
+      "patch": {"map_x":8,"map_y":25,"original_tile":46,"replacement_tile":0,"selector":887,"offset":13516,"restored":true},
+      "rows": [
+        {"sequence":1,"frame":0,"x_before":128,"x_after":128,"y_after":26214400,"vy_after":0,"mode_after":0},
+        {"sequence":2,"frame":8,"x_before":132,"x_after":133,"y_after":26214400,"vy_after":0,"mode_after":0},
+        {"sequence":5,"frame":32,"x_before":165,"x_after":167,"y_after":26214400,"vy_after":0,"mode_after":0}
+      ],
+      "conclusion": "The current matrix applied the patch and moved right, but did not produce a mode-1 free fall in this run."
+    },
+    "jump-release-1-callback": {
+      "rows": [
+        {"sequence":1,"y_before":26214400,"y_after":26214400,"vy_before":0,"vy_after":0,"mode_before":0,"mode_after":0},
+        {"sequence":2,"y_before":26083328,"y_after":25960448,"vy_before":-131072,"vy_after":-122880,"mode_before":-1,"mode_after":-1}
+      ],
+      "conclusion": "The initiation callback occurs inside the input phase; the first captured post-phase state is already the released -0x20000 state."
+    },
+    "jump-release-2-callbacks": {
+      "rows": [
+        {"sequence":1,"y_before":26214400,"y_after":26214400,"vy_before":0,"vy_after":0,"mode_before":0,"mode_after":0},
+        {"sequence":2,"y_before":26083328,"y_after":25960448,"vy_before":-131072,"vy_after":-122880,"mode_before":-1,"mode_after":-1},
+        {"sequence":16,"y_before":25108480,"y_after":25100288,"vy_before":-16384,"vy_after":-8192,"mode_before":-1,"mode_after":-1},
+        {"sequence":17,"y_before":25100288,"y_after":25100288,"vy_before":-8192,"vy_after":0,"mode_before":-1,"mode_after":1},
+        {"sequence":18,"y_before":25100288,"y_after":25110528,"vy_before":0,"vy_after":10240,"mode_before":1,"mode_after":1}
+      ]
+    },
+    "jump-release-4-callbacks": {
+      "rows": [
+        {"sequence":2,"y_before":25501696,"y_after":25378816,"vy_before":-131072,"vy_after":-122880,"mode_before":-1,"mode_after":-1},
+        {"sequence":16,"y_before":24526848,"y_after":24518656,"vy_before":-16384,"vy_after":-8192,"mode_before":-1,"mode_after":-1},
+        {"sequence":17,"y_before":24518656,"y_after":24518656,"vy_before":-8192,"vy_after":0,"mode_before":-1,"mode_after":1},
+        {"sequence":18,"y_before":24518656,"y_after":24528896,"vy_before":0,"vy_after":10240,"mode_before":1,"mode_after":1}
+      ]
+    },
+    "jump-release-8-callbacks": {
+      "rows": [
+        {"sequence":2,"y_before":24436736,"y_after":24313856,"vy_before":-131072,"vy_after":-122880,"mode_before":-1,"mode_after":-1},
+        {"sequence":16,"y_before":23461888,"y_after":23453696,"vy_before":-16384,"vy_after":-8192,"mode_before":-1,"mode_after":-1},
+        {"sequence":17,"y_before":23453696,"y_after":23453696,"vy_before":-8192,"vy_after":0,"mode_before":-1,"mode_after":1},
+        {"sequence":18,"y_before":23453696,"y_after":23463936,"vy_before":0,"vy_after":10240,"mode_before":1,"mode_after":1}
+      ]
+    },
+    "jump-release-12-callbacks": {
+      "rows": [
+        {"sequence":2,"y_before":23502848,"y_after":23379968,"vy_before":-131072,"vy_after":-122880,"mode_before":-1,"mode_after":-1},
+        {"sequence":16,"y_before":22528000,"y_after":22519808,"vy_before":-16384,"vy_after":-8192,"mode_before":-1,"mode_after":-1},
+        {"sequence":17,"y_before":22519808,"y_after":22519808,"vy_before":-8192,"vy_after":0,"mode_before":-1,"mode_after":1},
+        {"sequence":18,"y_before":22519808,"y_after":22530048,"vy_before":0,"vy_after":10240,"mode_before":1,"mode_after":1}
+      ]
+    },
+    "jump-release-20-callbacks": {
+      "rows": [
+        {"sequence":2,"y_before":22028288,"y_after":21905408,"vy_before":-131072,"vy_after":-122880,"mode_before":-1,"mode_after":-1},
+        {"sequence":16,"y_before":21053440,"y_after":21045248,"vy_before":-16384,"vy_after":-8192,"mode_before":-1,"mode_after":-1},
+        {"sequence":17,"y_before":21045248,"y_after":21045248,"vy_before":-8192,"vy_after":0,"mode_before":-1,"mode_after":1},
+        {"sequence":18,"y_before":21045248,"y_after":21055488,"vy_before":0,"vy_after":10240,"mode_before":1,"mode_after":1}
+      ]
+    },
+    "vertical-correction-observe": {
+      "patch": {"map_x":8,"map_y":25,"original_tile":46,"replacement_tile":42,"selector":887,"offset":13516,"restored":true},
+      "related_breakpoints": ["01F7:3D02","01F7:3DF1"],
+      "rows": [
+        {"sequence":1,"y_before":26214400,"y_after":26345472,"y_pixel_before":400,"y_pixel_after":402,"vy_after":0,"mode_after":0,"latch_before":0,"latch_after":255}
+      ]
+    }
+  }
+}

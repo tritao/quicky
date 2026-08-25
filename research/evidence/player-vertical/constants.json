@@ -1,0 +1,71 @@
+{
+  "schema": "quiky-player-vertical-constants-v1",
+  "sources": {
+    "executable": {
+      "path": "game/QUIKY.EXE",
+      "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
+    },
+    "archive": {
+      "path": "game/NESTLE.DAT",
+      "sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2"
+    },
+    "segment": {
+      "selector": "0x01f7",
+      "size": 62013,
+      "sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf"
+    }
+  },
+  "fixed_point": {
+    "format": "signed 32-bit 16.16",
+    "position_update": "y_next = signed32(y_old + vy_next)",
+    "position_uses": "newly updated vertical velocity",
+    "jump_impulse": {"field": "+0x64", "hex": "0xfffb6000", "signed": -303104},
+    "release_floor": {"hex": "0xfffe0000", "signed": -131072},
+    "negative_acceleration": {"field": "+0x58", "hex": "0x00002000", "signed": 8192},
+    "positive_acceleration": {"field": "+0x50", "hex": "0x00002800", "signed": 10240},
+    "positive_terminal_velocity": {"field": "+0x60", "hex": "0x00040000", "signed": 262144},
+    "integer_projection": "signed high word of +0x06"
+  },
+  "fields": {
+    "+0x06": {"name": "y_fixed", "type": "int32_t", "signed": true, "format": "16.16"},
+    "+0x08": {"name": "y_pixel", "type": "int16_t", "signed": true},
+    "+0x0e": {"name": "vertical_velocity_fixed", "type": "int32_t", "signed": true, "format": "16.16"},
+    "+0x2b": {"name": "contact_scratch", "type": "uint8_t", "signed": false},
+    "+0x36": {"name": "animation_state", "type": "uint8_t", "signed": false},
+    "+0x37": {"name": "signed_callback_mode", "type": "int8_t", "signed": true, "values": {"0": "ordinary/grounded", "1": "positive/falling", "-1": "negative/jump"}},
+    "+0x38": {"name": "collision_gate", "type": "uint8_t", "signed": false},
+    "+0x3a": {"name": "vertical_response_latch", "type": "int8_t", "signed": true, "values": {"0": "none", "1": "response polarity 1", "-1": "response polarity 0xff"}},
+    "+0x3e": {"name": "reset_or_death_timer", "type": "uint16_t", "signed": false},
+    "+0x40": {"name": "action_frame_counter", "type": "uint16_t", "signed": false},
+    "+0x50": {"name": "positive_y_acceleration_fixed", "type": "int32_t", "signed": true},
+    "+0x58": {"name": "negative_y_acceleration_fixed", "type": "int32_t", "signed": true},
+    "+0x60": {"name": "positive_y_speed_cap_fixed", "type": "int32_t", "signed": true},
+    "+0x64": {"name": "jump_initial_impulse_fixed", "type": "int32_t", "signed": true},
+    "+0x72": {"name": "vertical_step_pixels", "type": "uint16_t", "signed": false, "value": 40}
+  },
+  "states": {
+    "action_jump": "0x20",
+    "action_hold_or_jump_gate": "0x22",
+    "ordinary": 0,
+    "positive": 1,
+    "negative": -1,
+    "negative_byte": "0xff"
+  },
+  "static_references": {
+    "callback": "01F7:3FF8-44FE",
+    "positive_path": "01F7:41E8-42B3",
+    "grounded_path": "01F7:427F-42B3",
+    "ordinary_path": "01F7:42B4-4322",
+    "negative_path": "01F7:4323-4383",
+    "descriptor_correction": "01F7:3D02-3DF1",
+    "side_y_snap": "01F7:3DF2-3E2F",
+    "vertical_step_probe": "01F7:3986-3997",
+    "descriptor_helpers": ["01F7:5C27-5C9C", "01F7:5CC3-5CFF"]
+  },
+  "dynamic_references": {
+    "catalog": "research/experiments/player-vertical.json",
+    "derivation": ["natural-fall-free-space", "jump-release-2-callbacks", "jump-release-4-callbacks", "jump-release-20-callbacks"],
+    "held_out": ["jump-release-8-callbacks", "jump-release-12-callbacks"],
+    "collision": ["descriptor-response-70", "vertical-correction-observe"]
+  }
+}

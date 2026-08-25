@@ -1,0 +1,36 @@
+{
+  "schema": "quiky-player-vertical-validation-v1",
+  "status": "pass",
+  "scope": "Exact free-space Y/vertical-velocity integration, apex transition, and one controlled descriptor correction trace. Landing and ceiling collision prediction remain outside the exact pass scope because no deterministic controlled contact timeline was obtained with the frozen tracer.",
+  "formula": {
+    "format": "signed 32-bit 16.16",
+    "jump_impulse": -303104,
+    "release_floor": -131072,
+    "ascent_acceleration": 8192,
+    "gravity": 10240,
+    "terminal_velocity": 262144,
+    "position_uses": "newly updated vertical velocity",
+    "static_ranges": ["01F7:41E8-42B3", "01F7:4323-4383"]
+  },
+  "derivation_traces": [
+    {"name":"natural-fall-free-space", "checked_values":0, "mismatches":0, "status":"pass", "observation":"The reversible cell patch was applied/restored and rightward motion was observed, but the current matrix did not leave mode 0; no free-fall values were counted."},
+    {"name":"jump-release-2-callbacks", "checked_values":56, "mismatches":0, "status":"pass", "apex":{"sequence":17,"y_fixed":25100288,"velocity_y_fixed":0,"mode":1}},
+    {"name":"jump-release-4-callbacks", "checked_values":48, "mismatches":0, "status":"pass", "apex":{"sequence":17,"y_fixed":24518656,"velocity_y_fixed":0,"mode":1}},
+    {"name":"jump-release-20-callbacks", "checked_values":88, "mismatches":0, "status":"pass", "apex":{"sequence":17,"y_fixed":21045248,"velocity_y_fixed":0,"mode":1}}
+  ],
+  "held_out_traces": [
+    {"name":"jump-release-8-callbacks", "checked_values":64, "mismatches":0, "status":"pass", "apex":{"sequence":17,"y_fixed":23453696,"velocity_y_fixed":0,"mode":1}},
+    {"name":"jump-release-12-callbacks", "checked_values":72, "mismatches":0, "status":"pass", "apex":{"sequence":17,"y_fixed":22519808,"velocity_y_fixed":0,"mode":1}}
+  ],
+  "collision_traces": [
+    {"name":"descriptor-response-70", "status":"pass", "helper_offsets":[25742], "observation":"Collision focus repeatedly reached 01F7:648E; no vertical descriptor correction was claimed from this side-contact-only trace."},
+    {"name":"vertical-correction-observe", "status":"pass", "map_patch":{"selector":887,"offset":13516,"map_x":8,"map_y":25,"original_tile":46,"replacement_tile":42,"restored":true}, "related_offsets":[15618,15857], "first_callback":{"y_fixed_before":26214400,"y_fixed_after":26345472,"y_pixel_before":400,"y_pixel_after":402,"vertical_velocity_fixed_after":0,"mode_after":0,"latch_before":0,"latch_after":255}}
+  ],
+  "totals": {
+    "derivation_trace_count": 4,
+    "held_out_trace_count": 2,
+    "checked_values": 328,
+    "mismatches": 0,
+    "first_mismatch": null
+  }
+}

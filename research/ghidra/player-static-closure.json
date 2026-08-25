@@ -166,6 +166,40 @@
     "0x5d38": "load_animation_descriptor",
     "0x5d60": "advance_animation_descriptor"
   },
+  "vertical_control_flow": {
+    "entry": "01F7:3FF8",
+    "nodes": [
+      {"offset":"0x41E8","name":"positive_mode","next":["0x427F","0x4384"]},
+      {"offset":"0x427F","name":"grounded_contact","next":["0x4384"]},
+      {"offset":"0x42B4","name":"ordinary_mode","next":["0x42C9","0x4323","0x4384"]},
+      {"offset":"0x4323","name":"negative_mode","next":["0x41C1","0x4384"]},
+      {"offset":"0x4384","name":"common_tail","next":["0x44FE"]}
+    ],
+    "edges": [
+      "3FF8 dispatches signed +0x37: zero->42B4, negative->4323, positive->41E8",
+      "42B4 jump initiation writes mode=-1 and +0x0E=+0x64, then 4384",
+      "4323 adds +0x58, conditionally clamps below -0x20000, and integrates Y with the new velocity",
+      "4323 nonnegative result enters 41C1; clear second probe enters 4384",
+      "41E8 adds +0x50, caps at +0x60, and integrates Y with the new velocity",
+      "41E8 latch or side failure enters 427F; 427F zeros velocity and mode",
+      "3D02/3DF2 are ordered correction calls before the mode-specific integration"
+    ],
+    "equations": {
+      "jump_impulse": "vy = signed32(+0x64) = -0x4A000",
+      "negative_mode": "next_vy = vy + signed32(+0x58); if +0x2B==0 and (action&0x22)==0 and next_vy < -0x20000 then next_vy=-0x20000",
+      "positive_mode": "next_vy = min(vy + signed32(+0x50), signed32(+0x60))",
+      "integration": "y = signed32(y + next_vy)",
+      "apex": "negative next_vy >= 0 enters 41C1 with vy=0, mode=1, and no Y integration"
+    },
+    "flag_contracts": {
+      "0x3986": "near; relocated 0x1C92 flags, ZF=1 means vertical step probe clear",
+      "0x3D02": "near; ZF=1 early/clear return, AL=1 response return",
+      "0x3DF2": "near; no return value; masks integer Y +0x08 when side response is active",
+      "0x3A1F": "near; ZF=1 means side path is clear after latch handling",
+      "0x5C27": "far; ZF=1 means selected descriptor quadrant is clear",
+      "0x5CC3": "far; DX returns full descriptor word"
+    }
+  },
   "fixed_point": {
     "format": "signed 32-bit 16.16",
     "integrate": "position += velocity using 32-bit add",

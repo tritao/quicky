@@ -1,0 +1,238 @@
+{
+  "schema": "quiky-player-vertical-experiments-v1",
+  "notes": [
+    "Input phases are callback barriers: the phase key is pressed for the requested guest frames and released before the sample callback.",
+    "The frozen tracer cannot sample consecutive callbacks while one physical key remains held; held-key behavior is covered by static bytes and archival intent, and the release boundary is validated here."
+  ],
+  "experiments": [
+    {
+      "name": "natural-fall-free-space",
+      "category": "derivation",
+      "level": "W1L1",
+      "sample_count": 25,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": ["KBD_right"], "frames": 8}, {"keys": ["KBD_right"], "frames": 8},
+        {"keys": ["KBD_right"], "frames": 8}, {"keys": ["KBD_right"], "frames": 8},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1},
+        {"keys": ["KBD_right"], "frames": 1}, {"keys": ["KBD_right"], "frames": 1}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "patches": [
+        {"space": "map", "map_x": 8, "map_y": 25, "width": "u16", "value": 0}
+      ],
+      "execute_watches": [
+        {"segment": "0x1f7", "offset": "0x41e8"},
+        {"segment": "0x1f7", "offset": "0x4384"}
+      ],
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "jump-release-1-callback",
+      "category": "release-boundary",
+      "level": "W1L1",
+      "sample_count": 18,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": ["KBD_space"], "frames": 1},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "jump-release-2-callbacks",
+      "category": "release-boundary",
+      "level": "W1L1",
+      "sample_count": 30,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": ["KBD_space"], "frames": 2},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "jump-release-4-callbacks",
+      "category": "derivation",
+      "level": "W1L1",
+      "sample_count": 26,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": ["KBD_space"], "frames": 4},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "execute_watches": ["0x1f7:0x4323", "0x1f7:0x4384"],
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "jump-release-8-callbacks",
+      "category": "held-out",
+      "level": "W1L1",
+      "sample_count": 34,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": ["KBD_space"], "frames": 8},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "jump-release-12-callbacks",
+      "category": "held-out",
+      "level": "W1L1",
+      "sample_count": 38,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": ["KBD_space"], "frames": 12},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "jump-release-20-callbacks",
+      "category": "derivation",
+      "level": "W1L1",
+      "sample_count": 46,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": ["KBD_space"], "frames": 20},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "descriptor-response-70",
+      "category": "collision",
+      "level": "W1L1",
+      "sample_count": 8,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "collision"},
+      "trace_options": {
+        "collision_patch_tile": "0x2a",
+        "collision_patch_side": "both"
+      },
+      "execute_watches": [
+        {"segment": "0x1f7", "offset": "0x3d02"},
+        {"segment": "0x1f7", "offset": "0x3de4"},
+        {"segment": "0x1f7", "offset": "0x3df1"}
+      ],
+      "expected_outputs": {"transitions": []}
+    },
+    {
+      "name": "vertical-correction-observe",
+      "category": "collision",
+      "level": "W1L1",
+      "sample_count": 8,
+      "frames_between": 0,
+      "input_phases": [
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}, {"keys": [], "frames": 0},
+        {"keys": [], "frames": 0}
+      ],
+      "focus": {"kind": "callback", "callback_offset": "0x3ff8", "capture_record": true},
+      "patches": [
+        {"space": "map", "map_x": 8, "map_y": 25, "width": "u16", "value": "0x2a"}
+      ],
+      "execute_watches": [
+        {"segment": "0x1f7", "offset": "0x3d02"},
+        {"segment": "0x1f7", "offset": "0x3de4"},
+        {"segment": "0x1f7", "offset": "0x3df1"}
+      ],
+      "expected_outputs": {"transitions": []}
+    }
+  ],
+  "suites": {
+    "derivation": ["natural-fall-free-space", "jump-release-2-callbacks", "jump-release-4-callbacks", "jump-release-20-callbacks"],
+    "held-out": ["jump-release-8-callbacks", "jump-release-12-callbacks"],
+    "release-boundaries": ["jump-release-1-callback", "jump-release-2-callbacks", "jump-release-8-callbacks", "jump-release-12-callbacks", "jump-release-20-callbacks"],
+    "collision": ["descriptor-response-70", "vertical-correction-observe"]
+  }
+}

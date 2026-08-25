@@ -860,7 +860,11 @@ negative_mode_4323:
         goto early_contact_41c1;
     {
         Fixed16 next = p->vy() + p->i32(0x58);
-        if (next < -0x20000)
+        // 4334..4348: release clamping is disabled while the callback still
+        // sees action 0x22 or the contact scratch is nonzero.  The compare is
+        // signed and clamps only values strictly below -0x20000.
+        if (p->u8(0x2b) == 0 && (p->action() & 0x0022) == 0 &&
+            next < -0x20000)
             next = -0x20000;
         if (next >= 0)
             goto early_contact_41c1;
