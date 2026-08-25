@@ -52,6 +52,21 @@ still-needed controls into focused subsystem scripts or a versioned common
 trace schema. The merged source commits remain available for exact option
 recovery.
 
+The first Lua consolidation pass now keeps that migration small:
+
+- `quiky_trace_common.lua` owns byte decoding, signed conversion, state
+  differences, selector-safe reads, return validation, and breakpoint-owner
+  bookkeeping;
+- `quiky_patch_watch.lua` owns callback-scoped reversible memory mutations and
+  records original/replacement bytes plus restoration status;
+- `quikytrace.py` composes those two modules with the player probe and parses
+  repeatable `--player-patch` declarations such as
+  `player:0x3e:u16=0` or `selector:0x27f:0x3a:u8=0xff`.
+
+The player trace schema remains version 1. Existing focused options and output
+fields are unchanged; mutation ledgers are additive and appear only when a
+declarative patch is requested.
+
 ## Engine conflict policy
 
 Confirmed standalone rendering primitives were retained: PCX decoding,
@@ -63,7 +78,7 @@ implementation.
 
 ## Validation
 
-- `python3 -m unittest discover -s research/tests -q`: 129 passing.
+- `python3 -m unittest discover -s research/tests -q`: 135 passing.
 - Fresh CMake configure and build: passing.
 - `ctest --test-dir build/engine --output-on-failure`: 11 passing.
 - `git diff --check`: passing.

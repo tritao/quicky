@@ -86,6 +86,49 @@ class EntityTraceConfig:
 
 
 @dataclass(frozen=True)
+class MemoryPatch:
+    """One callback-scoped, reversible guest-memory mutation."""
+
+    space: str
+    offset: int
+    width: int
+    value: int
+    selector: int | None = None
+
+
+def parse_memory_patch(value: str) -> MemoryPatch:
+    """Parse SPACE:OFFSET:WIDTH=VALUE (or selector:SEL:OFFSET:WIDTH=VALUE)."""
+    try:
+        target, raw_value = value.split("=", 1)
+        parts = target.split(":")
+        if parts[0] == "selector" and len(parts) == 4:
+            space, raw_selector, raw_offset, raw_width = parts
+            selector = int(raw_selector, 0)
+        elif parts[0] in ("ds", "player") and len(parts) == 3:
+            space, raw_offset, raw_width = parts
+            selector = None
+        else:
+            raise ValueError
+        widths = {"u8": 1, "u16": 2, "u32": 4}
+        width = widths[raw_width.lower()]
+        offset = int(raw_offset, 0)
+        patch_value = int(raw_value, 0)
+    except (KeyError, ValueError) as exc:
+        raise argparse.ArgumentTypeError(
+            "patch must be ds:OFFSET:u8|u16|u32=VALUE, "
+            "player:OFFSET:u8|u16|u32=VALUE, or "
+            "selector:SELECTOR:OFFSET:u8|u16|u32=VALUE"
+        ) from exc
+    if not 0 <= offset <= 0xFFFF:
+        raise argparse.ArgumentTypeError("patch offset must be between 0 and 0xffff")
+    if selector is not None and not 0 <= selector <= 0xFFFF:
+        raise argparse.ArgumentTypeError("patch selector must be between 0 and 0xffff")
+    if not 0 <= patch_value < 1 << (width * 8):
+        raise argparse.ArgumentTypeError(f"patch value does not fit {raw_width.lower()}")
+    return MemoryPatch(space, offset, width, patch_value, selector)
+
+
+@dataclass(frozen=True)
 class PlayerTraceConfig:
     """Settings for the player/object-pool and MAP-consumer probe."""
 
@@ -135,6 +178,7 @@ class PlayerTraceConfig:
     selector_frames: int = 60
     screenshot: Path | None = None
     screenshot_mode: str = "rendered"
+    patches: tuple[MemoryPatch, ...] = ()
 
 
 def lua_literal(value: Any) -> str:
@@ -160,6 +204,8 @@ def lua_literal(value: Any) -> str:
             for key, item in value.items()
         ]
         return "{" + ",".join(entries) + "}"
+    if isinstance(value, (list, tuple)):
+        return "{" + ",".join(lua_literal(item) for item in value) + "}"
     raise TypeError(f"cannot encode {type(value).__name__} as Lua")
 
 
@@ -247,7 +293,31 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "transition_warmup_frames": config.transition_warmup_frames,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "patches": [
+            {
+                "space": patch.space,
+                "selector": patch.selector,
+                "offset": patch.offset,
+                "width": patch.width,
+                "value": patch.value,
+            }
+            for patch in config.patches
+        ],
     }
+
+
+def compose_player_trace_source(script_path: Path, config: PlayerTraceConfig) -> str:
+    """Compose shared mechanics and the focused player probe into one chunk."""
+    common_path = script_path.with_name("quiky_trace_common.lua")
+    patch_watch_path = script_path.with_name("quiky_patch_watch.lua")
+    try:
+        common_source = common_path.read_text(encoding="utf-8")
+        patch_watch_source = patch_watch_path.read_text(encoding="utf-8")
+        player_source = script_path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise TraceError(f"cannot compose player trace: {exc}") from exc
+    prefix = "TRACE_CONFIG = " + lua_literal(player_trace_lua_config(config)) + "\n"
+    return prefix + common_source + "\n" + patch_watch_source + "\n" + player_source
 
 
 class ApiClient:
@@ -430,11 +500,10 @@ def trace_player_lua(
     api: ApiClient, script_path: Path, config: PlayerTraceConfig,
 ) -> tuple[dict[str, Any], list[Path]]:
     """Run the player/object-pool probe with one structured configuration."""
-    prefix = "TRACE_CONFIG = " + lua_literal(player_trace_lua_config(config)) + "\n"
-    source = script_path.read_text(encoding="utf-8")
+    source = compose_player_trace_source(script_path, config)
     name = urllib.parse.quote("quiky-player-trace")
     api.request("POST", f"/api/v1/script/load?name={name}",
-                text_body=prefix + source)
+                text_body=source)
     api.post("/api/v1/script/start")
     deadline = time.monotonic() + config.timeout + 20
     recording = json.loads(config.startup_recording.read_text(encoding="utf-8"))
@@ -606,6 +675,17 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             sample["branch_events"] = ordered_lua_array(
                 sample.get("branch_events", [])
             )
+        if "mutation_ledger" in sample:
+            sample["mutation_ledger"] = ordered_lua_array(
+                sample.get("mutation_ledger", [])
+            )
+            for mutation in sample["mutation_ledger"]:
+                mutation["original_bytes"] = ordered_lua_array(
+                    mutation.get("original_bytes", [])
+                )
+                mutation["replacement_bytes"] = ordered_lua_array(
+                    mutation.get("replacement_bytes", [])
+                )
         callback = sample.get("player_callback")
         if isinstance(callback, dict):
             if "writes" in callback:
@@ -789,6 +869,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="number of post-baseline samples that receive the input hold (0 means all)")
     parser.add_argument("--player-capture-record", action="store_true",
                         help="capture the complete 0x78-byte player record before/after each callback")
+    parser.add_argument("--player-patch", action="append", type=parse_memory_patch,
+                        default=[], metavar="TARGET:WIDTH=VALUE",
+                        help="reversible callback patch, e.g. player:0x3e:u16=0")
     parser.add_argument("--player-collision-event-limit", type=int, default=96,
                         help="maximum nested helper breakpoints per callback")
     parser.add_argument("--player-collision-repeat-limit", type=int, default=3,
@@ -1076,6 +1159,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
                 capture_player_record=args.player_capture_record,
+                patches=tuple(args.player_patch),
                 collision_event_limit=args.player_collision_event_limit,
                 collision_repeat_limit=args.player_collision_repeat_limit,
                 transition_focus=args.player_transition_focus,

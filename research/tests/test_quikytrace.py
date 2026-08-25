@@ -1,3 +1,4 @@
+import argparse
 import struct
 import sys
 import unittest
@@ -8,16 +9,19 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 from quikytrace import (  # noqa: E402
     EntityTraceConfig,
+    MemoryPatch,
     PlayerTraceConfig,
     TraceError,
     StateMachineTraceConfig,
     decode_lookup_call,
     decode_resource_state,
+    compose_player_trace_source,
     entity_trace_lua_config,
     lua_literal,
     normalize_entity_trace,
     normalize_player_trace,
     player_trace_lua_config,
+    parse_memory_patch,
     trace_player_lua,
     trace_entity_lua,
     trace_resources_lua,
@@ -25,6 +29,37 @@ from quikytrace import (  # noqa: E402
 
 
 class QuikyTraceTests(unittest.TestCase):
+    def test_player_source_composes_shared_helpers_before_probe(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = compose_player_trace_source(
+            script, PlayerTraceConfig(startup_recording=recording)
+        )
+        self.assertLess(source.index("QUIKY_TRACE_COMMON ="),
+                        source.index("local common = assert(QUIKY_TRACE_COMMON"))
+        self.assertLess(source.index("QUIKY_PATCH_WATCH ="),
+                        source.index("local patch_watch = assert(QUIKY_PATCH_WATCH"))
+        self.assertIn('TRACE_CONFIG = ', source)
+
+    def test_memory_patch_parser_and_serialization(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        patches = (
+            parse_memory_patch("player:0x3e:u16=0x1234"),
+            parse_memory_patch("selector:0x27f:0x3a:u8=255"),
+        )
+        self.assertEqual(patches[0], MemoryPatch("player", 0x3E, 2, 0x1234))
+        self.assertEqual(patches[1], MemoryPatch("selector", 0x3A, 1, 255, 0x27F))
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording, patches=patches,
+        ))
+        self.assertEqual(payload["patches"][0]["width"], 2)
+        self.assertEqual(payload["patches"][1]["selector"], 0x27F)
+
+    def test_memory_patch_parser_rejects_invalid_or_overflowing_specs(self):
+        for value in ("bogus", "cs:1:u8=0", "ds:0:u8=256", "player:0x10000:u8=0"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                parse_memory_patch(value)
+
     def test_decode_lookup_call(self):
         stack = struct.pack("<HHHH", 0x36D0, 0x01D7, 0x1234, 0x0237)
         self.assertEqual(decode_lookup_call(stack), {

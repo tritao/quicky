@@ -2,6 +2,10 @@
 -- Loaded by research/tools/quikytrace.py with a structured TRACE_CONFIG table.
 local trace_config = TRACE_CONFIG or {}
 assert(type(trace_config) == "table", "TRACE_CONFIG must be a table")
+local common = assert(QUIKY_TRACE_COMMON, "QUIKY_TRACE_COMMON was not loaded")
+local patch_watch = assert(QUIKY_PATCH_WATCH, "QUIKY_PATCH_WATCH was not loaded")
+local breakpoint_controller = common.new_breakpoint_controller(dosbox)
+local patch_engine = patch_watch.new(dosbox, trace_config.patches or {})
 local timeout_ms = trace_config.timeout_ms or 30000
 local sample_count = trace_config.samples or 8
 local frames_between = trace_config.frames_between or 30
@@ -71,80 +75,17 @@ local function next_trace_event()
     return trace_event_counter
 end
 
-local function word(s, index)
-    local lo, hi = string.byte(s, index, index + 1)
-    return lo | (hi << 8)
-end
-
-local function dword(s, index)
-    return word(s, index) | (word(s, index + 2) << 16)
-end
-
-local function signed16(value)
-    return value >= 0x8000 and value - 0x10000 or value
-end
-
-local function signed32(value)
-    return value >= 0x80000000 and value - 0x100000000 or value
-end
-
+local word = common.word
+local dword = common.dword
+local signed16 = common.signed16
+local signed32 = common.signed32
+local signed_word = common.signed16
+local little_word = common.little_word
+local hex = common.hex
+local hex_differences = common.hex_differences
+local numeric_differences = common.numeric_differences
 local function selector_word(selector, offset)
-    local raw = dosbox.mem_read_selector(selector, offset, 2)
-    if not raw or #raw < 2 then
-        error(string.format("short selector word read 0x%04x:0x%x",
-                            selector, offset))
-    end
-    return word(raw, 1)
-end
-local function little_word(value)
-    return string.char(value & 0xff, (value >> 8) & 0xff)
-end
-
-local function signed_word(value)
-    return value >= 0x8000 and value - 0x10000 or value
-end
-local function hex(s)
-    return (s:gsub(".", function(c)
-        return string.format("%02x", string.byte(c))
-    end))
-end
-
-local function hex_differences(before_hex, after_hex)
-    if before_hex == nil or after_hex == nil or #before_hex ~= #after_hex then
-        return nil
-    end
-    local changes = {}
-    for index = 1, #before_hex, 2 do
-        local before = tonumber(before_hex:sub(index, index + 1), 16)
-        local after = tonumber(after_hex:sub(index, index + 1), 16)
-        if before ~= after then
-            changes[#changes + 1] = {
-                offset = (index - 1) >> 1,
-                before = before,
-                after = after,
-            }
-        end
-    end
-    return changes
-end
-
-local function numeric_differences(before, after)
-    if before == nil or after == nil then return nil end
-    local changes = {}
-    for key, value in pairs(before) do
-        if type(value) == "number" and type(after[key]) == "number" and
-           value ~= after[key] then
-            changes[#changes + 1] = {
-                field = key,
-                before = value,
-                after = after[key],
-            }
-        end
-    end
-    table.sort(changes, function(left, right)
-        return left.field < right.field
-    end)
-    return changes
+    return common.selector_word(dosbox, selector, offset)
 end
 
 local function wait_hit(label)
@@ -153,11 +94,7 @@ local function wait_hit(label)
     return hit
 end
 
-local function address_key(address)
-    if address == nil then return "<nil>" end
-    return string.format("0x%04x:0x%08x", address.segment or 0,
-                         address.offset or 0)
-end
+local address_key = common.address_key
 
 -- A return address is data read from the guest stack, not trusted tracer
 -- input.  Reading one byte through the selector both checks that the
@@ -166,20 +103,7 @@ end
 -- a malformed far/near interpretation otherwise leaves the script waiting
 -- on an address that can never execute.
 local function validate_return_address(address)
-    if type(address) ~= "table" or type(address.segment) ~= "number" or
-       type(address.offset) ~= "number" or address.segment < 0 or
-       address.segment > 0xffff or address.offset < 0 or
-       address.offset > 0xffffffff then
-        return false, "return address is not a bounded segment:offset"
-    end
-    local ok, raw_or_error = pcall(
-        dosbox.mem_read_selector, address.segment, address.offset, 1
-    )
-    if not ok then return false, tostring(raw_or_error) end
-    if not raw_or_error or #raw_or_error ~= 1 then
-        return false, "return address selector read was truncated"
-    end
-    return true
+    return common.validate_return_address(dosbox, address)
 end
 
 local function remember_unresolved_return(sample, helper_offset, address, reason)
@@ -200,7 +124,8 @@ local function arm_validated_return(sample, address, helper_offset, label)
         return false
     end
     local ok, added_or_error = pcall(
-        dosbox.breakpoint_set, address.segment, address.offset, {once = true}
+        breakpoint_controller.arm, breakpoint_controller, label,
+        address.segment, address.offset, {once = true}
     )
     -- false is the debugger's "already armed" result, which is still safe:
     -- the validated address remains covered by that existing breakpoint.
@@ -1531,6 +1456,9 @@ for sequence = 1, sample_count do
         local stack = dosbox.mem_read(
             "ss", (hit.registers.esp or 0) & 0xffff, 4) or ""
         if #stack >= 4 and callback_object ~= nil then
+            if #(trace_config.patches or {}) > 0 then
+                patch_engine:apply(sample, {player = callback_object})
+            end
             local return_offset = word(stack, 1)
             -- The scheduler calls the callback through a near code pointer;
             -- the next stack word is the DS argument, not a far return
@@ -1787,6 +1715,7 @@ for sequence = 1, sample_count do
             sample.player_callback.global_writes = numeric_differences(
                 callback_globals, sample.player_callback.post_globals
             )
+            patch_engine:restore()
         end
         if sample.release_probe ~= nil then
             capture_release_callback(sample)

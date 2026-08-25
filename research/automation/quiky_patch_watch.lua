@@ -1,0 +1,103 @@
+-- Reversible, declarative memory mutations for focused gameplay experiments.
+QUIKY_PATCH_WATCH = (function()
+    local module = {}
+
+    local function bytes_for(value, width)
+        local bytes = {}
+        for index = 1, width do
+            bytes[index] = string.char(value & 0xff)
+            value = value >> 8
+        end
+        return table.concat(bytes)
+    end
+
+    local function byte_array(raw)
+        local result = {}
+        for index = 1, #raw do result[index] = string.byte(raw, index) end
+        return result
+    end
+
+    local function resolve(spec, context)
+        if spec.space == "player" then
+            if context.player == nil then return nil, "player object unavailable" end
+            return {
+                kind = "selector",
+                selector = context.player.selector,
+                offset = context.player.offset + spec.offset,
+            }
+        end
+        if spec.space == "selector" then
+            return {kind = "selector", selector = spec.selector, offset = spec.offset}
+        end
+        if spec.space == "ds" then
+            return {kind = "segment", segment = "ds", offset = spec.offset}
+        end
+        return nil, "unsupported memory space " .. tostring(spec.space)
+    end
+
+    function module.new(dosbox_api, specs)
+        local engine = {dosbox = dosbox_api, specs = specs or {}, active = {}}
+
+        function engine:apply(sample, context)
+            sample.mutation_ledger = sample.mutation_ledger or {}
+            for index, spec in ipairs(self.specs) do
+                local target, reason = resolve(spec, context or {})
+                if target == nil then error("patch " .. index .. ": " .. reason) end
+                local original
+                if target.kind == "selector" then
+                    original = self.dosbox.mem_read_selector(
+                        target.selector, target.offset, spec.width)
+                else
+                    original = self.dosbox.mem_read(
+                        target.segment, target.offset, spec.width)
+                end
+                if original == nil or #original ~= spec.width then
+                    error("patch " .. index .. ": target was not readable")
+                end
+                local replacement = bytes_for(spec.value, spec.width)
+                if target.kind == "selector" then
+                    self.dosbox.mem_write_selector(
+                        target.selector, target.offset, replacement)
+                else
+                    self.dosbox.mem_write(target.segment, target.offset, replacement)
+                end
+                local entry = {
+                    index = index,
+                    space = spec.space,
+                    selector = target.selector,
+                    segment = target.segment,
+                    offset = target.offset,
+                    width = spec.width,
+                    value = spec.value,
+                    original_bytes = byte_array(original),
+                    replacement_bytes = byte_array(replacement),
+                    restored = false,
+                }
+                sample.mutation_ledger[#sample.mutation_ledger + 1] = entry
+                self.active[#self.active + 1] = {
+                    target = target, original = original, ledger = entry,
+                }
+            end
+        end
+
+        function engine:restore()
+            for index = #self.active, 1, -1 do
+                local mutation = self.active[index]
+                local target = mutation.target
+                if target.kind == "selector" then
+                    self.dosbox.mem_write_selector(
+                        target.selector, target.offset, mutation.original)
+                else
+                    self.dosbox.mem_write(
+                        target.segment, target.offset, mutation.original)
+                end
+                mutation.ledger.restored = true
+                self.active[index] = nil
+            end
+        end
+
+        return engine
+    end
+
+    return module
+end)()
