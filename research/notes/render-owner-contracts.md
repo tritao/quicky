@@ -90,7 +90,14 @@ phase gate and mutates the following record fields:
 
 ### Phase 0/1 (`DS:0x88AE < 2`)
 
-The callback first calls three helper sites with probes around the object:
+The callback first saves a four-register probe context through relocated
+helper `01F7:1B77`. That helper stores `AX/BX/CX/DX` at `DS:36F4..36FA`,
+checks the player's current bounds through `01F7:393C`, and may enter the
+action sink `01E7:0FCF` through `01F7:19E6` when its context overlaps. This
+is a side-effect/action path; it is not a direct MAP read.
+
+It then performs three directional MAP probes through relocated helper
+`01F7:1C6E`:
 
 ```text
 (x + signed_direction*0x32, y - 1)
@@ -98,9 +105,11 @@ The callback first calls three helper sites with probes around the object:
 (x + direction-dependent 0x32, y - 0x0c)
 ```
 
-If their return condition indicates a hit, it sets `+0x3E = 1`. This is the
-only part that may be collision/MAP-related; the helper identities and exact
-carry/zero meaning remain unresolved.
+`1C6E` computes the MAP cell at `(AX >> 4, BX >> 4)` using `DS:657A/657C`
+and row stride `DS:657E`, reads the raw word, and tests bit `0x4000`. The
+`B33B` `JNE` branches treat that bit as contact and set `+0x3E = 1`. The
+remaining open question is the game-level name/coverage of bit `0x4000`,
+not the helper identity or its raw behavior.
 
 The movement branches are already exact at the instruction level:
 
@@ -144,9 +153,8 @@ model.
 
 1. Capture `B226` from creation at one-frame cadence to recover its exact
    initial fixed-point state, slot durations, and terminal callback behavior.
-2. Trace the three `B33B` helper callees far enough to identify their input
-   map/geometry reads and carry/zero result contract. This is the only
-   remaining collision-adjacent item in this render-owner slice.
+2. Trace the `B33B` action/context path (`1B77 -> 393C/19E6`) and sample
+   MAP cells with raw bit `0x4000` to assign its gameplay meaning.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
    and `0x487F`, so object deletion and reactivation are not guessed.
 4. Repeat queue capture on a second level and across one camera movement to
