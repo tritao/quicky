@@ -44,6 +44,14 @@
         "all_seven_branch": "01D7:1670 -> 16C6-1704",
         "transition_flag": "DS:85DB=1"
       },
+      "presentation_wait_helper": {
+        "entry": "0207:10A9",
+        "poll_loop": "0207:10CB-110D",
+        "return": "0207:1113",
+        "timer_global": "DS:97F4",
+        "hardware": "PIT channel 0 via ports 43h and 40h",
+        "behavior": "Samples the PIT twice when the count matches DS:97F4, reloads the timer divisor 0x03E8 when still equal, and returns after storing a changed count."
+      },
       "bob_resource_loader": {
         "loader": "01D7:399E",
         "slot_map_helper": "01F7:05A0",

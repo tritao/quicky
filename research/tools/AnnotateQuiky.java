@@ -149,6 +149,8 @@ public class AnnotateQuiky extends GhidraScript {
             "DOS int 21h/AH=42h, origin 0: seeks the supplied handle to the supplied unsigned 32-bit offset.");
         function(0x1c43, "file_seek_end_and_tell",
             "DOS int 21h/AH=42h, origin 2, offset 0: seeks to EOF and returns the absolute file size.");
+        function(0x10a9, "pit_timer_wait_helper",
+            "Presentation-delay helper: samples PIT channel 0 and polls until the sampled value differs from DS:97F4, then stores the new timer value and returns.");
     }
 
     private void annotateSegment3() throws Exception {

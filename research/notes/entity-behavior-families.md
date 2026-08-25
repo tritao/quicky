@@ -276,8 +276,10 @@ nearby-cloud callback `01F7:9269` normally writes `0xFFFF` there. A refined
 negative probe armed only the authored addresses and recorded zero hits. A
 separate diagnostic seed of that real gate then captured
 `4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 -> 1704`,
-observed `DS:85DB=1`, and measured the 2000-point bonus. The exact post-message
-transition delay or additional prerequisite remains open. See
+observed `DS:85DB=1`, and measured the 2000-point bonus. The post-message delay
+is the segment-4 PIT helper `0207:10A9` polling `DS:97F4`; the bounded trace
+ended inside its second `0207:10CB` poll before any `4FAF-5047` breakpoint. The
+exact transition timing remains open. See
 [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
 and [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 
@@ -591,8 +593,9 @@ are deliberately narrower:
 
 1. Capture the fully authored all-seven-letter run if exact transition timing is
    needed. The outer-state prerequisite and authored presentation sequence are
-   now dynamically bounded; the remaining gap is the post-message continuation
-   through `01D7:4FAF-5047` in an unforced, fully authored run.
+   now dynamically bounded; the remaining gap is the post-message timer
+   continuation and eventual `01D7:4FAF-5047` handoff in an unforced, fully
+   authored run.
 2. If pixel-level renderer provenance is required, continue from the narrowed
    WOLKE boundary: identify the alternate descriptor/resource path (or a
    fixture that reaches it) after the outer `01D7:4EA0` state consumer. The

@@ -855,5 +855,10 @@ outer cloud-state path only when `DS:89E6 != 0`. The nearby-cloud callback at
 `01D7:4EA0-4EAA` calls `01D7:14E1`, whose `01D7:1670` comparator then reaches
 `16C6-1704`. A diagnostic probe that seeded this real gate captured
 `4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 -> 1704`,
-set `DS:85DB=1`, and added 2000 points. The unforced fully authored
-post-message continuation through `01D7:4FAF-5047` remains to be timed.
+set `DS:85DB=1`, and added 2000 points. The post-message delay is a segment-4
+PIT helper at `0207:10A9`: it samples channel 0 through ports `43h/40h`,
+compares against `DS:97F4`, retries while equal, and returns at `0207:1113`
+after storing a changed sample. The bounded diagnostic reached this helper
+before the messages and ended in its second `0207:10CB` poll after `1704`, so
+the unforced fully authored continuation through `01D7:4FAF-5047` remains to
+be timed.

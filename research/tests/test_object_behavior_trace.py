@@ -147,6 +147,8 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertIn("force_tile_mask", source)
         self.assertIn("puzzle_completion_probe", source)
         self.assertIn("puzzle_probe_frames", source)
+        self.assertIn("force_completion_outer_state", source)
+        self.assertIn("0x10cb", source)
 
     def test_cloud_probe_has_player_state_control(self):
         source = (Path(__file__).resolve().parents[1] / "automation" /

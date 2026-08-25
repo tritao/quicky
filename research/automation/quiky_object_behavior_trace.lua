@@ -866,6 +866,9 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         {segment = 0x01d7, offset = 0x14e1},
         {segment = 0x01d7, offset = 0x4eaa},
         {segment = 0x01d7, offset = 0x4f0d},
+        {segment = 0x0207, offset = 0x10a9},
+        {segment = 0x0207, offset = 0x10cb},
+        {segment = 0x0207, offset = 0x1113},
         {segment = 0x01d7, offset = 0x1670},
         {segment = 0x01d7, offset = 0x16c6},
         {segment = 0x01d7, offset = 0x16de},
@@ -923,6 +926,7 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
                 selector_index = dosbox.mem_read_word("ds", 0x85d4),
                 selector_state = dosbox.mem_read_word("ds", 0x85d6),
                 action_word = dosbox.mem_read_word("ds", 0x612e),
+                timer_tick = dosbox.mem_read_word("ds", 0x97f4),
             }
         end
         if #presentation_hits >= 32 then break end

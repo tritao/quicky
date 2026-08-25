@@ -226,6 +226,7 @@ public class DumpQuikyDecomp extends GhidraScript {
                 {"2b0d", "seg4_target_2b0d"},
                 {"2b38", "seg4_target_2b38"},
                 {"08d8", "cloud_branch_seg4_effect_candidate"},
+                {"10a9", "pit_timer_wait_helper"},
             };
         }
         if ("SEG05".equals(segment)) {
