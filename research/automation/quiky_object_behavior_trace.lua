@@ -1032,9 +1032,26 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         {segment = 0x01f7, offset = 0xb824},
         {segment = 0x01f7, offset = 0xd60b},
     }
+    local transition_points = {
+        {segment = 0x01d7, offset = 0x4f10},
+        {segment = 0x01d7, offset = 0x4faf},
+        {segment = 0x01d7, offset = 0x4fad},
+        {segment = 0x01d7, offset = 0x4fb0},
+        {segment = 0x01d7, offset = 0x5010},
+        {segment = 0x01d7, offset = 0x5015},
+        {segment = 0x01d7, offset = 0x5017},
+        {segment = 0x01d7, offset = 0x5038},
+        {segment = 0x01d7, offset = 0x503d},
+        {segment = 0x01d7, offset = 0x5042},
+        {segment = 0x01d7, offset = 0x5047},
+        {segment = 0x01d7, offset = 0x504f},
+        {segment = 0x01d7, offset = 0x505d},
+        {segment = 0x01d7, offset = 0x5060},
+    }
     local outer_state_point = {segment = 0x01d7, offset = 0x4ea0}
     local presentation_hits = {}
     local stage_gate_hits = {}
+    local transition_hits = {}
     local completion_wait_released = false
     local completion_wait_patch = nil
     local completion_bonus_presented = false
@@ -1146,12 +1163,24 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
             -- original compare lets the probe observe the real gate result.
             -- The full presentation + stage-writer watch list can exceed the
             -- debugger's hardware/software breakpoint capacity.  At this
-            -- point the presentation has completed, so clear that list and
-            -- arm only the transition gates we still need.
-            dosbox.breakpoint_clear()
-            dosbox.breakpoint_set(0x01d7, 0x5010, {once = true})
-            for _, offset in ipairs({0x5017, 0x5038, 0x503d, 0x5042, 0x5047}) do
-                dosbox.breakpoint_set(0x01d7, offset, {once = true})
+            -- point the presentation has completed, so remove only those
+            -- completed watchers.  A global breakpoint reset can invalidate
+            -- the halted 4FAF context before the newly armed 5010 point is
+            -- observed on the resumed instruction stream.
+            for _, point in ipairs(presentation_points) do
+                dosbox.breakpoint_remove(point.segment, point.offset)
+            end
+            for _, point in ipairs(stage_writer_points) do
+                dosbox.breakpoint_remove(point.segment, point.offset)
+            end
+            dosbox.breakpoint_remove(outer_state_point.segment, outer_state_point.offset)
+            for _, point in ipairs(transition_points) do
+                dosbox.breakpoint_remove(point.segment, point.offset)
+            end
+            for _, point in ipairs(transition_points) do
+                if not (point.offset == 0x4f10 or point.offset == 0x4faf) then
+                    dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+                end
             end
         end
         if force_completion_wait_release and hit.segment == 0x0207 and
@@ -1197,6 +1226,25 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
                 completion_flag = dosbox.mem_read_word("ds", 0x85db),
             }
         end
+        local is_transition = false
+        for _, point in ipairs(transition_points) do
+            if hit.segment == point.segment and hit.offset == point.offset then
+                is_transition = true
+                break
+            end
+        end
+        if is_transition then
+            transition_hits[#transition_hits + 1] = {
+                sequence = #transition_hits + 1,
+                hit = {segment = hit.segment, offset = hit.offset,
+                       registers = hit.registers},
+                gate_89e0 = dosbox.mem_read_word("ds", 0x89e0),
+                completion_flag = dosbox.mem_read_word("ds", 0x85db),
+                selector_index = dosbox.mem_read_word("ds", 0x85d4),
+                selector_state = dosbox.mem_read_word("ds", 0x85d6),
+                level_loop_state = dosbox.mem_read_word("ds", 0x819e),
+            }
+        end
         if #presentation_hits >= max_presentation_hits or
            (hit.segment == 0x01d7 and hit.offset == 0x5047) then break end
         dosbox.debug_continue()
@@ -1230,6 +1278,7 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
         stage_writer_points = stage_writer_points,
         stage_gate_hits = stage_gate_hits,
         stage_gate_hit_count = #stage_gate_hits,
+        transition_hits = transition_hits,
         outer_state_forced = force_completion_outer_state,
         wait_release_patch = completion_wait_patch,
         input_release = completion_input_released,

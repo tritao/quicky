@@ -205,7 +205,27 @@
         "post_probe_cpu": "01D7:48BB"
       },
       "interpretation": "Even after removing breakpoint-capacity pressure and forcing the non-terminal DS:89E0 value, the synthetic fixture returns to the main loop without executing 01D7:5010 or the downstream reload calls. The handoff and its gate are therefore confirmed, but the fixture still lacks the authored transition state needed to enter the resource/object rebuild branch."
+    },
+    "transition_census_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-transition-census-v4.json",
+      "trace_sha256": "36081724e418e0550582fa78ba023750ba13ff41015f0ca8a811851a1916e986",
+      "trace_script": "research/automation/quiky_object_behavior_trace.lua",
+      "trace_script_sha256": "a945b3ca9c3c00b59c0b94aa052feb174a093d031e588ddc922474e7f857f7e8",
+      "host_tool": "research/tools/object_behavior_trace.py",
+      "host_tool_sha256": "7b740253bca9430a311493f249d469007d719dbb0e9c2250836d5837f2188d8c",
+      "fixture": "Current synthetic W1L1 type-0x7F final-letter archive variant with the real outer DS:89E6 gate forced, presentation PIT/input/audio waits released, and transition watchers explicitly censused after 01D7:4FAF.",
+      "observed": {
+        "handoff_hits": ["01D7:4F10", "01D7:4FAF"],
+        "handoff_gate_89e0": 0,
+        "selector_index_after": 16,
+        "selector_state_after": 0,
+        "completion_flag_after": 1,
+        "transition_hits_after_4faf": [],
+        "stage_writer_hits": 0,
+        "level_loop_state_after": 0
+      },
+      "interpretation": "The explicit census confirms the synthetic fixture executes the completion handoff and selector mapping but still produces no dynamic hit at 01D7:5010, 5017, 5038, 503D, 5042, 5047, 504F, 505D, or 5060. This is a stronger negative runtime boundary than the earlier unrecorded downstream result; the missing prerequisite is an authored transition/resource state, not an unidentified completion comparator."
     }
   },
-  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The new controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. Exact retail timing and the downstream resource/object reload calls at 01D7:5017/5038/5047 still need a non-synthetic completion or a more faithful transition fixture."
+  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. The explicit transition census still observes no 01D7:5010 or downstream reload hit in the synthetic fixture, so exact retail timing and the resource/object rebuild require a fully authored completion or more faithful transition fixture."
 }
