@@ -273,14 +273,15 @@
       "movement_ai": {"status": "confirmed", "known": "The 8D20 callback never integrates x/y; paper is a fixed ARE placement whose only transition is the overlap-triggered global-effect branch."},
       "collision_shape_interaction": {"status": "confirmed", "known": "01F7:8D31/393C applies the original x-overlap and 16-aligned y-overlap gate. A controlled subtype-5 overlap reaches 8D08, emits sound action DS:612E=12, increments DS:881C by 500 and DS:880A (capped at 9), and clears object+0x18."},
       "animation_table": {"status": "confirmed", "known": "PAPIER.BOB record 0 is slot 710, 18x15 origin 0,0; the type-0x2C initializer uses this static slot and 8D20 does not advance an animation table."},
-      "death_removal": {"status": "confirmed", "known": "The original subtype-5 interaction path clears object+0x18 (callback becomes 0000); persistence/respawn and off-camera removal remain separate lifecycle questions."},
+      "death_removal": {"status": "confirmed", "known": "The original subtype-5 interaction path clears object+0x18 (callback becomes 0000) without calling 01F7:1DEE, so the paper is not re-streamed in the same loaded ARE buffer. A stateful authored W1L1 collect-then-reload probe rereads the ARE declaration and reconstructs type 0x2C with callback 01F7:8D20."},
       "cross_world_variants": {"status": "confirmed", "known": "Resource-selector traces capture PAPIER.BOB in W1, W2, W3, W4, and W5 batches; the type and slot remain 0x2C/710."},
       "verified_runs": [
         {"type": "0x2C", "fixture": "W1L1 anchor from main-tree entity trace", "dispatch": "01F7:8C4E", "post_initializer": "01F7:8C70", "object_callback": "01F7:8D20", "sprite_slot": 710, "position": [771, 231], "callback_samples": 1, "movement": "stationary placement", "subtype": 5, "native_world": "W2L2 PAPIER descriptor 18x15"},
         {"type": "0x2C", "fixture": "W1L2 synthetic overlap aligned to original player bounds", "dispatch": "01F7:8C4E", "post_initializer": "01F7:8C70", "object_callback": "01F7:8D20", "sprite_slot": 710, "callback_samples": 1, "overlap_helper_hits": ["01F7:8D36", "01F7:8D4A", "01F7:8D60", "01F7:8E08", "01F7:8E42"], "sound_globals": {"DS:612E": 12, "DS:881C": 500}, "callback_after": 0, "evidence": "research/entity-interaction-overlap-evidence.json"}
+        ,{"type": "0x2C", "fixture": "W1L1 authored collect then reload W1L1", "are_record_offset": "0x1792", "runtime_record_offset": "0x1632", "dispatch": "01F7:8C4E", "object_callback": "01F7:8D20", "sprite_slot": 710, "collection_callback_after": 0, "reload_record_hex": "2c0020003000", "reload_reconstructed": true, "reload_callback": "01F7:8D20", "evidence": "research/entity-paper-reload-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-interaction-overlap-evidence.json", "research/notes/type-2c-papier-sheet.png", "research/entity-targeted-decompile-evidence.json"],
-      "open_questions": ["human-facing label of the bounded DS:880A HUD counter", "respawn/persistence across authored reloads"]
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-interaction-overlap-evidence.json", "research/notes/type-2c-papier-sheet.png", "research/entity-targeted-decompile-evidence.json", "research/entity-paper-reload-evidence.json"],
+      "open_questions": ["human-facing label of the bounded DS:880A HUD counter"]
     },
     {
       "id": "wind",

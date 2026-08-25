@@ -1,0 +1,49 @@
+{
+  "schema": "entity-paper-reload-evidence-v1",
+  "purpose": "Confirm type-0x2C paper collection and authored level-reload reconstruction.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "variant_archive_sha256": "863f6fcd330a0ae04efc7c515c76f7ecf231f37ba5997dcd4fafc6a64ab8afe7",
+    "trace": "research/build/entity-2c-paper-reload-authored-final.json",
+    "trace_sha256": "f79efadf70ddae121d49669892183596e3df3f1318c43679d1fcfbfca23a76c0",
+    "trace_script_sha256": "a4b90acdcaf1faa42dfd7ee2f02471eccf80bebc1ef7beaba1aae4a6f2380f8d"
+  },
+  "fixture": {
+    "level": "W1L1",
+    "source_are_record_offset": "0x1792",
+    "runtime_are_record_offset": "0x1632",
+    "type": "0x2C",
+    "stream_cell": [12, 3],
+    "runtime_position": [800, 240],
+    "controls": [
+      "align_object_to_player",
+      "align_y_offset=-32",
+      "force_active_player_bounds",
+      "trace_overlap",
+      "reload_after_collect=W1L1"
+    ]
+  },
+  "first_load": {
+    "initializer": "01F7:8C4E",
+    "post_initializer_callback": "01F7:8D20",
+    "sprite_slot": 710,
+    "subtype": 5,
+    "callback_samples": [
+      {"entry": "01F7:8C4E", "callback_after": "01F7:8D20"},
+      {"entry": "01F7:8D20", "callback_after": "0000"}
+    ],
+    "interpretation": "The second callback is the shared paper interaction path; its clear leaves the live object callback at zero."
+  },
+  "reload": {
+    "selected_level": "W1L1",
+    "record_hex": "2c0020003000",
+    "target_declaration_offset": "0x1632",
+    "factory": "01F7:0E06",
+    "initializer": "01F7:8C4E",
+    "initializer_return": "01F7:0EFD",
+    "post_initializer_callback": "01F7:8D20",
+    "sprite_slot": 710,
+    "reconstructed": true
+  },
+  "conclusion": "Paper collection clears only the live callback in the loaded object. A later authored W1L1 selection rereads the immutable ARE declaration and reconstructs type 0x2C with slot 710 and callback 01F7:8D20; reload persistence is reset/reconstruction behavior, not same-buffer re-stream respawn."
+}
