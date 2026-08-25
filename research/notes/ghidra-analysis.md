@@ -877,7 +877,7 @@ bits based on `AX bit 3` and `BX bit 3`: pairs `11`, `10`, `01`, and `00`
 select `0x02`, `0x01`, `0x04`, and `0x08`, respectively.
 It communicates the classification via return flags. `5CC3` returns the
 descriptor word in `DX`; its caller at `3D02` tests descriptor flags directly.
-That caller probes again after an eight-pixel X adjustment when `DX & 0x30`
+That caller probes again after a y-minus-8 adjustment when `DX & 0x30`
 is clear. The exact vertical part of `3D02` is:
 
 ```c
@@ -909,7 +909,7 @@ The same target decompilation resolves the nearby player byte at
 `object+0x3a`. `3D02` clears it on entry, stores `0x01` or `0xff` while
 selecting the two `0x20` response branches, and clears it again when the
 target-Y comparison rejects the response. The only identified consumer is
-`3DF2`, whose zero/nonzero test gates the eight-pixel X snap. This makes
+`3DF2`, whose zero/nonzero test gates the eight-pixel integer-Y snap. This makes
 `+0x3a` a transient accepted-vertical-response latch; it is not a persistent
 surface-type field, and the two nonzero values are branch-polarity values
 rather than separate surface classes.
@@ -1082,14 +1082,15 @@ The static leaf rules are now explicit enough to guide the next probes:
 * `3A1F` first exits when `object+0x38` is nonzero. Otherwise it tests the MAP
   helper at `x-5` and, only when that test preserves zero, at `x+5`. A zero
   result on the second test sets `object+0x3B = 0xFF`; the routine then returns
-  the `object+0x3B != 0` condition. This is a two-sided probe, but the MAP
-  helper's flag polarity still needs a controlled tile pair.
+  the `object+0x3B != 0` condition. Controlled tile pairs establish that a
+  selected low-nibble bit is the blocking result and that the left probe is
+  first.
 * `3DF2` exits when `object+0x3B == 0` or `object+0x3A != 0`. Otherwise it
-  tests the same `x-5`/`x+5` pair. If the first test is the blocking result it
-  snaps `object+0x08` to `object+0x08 & 0xFFF8`; otherwise it tests the second
-  side before returning. The descriptor word observed in `DX` is therefore a
-  direct input to this leaf, while the exact blocking polarity remains an
-  experiment rather than an inferred name.
+  tests the same `x-5`/`x+5` pair. If the first test is clear it tests the
+  second side; if either test is blocking it snaps the integer Y word
+  `object+0x08` to `object+0x08 & 0xFFF8`. The descriptor word observed in
+  `DX` is therefore a direct input to this leaf, and controlled paired
+  patches establish the blocking polarity.
 
 The NE relocation table identifies both `3DF2` calls as `01F7:5C27`. Combined
 property/collision traces confirm the short-circuit in vivo: at `(128,400)`,

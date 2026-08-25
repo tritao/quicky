@@ -22,11 +22,11 @@ class CollisionReportError(Exception):
 
 
 HELPER_NAMES = {
-    0x648E: "player_collision_648e",
-    0x6484: "player_collision_6484",
-    0x3A8A: "vertical_collision_3a8a",
-    0x3A1F: "property_probe_3a1f",
-    0x3DF2: "descriptor_probe_3df2",
+    0x648E: "player_probe_hazard_right",
+    0x6484: "player_probe_hazard_plus5",
+    0x3A8A: "player_probe_transition_tiles",
+    0x3A1F: "player_probe_side_clear",
+    0x3DF2: "player_snap_y_on_side_contact",
 }
 
 

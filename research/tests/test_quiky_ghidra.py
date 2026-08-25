@@ -16,7 +16,7 @@ class QuikyGhidraManifestTests(unittest.TestCase):
             ROOT / "research" / "ghidra" / "quiky-analysis.json", ROOT
         )
         symbols = {(item["segment"], item["offset"]): item for item in manifest["symbols"]}
-        self.assertEqual(symbols[(3, "3FF8")]["name"], "update_player_object")
+        self.assertEqual(symbols[(3, "3FF8")]["name"], "update_player_record")
         self.assertEqual(symbols[(6, "881A")]["name"], "player_object_offset")
 
     def test_duplicate_symbol_is_rejected(self):

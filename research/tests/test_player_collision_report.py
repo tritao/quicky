@@ -59,7 +59,7 @@ class PlayerCollisionReportTests(unittest.TestCase):
             rows = collision_rows([path], ["right"])
         self.assertEqual([row["helper_offset"] for row in rows],
                          [0x648E, 0x6484, 0x3DF2])
-        self.assertEqual(rows[0]["helper_name"], "player_collision_648e")
+        self.assertEqual(rows[0]["helper_name"], "player_probe_hazard_right")
         self.assertEqual(rows[0]["eax"], 0)
         self.assertEqual(rows[-1]["player_x"], 128)
         self.assertEqual(rows[-1]["object_0x3a"], 5)
@@ -78,7 +78,7 @@ class PlayerCollisionReportTests(unittest.TestCase):
         report = io.StringIO()
         render_report(rows, report)
         self.assertIn("collision_rows=2", report.getvalue())
-        self.assertIn("player_collision_648e>descriptor_probe_3df2", report.getvalue())
+        self.assertIn("player_probe_hazard_right>player_snap_y_on_side_contact", report.getvalue())
 
     def test_rejects_label_mismatch(self):
         with tempfile.TemporaryDirectory() as directory:
