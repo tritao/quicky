@@ -60,6 +60,10 @@ DOSBox for all three W1 frames and the W2 slot-611 frame, including the
 world-specific `PUFF.BOB`/`PUFFW2.BOB` choice and draw origins. The runtime
 recreation now applies the measured VGA palette transform before uploading
 colors, so the remaining scene-comparison work can compare RGB frames
-directly. A full-frame comparator still needs to account for camera timing and
-unrelated active objects; palette-index comparison remains useful for
-separating those scene differences from color regressions.
+directly. The deterministic `quiky-frame` probe produces a 320x200 BMP with
+explicit camera, input, and high-effect controls. `tools/scene_frame_compare.py`
+accepts that BMP and a DOSBox RGB PNG, reports exact mismatch/error metrics,
+and supports a region of interest for isolating one object. Full-frame
+validation is now a reproducible experiment; its remaining mismatches identify
+camera timing, unrelated active objects, and draw-order gaps rather than being
+hidden by an asset-only mask.

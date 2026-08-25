@@ -22,6 +22,8 @@ The current iteration supports:
   31-update terminal lifecycle;
 - DOSBox-equivalent runtime VGA palette output while preserving raw PCC
   values for asset inspection;
+- a deterministic 320x200 `quiky-frame` scene probe for matching DOSBox
+  screenshots with explicit camera, input, and high-effect controls;
 - synthetic unit tests for the format readers.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
@@ -76,6 +78,24 @@ build/engine/quiky-render game/NESTLE.DAT W1L1.MAP /tmp/W1L1-entities.bmp --over
 build/engine/quiky-bob-sheet game/NESTLE.DAT QUIKYW1.BOB W1.PCC /tmp/QUIKYW1.bmp
 build/engine/quiky-simulate game/NESTLE.DAT W1L1.MAP 100 100 120 0x04
 ```
+
+For a controlled DOSBox scene comparison, `quiky-frame` writes the same
+320x200 indexed frame size used by the automation screenshots. The high
+effect probe below places the recovered effect at world `(300,510)`, advances
+its cursor to 5, and fixes the camera to the captured DOSBox position:
+
+```sh
+build/engine/quiky-frame game/NESTLE.DAT W1L3.MAP /tmp/W1L3-frame.bmp \
+  --frames 5 --high-effect 300 500 --camera-x 0 --camera-y 358 \
+  --no-player --no-entities --high-effect-only
+PYTHONPATH=research/tools python3 research/tools/scene_frame_compare.py \
+  /tmp/W1L3-frame.bmp research/build/high-effect/w1l3-visual-forced-5-v2-raw.png \
+  --region 280 110 40 50
+```
+
+The probe can include the player and active ARE objects for scene-level
+comparisons; `--no-player`, `--no-entities`, and `--high-effect-only` isolate
+the recovered effect from the player, ARE sprites, and ARE transient queue.
 
 The renderer output is an indexed BMP using the palette stored in the matching
 world PCC resource. The C++ W1L1 output matches the existing Python renderer

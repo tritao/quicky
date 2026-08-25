@@ -643,9 +643,52 @@ high-effect factory, position offset, sprite sequence, and terminal clear
 contract are now represented by `step_high_effect` in the C++ model. The frame
 comparator also accepts the high-effect trace schema (`--family high-effect`)
 and checks each `4B70`/`4C74` event against the same cursor, callback, and
-sprite rules. The remaining engine-recreation work is a palette-state probe
-and a full recreated-vs-DOSBox frame comparator; the object lifecycle and
-isolated BOB compositing contracts are now established.
+sprite rules. The engine now has a deterministic 320x200 `quiky-frame` probe
+and dependency-free RGB comparator for scene-level validation. The remaining
+work is to match player/camera timing and the DOS draw-queue order in full
+frames; the object lifecycle and isolated BOB compositing contracts are
+established.
+
+## Scene-level render pass
+
+The segment-3 draw path is now narrowed far enough to guide scene probes.
+`01F7:3529` rejects objects with `object+0x12 == 0xffff`, resolves the logical
+sprite slot through `DS:6D8E` and the live descriptor table at `DS:6D8A`,
+rejects a descriptor with the `0x8000` flag or a null blitter pointer, then
+subtracts the descriptor origin from the object world position before calling
+the renderer helper. The nearby `01F7:34BC` and `01F7:34E3` paths construct
+8-byte and 16-byte camera-adjusted draw records. `01F7:3587` walks the active
+8-byte record count at `DS:8174`/`ES:6D86`, applies its visibility/flag tests,
+and flushes records through a far renderer call. This confirms that object
+update order and draw order are separate contracts; the C++ frontend's current
+entity/effect/player order remains a working hypothesis.
+
+`engine/apps/quiky-frame.cpp` provides a deterministic 320x200 scene probe,
+and `tools/scene_frame_compare.py` compares its indexed-BMP output with the
+DOSBox RGB PNG without requiring Pillow. Controlled W1L3 captures at the
+recorded camera `(0,358)` give the following isolated high-effect results:
+
+| BOB state | C++ vs DOSBox ROI | Finding |
+| --- | ---: | --- |
+| slot 611 / cursor 5 | 1991/2000 exact | DOSBox has 9 extra top-row pixels |
+| slot 612 / cursor 12 | 1990/2000 exact | DOSBox has 10 extra top-row pixels |
+| slot 613 / cursor 20 | 2000/2000 exact | shape, origin, and palette agree |
+
+The extra pixels are confined to the first two rows of the early W1 captures;
+the decoded BOB records themselves have no opaque pixels in those rows. This
+is evidence for a one-time neighboring draw or frame-buffer/timing artifact,
+not a BOB-origin error. W2L3 slot 611 has the same geometry and placement
+within a maximum channel error of four; the remaining 62 pixels are all the
+same blue channel being four levels lower in the recreation, so the shape is
+exact under that tolerance.
+
+The next scene pass should breakpoint the live `3529`/`3587` path while the
+high effect is isolated, record the queued descriptor slots and flush order,
+and capture the VGA scroll/subtile state at the same frame. Then repeat with a
+matched player start and one active ordinary object. That will resolve the
+early-row residue, the provisional entity/effect/player ordering, and the
+remaining full-frame mismatches without overlapping the separate player
+collision research.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
