@@ -727,6 +727,13 @@ advanced). At the final render checkpoint the suffix is `B25D -> 3FF8 ->
 owners enqueue first, the high-effect callback occupies the third record, the
 slot-994 owner follows, and the player is flushed last. The draw-order result
 is now dynamic evidence rather than an assumption from the C++ frontend.
+Near-return snapshots in `w1l3-render-callback-trace-c20-v4.json` add the
+first motion facts for the neighboring owners: `B33B` advances its slot-951
+object by roughly one pixel per callback and its `+0x2e` state field advances
+by `0x20`; `B226` keeps its slot-904/905/906 object inside the gate while its
+`+0x2e` state advances by `0x0a` and the slot changes at the observed animation
+boundaries. These callbacks are now constrained enough to become the next
+ordinary-object recreation targets, without guessing their collision rules.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`

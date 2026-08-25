@@ -368,6 +368,27 @@ local function callback_entry_snapshot(hit)
     return result
 end
 
+local function trace_simple_callback(hit)
+    local result = callback_entry_snapshot(hit)
+    local returned = near_return(hit)
+    if returned == nil then return result end
+    result.return_expected = returned
+    dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
+    dosbox.debug_continue()
+    local callback_return = wait_hit("render-owner callback return")
+    result.return_actual = {
+        segment = callback_return.segment,
+        offset = callback_return.offset,
+        registers = callback_return.registers,
+    }
+    local selector = hit.registers.es or 0
+    local object_offset = (hit.registers.edi or 0) & 0xffff
+    local ok, object = pcall(object_snapshot, selector, object_offset, -1)
+    if ok then result.object_after = object end
+    result.globals_after = globals_snapshot()
+    return result
+end
+
 local function family_body_offset(family, offset)
     for _, body_offset in ipairs(family.body_offsets) do
         if body_offset == offset then return true end
@@ -650,7 +671,7 @@ for frame = 1, frame_count do
     local hit = wait_hit("high-effect callback")
     local pre_render_callbacks = {}
     while trace_render and is_pre_render_callback(hit.offset) do
-        pre_render_callbacks[#pre_render_callbacks + 1] = callback_entry_snapshot(hit)
+        pre_render_callbacks[#pre_render_callbacks + 1] = trace_simple_callback(hit)
         dosbox.debug_continue()
         hit = wait_hit("high-effect callback after render-owner callback")
     end
