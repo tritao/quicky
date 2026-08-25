@@ -95,7 +95,6 @@ enum class PlayerFieldConfidence {
 // below are evidence-qualified by research/notes/player-static-closure.md and
 // research/notes/player-horizontal.md. Fields
 // that are not yet semantically understood intentionally retain fieldXX names.
-// The legacy PlayerState in runtime.h is a separate provisional frontend type.
 struct RecoveredPlayerState {
     PlayerRawRecord raw;
 

@@ -1,7 +1,7 @@
 #ifndef QUIKY_PLAYER_ANIMATION_H
 #define QUIKY_PLAYER_ANIMATION_H
 
-#include "quiky/runtime.h"
+#include "quiky/player_record.h"
 
 #include <cstdint>
 
@@ -17,7 +17,7 @@ public:
     void reset();
     void setAction(std::uint16_t action);
     void setDeath(bool death);
-    void advance(const PlayerState &player);
+    void advance(const PlayerRecord &player);
 
     std::uint16_t action() const { return _action; }
     bool death() const { return _death; }
@@ -34,7 +34,7 @@ private:
         Death,
     };
 
-    static Table tableFor(const PlayerState &player, std::uint16_t action,
+    static Table tableFor(const PlayerRecord &player, std::uint16_t action,
                           bool death);
     static std::uint16_t tableDelay(Table table);
     static std::uint16_t tableFrame(Table table, std::uint16_t cursor);

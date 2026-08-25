@@ -50,11 +50,6 @@ void Simulation::setExperimentalPlayerUpdater(PlayerUpdateCallback *updater) {
 void Simulation::tick(const InputState &input,
                       const WorldCollisionView &world,
                       SimulationOutput &output) {
-    // The world parameter is intentionally present in the boundary now. The
-    // no-op player stage must not infer collision semantics before research
-    // closes them.
-    (void)world;
-
     ++_state.tick;
     _state.scheduler.beginTick(_state.tick);
     if (_experimentalPlayerUpdater != 0) {

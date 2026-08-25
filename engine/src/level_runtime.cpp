@@ -90,17 +90,18 @@ void LevelRuntime::loadEntityBobs(const Archive &archive) {
     }
 }
 
-void LevelRuntime::reset(PlayerState &player,
-                         const PlayerSimulation &simulation) {
-    _session.reset(player, simulation);
-    _session.updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+void LevelRuntime::reset(Simulation &simulation) {
+    _session.reset(simulation);
+    const PlayerRecord &player = simulation.state().player;
+    _session.updateStreaming(player.positionX.floorPixels(),
+                             player.positionY.floorPixels());
 }
 
-void LevelRuntime::tick(PlayerState &player,
-                        const PlayerSimulation &simulation,
-                        const InputState &input) {
-    const MapDescriptorCollisionQuery collision(_map, _descriptors);
-    _session.tick(player, simulation, collision, input);
+void LevelRuntime::tick(Simulation &simulation,
+                        const InputState &input,
+                        SimulationOutput &output) {
+    const WorldCollisionView world(_map, &_descriptors);
+    _session.tick(simulation, world, input, output);
 }
 
 } // namespace quiky

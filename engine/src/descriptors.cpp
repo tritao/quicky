@@ -134,6 +134,52 @@ PlayerDescriptorTable buildTable(const DescriptorRange (&ranges)[N]) {
 
 } // namespace
 
+std::uint16_t PlayerDescriptorRules::quadrantMask(std::uint16_t x,
+                                                  std::uint16_t y) {
+    const bool xBit3 = (x & 0x08) != 0;
+    const bool yBit3 = (y & 0x08) != 0;
+    if (yBit3) {
+        return xBit3 ? 0x02 : 0x01;
+    }
+    return xBit3 ? 0x04 : 0x08;
+}
+
+bool PlayerDescriptorRules::blocksProbe(std::uint16_t descriptor,
+                                        std::uint16_t x,
+                                        std::uint16_t y) {
+    return (descriptor & quadrantMask(x, y)) != 0;
+}
+
+bool PlayerDescriptorRules::hasVerticalResponse(std::uint16_t descriptor) {
+    return (descriptor & 0x20) != 0;
+}
+
+bool PlayerDescriptorRules::alignsEightPixels(std::uint16_t descriptor) {
+    return (descriptor & 0x40) != 0;
+}
+
+std::uint16_t PlayerDescriptorRules::snapProbeY(std::uint16_t y) {
+    return static_cast<std::uint16_t>(y & 0xfff8);
+}
+
+PlayerDescriptorTable::PlayerDescriptorTable() : _words() {
+    _words.fill(0);
+}
+
+PlayerDescriptorTable::PlayerDescriptorTable(
+    const std::array<std::uint16_t, PlayerDescriptorRules::kEntryCount> &words)
+    : _words(words) {
+}
+
+std::uint16_t PlayerDescriptorTable::word(std::uint16_t tileId) const {
+    return _words[tileId & 0x01ff];
+}
+
+void PlayerDescriptorTable::setWord(std::uint16_t tileId,
+                                    std::uint16_t descriptor) {
+    _words[tileId & 0x01ff] = descriptor;
+}
+
 PlayerDescriptorTable playerDescriptorTableForWorld(const std::string &worldName) {
     if (worldName == "W1") return buildTable(kW1);
     if (worldName == "W2") return buildTable(kW2);

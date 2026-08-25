@@ -1,6 +1,8 @@
 #include "quiky/archive.h"
 #include "quiky/map.h"
-#include "quiky/runtime.h"
+#include "quiky/player_update.h"
+#include "quiky/simulation.h"
+#include "quiky/world_view.h"
 
 #include <cstdlib>
 #include <exception>
@@ -41,23 +43,34 @@ int main(int argc, char **argv) {
             throw quiky::FormatError("frame count and action flags must be non-negative");
         }
 
-        quiky::PlayerSimulation simulation;
-        quiky::PlayerState player;
-        simulation.reset(player, static_cast<std::int32_t>(startX),
-                          static_cast<std::int32_t>(startY));
+        quiky::Simulation simulation;
+        quiky::ExperimentalHorizontalPlayerUpdate playerUpdater;
+        simulation.setExperimentalPlayerUpdater(&playerUpdater);
+        simulation.reset();
+        quiky::PlayerRecord &setup = simulation.stateForSetup().player;
+        setup.initializeConfirmedHorizontalFields();
+        setup.positionX = quiky::Fixed16::fromPixels(static_cast<std::int32_t>(startX));
+        setup.positionY = quiky::Fixed16::fromPixels(static_cast<std::int32_t>(startY));
+        setup.syncToRaw();
+        const quiky::PlayerDescriptorTable descriptors =
+            quiky::playerDescriptorTableForWorld(mapName.substr(0, 2));
+        const quiky::WorldCollisionView world(map, &descriptors);
+        quiky::SimulationOutput output;
         const quiky::InputState input = quiky::InputState::fromActionFlags(
             static_cast<std::uint16_t>(actionFlags));
         for (long frame = 0; frame < frames; ++frame) {
-            simulation.tick(player, map, input);
+            simulation.tick(input, world, output);
         }
+        const quiky::PlayerRecord &player = output.player;
 
         std::cout << mapName << ": frames=" << frames
-                  << " x=" << player.x.floorPixels()
-                  << " y=" << player.y.floorPixels()
+                  << " x=" << player.positionX.floorPixels()
+                  << " y=" << player.positionY.floorPixels()
                   << " vx=" << player.velocityX.raw
                   << " vy=" << player.velocityY.raw
-                  << " grounded=" << (player.grounded ? "yes" : "no")
-                  << " facing=" << (player.facingRight ? "right" : "left") << "\n";
+                  << " mode=" << static_cast<int>(player.mode37)
+                  << " facing=" << (player.motionDirectionByte29 == 0xff
+                                          ? "left" : "right") << "\n";
     } catch (const std::exception &error) {
         std::cerr << "error: " << error.what() << "\n";
         return EXIT_FAILURE;

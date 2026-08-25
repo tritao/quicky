@@ -86,9 +86,9 @@ public:
     void enqueueEvent(const SimulationEvent &event);
     void setExperimentalPlayerUpdater(PlayerUpdateCallback *updater);
 
-    // One deterministic gameplay boundary. This first shell advances the tick
-    // and scheduler and drains events; player behavior is intentionally not
-    // called until its recovered callback stages have evidence-backed formulas.
+    // One deterministic gameplay boundary. It advances the recovered player
+    // callback (when installed), scheduler, and queued events, then exposes a
+    // read-only output snapshot to rendering and audio.
     void tick(const InputState &input,
               const WorldCollisionView &world,
               SimulationOutput &output);

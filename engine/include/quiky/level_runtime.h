@@ -49,9 +49,9 @@ public:
     LevelSession &session() { return _session; }
     const LevelSession &session() const { return _session; }
 
-    void reset(PlayerState &player, const PlayerSimulation &simulation);
-    void tick(PlayerState &player, const PlayerSimulation &simulation,
-              const InputState &input);
+    void reset(Simulation &simulation);
+    void tick(Simulation &simulation, const InputState &input,
+              SimulationOutput &output);
 
 private:
     LevelRuntime(const std::string &mapName, const std::string &areaName,

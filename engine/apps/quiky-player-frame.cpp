@@ -3,9 +3,11 @@
 #include "quiky/bob.h"
 #include "quiky/map.h"
 #include "quiky/palette.h"
+#include "quiky/player_update.h"
 #include "quiky/renderer.h"
-#include "quiky/runtime.h"
+#include "quiky/simulation.h"
 #include "quiky/tileset.h"
+#include "quiky/world_view.h"
 
 #include <cctype>
 #include <cstdlib>
@@ -92,15 +94,25 @@ int main(int argc, char **argv) {
         const quiky::Bob bob = quiky::Bob::parse(archive.read(bobName), bobName);
         const quiky::BobRecord &playerRecord = findPlayerRecord(bob);
 
-        quiky::PlayerSimulation simulation;
-        quiky::PlayerState player;
-        simulation.reset(player, static_cast<std::int32_t>(startX),
-                          static_cast<std::int32_t>(startY));
+        quiky::Simulation simulation;
+        quiky::ExperimentalHorizontalPlayerUpdate playerUpdater;
+        simulation.setExperimentalPlayerUpdater(&playerUpdater);
+        simulation.reset();
+        quiky::PlayerRecord &setup = simulation.stateForSetup().player;
+        setup.initializeConfirmedHorizontalFields();
+        setup.positionX = quiky::Fixed16::fromPixels(static_cast<std::int32_t>(startX));
+        setup.positionY = quiky::Fixed16::fromPixels(static_cast<std::int32_t>(startY));
+        setup.syncToRaw();
+        const quiky::PlayerDescriptorTable descriptors =
+            quiky::playerDescriptorTableForWorld(world);
+        const quiky::WorldCollisionView worldView(map, &descriptors);
+        quiky::SimulationOutput output;
         const quiky::InputState input = quiky::InputState::fromActionFlags(
             static_cast<std::uint16_t>(actionFlags));
         for (long frame = 0; frame < frames; ++frame) {
-            simulation.tick(player, map, input);
+            simulation.tick(input, worldView, output);
         }
+        const quiky::PlayerRecord &player = output.player;
 
         quiky::IndexedSurface surface = quiky::renderMap(map, tileset);
         if (argc == 10) {
@@ -109,11 +121,12 @@ int main(int argc, char **argv) {
             quiky::overlayArea(surface, palette, area);
         }
         quiky::drawBobRecord(surface, playerRecord,
-                             player.x.floorPixels(), player.y.floorPixels());
+                             player.positionX.floorPixels(),
+                             player.positionY.floorPixels());
         quiky::writeBmp(argv[8], surface, palette);
         std::cout << mapName << ": player slot 0, frame " << frames
-                  << ", anchor=" << player.x.floorPixels() << ","
-                  << player.y.floorPixels() << ", origin="
+                  << ", anchor=" << player.positionX.floorPixels() << ","
+                  << player.positionY.floorPixels() << ", origin="
                   << playerRecord.originX << "," << playerRecord.originY
                   << ", output=" << surface.width << "x" << surface.height << "\n";
     } catch (const std::exception &error) {

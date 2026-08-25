@@ -25,13 +25,6 @@ std::int32_t floorRegion(std::int32_t pixel) {
              static_cast<std::int32_t>(Area::kRegionSize));
 }
 
-std::int32_t floorTile(std::int32_t pixel) {
-    if (pixel >= 0) {
-        return pixel / 16;
-    }
-    return -static_cast<std::int32_t>((-static_cast<std::int64_t>(pixel) + 15) / 16);
-}
-
 std::string worldForMap(const std::string &mapName) {
     if (mapName.size() < 2 || (mapName[0] != 'W' && mapName[0] != 'w')) {
         return std::string();
@@ -81,58 +74,6 @@ std::uint16_t worldEffectSlotFor(const std::string &world,
     }
     return 0;
 }
-
-class EntityCollisionQuery : public CollisionQuery {
-public:
-    EntityCollisionQuery(const CollisionQuery &base,
-                         const std::vector<LevelEntity> &entities)
-        : _base(base), _entities(entities) {}
-
-    bool blocksHorizontal(std::int32_t tileX,
-                          std::int32_t tileY) const override {
-        return _base.blocksHorizontal(tileX, tileY);
-    }
-
-    bool blocksFloor(std::int32_t tileX,
-                     std::int32_t tileY) const override {
-        // The confirmed platform footprints are known, but their motion
-        // tables are not. Treating them as one-way floor preserves the
-        // useful static interaction without inventing a trajectory.
-        if (_base.blocksFloor(tileX, tileY)) {
-            return true;
-        }
-        for (std::size_t index = 0; index < _entities.size(); ++index) {
-            const LevelEntity &entity = _entities[index];
-            if (entity.kind != EntityKind::MovingPlatform ||
-                entity.phase != EntityPhase::Active ||
-                entity.collisionWidth == 0 || entity.collisionHeight == 0) {
-                continue;
-            }
-            const std::int32_t platformTop = floorTile(entity.y);
-            const std::int32_t platformLeft = floorTile(entity.x);
-            const std::int32_t platformRight = floorTile(
-                entity.x + static_cast<std::int32_t>(entity.collisionWidth) - 1);
-            if (tileY == platformTop && tileX >= platformLeft &&
-                tileX <= platformRight) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool blocksCeiling(std::int32_t tileX,
-                       std::int32_t tileY) const override {
-        return _base.blocksCeiling(tileX, tileY);
-    }
-
-    const PlayerProbeQuery *probeQuery() const override {
-        return _base.probeQuery();
-    }
-
-private:
-    const CollisionQuery &_base;
-    const std::vector<LevelEntity> &_entities;
-};
 
 } // namespace
 
@@ -197,7 +138,7 @@ SpawnPoint LevelSession::spawnPoint() const {
                       std::min<std::int32_t>(_config.spawnY, std::max(0, mapHeight - 32)));
 }
 
-void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation) {
+void LevelSession::reset(Simulation &simulation) {
     _events.clear();
     _score = 0;
     _deaths = 0;
@@ -212,13 +153,24 @@ void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation
         entity.pooledInteractionTriggered = false;
     }
     _effects.clear();
-    resetPlayer(player, simulation);
+    resetPlayer(simulation);
 }
 
-void LevelSession::resetPlayer(PlayerState &player,
-                                const PlayerSimulation &simulation) const {
+void LevelSession::resetPlayer(Simulation &simulation) const {
     const SpawnPoint spawn = spawnPoint();
-    simulation.reset(player, spawn.x, spawn.y);
+    simulation.reset();
+    PlayerRecord &player = simulation.stateForSetup().player;
+    player.initializeConfirmedHorizontalFields();
+    player.positionX = Fixed16::fromPixels(spawn.x);
+    player.positionY = Fixed16::fromPixels(spawn.y);
+    player.velocityX = Fixed16();
+    player.velocityY = Fixed16();
+    player.mode37 = 0;
+    player.gate38 = 0;
+    player.transition39 = 0;
+    player.verticalResponse3A = 0;
+    player.sideResponse3B = 1;
+    player.syncToRaw();
 }
 
 EntityKind LevelSession::classify(std::uint16_t type) {
@@ -442,19 +394,20 @@ std::string LevelSession::nextLevelName(const std::string &mapName) {
     return upper.substr(0, levelMarker + 1) + char('0' + level + 1) + upper.substr(end);
 }
 
-bool LevelSession::overlaps(const PlayerState &player, const PlayerConfig &playerConfig,
-                            const LevelEntity &entity, std::int32_t radius) const {
-    const std::int32_t left = player.x.floorPixels() - radius;
-    const std::int32_t right = player.x.floorPixels() + playerConfig.width + radius;
-    const std::int32_t top = player.y.floorPixels() - radius;
-    const std::int32_t bottom = player.y.floorPixels() + playerConfig.height + radius;
+bool LevelSession::overlaps(const PlayerRecord &player,
+                            const LevelEntity &entity,
+                            std::int32_t radius) const {
+    const std::int32_t left = player.positionX.floorPixels() - radius;
+    const std::int32_t right = player.positionX.floorPixels() + 16 + radius;
+    const std::int32_t top = player.positionY.floorPixels() - radius;
+    const std::int32_t bottom = player.positionY.floorPixels() + 32 + radius;
     return entity.x >= left && entity.x <= right && entity.y >= top && entity.y <= bottom;
 }
 
-bool LevelSession::pooledInteractionOverlaps(const PlayerState &player,
+bool LevelSession::pooledInteractionOverlaps(const PlayerRecord &player,
                                              const LevelEntity &entity) const {
-    const std::int32_t playerX = player.x.floorPixels();
-    const std::int32_t playerY = player.y.floorPixels();
+    const std::int32_t playerX = player.positionX.floorPixels();
+    const std::int32_t playerY = player.positionY.floorPixels();
     const bool crab = entity.type == 0x07 || entity.type == 0x08;
     const std::int32_t left = crab ? 10 : 17;
     const std::int32_t right = crab ? 10 : 18;
@@ -464,12 +417,12 @@ bool LevelSession::pooledInteractionOverlaps(const PlayerState &player,
            objectY - top < playerY && playerY < objectY + 5;
 }
 
-bool LevelSession::atRightExit(const PlayerState &player) const {
+bool LevelSession::atRightExit(const PlayerRecord &player) const {
     if (!_config.enableEdgeExit) {
         return false;
     }
     const std::int32_t mapWidth = static_cast<std::int32_t>(_map.width) * 16;
-    return player.x.floorPixels() + _config.edgeExitMargin >= mapWidth;
+    return player.positionX.floorPixels() + _config.edgeExitMargin >= mapWidth;
 }
 
 bool LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
@@ -657,24 +610,18 @@ bool LevelSession::emitWorldEffects(const LevelEntity &entity,
     return emitted;
 }
 
-void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
-                        const InputState &input) {
-    const MapCollisionQuery collision(_map, simulation.collisionRules());
-    tick(player, simulation, collision, input);
-}
-
-void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
-                        const CollisionQuery &collision, const InputState &input) {
-    const bool wasGrounded = player.grounded;
+void LevelSession::tick(Simulation &simulation,
+                        const WorldCollisionView &world,
+                        const InputState &input,
+                        SimulationOutput &output) {
+    PlayerRecord &player = simulation.stateForSetup().player;
     const bool alternatePressed = input.alternate && !_alternateActionActive;
     _alternateActionActive = input.alternate;
-    bool spawnedTransient = updateStreaming(player.x.floorPixels(),
-                                            player.y.floorPixels());
-    const EntityCollisionQuery entityCollision(collision, _entities);
-    const bool jumpRequested = player.grounded && (input.jump || input.up);
-    simulation.tick(player, entityCollision, input);
-    spawnedTransient = updateStreaming(player.x.floorPixels(),
-                                       player.y.floorPixels()) || spawnedTransient;
+    bool spawnedTransient = updateStreaming(player.positionX.floorPixels(),
+                                            player.positionY.floorPixels());
+    simulation.tick(input, world, output);
+    spawnedTransient = updateStreaming(player.positionX.floorPixels(),
+                                       player.positionY.floorPixels()) || spawnedTransient;
     advanceActiveEntities();
     advanceActiveEffects();
     const bool emittedTileEffect = emitWorldEffectsForActiveEntities();
@@ -686,30 +633,8 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
         enqueueEvent(LevelEventType::TileInteraction);
     }
 
-    const bool landed = !wasGrounded && player.grounded;
-    if (landed) {
-        bool landedOnMovingPlatform = false;
-        for (std::size_t index = 0; index < _entities.size(); ++index) {
-            const LevelEntity &entity = _entities[index];
-            if (entity.active && entity.kind == EntityKind::MovingPlatform &&
-                overlaps(player, simulation.config(), entity, 0)) {
-                landedOnMovingPlatform = true;
-                enqueueEvent(LevelEventType::EntityCollisionImpact,
-                             entity.id, entity.type);
-                break;
-            }
-        }
-        if (!landedOnMovingPlatform) {
-            enqueueEvent(LevelEventType::TileInteraction);
-        }
-    }
-
     if (alternatePressed) {
         enqueueEvent(LevelEventType::AlternateActionObject);
-    }
-
-    if (jumpRequested) {
-        enqueueEvent(LevelEventType::PlayerJumped);
     }
 
     for (std::size_t index = 0; index < _entities.size(); ++index) {
@@ -718,7 +643,7 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
             continue;
         }
         if (entity.kind == EntityKind::Collectible &&
-            overlaps(player, simulation.config(), entity, _config.collectibleRadius)) {
+            overlaps(player, entity, _config.collectibleRadius)) {
             entity.collected = true;
             entity.active = false;
             entity.phase = EntityPhase::Collected;
@@ -734,19 +659,25 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
                 enqueueEvent(LevelEventType::PooledObjectInteractionBurst,
                              entity.id, entity.type);
             }
-            if (overlaps(player, simulation.config(), entity, _config.hazardRadius)) {
-                resetPlayer(player, simulation);
+            if (overlaps(player, entity, _config.hazardRadius)) {
+                resetPlayer(simulation);
                 ++_deaths;
                 enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-                updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+                updateStreaming(player.positionX.floorPixels(),
+                                player.positionY.floorPixels());
+                output.player = player;
+                output.player.syncToRaw();
                 return;
             }
         } else if (entity.kind == EntityKind::Hazard &&
-                   overlaps(player, simulation.config(), entity, _config.hazardRadius)) {
-            resetPlayer(player, simulation);
+                   overlaps(player, entity, _config.hazardRadius)) {
+            resetPlayer(simulation);
             ++_deaths;
             enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-            updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+            updateStreaming(player.positionX.floorPixels(),
+                            player.positionY.floorPixels());
+            output.player = player;
+            output.player.syncToRaw();
             return;
         }
     }
@@ -754,6 +685,9 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
     if (atRightExit(player)) {
         enqueueEvent(LevelEventType::LevelExit, 0, 0, nextLevelName(_mapName));
     }
+
+    output.player = player;
+    output.player.syncToRaw();
 }
 
 void LevelSession::enqueueEvent(LevelEventType type, std::uint32_t entityId,

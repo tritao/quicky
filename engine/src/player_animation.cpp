@@ -51,7 +51,7 @@ void PlayerAnimation::setDeath(bool death) {
     _delay = 0;
 }
 
-PlayerAnimation::Table PlayerAnimation::tableFor(const PlayerState &player,
+PlayerAnimation::Table PlayerAnimation::tableFor(const PlayerRecord &player,
                                                   std::uint16_t action,
                                                   bool death) {
     if (death) {
@@ -61,8 +61,11 @@ PlayerAnimation::Table PlayerAnimation::tableFor(const PlayerState &player,
     const std::int32_t speed = player.velocityX.raw < 0
                                    ? -player.velocityX.raw
                                    : player.velocityX.raw;
-    if (!player.grounded) {
-        return player.velocityY.raw < 0 ? Table::Rising : Table::Falling;
+    if (player.mode37 < 0) {
+        return Table::Rising;
+    }
+    if (player.mode37 > 0) {
+        return Table::Falling;
     }
     return speed > Fixed16::kOne / 4 ? Table::Walk : Table::Idle;
 }
@@ -109,17 +112,18 @@ void PlayerAnimation::install(Table table, bool facingRight) {
     _slot = static_cast<std::uint16_t>(tableFrame(table, _cursor) + mirror);
 }
 
-void PlayerAnimation::advance(const PlayerState &player) {
+void PlayerAnimation::advance(const PlayerRecord &player) {
     const Table desired = tableFor(player, _action, _death);
     if (desired != _table) {
-        install(desired, player.facingRight);
+        install(desired, player.motionDirectionByte29 != 0xff);
         return;
     }
-    if (player.facingRight != _facingRight) {
+    const bool facingRight = player.motionDirectionByte29 != 0xff;
+    if (facingRight != _facingRight) {
         // Direction is represented by the paired records, not a second
         // cursor. Keep the native cursor and delay while selecting its
         // mirrored slot family.
-        _facingRight = player.facingRight;
+        _facingRight = facingRight;
         const std::uint16_t mirror = _facingRight ? 0 : 50;
         _slot = static_cast<std::uint16_t>(tableFrame(_table, _cursor) + mirror);
         return;

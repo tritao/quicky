@@ -14,7 +14,8 @@ The current iteration supports:
 - indexed level rendering to an 8-bit BMP;
 - ARE layout/entity parsing and optional debug overlays;
 - BOB sprite decoding and indexed contact sheets;
-- deterministic player simulation with a provisional compatibility collision path;
+- a deterministic fixed-step player simulation centered on the recovered
+  `0x78`-byte record;
 - recovered world-specific descriptor tables linked to streamed MAP cells;
 - an explicit MAP-cell-to-descriptor query bridge using confirmed quadrant rules;
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
@@ -31,8 +32,8 @@ The current iteration supports:
 
 ## Player foundation boundary
 
-The `engine/player-foundation` branch establishes the deterministic shell for
-the faithful player implementation. Its mutable ownership is explicit:
+The deterministic shell is now the canonical runtime boundary. Its mutable
+ownership is explicit:
 `SimulationState` owns the tick counter, recovered player record, scheduler,
 object-pool records, and queued events. `WorldCollisionView` borrows decoded
 MAP and descriptor data read-only. `Simulation::tick(input, world, output)` is
@@ -44,8 +45,8 @@ The foundation currently includes:
 
 - `Fixed16`, the centralized signed 16.16 representation with explicit
   arithmetic shifts, wrapping, clamping, conversion, and multiplication;
-- `RecoveredPlayerState`, a typed projection of the recovered `0x78`-byte
-  record, with stable `fieldXX` names and lossless raw-record conversion;
+- `PlayerRecord`, a typed projection of the recovered `0x78`-byte record, with
+  stable `fieldXX` names and lossless raw-record conversion;
 - `WorldCollisionView`, which preserves raw MAP words, tile IDs, cell flags,
   descriptor words, runtime flags, and out-of-bounds status. It exposes only
   the confirmed descriptor predicates, not a guessed `isSolid()` rule;
@@ -55,15 +56,15 @@ The foundation currently includes:
   MAP lookups, scheduler callbacks, state writes, and emitted events. The
   `quiky-trace-compare` tool reports the first divergent tick and field.
 
-The existing `PlayerSimulation` and SDL frontend remain compatibility code and
-are still provisional. No movement, collision, grounded, facing, or transition
-formula is promoted by this shell. `player_update.h` defines the replaceable
-callback stages for the later evidence-backed implementation.
+The active frontend and scene tools consume `SimulationOutput` and
+`PlayerRecord`; they no longer have a second player-state or collision API.
+`player_update.h` keeps the unresolved vertical stages explicit so the runtime
+cannot silently fall back to guessed gravity, grounding, or jump behavior.
 
 ## Horizontal player closure
 
-The `engine/player-horizontal-collision` branch adds the confirmed horizontal
-callback slice without enabling it in the normal frontend. `PlayerRecord`
+The confirmed horizontal callback slice is integrated behind the explicit
+player-updater seam. `PlayerRecord`
 preserves all `0x78` bytes and exposes the static-closure fields, including
 the overlapping pixel-word views and confirmed horizontal constants. The
 experimental updater integrates old X velocity first, applies right-before-
@@ -99,11 +100,10 @@ cells. Descriptor-backed horizontal checks use the recovered forward probes
 at `(x +/- 10, y - 1/-17/-33)`. Table boundaries, special descriptor values,
 and probe coordinates have direct engine tests.
 
-The compatibility `PlayerSimulation` also uses descriptor occupancy for its
-existing floor and ceiling path, but that policy is not promoted as faithful.
-The vertical closure has not yet obtained deterministic landing and ceiling
-contact timelines. Exact floor/ceiling snapping and grounded transitions
-remain provisional until those traces exist.
+No compatibility player simulation remains. The vertical closure has not yet
+obtained deterministic landing and ceiling-contact timelines, so exact
+floor/ceiling snapping, grounded transitions, and jump orchestration remain
+behind the pending research interface.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
 resources use TFMX, which needs a dedicated decoder. The engine includes an
@@ -159,12 +159,7 @@ Launch the default W1L1 session without naming the derived world resources:
 
 ```sh
 build/engine/quiky-play game/NESTLE.DAT
-build/engine/quiky-calibrate game/NESTLE.DAT W1L1.MAP 100 100 /tmp/W1L1-calibration.csv
 ```
-
-The calibration command emits a frame-by-frame CSV and a summary of the
-current provisional movement constants. Its output is intended to be paired
-with future DOSBox traces before those constants are treated as authoritative.
 
 Inspect the bundled archive:
 

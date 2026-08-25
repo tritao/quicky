@@ -20,7 +20,7 @@ add_library(quiky_core
     src/pcx.cpp
     src/player_animation.cpp
     src/renderer.cpp
-    src/runtime.cpp
+    src/input.cpp
     src/descriptors.cpp
     src/scheduler.cpp
     src/simulation.cpp
@@ -52,12 +52,6 @@ target_link_libraries(quiky-bob-sheet PRIVATE quiky_core)
 
 add_executable(quiky-simulate apps/quiky-simulate.cpp)
 target_link_libraries(quiky-simulate PRIVATE quiky_core)
-
-add_executable(quiky-calibrate apps/quiky-calibrate.cpp)
-target_link_libraries(quiky-calibrate PRIVATE quiky_core)
-
-add_executable(quiky-compare-trace apps/quiky-compare-trace.cpp)
-target_link_libraries(quiky-compare-trace PRIVATE quiky_core)
 
 add_executable(quiky-trace-compare apps/quiky-trace-compare.cpp)
 target_link_libraries(quiky-trace-compare PRIVATE quiky_core)
@@ -134,7 +128,7 @@ if(QUIKY_ENABLE_MUSIC)
                 render ONGAME2 0 ${CMAKE_CURRENT_BINARY_DIR}/quiky-sfx-0.wav 1)
 endif()
 
-add_executable(quiky-tests tests/test_formats.cpp)
+add_executable(quiky-tests tests/test_formats_faithful.cpp)
 target_link_libraries(quiky-tests PRIVATE quiky_core)
 add_test(NAME quiky-tests COMMAND quiky-tests)
 
@@ -157,13 +151,3 @@ add_test(NAME quiky-vertical-tests
 add_executable(quiky-sfx-event-tests tests/test_sfx_events.cpp)
 target_link_libraries(quiky-sfx-event-tests PRIVATE quiky_core)
 add_test(NAME quiky-sfx-event-tests COMMAND quiky-sfx-event-tests)
-
-add_test(NAME quiky-calibration-generate
-    COMMAND quiky-calibrate ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT
-            W1L1.MAP 100 100 ${CMAKE_CURRENT_BINARY_DIR}/quiky-calibration.csv)
-add_test(NAME quiky-calibration-compare
-    COMMAND quiky-compare-trace
-            ${CMAKE_CURRENT_BINARY_DIR}/quiky-calibration.csv
-            ${CMAKE_CURRENT_BINARY_DIR}/quiky-calibration.csv --strict)
-set_tests_properties(quiky-calibration-compare
-    PROPERTIES DEPENDS quiky-calibration-generate)

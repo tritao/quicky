@@ -2,6 +2,7 @@
 #include "quiky/bob.h"
 #include "quiky/level_runtime.h"
 #include "quiky/player_animation.h"
+#include "quiky/player_update.h"
 #include "quiky/renderer.h"
 
 #include <algorithm>
@@ -297,11 +298,15 @@ int main(int argc, char **argv) {
             config.spawnX = startX;
             config.spawnY = startY;
         }
-        quiky::PlayerSimulation simulation;
+        quiky::Simulation simulation;
+        quiky::ExperimentalHorizontalPlayerUpdate playerUpdater;
+        simulation.setExperimentalPlayerUpdater(&playerUpdater);
         std::unique_ptr<quiky::LevelRuntime> runtime =
             quiky::LevelRuntime::load(archive, mapName, playerBobName, config);
-        quiky::PlayerState player;
-        runtime->reset(player, simulation);
+        quiky::SimulationOutput output;
+        runtime->reset(simulation);
+        output.player = simulation.state().player;
+        quiky::PlayerRecord &player = output.player;
         quiky::PlayerAnimation playerAnimation;
         playerAnimation.reset();
         playerAnimation.advance(player);
@@ -311,7 +316,7 @@ int main(int argc, char **argv) {
         }
         const quiky::InputState input = quiky::InputState::fromActionFlags(actionFlags);
         for (long frame = 0; frame < frames; ++frame) {
-            runtime->tick(player, simulation, input);
+            runtime->tick(simulation, input, output);
             playerAnimation.advance(player);
         }
 
@@ -326,12 +331,13 @@ int main(int argc, char **argv) {
             const quiky::BobRecord &record = choosePlayerFrame(
                 runtime->playerBob(), playerAnimation);
             quiky::drawBobRecord(scene, record,
-                                 player.x.floorPixels(), player.y.floorPixels());
+                                 player.positionX.floorPixels(),
+                                 player.positionY.floorPixels());
         }
 
         if (!hasCameraX) {
-            cameraX = player.x.floorPixels() - static_cast<int>(kFrameWidth / 2);
-            cameraY = player.y.floorPixels() - static_cast<int>(kFrameHeight / 2);
+            cameraX = player.positionX.floorPixels() - static_cast<int>(kFrameWidth / 2);
+            cameraY = player.positionY.floorPixels() - static_cast<int>(kFrameHeight / 2);
         }
         cameraX = clampCamera(cameraX, static_cast<int>(scene.width), kFrameWidth);
         cameraY = clampCamera(cameraY, static_cast<int>(scene.height), kFrameHeight);
@@ -340,8 +346,8 @@ int main(int argc, char **argv) {
 
         std::cout << mapName << ": frame=" << frames
                   << " camera=" << cameraX << "," << cameraY
-                  << " player=" << player.x.floorPixels() << ","
-                  << player.y.floorPixels() << " output=" << outputName << "\n";
+                  << " player=" << player.positionX.floorPixels() << ","
+                  << player.positionY.floorPixels() << " output=" << outputName << "\n";
     } catch (const std::exception &error) {
         std::cerr << "error: " << error.what() << "\n";
         return EXIT_FAILURE;

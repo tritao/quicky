@@ -92,27 +92,27 @@ void testInputAndPlayerRecord() {
 
 void testPlayerAnimationTables() {
     quiky::PlayerAnimation animation;
-    quiky::PlayerState player;
-    player.grounded = true;
+    quiky::PlayerRecord player;
+    player.mode37 = 0;
+    player.motionDirectionByte29 = 1;
 
     animation.reset();
     animation.advance(player);
     assert(animation.slot() == 0);
 
-    player.grounded = false;
-    player.velocityY = quiky::Fixed16::fromPixels(-1);
+    player.mode37 = -1;
     animation.advance(player);
     assert(animation.slot() == 10);
 
-    player.facingRight = false;
+    player.motionDirectionByte29 = 0xff;
     animation.advance(player);
     assert(animation.slot() == 60);
 
-    player.velocityY = quiky::Fixed16::fromPixels(1);
+    player.mode37 = 1;
     animation.advance(player);
     assert(animation.slot() == 63);
 
-    player.grounded = true;
+    player.mode37 = 0;
     player.velocityX = quiky::Fixed16::fromPixels(1);
     animation.advance(player);
     assert(animation.slot() == 50);

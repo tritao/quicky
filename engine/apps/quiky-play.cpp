@@ -1,6 +1,7 @@
 #include "quiky/archive.h"
 #include "quiky/bob.h"
 #include "quiky/level_runtime.h"
+#include "quiky/player_update.h"
 #include "quiky/player_animation.h"
 #ifdef QUIKY_WITH_MUSIC
 #include "quiky/audio.h"
@@ -341,18 +342,18 @@ void drawEntityMarkers(quiky::IndexedSurface &surface, quiky::Palette &palette,
 }
 
 void updateTitle(SDL_Window *window, const std::string &mapName,
-                 const quiky::PlayerState &player, std::uint64_t frame,
+                 const quiky::PlayerRecord &player, std::uint64_t frame,
                  std::uint16_t slot, bool paused, const quiky::LevelSession &level,
                  std::uint32_t carriedScore, std::uint32_t carriedDeaths,
                  const std::string &eventText) {
     std::ostringstream title;
     title << "Quiky | " << mapName << " | " << (paused ? "PAUSED | " : "")
           << "frame=" << frame << " slot=" << slot
-          << " x=" << player.x.floorPixels()
-          << " y=" << player.y.floorPixels()
+          << " x=" << player.positionX.floorPixels()
+          << " y=" << player.positionY.floorPixels()
           << " vx=" << player.velocityX.floorPixels()
           << " vy=" << player.velocityY.floorPixels()
-          << (player.grounded ? " grounded" : " airborne")
+          << " mode=" << static_cast<int>(player.mode37)
           << " score=" << carriedScore + level.score()
           << " deaths=" << carriedDeaths + level.deaths();
     if (!eventText.empty()) {
@@ -425,11 +426,15 @@ int main(int argc, char **argv) {
             levelConfig.spawnX = startX;
             levelConfig.spawnY = startY;
         }
-        quiky::PlayerSimulation simulation;
+        quiky::Simulation simulation;
+        quiky::ExperimentalHorizontalPlayerUpdate playerUpdater;
+        simulation.setExperimentalPlayerUpdater(&playerUpdater);
         std::unique_ptr<quiky::LevelRuntime> runtime =
             quiky::LevelRuntime::load(archive, mapName, bobName, levelConfig);
-        quiky::PlayerState player;
-        runtime->reset(player, simulation);
+        quiky::SimulationOutput output;
+        runtime->reset(simulation);
+        output.player = simulation.state().player;
+        quiky::PlayerRecord &player = output.player;
         quiky::PlayerAnimation playerAnimation;
         playerAnimation.reset();
         playerAnimation.advance(player);
@@ -462,10 +467,10 @@ int main(int argc, char **argv) {
         const quiky::IndexedSurface initialWorld =
             quiky::renderMap(runtime->map(), runtime->tileset());
         const int initialCameraX = clampCamera(
-            player.x.floorPixels() - kLogicalWidth / 2,
+            player.positionX.floorPixels() - kLogicalWidth / 2,
             static_cast<int>(initialWorld.width), kLogicalWidth);
         const int initialCameraY = clampCamera(
-            player.y.floorPixels() - kWorldViewportHeight / 2,
+            player.positionY.floorPixels() - kWorldViewportHeight / 2,
             static_cast<int>(initialWorld.height), kWorldViewportHeight);
         const quiky::IndexedSurface initialSurface = quiky::composeGameplayFrame(
             initialWorld, runtime->gamebar().surface(), initialCameraX,
@@ -520,7 +525,8 @@ int main(int argc, char **argv) {
                     } else if (key == SDL_SCANCODE_N && down && !event.key.repeat) {
                         stepRequested = true;
                     } else if (key == SDL_SCANCODE_R && down && !event.key.repeat) {
-                        runtime->reset(player, simulation);
+                        runtime->reset(simulation);
+                        output.player = simulation.state().player;
                         playerAnimation.reset();
                         playerAnimation.advance(player);
                         frame = 0;
@@ -542,7 +548,7 @@ int main(int argc, char **argv) {
                     input.right = right;
                     input.jump = jumpPressed;
                     input.alternate = alternate;
-                    runtime->tick(player, simulation, input);
+                    runtime->tick(simulation, input, output);
                     playerAnimation.advance(player);
                     ++frame;
                     jumpPressed = false;
@@ -594,7 +600,8 @@ int main(int argc, char **argv) {
                             carriedScore += runtime->session().score();
                             carriedDeaths += runtime->session().deaths();
                             runtime.swap(next);
-                            runtime->reset(player, simulation);
+                            runtime->reset(simulation);
+                            output.player = simulation.state().player;
                             playerAnimation.reset();
                             playerAnimation.advance(player);
                             frame = 0;
@@ -615,7 +622,7 @@ int main(int argc, char **argv) {
                 input.right = right;
                 input.jump = jumpPressed;
                 input.alternate = alternate;
-                runtime->tick(player, simulation, input);
+                runtime->tick(simulation, input, output);
                 playerAnimation.advance(player);
                 ++frame;
                 jumpPressed = false;
@@ -642,10 +649,11 @@ int main(int argc, char **argv) {
             const quiky::BobRecord &record =
                 choosePlayerFrame(runtime->playerBob(), playerAnimation);
             quiky::drawBobRecord(worldSurface, record,
-                                 player.x.floorPixels(), player.y.floorPixels());
+                                 player.positionX.floorPixels(),
+                                 player.positionY.floorPixels());
 
-            int cameraX = player.x.floorPixels() - kLogicalWidth / 2;
-            int cameraY = player.y.floorPixels() - kWorldViewportHeight / 2;
+            int cameraX = player.positionX.floorPixels() - kLogicalWidth / 2;
+            int cameraY = player.positionY.floorPixels() - kWorldViewportHeight / 2;
             cameraX = clampCamera(cameraX, static_cast<int>(worldSurface.width),
                                   kLogicalWidth);
             cameraY = clampCamera(cameraY, static_cast<int>(worldSurface.height),

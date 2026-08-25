@@ -2,7 +2,7 @@
 #define QUIKY_LEVEL_H
 
 #include "quiky/area.h"
-#include "quiky/runtime.h"
+#include "quiky/simulation.h"
 
 #include <cstdint>
 #include <deque>
@@ -61,6 +61,14 @@ struct LevelSessionConfig {
     std::int32_t spawnY;
 
     LevelSessionConfig();
+};
+
+struct SpawnPoint {
+    std::int32_t x;
+    std::int32_t y;
+
+    SpawnPoint(std::int32_t xValue = 0, std::int32_t yValue = 0)
+        : x(xValue), y(yValue) {}
 };
 
 // A short-lived visual object emitted by an ARE effect/event record or by a
@@ -124,11 +132,9 @@ public:
                  const LevelSessionConfig &config = LevelSessionConfig());
 
     SpawnPoint spawnPoint() const;
-    void reset(PlayerState &player, const PlayerSimulation &simulation);
-    void tick(PlayerState &player, const PlayerSimulation &simulation,
-              const InputState &input);
-    void tick(PlayerState &player, const PlayerSimulation &simulation,
-              const CollisionQuery &collision, const InputState &input);
+    void reset(Simulation &simulation);
+    void tick(Simulation &simulation, const WorldCollisionView &world,
+              const InputState &input, SimulationOutput &output);
 
     bool updateStreaming(std::int32_t playerX, std::int32_t playerY);
     // Emit the source-less high-address effect recovered from the 4B70/4C74
@@ -154,7 +160,7 @@ private:
     std::string highEffectSpriteResource() const;
     static std::uint32_t collectibleValue(std::uint16_t type);
     static std::string nextLevelName(const std::string &mapName);
-    void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;
+    void resetPlayer(Simulation &simulation) const;
     void advanceActiveEntities();
     void advanceActiveEffects();
     bool emitWorldEffectsForActiveEntities();
@@ -164,11 +170,11 @@ private:
     static bool isTransientEffectType(std::uint16_t type);
     static bool isWorldEffectType(std::uint16_t type);
     static bool isPooledInteractionType(std::uint16_t type);
-    bool overlaps(const PlayerState &player, const PlayerConfig &playerConfig,
-                  const LevelEntity &entity, std::int32_t radius) const;
-    bool pooledInteractionOverlaps(const PlayerState &player,
+    bool overlaps(const PlayerRecord &player, const LevelEntity &entity,
+                  std::int32_t radius) const;
+    bool pooledInteractionOverlaps(const PlayerRecord &player,
                                    const LevelEntity &entity) const;
-    bool atRightExit(const PlayerState &player) const;
+    bool atRightExit(const PlayerRecord &player) const;
     void enqueueEvent(LevelEventType type, std::uint32_t entityId = 0,
                       std::uint16_t entityType = 0,
                       const std::string &targetLevel = std::string());
