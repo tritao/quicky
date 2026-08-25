@@ -1,0 +1,273 @@
+{
+  "schema": "quiky-player-horizontal-validation-v1",
+  "traces": [
+    {
+      "trace": "baseline-neutral-60.json",
+      "kind": "formula",
+      "checked_values": 244,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-left-1.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-left-16.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-left-2.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-left-32.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-left-4.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-left-8.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-right-1.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-right-16.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-right-2.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-right-32.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-right-4.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "hold-right-8.json",
+      "kind": "formula",
+      "checked_values": 264,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-left-12.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-left-24.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-left-3.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-left-48.json",
+      "kind": "collision_or_state",
+      "checked_values": 0,
+      "mismatch_count": null,
+      "passed": null,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-left-5.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-right-12.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-right-24.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-right-3.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-right-48.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "holdout-right-5.json",
+      "kind": "held_out",
+      "checked_values": 88,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "reverse-low-left32.json",
+      "kind": "formula",
+      "checked_values": 140,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "reverse-low.json",
+      "kind": "formula",
+      "checked_values": 140,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "reverse-max-left64.json",
+      "kind": "formula",
+      "checked_values": 140,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "reverse-max.json",
+      "kind": "formula",
+      "checked_values": 140,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "reverse-medium-left32.json",
+      "kind": "formula",
+      "checked_values": 140,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "reverse-medium.json",
+      "kind": "formula",
+      "checked_values": 140,
+      "mismatch_count": 0,
+      "passed": true,
+      "mismatches": []
+    },
+    {
+      "trace": "wall-left-collision.json",
+      "kind": "collision_or_state",
+      "checked_values": 0,
+      "mismatch_count": null,
+      "passed": null,
+      "mismatches": []
+    },
+    {
+      "trace": "wall-left.json",
+      "kind": "collision_or_state",
+      "checked_values": 0,
+      "mismatch_count": null,
+      "passed": null,
+      "mismatches": []
+    },
+    {
+      "trace": "wall-right-collision.json",
+      "kind": "collision_or_state",
+      "checked_values": 0,
+      "mismatch_count": null,
+      "passed": null,
+      "mismatches": []
+    },
+    {
+      "trace": "wall-right.json",
+      "kind": "collision_or_state",
+      "checked_values": 0,
+      "mismatch_count": null,
+      "passed": null,
+      "mismatches": []
+    }
+  ],
+  "formula_traces": 28,
+  "formula_passes": 28,
+  "formula_mismatches": 0,
+  "held_out_passes": 9
+}

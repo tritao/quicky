@@ -29,9 +29,9 @@ input, up, walking jump, release, and both reversals.
 The implementation-relevant values are:
 
 * X/Y use signed 32-bit 16.16 integration.
-* Normal horizontal speed ramps in `0x0800` steps and caps at `0x18000`.
-  Release uses the observed `0x2000` decrement; reversal first clears the
-  existing direction.
+* Normal horizontal speed ramps in `0x2800` steps and caps at `0x18000`.
+  Release uses the observed `0x2000` decrement; reversal applies the opposite
+  `0x2800` step directly rather than first clearing the existing direction.
 * The ascent path clamps at `-0x20000` and adds `0x2000` per callback.
   The jump capture starts with `+0x37=0xff` and the landing tail reaches
   `+0x37=1`; neither byte is promoted to the engine's `grounded` meaning.

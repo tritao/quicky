@@ -1,0 +1,4115 @@
+{
+  "schema": "quiky-resource-trace-v1",
+  "trace_schema_version": 1,
+  "created_utc": "2026-08-25T08:40:57.938798+00:00",
+  "dosbox": {
+    "features": {
+      "cpu_control": true,
+      "cpu_registers": true,
+      "debugger": true,
+      "freeze": true,
+      "input": true,
+      "memory": true,
+      "port_io": true
+    },
+    "version": "0.84.0-da4 (6697f)"
+  },
+  "inputs": {
+    "executable": "/home/joao/dev/quicky-player-horizontal/game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "/home/joao/dev/quicky-player-horizontal/game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "prepare_w1l3": false,
+    "navigate_w1l3": false,
+    "navigate_level": null,
+    "select_level": null,
+    "tail_count": 0
+  },
+  "engine": "lua-debugger-api",
+  "trace_kind": "player",
+  "script": "/home/joao/dev/quicky-player-horizontal/research/automation/quiky_player_trace.lua",
+  "script_sha256": "669ae0cfb0230ecba9d23c7dfa3b51fcaa624f2182762caf88f74dc8152f114a",
+  "startup_recording": "/home/joao/dev/quicky-player-horizontal/research/automation/startup-to-input.json",
+  "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae",
+  "breakpoint": {
+    "segment": 519,
+    "offset": 6343
+  },
+  "events": [
+    {
+      "final_capture_registers": {
+        "cs": 503,
+        "ds": 567,
+        "eax": 0,
+        "ebp": 16378,
+        "ebx": 0,
+        "ecx": 0,
+        "edi": 0,
+        "edx": 0,
+        "eip": 3878,
+        "es": 639,
+        "esi": 751,
+        "esp": 15062,
+        "flags": 12819,
+        "fs": 887,
+        "gs": 655,
+        "ss": 575
+      },
+      "final_globals": {
+        "camera_x": 0,
+        "camera_y": 262,
+        "horizontal_accumulator": 0,
+        "horizontal_aux": 0,
+        "horizontal_branch_counter": 0,
+        "horizontal_limit": 0,
+        "horizontal_result_byte": 0,
+        "horizontal_timer": 217,
+        "input_action_flags": 0,
+        "keyboard_action_flags": 0,
+        "last_scan_code": 0,
+        "map_row_stride": 540,
+        "object_count": 4,
+        "object_list_cursor": 0,
+        "player_control_word": 0,
+        "player_object_offset": 0,
+        "player_reset_state": 0,
+        "player_transition_word": 0,
+        "player_vertical_adjust": 0,
+        "target_active_count": 0,
+        "target_capacity": 4,
+        "target_entries": {
+          "1": {
+            "index": 0,
+            "x": 0,
+            "y": 0
+          },
+          "10": {
+            "index": 9,
+            "x": 0,
+            "y": 0
+          },
+          "2": {
+            "index": 1,
+            "x": 0,
+            "y": 0
+          },
+          "3": {
+            "index": 2,
+            "x": 0,
+            "y": 0
+          },
+          "4": {
+            "index": 3,
+            "x": 0,
+            "y": 0
+          },
+          "5": {
+            "index": 4,
+            "x": 0,
+            "y": 0
+          },
+          "6": {
+            "index": 5,
+            "x": 0,
+            "y": 0
+          },
+          "7": {
+            "index": 6,
+            "x": 0,
+            "y": 0
+          },
+          "8": {
+            "index": 7,
+            "x": 0,
+            "y": 0
+          },
+          "9": {
+            "index": 8,
+            "x": 0,
+            "y": 0
+          }
+        },
+        "transition_error": 0,
+        "transition_event": 0,
+        "transition_flags": 3,
+        "transition_state": 0
+      },
+      "final_pool": {
+        "active_count": 8,
+        "kind_0x64": [],
+        "kind_0x64_count": 0,
+        "objects": [
+          {
+            "action_word": 0,
+            "callback": 16376,
+            "callback_data": 65535,
+            "index": 0,
+            "kind": 0,
+            "lifetime": 65526,
+            "offset": 0,
+            "phase": 2,
+            "player_byte_0x36": 255,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 1,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 128,
+              "x_fixed": 8388608,
+              "x_fixed_signed": 8388608,
+              "y": 400,
+              "y_fixed": 26214400,
+              "y_fixed_signed": 26214400
+            },
+            "selector": 639,
+            "sprite_slot": 0,
+            "state_field": 65496,
+            "state_field_signed": 720856,
+            "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e0008006c316c31000001010000f6ffd8ff0a0000000000ff000000000100000000",
+            "target_cursor": 10,
+            "target_emitter_slot": 0,
+            "update_state": 0,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 0,
+            "velocity_y_fixed_signed": 0
+          },
+          {
+            "action_word": 0,
+            "callback": 18407,
+            "callback_data": 5650,
+            "index": 3,
+            "kind": 0,
+            "lifetime": 272,
+            "offset": 360,
+            "phase": 1,
+            "player_byte_0x36": 0,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 0,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 272,
+              "x_fixed": 17825792,
+              "x_fixed_signed": 17825792,
+              "y": 215,
+              "y_fixed": 14130532,
+              "y_fixed_signed": 14130532
+            },
+            "selector": 639,
+            "sprite_slot": 703,
+            "state_field": 0,
+            "state_field_signed": 13631488,
+            "state_hex": "000000001001649dd70000000000f8410100bf0200000001e747121697190a0004002833283300000100000010010000d0000c00000000000000000000000000",
+            "target_cursor": 208,
+            "target_emitter_slot": 0,
+            "update_state": 12,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 82424,
+            "velocity_y_fixed_signed": 82424
+          },
+          {
+            "action_word": 0,
+            "callback": 18407,
+            "callback_data": 5826,
+            "index": 4,
+            "kind": 0,
+            "lifetime": 288,
+            "offset": 480,
+            "phase": 1,
+            "player_byte_0x36": 0,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 0,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 288,
+              "x_fixed": 18874368,
+              "x_fixed_signed": 18874368,
+              "y": 262,
+              "y_fixed": 17204836,
+              "y_fixed_signed": 17204836
+            },
+            "selector": 639,
+            "sprite_slot": 703,
+            "state_field": 0,
+            "state_field_signed": 16777216,
+            "state_hex": "000000002001648606010000000078130100bf0200000001e747c21697190a000400283328330000010000002001000000010c00000000000000000000000000",
+            "target_cursor": 256,
+            "target_emitter_slot": 0,
+            "update_state": 12,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 70520,
+            "velocity_y_fixed_signed": 70520
+          },
+          {
+            "action_word": 0,
+            "callback": 36128,
+            "callback_data": 6146,
+            "index": 5,
+            "kind": 0,
+            "lifetime": 1,
+            "offset": 600,
+            "phase": 1,
+            "player_byte_0x36": 0,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 0,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 257,
+              "x_fixed": 16842752,
+              "x_fixed_signed": 16842752,
+              "y": 366,
+              "y_fixed": 23986176,
+              "y_fixed_signed": 23986176
+            },
+            "selector": 639,
+            "sprite_slot": 607,
+            "state_field": 0,
+            "state_field_signed": 0,
+            "state_hex": "00000000010100006e0100000000000000005f0200000001208d0218971900000000000000000000010000000100000000000000000000000000000000000000",
+            "target_cursor": 0,
+            "target_emitter_slot": 0,
+            "update_state": 0,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 0,
+            "velocity_y_fixed_signed": 0
+          },
+          {
+            "action_word": 0,
+            "callback": 18407,
+            "callback_data": 5642,
+            "index": 6,
+            "kind": 0,
+            "lifetime": 192,
+            "offset": 720,
+            "phase": 1,
+            "player_byte_0x36": 0,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 0,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 192,
+              "x_fixed": 12582912,
+              "x_fixed_signed": 12582912,
+              "y": 230,
+              "y_fixed": 15083108,
+              "y_fixed_signed": 15083108
+            },
+            "selector": 639,
+            "sprite_slot": 700,
+            "state_field": 0,
+            "state_field_signed": 14680064,
+            "state_hex": "00000000c0006426e6000000000078030100bc0200000001e7470a1697190800020014331433000001000000c0000000e0000c00000000000000000000000000",
+            "target_cursor": 224,
+            "target_emitter_slot": 0,
+            "update_state": 12,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 66424,
+            "velocity_y_fixed_signed": 66424
+          },
+          {
+            "action_word": 0,
+            "callback": 18407,
+            "callback_data": 5818,
+            "index": 7,
+            "kind": 0,
+            "lifetime": 224,
+            "offset": 840,
+            "phase": 1,
+            "player_byte_0x36": 0,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 0,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 224,
+              "x_fixed": 14680064,
+              "x_fixed_signed": 14680064,
+              "y": 262,
+              "y_fixed": 17226340,
+              "y_fixed_signed": 17226340
+            },
+            "selector": 639,
+            "sprite_slot": 703,
+            "state_field": 0,
+            "state_field_signed": 16777216,
+            "state_hex": "00000000e00064da06010000000078210100bf0200000001e747ba1697190a00040028332833000001000000e000000000010c00000000000000000000000000",
+            "target_cursor": 256,
+            "target_emitter_slot": 0,
+            "update_state": 12,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 74104,
+            "velocity_y_fixed_signed": 74104
+          },
+          {
+            "action_word": 0,
+            "callback": 18407,
+            "callback_data": 5634,
+            "index": 8,
+            "kind": 0,
+            "lifetime": 144,
+            "offset": 960,
+            "phase": 1,
+            "player_byte_0x36": 0,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 0,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 144,
+              "x_fixed": 9437184,
+              "x_fixed_signed": 9437184,
+              "y": 215,
+              "y_fixed": 14135908,
+              "y_fixed_signed": 14135908
+            },
+            "selector": 639,
+            "sprite_slot": 700,
+            "state_field": 0,
+            "state_field_signed": 13631488,
+            "state_hex": "00000000900064b2d7000000000078450100bc0200000001e74702169719080002001433143300000100000090000000d0000c00000000000000000000000000",
+            "target_cursor": 208,
+            "target_emitter_slot": 0,
+            "update_state": 12,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 83320,
+            "velocity_y_fixed_signed": 83320
+          },
+          {
+            "action_word": 0,
+            "callback": 18407,
+            "callback_data": 5810,
+            "index": 9,
+            "kind": 0,
+            "lifetime": 128,
+            "offset": 1080,
+            "phase": 1,
+            "player_byte_0x36": 0,
+            "player_byte_0x37": 0,
+            "player_byte_0x38": 0,
+            "player_byte_0x39": 0,
+            "player_byte_0x3a": 0,
+            "player_byte_0x3b": 0,
+            "player_word_0x3e": 0,
+            "position": {
+              "x": 128,
+              "x_fixed": 8388608,
+              "x_fixed_signed": 8388608,
+              "y": 261,
+              "y_fixed": 17168740,
+              "y_fixed_signed": 17168740
+            },
+            "selector": 639,
+            "sprite_slot": 703,
+            "state_field": 0,
+            "state_field_signed": 16777216,
+            "state_hex": "00000000800064f9050100000000f8fb0000bf0200000001e747b21697190a000400283328330000010000008000000000010c00000000000000000000000000",
+            "target_cursor": 256,
+            "target_emitter_slot": 0,
+            "update_state": 12,
+            "velocity_x_fixed": 0,
+            "velocity_x_fixed_signed": 0,
+            "velocity_y_fixed": 64504,
+            "velocity_y_fixed_signed": 64504
+          }
+        ],
+        "offset": 0,
+        "selector": 639,
+        "stride": 120
+      },
+      "samples": [
+        {
+          "breakpoint": {
+            "offset": 16376,
+            "segment": 503
+          },
+          "breakpoint_owners": [
+            "callback"
+          ],
+          "frame_index": 0,
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 262,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 211,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "last_scan_code": 0,
+            "map_row_stride": 540,
+            "object_count": 4,
+            "object_list_cursor": 0,
+            "player_control_word": 0,
+            "player_object_offset": 0,
+            "player_reset_state": 0,
+            "player_transition_word": 0,
+            "player_vertical_adjust": 0,
+            "target_active_count": 0,
+            "target_capacity": 4,
+            "target_entries": {
+              "1": {
+                "index": 0,
+                "x": 0,
+                "y": 0
+              },
+              "10": {
+                "index": 9,
+                "x": 0,
+                "y": 0
+              },
+              "2": {
+                "index": 1,
+                "x": 0,
+                "y": 0
+              },
+              "3": {
+                "index": 2,
+                "x": 0,
+                "y": 0
+              },
+              "4": {
+                "index": 3,
+                "x": 0,
+                "y": 0
+              },
+              "5": {
+                "index": 4,
+                "x": 0,
+                "y": 0
+              },
+              "6": {
+                "index": 5,
+                "x": 0,
+                "y": 0
+              },
+              "7": {
+                "index": 6,
+                "x": 0,
+                "y": 0
+              },
+              "8": {
+                "index": 7,
+                "x": 0,
+                "y": 0
+              },
+              "9": {
+                "index": 8,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "transition_error": 0,
+            "transition_event": 0,
+            "transition_flags": 3,
+            "transition_state": 0
+          },
+          "player_callback": {
+            "breakpoint": {
+              "offset": 16376,
+              "segment": 503
+            },
+            "callback_offset": 16376,
+            "global_writes": [
+              {
+                "after": 212,
+                "before": 211,
+                "field": "horizontal_timer"
+              }
+            ],
+            "object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 255,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 40,
+              "state_field_signed": 655400,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000e006c316c31000001010000f6ff28000a0000000000ff00ff000001000000000000000000000000000000000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "post_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 212,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "post_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000d006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "pre_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 211,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "pre_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 255,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 40,
+              "state_field_signed": 655400,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000e006c316c31000001010000f6ff28000a0000000000ff00ff000001000000000000000000000000000000000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "record_size": 120,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 81912,
+              "ebp": 16378,
+              "ebx": 512,
+              "ecx": 3016,
+              "edi": 0,
+              "edx": 1838655,
+              "eip": 16376,
+              "es": 639,
+              "esi": 30646,
+              "esp": 15060,
+              "flags": 12870,
+              "fs": 631,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_actual": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_expected": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "stack_hex": "260f37027f020000b677fa3f",
+            "writes": [
+              {
+                "after": 13,
+                "before": 14,
+                "offset": 32
+              },
+              {
+                "after": 216,
+                "before": 40,
+                "offset": 46
+              },
+              {
+                "after": 255,
+                "before": 0,
+                "offset": 47
+              },
+              {
+                "after": 0,
+                "before": 255,
+                "offset": 56
+              },
+              {
+                "after": 1,
+                "before": 0,
+                "offset": 64
+              },
+              {
+                "after": 144,
+                "before": 0,
+                "offset": 70
+              },
+              {
+                "after": 1,
+                "before": 0,
+                "offset": 71
+              },
+              {
+                "after": 128,
+                "before": 0,
+                "offset": 74
+              }
+            ]
+          },
+          "pool": {
+            "active_count": 8,
+            "kind_0x64": [],
+            "kind_0x64_count": 0,
+            "objects": [
+              {
+                "action_word": 0,
+                "callback": 16376,
+                "callback_data": 65535,
+                "index": 0,
+                "kind": 0,
+                "lifetime": 65526,
+                "offset": 0,
+                "phase": 2,
+                "player_byte_0x36": 255,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 255,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 1,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 128,
+                  "x_fixed": 8388608,
+                  "x_fixed_signed": 8388608,
+                  "y": 400,
+                  "y_fixed": 26214400,
+                  "y_fixed_signed": 26214400
+                },
+                "selector": 639,
+                "sprite_slot": 0,
+                "state_field": 40,
+                "state_field_signed": 655400,
+                "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000e006c316c31000001010000f6ff28000a0000000000ff00ff00000100000000",
+                "target_cursor": 10,
+                "target_emitter_slot": 0,
+                "update_state": 0,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 0,
+                "velocity_y_fixed_signed": 0
+              },
+              {
+                "action_word": 0,
+                "callback": 18407,
+                "callback_data": 5650,
+                "index": 3,
+                "kind": 0,
+                "lifetime": 272,
+                "offset": 360,
+                "phase": 1,
+                "player_byte_0x36": 0,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 0,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 0,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 272,
+                  "x_fixed": 17825792,
+                  "x_fixed_signed": 17825792,
+                  "y": 209,
+                  "y_fixed": 13715412,
+                  "y_fixed_signed": 13715412
+                },
+                "selector": 639,
+                "sprite_slot": 703,
+                "state_field": 0,
+                "state_field_signed": 13631488,
+                "state_hex": "000000001001d447d10000000000d4470100bf0200000001e747121697190a0009002833283300000100000010010000d0000c00000000000000000000000000",
+                "target_cursor": 208,
+                "target_emitter_slot": 0,
+                "update_state": 12,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 83924,
+                "velocity_y_fixed_signed": 83924
+              },
+              {
+                "action_word": 0,
+                "callback": 18407,
+                "callback_data": 5826,
+                "index": 4,
+                "kind": 0,
+                "lifetime": 288,
+                "offset": 480,
+                "phase": 1,
+                "player_byte_0x36": 0,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 0,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 0,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 288,
+                  "x_fixed": 18874368,
+                  "x_fixed_signed": 18874368,
+                  "y": 257,
+                  "y_fixed": 16849236,
+                  "y_fixed_signed": 16849236
+                },
+                "selector": 639,
+                "sprite_slot": 703,
+                "state_field": 0,
+                "state_field_signed": 16777216,
+                "state_hex": "000000002001541901010000000054190100bf0200000001e747c21697190a000900283328330000010000002001000000010c00000000000000000000000000",
+                "target_cursor": 256,
+                "target_emitter_slot": 0,
+                "update_state": 12,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 72020,
+                "velocity_y_fixed_signed": 72020
+              },
+              {
+                "action_word": 0,
+                "callback": 36128,
+                "callback_data": 6146,
+                "index": 5,
+                "kind": 0,
+                "lifetime": 1,
+                "offset": 600,
+                "phase": 1,
+                "player_byte_0x36": 0,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 0,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 0,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 257,
+                  "x_fixed": 16842752,
+                  "x_fixed_signed": 16842752,
+                  "y": 366,
+                  "y_fixed": 23986176,
+                  "y_fixed_signed": 23986176
+                },
+                "selector": 639,
+                "sprite_slot": 607,
+                "state_field": 0,
+                "state_field_signed": 0,
+                "state_hex": "00000000010100006e0100000000000000005f0200000001208d0218971900000000000000000000010000000100000000000000000000000000000000000000",
+                "target_cursor": 0,
+                "target_emitter_slot": 0,
+                "update_state": 0,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 0,
+                "velocity_y_fixed_signed": 0
+              },
+              {
+                "action_word": 0,
+                "callback": 18407,
+                "callback_data": 5642,
+                "index": 6,
+                "kind": 0,
+                "lifetime": 192,
+                "offset": 720,
+                "phase": 1,
+                "player_byte_0x36": 0,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 0,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 0,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 192,
+                  "x_fixed": 12582912,
+                  "x_fixed_signed": 12582912,
+                  "y": 225,
+                  "y_fixed": 14747988,
+                  "y_fixed_signed": 14747988
+                },
+                "selector": 639,
+                "sprite_slot": 700,
+                "state_field": 0,
+                "state_field_signed": 14680064,
+                "state_hex": "00000000c0005409e1000000000054090100bc0200000001e7470a1697190800070014331433000001000000c0000000e0000c00000000000000000000000000",
+                "target_cursor": 224,
+                "target_emitter_slot": 0,
+                "update_state": 12,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 67924,
+                "velocity_y_fixed_signed": 67924
+              },
+              {
+                "action_word": 0,
+                "callback": 18407,
+                "callback_data": 5818,
+                "index": 7,
+                "kind": 0,
+                "lifetime": 224,
+                "offset": 840,
+                "phase": 1,
+                "player_byte_0x36": 0,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 0,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 0,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 224,
+                  "x_fixed": 14680064,
+                  "x_fixed_signed": 14680064,
+                  "y": 257,
+                  "y_fixed": 16852820,
+                  "y_fixed_signed": 16852820
+                },
+                "selector": 639,
+                "sprite_slot": 703,
+                "state_field": 0,
+                "state_field_signed": 16777216,
+                "state_hex": "00000000e000542701010000000054270100bf0200000001e747ba1697190a00090028332833000001000000e000000000010c00000000000000000000000000",
+                "target_cursor": 256,
+                "target_emitter_slot": 0,
+                "update_state": 12,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 75604,
+                "velocity_y_fixed_signed": 75604
+              },
+              {
+                "action_word": 0,
+                "callback": 18407,
+                "callback_data": 5634,
+                "index": 8,
+                "kind": 0,
+                "lifetime": 144,
+                "offset": 960,
+                "phase": 1,
+                "player_byte_0x36": 0,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 0,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 0,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 144,
+                  "x_fixed": 9437184,
+                  "x_fixed_signed": 9437184,
+                  "y": 209,
+                  "y_fixed": 13716308,
+                  "y_fixed_signed": 13716308
+                },
+                "selector": 639,
+                "sprite_slot": 700,
+                "state_field": 0,
+                "state_field_signed": 13631488,
+                "state_hex": "000000009000544bd10000000000544b0100bc0200000001e74702169719080007001433143300000100000090000000d0000c00000000000000000000000000",
+                "target_cursor": 208,
+                "target_emitter_slot": 0,
+                "update_state": 12,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 84820,
+                "velocity_y_fixed_signed": 84820
+              },
+              {
+                "action_word": 0,
+                "callback": 18407,
+                "callback_data": 5810,
+                "index": 9,
+                "kind": 0,
+                "lifetime": 128,
+                "offset": 1080,
+                "phase": 1,
+                "player_byte_0x36": 0,
+                "player_byte_0x37": 0,
+                "player_byte_0x38": 0,
+                "player_byte_0x39": 0,
+                "player_byte_0x3a": 0,
+                "player_byte_0x3b": 0,
+                "player_word_0x3e": 0,
+                "position": {
+                  "x": 128,
+                  "x_fixed": 8388608,
+                  "x_fixed_signed": 8388608,
+                  "y": 257,
+                  "y_fixed": 16843220,
+                  "y_fixed_signed": 16843220
+                },
+                "selector": 639,
+                "sprite_slot": 703,
+                "state_field": 0,
+                "state_field_signed": 16777216,
+                "state_hex": "000000008000d401010100000000d4010100bf0200000001e747b21697190a000900283328330000010000008000000000010c00000000000000000000000000",
+                "target_cursor": 256,
+                "target_emitter_slot": 0,
+                "update_state": 12,
+                "velocity_x_fixed": 0,
+                "velocity_x_fixed_signed": 0,
+                "velocity_y_fixed": 66004,
+                "velocity_y_fixed_signed": 66004
+              }
+            ],
+            "offset": 0,
+            "selector": 639,
+            "stride": 120
+          },
+          "registers": {
+            "cs": 503,
+            "ds": 567,
+            "eax": 81912,
+            "ebp": 16378,
+            "ebx": 512,
+            "ecx": 3016,
+            "edi": 0,
+            "edx": 1838655,
+            "eip": 16376,
+            "es": 639,
+            "esi": 30646,
+            "esp": 15060,
+            "flags": 12870,
+            "fs": 631,
+            "gs": 655,
+            "ss": 575
+          },
+          "related_breakpoints": [],
+          "scheduler": {
+            "base": 30054,
+            "entries": [
+              {
+                "callback": {
+                  "offset": 18407,
+                  "segment": 6551
+                },
+                "index": 0,
+                "object": {
+                  "offset": 360,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 18407,
+                  "segment": 6551
+                },
+                "index": 1,
+                "object": {
+                  "offset": 480,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 36128,
+                  "segment": 6551
+                },
+                "index": 2,
+                "object": {
+                  "offset": 600,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 18407,
+                  "segment": 6551
+                },
+                "index": 3,
+                "object": {
+                  "offset": 720,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 18407,
+                  "segment": 6551
+                },
+                "index": 4,
+                "object": {
+                  "offset": 840,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 18407,
+                  "segment": 6551
+                },
+                "index": 5,
+                "object": {
+                  "offset": 960,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 18407,
+                  "segment": 6551
+                },
+                "index": 6,
+                "object": {
+                  "offset": 1080,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 65535,
+                  "segment": 6551
+                },
+                "index": 7,
+                "object": {
+                  "offset": 840,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 18215,
+                  "segment": 6551
+                },
+                "index": 8,
+                "object": {
+                  "offset": 960,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 18215,
+                  "segment": 6551
+                },
+                "index": 9,
+                "object": {
+                  "offset": 1080,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 65535,
+                  "segment": 0
+                },
+                "index": 10,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 11,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 12,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 13,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 14,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 15,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 16,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 17,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 18,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 19,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 20,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 21,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 22,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 23,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 24,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 25,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 26,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 27,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 28,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 29,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 30,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 31,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 32,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 33,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 34,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 35,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 36,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 37,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 38,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 39,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 40,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 41,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 42,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 43,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 44,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 45,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 46,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 47,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 48,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 49,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 50,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 51,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 52,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 53,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 54,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 55,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 56,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 57,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 58,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 59,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 60,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 61,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 62,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              },
+              {
+                "callback": {
+                  "offset": 0,
+                  "segment": 0
+                },
+                "index": 63,
+                "object": {
+                  "offset": 0,
+                  "selector": 0
+                }
+              }
+            ],
+            "stride": 8
+          },
+          "sequence": 1
+        },
+        {
+          "breakpoint": {
+            "offset": 16376,
+            "segment": 503
+          },
+          "breakpoint_owners": [
+            "callback"
+          ],
+          "frame_index": 1,
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 262,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 212,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "last_scan_code": 0,
+            "map_row_stride": 540,
+            "object_count": 4,
+            "object_list_cursor": 0,
+            "player_control_word": 0,
+            "player_object_offset": 0,
+            "player_reset_state": 0,
+            "player_transition_word": 0,
+            "player_vertical_adjust": 0,
+            "target_active_count": 0,
+            "target_capacity": 4,
+            "target_entries": {
+              "1": {
+                "index": 0,
+                "x": 0,
+                "y": 0
+              },
+              "10": {
+                "index": 9,
+                "x": 0,
+                "y": 0
+              },
+              "2": {
+                "index": 1,
+                "x": 0,
+                "y": 0
+              },
+              "3": {
+                "index": 2,
+                "x": 0,
+                "y": 0
+              },
+              "4": {
+                "index": 3,
+                "x": 0,
+                "y": 0
+              },
+              "5": {
+                "index": 4,
+                "x": 0,
+                "y": 0
+              },
+              "6": {
+                "index": 5,
+                "x": 0,
+                "y": 0
+              },
+              "7": {
+                "index": 6,
+                "x": 0,
+                "y": 0
+              },
+              "8": {
+                "index": 7,
+                "x": 0,
+                "y": 0
+              },
+              "9": {
+                "index": 8,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "transition_error": 0,
+            "transition_event": 0,
+            "transition_flags": 3,
+            "transition_state": 0
+          },
+          "player_callback": {
+            "breakpoint": {
+              "offset": 16376,
+              "segment": 503
+            },
+            "callback_offset": 16376,
+            "global_writes": [
+              {
+                "after": 213,
+                "before": 212,
+                "field": "horizontal_timer"
+              }
+            ],
+            "object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000d006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "post_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 213,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "post_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000c006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "pre_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 212,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "pre_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000d006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "record_size": 120,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 81912,
+              "ebp": 16378,
+              "ebx": 59179008,
+              "ecx": 0,
+              "edi": 0,
+              "edx": 975,
+              "eip": 16376,
+              "es": 639,
+              "esi": 30118,
+              "esp": 15060,
+              "flags": 12870,
+              "fs": 631,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_actual": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_expected": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "stack_hex": "260f37027f020000a675fa3f",
+            "writes": [
+              {
+                "after": 12,
+                "before": 13,
+                "offset": 32
+              }
+            ]
+          },
+          "registers": {
+            "cs": 503,
+            "ds": 567,
+            "eax": 81912,
+            "ebp": 16378,
+            "ebx": 59179008,
+            "ecx": 0,
+            "edi": 0,
+            "edx": 975,
+            "eip": 16376,
+            "es": 639,
+            "esi": 30118,
+            "esp": 15060,
+            "flags": 12870,
+            "fs": 631,
+            "gs": 655,
+            "ss": 575
+          },
+          "related_breakpoints": [],
+          "sequence": 2
+        },
+        {
+          "breakpoint": {
+            "offset": 16376,
+            "segment": 503
+          },
+          "breakpoint_owners": [
+            "callback"
+          ],
+          "frame_index": 2,
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 262,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 213,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "last_scan_code": 0,
+            "map_row_stride": 540,
+            "object_count": 4,
+            "object_list_cursor": 0,
+            "player_control_word": 0,
+            "player_object_offset": 0,
+            "player_reset_state": 0,
+            "player_transition_word": 0,
+            "player_vertical_adjust": 0,
+            "target_active_count": 0,
+            "target_capacity": 4,
+            "target_entries": {
+              "1": {
+                "index": 0,
+                "x": 0,
+                "y": 0
+              },
+              "10": {
+                "index": 9,
+                "x": 0,
+                "y": 0
+              },
+              "2": {
+                "index": 1,
+                "x": 0,
+                "y": 0
+              },
+              "3": {
+                "index": 2,
+                "x": 0,
+                "y": 0
+              },
+              "4": {
+                "index": 3,
+                "x": 0,
+                "y": 0
+              },
+              "5": {
+                "index": 4,
+                "x": 0,
+                "y": 0
+              },
+              "6": {
+                "index": 5,
+                "x": 0,
+                "y": 0
+              },
+              "7": {
+                "index": 6,
+                "x": 0,
+                "y": 0
+              },
+              "8": {
+                "index": 7,
+                "x": 0,
+                "y": 0
+              },
+              "9": {
+                "index": 8,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "transition_error": 0,
+            "transition_event": 0,
+            "transition_flags": 3,
+            "transition_state": 0
+          },
+          "player_callback": {
+            "breakpoint": {
+              "offset": 16376,
+              "segment": 503
+            },
+            "callback_offset": 16376,
+            "global_writes": [
+              {
+                "after": 214,
+                "before": 213,
+                "field": "horizontal_timer"
+              }
+            ],
+            "object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000c006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "post_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 214,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "post_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000b006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "pre_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 213,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "pre_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000c006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "record_size": 120,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 16376,
+              "ebp": 16378,
+              "ebx": 59179520,
+              "ecx": 0,
+              "edi": 0,
+              "edx": 975,
+              "eip": 16376,
+              "es": 639,
+              "esi": 30630,
+              "esp": 15060,
+              "flags": 12870,
+              "fs": 631,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_actual": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_expected": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "stack_hex": "260f37027f020000a677fa3f",
+            "writes": [
+              {
+                "after": 11,
+                "before": 12,
+                "offset": 32
+              }
+            ]
+          },
+          "registers": {
+            "cs": 503,
+            "ds": 567,
+            "eax": 16376,
+            "ebp": 16378,
+            "ebx": 59179520,
+            "ecx": 0,
+            "edi": 0,
+            "edx": 975,
+            "eip": 16376,
+            "es": 639,
+            "esi": 30630,
+            "esp": 15060,
+            "flags": 12870,
+            "fs": 631,
+            "gs": 655,
+            "ss": 575
+          },
+          "related_breakpoints": [],
+          "sequence": 3
+        },
+        {
+          "breakpoint": {
+            "offset": 16376,
+            "segment": 503
+          },
+          "breakpoint_owners": [
+            "callback"
+          ],
+          "frame_index": 3,
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 262,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 214,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "last_scan_code": 0,
+            "map_row_stride": 540,
+            "object_count": 4,
+            "object_list_cursor": 0,
+            "player_control_word": 0,
+            "player_object_offset": 0,
+            "player_reset_state": 0,
+            "player_transition_word": 0,
+            "player_vertical_adjust": 0,
+            "target_active_count": 0,
+            "target_capacity": 4,
+            "target_entries": {
+              "1": {
+                "index": 0,
+                "x": 0,
+                "y": 0
+              },
+              "10": {
+                "index": 9,
+                "x": 0,
+                "y": 0
+              },
+              "2": {
+                "index": 1,
+                "x": 0,
+                "y": 0
+              },
+              "3": {
+                "index": 2,
+                "x": 0,
+                "y": 0
+              },
+              "4": {
+                "index": 3,
+                "x": 0,
+                "y": 0
+              },
+              "5": {
+                "index": 4,
+                "x": 0,
+                "y": 0
+              },
+              "6": {
+                "index": 5,
+                "x": 0,
+                "y": 0
+              },
+              "7": {
+                "index": 6,
+                "x": 0,
+                "y": 0
+              },
+              "8": {
+                "index": 7,
+                "x": 0,
+                "y": 0
+              },
+              "9": {
+                "index": 8,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "transition_error": 0,
+            "transition_event": 0,
+            "transition_flags": 3,
+            "transition_state": 0
+          },
+          "player_callback": {
+            "breakpoint": {
+              "offset": 16376,
+              "segment": 503
+            },
+            "callback_offset": 16376,
+            "global_writes": [
+              {
+                "after": 215,
+                "before": 214,
+                "field": "horizontal_timer"
+              }
+            ],
+            "object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000b006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "post_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 215,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "post_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000a006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "pre_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 214,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "pre_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000b006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "record_size": 120,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 16376,
+              "ebp": 16378,
+              "ebx": 59179008,
+              "ecx": 0,
+              "edi": 0,
+              "edx": 975,
+              "eip": 16376,
+              "es": 639,
+              "esi": 30118,
+              "esp": 15060,
+              "flags": 12870,
+              "fs": 631,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_actual": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_expected": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "stack_hex": "260f37027f020000a675fa3f",
+            "writes": [
+              {
+                "after": 10,
+                "before": 11,
+                "offset": 32
+              }
+            ]
+          },
+          "registers": {
+            "cs": 503,
+            "ds": 567,
+            "eax": 16376,
+            "ebp": 16378,
+            "ebx": 59179008,
+            "ecx": 0,
+            "edi": 0,
+            "edx": 975,
+            "eip": 16376,
+            "es": 639,
+            "esi": 30118,
+            "esp": 15060,
+            "flags": 12870,
+            "fs": 631,
+            "gs": 655,
+            "ss": 575
+          },
+          "related_breakpoints": [],
+          "sequence": 4
+        },
+        {
+          "breakpoint": {
+            "offset": 16376,
+            "segment": 503
+          },
+          "breakpoint_owners": [
+            "callback"
+          ],
+          "frame_index": 4,
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 262,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 215,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "last_scan_code": 0,
+            "map_row_stride": 540,
+            "object_count": 4,
+            "object_list_cursor": 0,
+            "player_control_word": 0,
+            "player_object_offset": 0,
+            "player_reset_state": 0,
+            "player_transition_word": 0,
+            "player_vertical_adjust": 0,
+            "target_active_count": 0,
+            "target_capacity": 4,
+            "target_entries": {
+              "1": {
+                "index": 0,
+                "x": 0,
+                "y": 0
+              },
+              "10": {
+                "index": 9,
+                "x": 0,
+                "y": 0
+              },
+              "2": {
+                "index": 1,
+                "x": 0,
+                "y": 0
+              },
+              "3": {
+                "index": 2,
+                "x": 0,
+                "y": 0
+              },
+              "4": {
+                "index": 3,
+                "x": 0,
+                "y": 0
+              },
+              "5": {
+                "index": 4,
+                "x": 0,
+                "y": 0
+              },
+              "6": {
+                "index": 5,
+                "x": 0,
+                "y": 0
+              },
+              "7": {
+                "index": 6,
+                "x": 0,
+                "y": 0
+              },
+              "8": {
+                "index": 7,
+                "x": 0,
+                "y": 0
+              },
+              "9": {
+                "index": 8,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "transition_error": 0,
+            "transition_event": 0,
+            "transition_flags": 3,
+            "transition_state": 0
+          },
+          "player_callback": {
+            "breakpoint": {
+              "offset": 16376,
+              "segment": 503
+            },
+            "callback_offset": 16376,
+            "global_writes": [
+              {
+                "after": 216,
+                "before": 215,
+                "field": "horizontal_timer"
+              }
+            ],
+            "object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000a006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "post_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 216,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "post_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e0009006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "pre_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 215,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "pre_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000a006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "record_size": 120,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 16376,
+              "ebp": 16378,
+              "ebx": 59179520,
+              "ecx": 0,
+              "edi": 0,
+              "edx": 975,
+              "eip": 16376,
+              "es": 639,
+              "esi": 30630,
+              "esp": 15060,
+              "flags": 12870,
+              "fs": 631,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_actual": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_expected": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "stack_hex": "260f37027f020000a677fa3f",
+            "writes": [
+              {
+                "after": 9,
+                "before": 10,
+                "offset": 32
+              }
+            ]
+          },
+          "registers": {
+            "cs": 503,
+            "ds": 567,
+            "eax": 16376,
+            "ebp": 16378,
+            "ebx": 59179520,
+            "ecx": 0,
+            "edi": 0,
+            "edx": 975,
+            "eip": 16376,
+            "es": 639,
+            "esi": 30630,
+            "esp": 15060,
+            "flags": 12870,
+            "fs": 631,
+            "gs": 655,
+            "ss": 575
+          },
+          "related_breakpoints": [],
+          "sequence": 5
+        },
+        {
+          "breakpoint": {
+            "offset": 16376,
+            "segment": 503
+          },
+          "breakpoint_owners": [
+            "callback"
+          ],
+          "frame_index": 5,
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 262,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 216,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "last_scan_code": 0,
+            "map_row_stride": 540,
+            "object_count": 4,
+            "object_list_cursor": 0,
+            "player_control_word": 0,
+            "player_object_offset": 0,
+            "player_reset_state": 0,
+            "player_transition_word": 0,
+            "player_vertical_adjust": 0,
+            "target_active_count": 0,
+            "target_capacity": 4,
+            "target_entries": {
+              "1": {
+                "index": 0,
+                "x": 0,
+                "y": 0
+              },
+              "10": {
+                "index": 9,
+                "x": 0,
+                "y": 0
+              },
+              "2": {
+                "index": 1,
+                "x": 0,
+                "y": 0
+              },
+              "3": {
+                "index": 2,
+                "x": 0,
+                "y": 0
+              },
+              "4": {
+                "index": 3,
+                "x": 0,
+                "y": 0
+              },
+              "5": {
+                "index": 4,
+                "x": 0,
+                "y": 0
+              },
+              "6": {
+                "index": 5,
+                "x": 0,
+                "y": 0
+              },
+              "7": {
+                "index": 6,
+                "x": 0,
+                "y": 0
+              },
+              "8": {
+                "index": 7,
+                "x": 0,
+                "y": 0
+              },
+              "9": {
+                "index": 8,
+                "x": 0,
+                "y": 0
+              }
+            },
+            "transition_error": 0,
+            "transition_event": 0,
+            "transition_flags": 3,
+            "transition_state": 0
+          },
+          "player_callback": {
+            "breakpoint": {
+              "offset": 16376,
+              "segment": 503
+            },
+            "callback_offset": 16376,
+            "global_writes": [
+              {
+                "after": 217,
+                "before": 216,
+                "field": "horizontal_timer"
+              }
+            ],
+            "object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e0009006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "post_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 217,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "post_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e0008006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "pre_globals": {
+              "camera_x": 0,
+              "camera_y": 262,
+              "horizontal_accumulator": 0,
+              "horizontal_aux": 0,
+              "horizontal_branch_counter": 0,
+              "horizontal_limit": 0,
+              "horizontal_result_byte": 0,
+              "horizontal_timer": 216,
+              "input_action_flags": 0,
+              "keyboard_action_flags": 0,
+              "last_scan_code": 0,
+              "map_row_stride": 540,
+              "object_count": 4,
+              "object_list_cursor": 0,
+              "player_control_word": 0,
+              "player_object_offset": 0,
+              "player_reset_state": 0,
+              "player_transition_word": 0,
+              "player_vertical_adjust": 0,
+              "target_active_count": 0,
+              "target_capacity": 4,
+              "target_entries": {
+                "1": {
+                  "index": 0,
+                  "x": 0,
+                  "y": 0
+                },
+                "10": {
+                  "index": 9,
+                  "x": 0,
+                  "y": 0
+                },
+                "2": {
+                  "index": 1,
+                  "x": 0,
+                  "y": 0
+                },
+                "3": {
+                  "index": 2,
+                  "x": 0,
+                  "y": 0
+                },
+                "4": {
+                  "index": 3,
+                  "x": 0,
+                  "y": 0
+                },
+                "5": {
+                  "index": 4,
+                  "x": 0,
+                  "y": 0
+                },
+                "6": {
+                  "index": 5,
+                  "x": 0,
+                  "y": 0
+                },
+                "7": {
+                  "index": 6,
+                  "x": 0,
+                  "y": 0
+                },
+                "8": {
+                  "index": 7,
+                  "x": 0,
+                  "y": 0
+                },
+                "9": {
+                  "index": 8,
+                  "x": 0,
+                  "y": 0
+                }
+              },
+              "transition_error": 0,
+              "transition_event": 0,
+              "transition_flags": 3,
+              "transition_state": 0
+            },
+            "pre_object": {
+              "action_word": 0,
+              "callback": 16376,
+              "callback_data": 65535,
+              "index": -1,
+              "kind": 0,
+              "lifetime": 65526,
+              "offset": 0,
+              "phase": 2,
+              "player_byte_0x36": 255,
+              "player_byte_0x37": 0,
+              "player_byte_0x38": 0,
+              "player_byte_0x39": 0,
+              "player_byte_0x3a": 0,
+              "player_byte_0x3b": 1,
+              "player_word_0x3e": 0,
+              "position": {
+                "x": 128,
+                "x_fixed": 8388608,
+                "x_fixed_signed": 8388608,
+                "y": 400,
+                "y_fixed": 26214400,
+                "y_fixed_signed": 26214400
+              },
+              "selector": 639,
+              "sprite_slot": 0,
+              "state_field": 65496,
+              "state_field_signed": 720856,
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e0009006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "state_size": 120,
+              "target_cursor": 10,
+              "target_emitter_slot": 0,
+              "update_state": 0,
+              "velocity_x_fixed": 0,
+              "velocity_x_fixed_signed": 0,
+              "velocity_y_fixed": 0,
+              "velocity_y_fixed_signed": 0,
+              "vertical_step": 40,
+              "vertical_step_signed": 40
+            },
+            "record_size": 120,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 16376,
+              "ebp": 16378,
+              "ebx": 59179008,
+              "ecx": 0,
+              "edi": 0,
+              "edx": 975,
+              "eip": 16376,
+              "es": 639,
+              "esi": 30118,
+              "esp": 15060,
+              "flags": 12870,
+              "fs": 631,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_actual": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_expected": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "stack_hex": "260f37027f020000a675fa3f",
+            "writes": [
+              {
+                "after": 8,
+                "before": 9,
+                "offset": 32
+              }
+            ]
+          },
+          "registers": {
+            "cs": 503,
+            "ds": 567,
+            "eax": 16376,
+            "ebp": 16378,
+            "ebx": 59179008,
+            "ecx": 0,
+            "edi": 0,
+            "edx": 975,
+            "eip": 16376,
+            "es": 639,
+            "esi": 30118,
+            "esp": 15060,
+            "flags": 12870,
+            "fs": 631,
+            "gs": 655,
+            "ss": 575
+          },
+          "related_breakpoints": [],
+          "sequence": 6
+        }
+      ],
+      "trace_schema_version": 1
+    }
+  ]
+}

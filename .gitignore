@@ -38,6 +38,8 @@ research/notes/*
 !research/notes/type-7a-puzzle-sheet.png
 !research/notes/actual-game-state.md
 !research/notes/research-consolidation.md
+!research/notes/player-horizontal.md
+research/evidence/player-horizontal/*.dosbox.log
 research/extracted/tools/QuikyLevelEditor/build/
 research/extracted/tools/QuikyLevelEditor/dist/
 research/extracted/tools/QuikyLevelEditor/nbproject/private/
