@@ -262,7 +262,11 @@ scan in the same loaded buffer. Level selection is separately observed to
 reread the ARE resource. A stateful W1L1 type-0x6F collect-then-reload probe
 now reconstructs the same declaration and reinstalls callback `01F7:8D20`, so
 pickup reload persistence is resolved as reset/reconstruction behavior in the
-tested fixture. A final-letter W1L1 probe then forced `DS:60D8=0x3F`, collected
+tested fixture. The same authored collect-then-reload control now covers paper
+`0x2C`: its `8C4E -> 8D20` callback clears the live object, and a later W1L1
+selection rereads the declaration and reinstalls `8D20` with slot 710. See
+[`entity-paper-reload-evidence.json`](../entity-paper-reload-evidence.json).
+A final-letter W1L1 probe then forced `DS:60D8=0x3F`, collected
 type `0x7F`, reached `DS:60D8=0x7F`, emitted action `11`, and cleared the letter;
 after 1,800 gameplay frames the mask and W1L1 resource span were unchanged and
 no level transition occurred. Static disassembly of selector `01D7` now closes
@@ -490,11 +494,13 @@ The same pass closes the branch-level behavior for the remaining effects:
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
   while below 9), and clears the live callback. `01D7:1084` initializes the
   counter from `DS:88B0+3`, while `01F7:5936` clamps and renders changed values
-  and `01F7:5BEE` resets its display cache. The remaining uncertainty is the
-  counter's human-facing label and authored reload persistence. A main-tree
-  W1L1 trace captured `8C4E -> 8D20` with `DS:880A=4`; the controlled fixture
-  did not enter the overlap effect branch, so the increment itself remains
-  supported by the existing W1L2 overlap ledger plus the static consumer pass.
+  and `01F7:5BEE` resets its display cache. Authored W1L1 collect-then-reload
+  now confirms reset/reconstruction persistence for this family; only the
+  counter's human-facing label remains unresolved. A main-tree W1L1 trace
+  captured `8C4E -> 8D20` with `DS:880A=4`; the controlled fixture did not
+  enter the overlap effect branch, so the increment itself remains supported
+  by the existing W1L2 overlap ledger plus the static consumer pass. See
+  [`entity-paper-reload-evidence.json`](../entity-paper-reload-evidence.json).
 - Dedicated events `178D/1798/17A3 -> 1749` seed subtype bytes `0x00/0x08/0x10`;
   child callback `10B5` decrements its lifetime and clears at zero, while
   `1186 -> 11B4` renders world-specific ICO data without collision.
