@@ -510,6 +510,58 @@ distinct `+0x2A` cursor and `4B70` phase-transition action, so they should be
 traced as a separate family of stateful effect handlers rather than forced
 into the normal dispatch table.
 
+### Dynamic family pass
+
+The object tracer now has a generic target-list probe. It writes one signed
+target relative to the selected object's current pixel position, sets
+`DS:8806=1`/`DS:8808=1`, and resets a caller-selected cursor field. The default
+cursor is `object+0x30`; `--probe-target-cursor-offset 0x2A` is available for
+the high-address handlers. This is deliberately independent of the existing
+type-`0x33` absolute-coordinate probe.
+
+The first controlled target was placed at `object.x, object.y-10`. Because the
+normal initializers move their objects before entering the steady callback,
+the target is consumed on the following callback. Camera-centered runs then
+gave these direct checks:
+
+| Representative | Steady callback | Static tail | Target result | Post-hit result |
+| --- | --- | --- | --- | --- |
+| type `0x01` | `6DC4` | `707B` | X cleared, Y retained, cursor advanced | callback `4AB3` |
+| type `0x03` | `68C0` | `6D01` | X cleared, Y retained, cursor advanced | callback `4AB3` |
+| type `0x09` | `715E` | `76BF` | X cleared, Y retained, cursor advanced | callback `4AB3` |
+| type `0x0B` | `66E1` | `67E0` | X cleared, Y retained, cursor advanced | callback survives; clear-only tail |
+| type `0x19` | `5071` | `5399` | X cleared, Y retained, cursor advanced | callback `4AB3` |
+| type `0x1B` | `5F28` | `62AE` | X cleared, Y retained, cursor advanced | `+0x42` action chain; callback remains until its next state step |
+| types `0x35/0x36` | `546D` | `58A7` | X cleared, Y retained, cursor advanced | `+0x42` action chain, then callback `4AB3` |
+
+The type-`0x35` and type-`0x36` traces are especially useful because they
+reach the shared `4B70`/effect helper path: the target hit records helper
+`01E7:0x0FCF`, changes the callback's state/counter fields, and the next
+steady step installs `4AB3`. This confirms the static `58A7` classification
+and shows that the post-hit action is not merely a sprite-slot change.
+
+The type-`0x03`, `0x0B`, `0x35`, and `0x36` fixtures use redirected stream
+records; camera-centered coordinates must be taken from the live object after
+streaming, not from the catalog placement. Runs centered on the redirected
+runtime object avoid falsely classifying a tail as a visibility deactivation.
+
+The five high tails remain a separate, statically characterized family. Each
+is reached by a dedicated steady callback and has the same contract:
+
+| Tail | Pre-tail steady callback | Initializer | Distinct state |
+| --- | --- | --- | --- |
+| `B266` | `B25D` | `B20B` | `+0x2A` target cursor, `+0x2C` hit counter |
+| `BB17` | `BB0E` | `BABC` | `+0x2A` target cursor, `+0x2C` hit counter |
+| `C331` | `C328` | `C30D` | `+0x2A` target cursor, `+0x2C` hit counter |
+| `CDAC` | `CDA3` | `CD88` | `+0x2A` target cursor, `+0x2C` hit counter |
+| `D563` | `D55A` | `D53F` | `+0x2A` target cursor, `+0x2C` hit counter |
+
+On a match, each clears target X, increments `+0x2C`, calls `4B70`, sets
+`object+0x17=2`, and continues through the family-specific effect update.
+No gameplay names are assigned until one of these handlers is reached in a
+camera-centered live spawn; the static contract is sufficient to model the
+shared target handoff without conflating it with normal ARE sprites.
+
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction
 matters for breakpoints and callback reconstruction. The shared list is a

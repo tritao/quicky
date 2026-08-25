@@ -145,6 +145,23 @@ tail before returning:
 | `0x33` | `01F7:882F` | `01F7:8AE5` | snow-family object |
 | `0x35/0x36` | `01F7:546D` | `01F7:58A7` | later normal family |
 
+The generic object tracer can inject one target relative to the selected
+object (`--probe-target-x-delta`/`--probe-target-y-delta`). Its default cursor
+field is `+0x30`; the high-address family can be probed with
+`--probe-target-cursor-offset 0x2A`. Camera-centered dynamic checks confirm
+target-X clearing and cursor advancement for representatives of `707B`,
+`6D01`, `76BF`, `67E0`, `5399`, `62AE`, and `58A7`. The `707B`, `6D01`,
+`76BF`, and `5399` families switch to callback `4AB3`; `67E0` is clear-only;
+`62AE` and `58A7` run their `+0x42` action paths, with `58A7` subsequently
+reaching `4AB3`.
+
+The five high tails are statically grouped as dedicated steady callbacks
+`B25D -> B266`, `BB0E -> BB17`, `C328 -> C331`, `CDA3 -> CDAC`, and
+`D55A -> D563`. Their match path clears target X, increments the separate
+`+0x2C` hit counter, calls `4B70`, sets scheduler phase `+0x17=2`, and then
+continues into the effect-specific state update. Their gameplay identities
+remain intentionally unnamed pending a live camera-centered spawn trace.
+
 | shared | `01F7:44FF` | `reset_target_list` | confirmed | Sets target capacity to four, clears the active count, and zeroes target slots. |
 | shared | `01F7:4519` | `init_target_emitter` | confirmed | Reserves a shared target-list slot and installs callback `45AB`. |
 | shared | `01F7:45AB` | `update_target_emitter` | confirmed | Publishes emitter position and releases when its slot/camera gate invalidates. |

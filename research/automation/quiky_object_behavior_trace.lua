@@ -36,6 +36,9 @@ local probe_type33_target_x = trace_config.probe_type33_target_x
 local probe_type33_target_y = trace_config.probe_type33_target_y
 local probe_type33_target_capacity = trace_config.probe_type33_target_capacity
 local probe_type33_target_cursor = trace_config.probe_type33_target_cursor
+local probe_target_x_delta = trace_config.probe_target_x_delta
+local probe_target_y_delta = trace_config.probe_target_y_delta
+local probe_target_cursor_offset = trace_config.probe_target_cursor_offset or 0x30
 local reactivate_camera_x = trace_config.reactivate_camera_x or -1
 local reactivate_camera_y = trace_config.reactivate_camera_y or -1
 local movement_key = trace_config.movement_key or ""
@@ -339,6 +342,31 @@ local function apply_type33_target_probe(selector, offset)
     end
     if next(applied) == nil then return nil end
     return applied
+end
+
+-- Feed one target through the same shared list consumed by normal ARE tails.
+-- The coordinates are relative to the object's current pixel position so this
+-- probe remains useful when the level streamer places the record differently.
+local function apply_target_probe(selector, offset)
+    if probe_target_x_delta == nil then return nil end
+    local object = object_snapshot(selector, offset)
+    local target_x = (object.position.x + probe_target_x_delta) & 0xffff
+    local target_y = (object.position.y + probe_target_y_delta) & 0xffff
+    dosbox.mem_write("ds", 0x8806, little_word(1))
+    dosbox.mem_write("ds", 0x8808, little_word(1))
+    dosbox.mem_write("ds", 0x87de, little_word(target_x))
+    dosbox.mem_write("ds", 0x87e0, little_word(target_y))
+    dosbox.mem_write_selector(selector, offset + probe_target_cursor_offset,
+                               little_word(0))
+    return {
+        target_x = signed_word_value(target_x),
+        target_y = signed_word_value(target_y),
+        x_delta = probe_target_x_delta,
+        y_delta = probe_target_y_delta,
+        cursor_offset = probe_target_cursor_offset,
+        active_count = 1,
+        capacity = 1,
+    }
 end
 
 local function bounds_object_snapshot()
@@ -873,9 +901,11 @@ while #samples < sample_count and attempts < sample_count * 128 do
                                                    object_offset)
         local type33_target_override = apply_type33_target_probe(
             object_selector, object_offset)
+        local target_override = apply_target_probe(object_selector, object_offset)
         local global_probe_override = apply_global_probe()
         local before = (position_override or descriptor_override or
-                        type33_override or type33_target_override) and
+                        type33_override or type33_target_override or
+                        target_override) and
             object_snapshot(object_selector, object_offset) or natural_before
         if initial_object.observed_scheduler_class == nil then
             initial_object = before
@@ -1072,6 +1102,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
             descriptor_override = descriptor_override,
             type33_override = type33_override,
             type33_target_override = type33_target_override,
+            target_override = target_override,
             global_probe_override = global_probe_override,
             bounds_object_before = bounds_object_before,
             bounds_object_after = bounds_object_snapshot(),

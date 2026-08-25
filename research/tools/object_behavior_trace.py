@@ -63,6 +63,9 @@ class ObjectBehaviorConfig:
     probe_type33_target_y: int | None = None
     probe_type33_target_capacity: int | None = None
     probe_type33_target_cursor: int | None = None
+    probe_target_x_delta: int | None = None
+    probe_target_y_delta: int | None = None
+    probe_target_cursor_offset: int = 0x30
     reactivate_camera_x: int | None = None
     reactivate_camera_y: int | None = None
     movement_key: str = ""
@@ -104,6 +107,9 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "probe_type33_target_y": config.probe_type33_target_y,
         "probe_type33_target_capacity": config.probe_type33_target_capacity,
         "probe_type33_target_cursor": config.probe_type33_target_cursor,
+        "probe_target_x_delta": config.probe_target_x_delta,
+        "probe_target_y_delta": config.probe_target_y_delta,
+        "probe_target_cursor_offset": config.probe_target_cursor_offset,
         "reactivate_camera_x": config.reactivate_camera_x,
         "reactivate_camera_y": config.reactivate_camera_y,
         "movement_key": config.movement_key,
@@ -307,6 +313,13 @@ def build_parser() -> argparse.ArgumentParser:
                         help="override DS:8808 type-0x33 common-tail target capacity")
     parser.add_argument("--probe-type33-target-cursor", type=lambda value: int(value, 0),
                         help="override type-0x33 common-tail cursor word +0x30")
+    parser.add_argument("--probe-target-x-delta", type=lambda value: int(value, 0),
+                        help="write one generic target X relative to the object's pixel X")
+    parser.add_argument("--probe-target-y-delta", type=lambda value: int(value, 0),
+                        help="write one generic target Y relative to the object's pixel Y")
+    parser.add_argument("--probe-target-cursor-offset", type=lambda value: int(value, 0),
+                        default=0x30,
+                        help="object cursor offset for the generic target probe (default: 0x30)")
     parser.add_argument("--reactivate-camera-x", type=int,
                         help="write this camera X after a rejected object and trace its ARE reactivation")
     parser.add_argument("--reactivate-camera-y", type=int,
@@ -384,6 +397,14 @@ def main(argv: list[str] | None = None) -> int:
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if (args.probe_target_x_delta is None) != (args.probe_target_y_delta is None):
+        raise TraceError("--probe-target-x-delta and --probe-target-y-delta must be used together")
+    for name in ("probe_target_x_delta", "probe_target_y_delta"):
+        value = getattr(args, name)
+        if value is not None and not -0x8000 <= value <= 0x7fff:
+            raise TraceError(f"--{name.replace('_', '-')} must be a signed 16-bit value")
+    if not 0 <= args.probe_target_cursor_offset <= 0xffff:
+        raise TraceError("--probe-target-cursor-offset must be between 0 and 65535")
     for name in ("reactivate_camera_x", "reactivate_camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
@@ -474,6 +495,9 @@ def main(argv: list[str] | None = None) -> int:
             probe_type33_target_y=args.probe_type33_target_y,
             probe_type33_target_capacity=args.probe_type33_target_capacity,
             probe_type33_target_cursor=args.probe_type33_target_cursor,
+            probe_target_x_delta=args.probe_target_x_delta,
+            probe_target_y_delta=args.probe_target_y_delta,
+            probe_target_cursor_offset=args.probe_target_cursor_offset,
             reactivate_camera_x=args.reactivate_camera_x,
             reactivate_camera_y=args.reactivate_camera_y,
             movement_key=args.movement_key or "",
