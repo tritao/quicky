@@ -420,6 +420,15 @@ The same pass closes the branch-level behavior for the remaining effects:
   budget after that transition. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 
+  The expanded segment-3 decompile narrows the producer question further:
+  only `4519` claims a row, `45AB` updates its x/y words, and `470C`/`44FF`
+  clear the table. Wind `882F`, UFO `546D`, normal-effect responses, and all
+  five boss damage callbacks are consumers that scan/clear rows, not alternate
+  row writers. Thus Wind/UFO do not have independent `DS:87DE` producers in
+  the recovered code; the remaining authored question is how their level
+  declarations schedule the shared player-state `38EC -> 4519` path and how
+  pending `DS:880C` is consumed after that transition.
+
   A native W1L4 selector trace supplies the first authored counterpart to the
   controlled W1L1 gate probe: the fixture starts with `DS:88AE=1`, and holding
   left Alt naturally produces action `0x0010`, raises `DS:8806` to 1, and leaves

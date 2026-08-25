@@ -298,7 +298,7 @@
         {"type": "0x33", "fixture": "W1L2 synthetic current-build motion trace", "dispatch": "01F7:87D1", "post_initializer": "01F7:882E", "object_callback": "01F7:882F", "sprite_slot": 214, "callback_samples": 64, "trajectory": "x 240->225, y 544", "callback_active_all_samples": true, "evidence": "research/entity-effect-motion-evidence.json"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json", "research/notes/type-33-schnee-sheet.png", "research/entity-targeted-decompile-evidence.json", "research/entity-boss-stage-evidence.json", "research/entity-effect-table-producer-evidence.json"],
-    "open_questions": ["which gameplay state sets player flags bit 0x10 and triggers 01F7:38EC", "which authored completion/boss transition advances DS:88AE", "how the known DS:880C pending-effect producers feed 01F7:38EC -> 4519", "whether Wind declarations have a separate row producer and how they seed DS:87DE", "reset/respawn semantics at 01D7:3FC6 and 01D7:44E9"]
+      "open_questions": ["which gameplay state sets player flags bit 0x10 and triggers 01F7:38EC", "which authored completion/boss transition advances DS:88AE", "how the known DS:880C pending-effect producers feed 01F7:38EC -> 4519", "how Wind declarations are scheduled into the shared player-state producer during authored play", "reset/respawn semantics at 01D7:3FC6 and 01D7:44E9"]
     },
     {
       "id": "bump",
@@ -340,7 +340,7 @@
         {"type": "0x35/0x36", "fixture": "W1L2 synthetic current-build motion traces", "object_callback": "01F7:546D", "callback_samples": 64, "trajectories": {"0x35": "x 240->157, y 544", "0x36": "x 240->322, y 544"}, "callback_active_all_samples": true, "evidence": "research/entity-effect-motion-evidence.json"}
       ],
       "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-effect-motion-evidence.json", "research/entity-targeted-decompile-evidence.json", "research/entity-boss-stage-evidence.json", "research/entity-effect-table-producer-evidence.json"],
-      "open_questions": ["which authored completion/boss transition advances DS:88AE", "how DS:880C pending-effect producers feed 01F7:38EC -> 4519", "whether UFO declarations use the player-state producer or another row producer and how they seed DS:87DE", "reset/respawn semantics at 01D7:3FC6 and 01D7:44E9"]
+      "open_questions": ["which authored completion/boss transition advances DS:88AE", "how DS:880C pending-effect producers feed 01F7:38EC -> 4519", "how UFO declarations are scheduled into the shared player-state producer during authored play", "reset/respawn semantics at 01D7:3FC6 and 01D7:44E9"]
     },
     {
       "id": "moving_platform",
