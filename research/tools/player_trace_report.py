@@ -223,6 +223,16 @@ def render_report(samples: list[PlayerSample], stream: TextIO) -> None:
         ),
         file=stream,
     )
+    puzzle_masks = []
+    for sample in samples:
+        value = sample.globals.get("puzzle_mask_60d8")
+        if isinstance(value, int) and value not in puzzle_masks:
+            puzzle_masks.append(value)
+    print(
+        "puzzle_masks_60d8=" + ",".join(f"0x{value:04x}" for value in puzzle_masks)
+        if puzzle_masks else "puzzle_masks_60d8=-",
+        file=stream,
+    )
 
 
 def _trunc_divide(value: int, divisor: int) -> int:

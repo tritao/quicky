@@ -31,6 +31,23 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertEqual(payload["sprite_init_offset"], 0x6DB0)
         self.assertNotIn("player_callback_offset", payload)
 
+    def test_authored_stream_controls_are_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1782,
+            entity_type=0x79,
+            samples=1,
+            startup_recording=Path("startup.json"),
+            initial_camera_x=576,
+            initial_camera_y=192,
+            prestream_input_key="KBD_right",
+            prestream_input_frames=300,
+        )
+        payload = lua_config(config)
+        self.assertEqual(payload["initial_camera_x"], 576)
+        self.assertEqual(payload["initial_camera_y"], 192)
+        self.assertEqual(payload["prestream_input_key"], "KBD_right")
+        self.assertEqual(payload["prestream_input_frames"], 300)
+
     def test_reload_probe_options_are_serialized(self):
         config = ObjectBehaviorConfig(
             record_offset=0x1838,

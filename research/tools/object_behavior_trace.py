@@ -36,6 +36,10 @@ class ObjectBehaviorConfig:
     poll_interval: float = 0.05
     select_level: str | None = None
     selector_frames: int = 60
+    initial_camera_x: int | None = None
+    initial_camera_y: int | None = None
+    prestream_input_key: str | None = None
+    prestream_input_frames: int = 0
     camera_x: int | None = None
     camera_y: int | None = None
     sprite_init_offset: int = 0
@@ -83,6 +87,10 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "samples": config.samples,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "initial_camera_x": config.initial_camera_x,
+        "initial_camera_y": config.initial_camera_y,
+        "prestream_input_key": config.prestream_input_key or "",
+        "prestream_input_frames": config.prestream_input_frames,
         "camera_x": config.camera_x,
         "camera_y": config.camera_y,
         "sprite_init_offset": config.sprite_init_offset,
@@ -231,6 +239,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--poll-interval", type=float, default=0.05)
     parser.add_argument("--select-level")
     parser.add_argument("--selector-frames", type=int, default=60)
+    parser.add_argument("--initial-camera-x", type=int,
+                        help="debugger-only: set DS:81C0 before authored ARE streaming")
+    parser.add_argument("--initial-camera-y", type=int,
+                        help="debugger-only: set DS:81C4 before authored ARE streaming")
+    parser.add_argument("--prestream-input-key",
+                        help="debugger-only: hold a key while the authored ARE stream advances")
+    parser.add_argument("--prestream-input-frames", type=int, default=0,
+                        help="frames to hold --prestream-input-key before target declaration search")
     parser.add_argument("--camera-x", type=int)
     parser.add_argument("--camera-y", type=int)
     parser.add_argument(
@@ -396,6 +412,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--force-tile-mask must be between 0 and 65535")
     if args.puzzle_probe_frames < 0:
         raise TraceError("--puzzle-probe-frames must be non-negative")
+    if args.prestream_input_frames < 0:
+        raise TraceError("--prestream-input-frames must be non-negative")
+    if args.prestream_input_frames and not args.prestream_input_key:
+        raise TraceError("--prestream-input-frames requires --prestream-input-key")
     if args.trace_cloud_consumers and args.cloud_consumer_offset not in (0x4087, 0x4406):
         raise TraceError("--cloud-consumer-offset must be 0x4087 or 0x4406")
     if args.trace_cloud_outer_renderer and args.entity_type != 0x28:
@@ -410,7 +430,13 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--cloud-hardware-frames must be positive")
     if (args.camera_x is None) != (args.camera_y is None):
         raise TraceError("--camera-x and --camera-y must be used together")
+    if (args.initial_camera_x is None) != (args.initial_camera_y is None):
+        raise TraceError("--initial-camera-x and --initial-camera-y must be used together")
     for name in ("camera_x", "camera_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    for name in ("initial_camera_x", "initial_camera_y"):
         value = getattr(args, name)
         if value is not None and not 0 <= value <= 0xffff:
             raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
@@ -473,6 +499,10 @@ def main(argv: list[str] | None = None) -> int:
             poll_interval=args.poll_interval,
             select_level=args.select_level,
             selector_frames=args.selector_frames,
+            initial_camera_x=args.initial_camera_x,
+            initial_camera_y=args.initial_camera_y,
+            prestream_input_key=args.prestream_input_key,
+            prestream_input_frames=args.prestream_input_frames,
         camera_x=args.camera_x,
         camera_y=args.camera_y,
         sprite_init_offset=args.sprite_init_offset,

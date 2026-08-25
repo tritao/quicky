@@ -9,6 +9,10 @@ local expected_type = trace_config.entity_type or 0x2b
 local sample_count = trace_config.samples or 32
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
+local initial_camera_x = trace_config.initial_camera_x
+local initial_camera_y = trace_config.initial_camera_y
+local prestream_input_key = trace_config.prestream_input_key or ""
+local prestream_input_frames = trace_config.prestream_input_frames or 0
 local camera_x = trace_config.camera_x or -1
 local camera_y = trace_config.camera_y or -1
 local sprite_init_offset = trace_config.sprite_init_offset or 0
@@ -339,6 +343,21 @@ else
     dosbox.key("KBD_space", true)
     dosbox.wait_frames(4)
     dosbox.key("KBD_space", false)
+end
+-- Authored objects may live outside the selector's initial 64-pixel stream
+-- window.  Move only the diagnostic camera before waiting for declarations so
+-- the requested real ARE record can be observed without mutating its bytes.
+if initial_camera_x ~= nil then
+    dosbox.mem_write("ds", 0x81c0, little_word(initial_camera_x))
+    dosbox.mem_write("ds", 0x81c4, little_word(initial_camera_y))
+end
+if prestream_input_key ~= "" and prestream_input_frames > 0 then
+    -- Resume the paused selector declaration, let the retail player/camera
+    -- update drive the normal 64-pixel ARE streamer, then stop before the
+    -- target declaration search.  This keeps authored coordinates intact.
+    dosbox.key(prestream_input_key, true)
+    dosbox.wait_frames(prestream_input_frames)
+    dosbox.key(prestream_input_key, false)
 end
 
 -- Find the requested ARE declaration and let its normal initializer create the

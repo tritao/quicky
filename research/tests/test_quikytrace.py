@@ -212,6 +212,7 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(player_trace_lua_config(config)["frames_between"], 4)
         self.assertEqual(player_trace_lua_config(config)["input_frames"], 0)
         self.assertEqual(player_trace_lua_config(config)["input_samples"], 0)
+        self.assertEqual(player_trace_lua_config(config)["input_secondary_key"], "")
         self.assertFalse(player_trace_lua_config(config)["input_hold_until_callback"])
         self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
         self.assertFalse(player_trace_lua_config(config)["effect_table_focus"])

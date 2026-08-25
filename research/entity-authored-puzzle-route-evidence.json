@@ -1,0 +1,60 @@
+{
+  "schema": "entity-authored-puzzle-route-evidence-v1",
+  "purpose": "Record the first native authored seven-letter route probe and the level-wide placement inventory before attempting exact completion timing.",
+  "inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/player-w1l1-authored-right-jump-long.json",
+    "trace_sha256": "42285199a6470352c0ffa6a6390503f1466906827b24ef82c1993cc92d62a2af",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "67e004c4c9bd6ec4b6859cf4a4f0ba698cf970db9b894d3d3de8f3e97937193b"
+  },
+  "authored_inventory": {
+    "types": ["0x79", "0x7A", "0x7B", "0x7C", "0x7D", "0x7E", "0x7F"],
+    "levels_with_each_type": [
+      "W1L1", "W1L2", "W2L1", "W2L2", "W3L1", "W3L2",
+      "W4L1", "W4L2", "W5L1", "W5L2"
+    ],
+    "w1l1_records": [
+      {"type": "0x79", "letter": "N", "record_offset": "0x1782", "world": [624, 192], "sprite_slot": 600},
+      {"type": "0x7A", "letter": "E", "record_offset": "0x1624", "world": [880, 128], "sprite_slot": 601},
+      {"type": "0x7B", "letter": "S", "record_offset": "0x167C", "world": [1344, 176], "sprite_slot": 602},
+      {"type": "0x7C", "letter": "Q", "record_offset": "0x17B0", "world": [1648, 192], "sprite_slot": 603},
+      {"type": "0x7D", "letter": "U", "record_offset": "0x16BA", "world": [2144, 144], "sprite_slot": 604},
+      {"type": "0x7E", "letter": "I", "record_offset": "0x16CE", "world": [2640, 144], "sprite_slot": 605},
+      {"type": "0x7F", "letter": "K", "record_offset": "0x17F2", "world": [3568, 192], "sprite_slot": 606}
+    ],
+    "interpretation": "Every used world contains the complete seven-type family; letters are authored records, not missing dispatch entries or synthetic-only declarations."
+  },
+  "native_route_probe": {
+    "level": "W1L1",
+    "controls": [
+      "select-level W1L1",
+      "KBD_right held for 600 frames before each post-baseline sample",
+      "KBD_space tapped with the right hold",
+      "six player/object-pool samples at 600-frame intervals",
+      "read-only DS:60D8 capture added to each sample"
+    ],
+    "player_positions": [
+      [128, 400], [937, 400], [1786, 368], [1673, 374], [2451, 368], [1673, 317]
+    ],
+    "camera_positions": [
+      [0, 262], [748, 250], [1605, 246], [1513, 236], [2262, 218], [1513, 194]
+    ],
+    "puzzle_mask_samples": ["0x0000", "0x0000", "0x0000", "0x0000", "0x0000", "0x0000"],
+    "observed_letter_callbacks": [
+      {"sample": 2, "letters": [[624, 192, 600], [880, 128, 601]]},
+      {"sample": 3, "letters": [[1648, 192, 603]]},
+      {"sample": 5, "letters": [[2144, 144, 604]]},
+      {"sample": 6, "letters": [[1648, 192, 603]]}
+    ],
+    "result": "negative_control",
+    "conclusion": "The native rightward/jump sweep reached the authored letter objects and their shared 01F7:8D20 callbacks, but remained on lower platform positions and collected none. The completion gap is now a vertical/platform route problem, not an unknown letter initializer or callback."
+  },
+  "next_probe": {
+    "priority": "high",
+    "method": "Use the authored W1L1 MAP/ARE placement inventory to drive a platform-aware route, sampling DS:60D8 and callback 01F7:8D20 after each letter overlap.",
+    "why_not_more_rightward_sweeps": "The player position wraps or is reset after obstacle/fall states, and repeated right+jump input never reaches the letters' 128-192 vertical bands.",
+    "remaining_completion_gate": "After a native 0x7F collection, trace the unforced DS:89E6 gate and the 01D7:5017/5038/5047 reload calls."
+  }
+}

@@ -284,6 +284,21 @@ See
 [`entity-collectible-persistence-evidence.json`](../entity-collectible-persistence-evidence.json)
 and [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json).
 
+The first authored-route control is now separated from the synthetic final-letter
+fixture.  An archive catalog pass finds all seven types (`0x79`-`0x7F`) in each
+of the ten used levels (`W1L1/W1L2` through `W5L1/W5L2`), with W1L1 placements
+at world coordinates `(624,192)`, `(880,128)`, `(1344,176)`, `(1648,192)`,
+`(2144,144)`, `(2640,144)`, and `(3568,192)`.  A native W1L1 player trace
+holding right for 600 frames per sample and tapping Space records the real
+`01F7:8D20` letter objects and their sprite slots, while read-only samples of
+`DS:60D8` remain `0x0000`.  The player stays on lower platform bands, then
+wraps/resets after obstacle or fall states; no letter overlap occurs.  This is
+a useful negative control: the remaining completion uncertainty is a
+platform-aware authored route and the unforced `DS:89E6`/transition timing, not
+the letter initializer, shared callback, or seven-type inventory.  The exact
+catalog and trace are recorded in
+[`entity-authored-puzzle-route-evidence.json`](../entity-authored-puzzle-route-evidence.json).
+
 The three adjacent pickup subtypes now have controlled native overlap ledgers.
 Type `0x70` adds `250` to `DS:881C` and raises `DS:8822/DS:8824` together;
 type `0x71` adds `100`; type `0x72` adds `150` and conditionally calls

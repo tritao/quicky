@@ -23,6 +23,7 @@ local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
 local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
+local input_secondary_key = trace_config.input_secondary_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
 local input_hold_until_callback = trace_config.input_hold_until_callback or false
@@ -353,6 +354,10 @@ local function static_globals()
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
+        -- Seven-letter puzzle completion mask.  This is read-only evidence
+        -- from the authored gameplay path; unlike the entity probe's forced
+        -- DS:60D8 fixture, it records the live mask at every player sample.
+        puzzle_mask_60d8 = dosbox.mem_read_word("ds", 0x60d8),
         effect_active_count = dosbox.mem_read_word("ds", 0x8806),
         effect_capacity = dosbox.mem_read_word("ds", 0x8808),
         effect_pending_count = dosbox.mem_read_word("ds", 0x880c),
@@ -1206,10 +1211,16 @@ for sequence = 1, sample_count do
         if input_key ~= "" and input_frames > 0 and
            (input_samples == 0 or sequence <= input_samples + 1) then
             dosbox.key(input_key, true)
+            if input_secondary_key ~= "" then
+                dosbox.key(input_secondary_key, true)
+            end
             held_input = input_hold_until_callback
             dosbox.wait_frames(input_frames)
             if not input_hold_until_callback then
                 dosbox.key(input_key, false)
+                if input_secondary_key ~= "" then
+                    dosbox.key(input_secondary_key, false)
+                end
             end
             experiment_frame = experiment_frame + input_frames
         end
@@ -1418,6 +1429,9 @@ for sequence = 1, sample_count do
     end
     if held_input then
         dosbox.key(input_key, false)
+        if input_secondary_key ~= "" then
+            dosbox.key(input_secondary_key, false)
+        end
     end
     samples[#samples + 1] = sample
 end

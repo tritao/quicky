@@ -101,6 +101,7 @@ class PlayerTraceConfig:
     map_width: int = 270
     map_height: int = 30
     input_key: str | None = None
+    input_secondary_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
     input_hold_until_callback: bool = False
@@ -196,6 +197,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "map_width": config.map_width,
         "map_height": config.map_height,
         "input_key": config.input_key or "",
+        "input_secondary_key": config.input_secondary_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
         "input_hold_until_callback": config.input_hold_until_callback,
@@ -725,6 +727,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="loaded MAP height for descriptor census (default 30)")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
+    parser.add_argument("--player-input-secondary-key",
+                        help="hold a second DOSBox key with --player-input-key, e.g. KBD_space")
     parser.add_argument("--player-input-frames", type=int, default=0,
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
@@ -794,6 +798,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-force-action-word requires --player-effect-table-focus")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
+    if args.player_input_secondary_key and not args.player_input_key:
+        raise TraceError("--player-input-secondary-key requires --player-input-key")
     if args.player_map_focus and args.player_collision_focus:
         raise TraceError("--player-map-focus and --player-collision-focus are mutually exclusive")
     if args.player_property_focus and (args.player_map_focus or args.player_collision_focus):
@@ -943,6 +949,7 @@ def main(argv: list[str] | None = None) -> int:
                 map_width=args.player_map_width,
                 map_height=args.player_map_height,
                 input_key=args.player_input_key,
+                input_secondary_key=args.player_input_secondary_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
                 input_hold_until_callback=args.player_input_hold_until_callback,
