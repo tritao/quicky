@@ -74,6 +74,20 @@ public class AnnotateQuiky extends GhidraScript {
             "Clears DS:8196 and DS:88BC before the state-machine/gameplay dispatch loop.");
         function(0x4ac2, "level_selector_input_loop",
             "Runtime-confirmed selector loop: consumes normalized flags 1/2 for level movement and 0x20 for launch.");
+        function(0x0703, "high_score_insert",
+            "Inserts an eligible score into the eight-record table and writes SCORE.DAT.");
+        function(0x1084, "high_score_dispatch",
+            "Dispatches high-score insertion and renders the post-session menu.");
+        function(0x0470, "info_sound_quicky_exit_menu",
+            "Post-death INFO/SOUND/QUICKY/EXIT menu renderer and result loop.");
+        function(0x04ba, "info_sound_quicky_exit_menu_input",
+            "Input/result helper for the post-death INFO/SOUND/QUICKY/EXIT menu.");
+        function(0x3fad, "finalization_menu_update",
+            "Menu/update helper called by 50B1 before the high-score dispatcher returns a result byte.");
+        function(0x50b1, "preserved_score_finalization",
+            "One-time preserved-score/finalization entry; selects the 1084 high-score dispatcher and loops on menu result.");
+        function(0x347a, "session_save_cleanup",
+            "Final save/cleanup helper reached after the result-3 finalization branch.");
     }
 
     private void annotateSegment2() throws Exception {
@@ -277,6 +291,22 @@ public class AnnotateQuiky extends GhidraScript {
             "Collision helper identified by the player callback call graph; runtime input correlation is pending.");
         function(0x648e, "player_collision_helper_648e",
             "Collision helper reached by the player callback; a controlled W1L1 right-input run hits this entry at the persistent ES:0000 record; return semantics remain under test.");
+        function(0x487f, "alternate_completion_initializer",
+            "Initializes the late ending/cutscene object; runtime callers are the world-specific blocks at B82B/C0E2/C933/D2A8/DBE9.");
+        function(0x489c, "alternate_completion_callback",
+            "Updates the late ending/cutscene object and enters the +5000 tally on terminal overlap.");
+        function(0x4968, "alternate_score_tally",
+            "Adds the late +5000 completion score and selects the route-specific continuation.");
+        function(0xb82b, "ending_caller_world_1",
+            "World-specific ending/cutscene caller; writes DS:88AE phase 5 and creates the follow-on object.");
+        function(0xc0e2, "ending_caller_world_2",
+            "World-specific ending/cutscene caller; writes DS:88AE phase 5 and creates the follow-on object.");
+        function(0xc933, "ending_caller_world_3",
+            "World-specific ending/cutscene caller; writes DS:88AE phase 6 and creates the follow-on object.");
+        function(0xd2a8, "ending_caller_world_4",
+            "World-specific ending/cutscene caller; writes DS:88AE phase 5 and creates the follow-on object.");
+        function(0xdbe9, "ending_caller_world_5",
+            "World-specific ending/cutscene caller; writes DS:88AE phase 6 and creates the follow-on object.");
         function(0x69ff, "player_bounds_or_collision_69ff",
             "Reads the persistent offset-zero player record while comparing another object position; higher-level role remains provisional.");
         function(0x44dc, "player_control_transition_44dc",
