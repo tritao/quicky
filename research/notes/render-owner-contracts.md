@@ -23,6 +23,16 @@ effect. This ordering is observed dynamically, but it is still only a
 single-level sample; the recreation should not hard-code it as a universal
 sort rule until another level and a camera transition confirm it.
 
+A corrected W2L3 capture (camera `(0,134)`) shows why the full pool order must
+remain data-driven. That level has thirteen queue records, with slots
+`270, 207, 611, 994, 0, 214, 211, 214, 211, 214, 214, 214, 214`. The effect
+is still record 2, DOKTOR slot `994` is record 3, and the player is record 4;
+the additional ordinary records follow afterward. The W2 effect is `PUFFW2`
+slot `611`, with world position `(300,210)`. Thus the cross-level invariant
+currently supported is “ordinary scheduler owners, transient effect, DOKTOR,
+player, then additional queued owners,” while the exact ordinary prefix is
+level/pool dependent.
+
 ## `B226`: visibility gate plus animation state
 
 Static code at `01F7:B226` is complete enough to model exactly:
@@ -149,6 +159,29 @@ The linked-object and `0x487F` contracts are still open. They should be
 traced as lifecycle/animation calls, not folded into the player collision
 model.
 
+## Linked callback `B84D -> B87B`
+
+The first transition helper is now statically constrained as well. `B84D`
+changes the current record to slot `0x0386`, installs callback `B87B`, clears
+`+0x3A`, initializes `+0x3C` to `0x30000`, and sets the later fixed-point
+vertical step fields. `B87B` then:
+
+- applies the strict camera gate
+  `x-camera+0x10 <= 0x160` and `y-camera+0x10 <= 0xD0`, clearing `+0x18`
+  outside it;
+- uses `1BD1` and four `5C27` descriptor probes to test MAP descriptor
+  flags around the moving object;
+- reverses `+0x29` and `+0x0E` on a qualifying descriptor contact, increments
+  `+0x3A`, and subtracts `0x5000` from the fixed-point bound at `+0x3C`;
+- integrates and clamps the vertical step, updates Y, calls `1C4D` for the
+  directional raw-MAP contact test, and applies the signed X adjustment;
+- transitions through `0x487F` when the later state completes.
+
+This closes the static callback edge but not its runtime lifetime. The next
+trace should follow the same pool record from `B84D` entry through the first
+`B87B` return and confirm whether the linked `+0x2A/+0x36` records are cleared
+at the same boundary or one scheduler pass later.
+
 ## What remains before changing the recreation
 
 1. Capture `B226` from creation at one-frame cadence to recover its exact
@@ -157,7 +190,7 @@ model.
    MAP cells with raw bit `0x4000` to assign its gameplay meaning.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
    and `0x487F`, so object deletion and reactivation are not guessed.
-4. Repeat queue capture on a second level and across one camera movement to
-   distinguish true insertion order from W1L3's current pool allocation.
+4. Repeat queue capture across one camera movement to determine whether the
+   W2L3 prefix and effect/player positions persist as the camera scrolls.
 5. Once those pass, implement a queue-owned render pass in C++ and compare
    matched frames. The current frontend order remains provisional.
