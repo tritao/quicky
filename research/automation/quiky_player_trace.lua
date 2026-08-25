@@ -40,6 +40,11 @@ local secondary_start_sample = trace_config.secondary_start_sample or 1
 local secondary_end_sample = trace_config.secondary_end_sample or 0
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
+local input_hold_key = trace_config.input_hold_key or ""
+local input_hold_frames = trace_config.input_hold_frames or 0
+local map_patch_cell = trace_config.map_patch_cell
+local map_patch_descriptor = trace_config.map_patch_descriptor
+local map_patch_word = trace_config.map_patch_word
 local input_phases = trace_config.input_phases or {}
 local capture_player_record = trace_config.capture_player_record or false
 -- Full pool snapshots are useful for discovery, but they are expensive: each
@@ -70,7 +75,7 @@ end
 
 local player_record_size = 0x78
 
-local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
+local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3986, 0x3a1f, 0x3df2}
 
 local function is_collision_target(offset)
     if not collision_focus then return false end
@@ -96,6 +101,67 @@ local hex_differences = common.hex_differences
 local numeric_differences = common.numeric_differences
 local function selector_word(selector, offset)
     return common.selector_word(dosbox, selector, offset)
+end
+
+local function apply_player_map_patch()
+    if map_patch_cell == nil then return nil end
+    local x = map_patch_cell[1]
+    local y = map_patch_cell[2]
+    local tile = map_patch_cell[3] & 0x1ff
+    local map_base = dosbox.mem_read_word("ds", 0x657a)
+    local map_selector = dosbox.mem_read_word("ds", 0x657c)
+    local row_stride = dosbox.mem_read_word("ds", 0x657e)
+    local offset = map_base + y * row_stride + x * 2
+    local original = selector_word(map_selector, offset)
+    local patched = map_patch_word ~= nil and (map_patch_word & 0xffff) or
+                    ((original & 0xfe00) | tile)
+    tile = patched & 0x1ff
+    dosbox.mem_write_selector(map_selector, offset,
+                              string.char(patched & 0xff,
+                                          (patched >> 8) & 0xff))
+    local descriptor_patch = nil
+    if map_patch_descriptor ~= nil then
+        local descriptor_base = dosbox.mem_read_word("ds", 0x6582)
+        local descriptor_selector = dosbox.mem_read_word("ds", 0x6584)
+        local descriptor_stride = dosbox.mem_read_word("ds", 0x30d4)
+        local descriptor_offset = descriptor_base + tile * descriptor_stride + 2
+        local descriptor_original = selector_word(descriptor_selector,
+                                                   descriptor_offset)
+        dosbox.mem_write_selector(descriptor_selector, descriptor_offset,
+                                  string.char(map_patch_descriptor & 0xff,
+                                              (map_patch_descriptor >> 8) & 0xff))
+        descriptor_patch = {
+            selector = descriptor_selector,
+            offset = descriptor_offset,
+            original = descriptor_original,
+            patched = map_patch_descriptor & 0xffff,
+            readback = selector_word(descriptor_selector, descriptor_offset),
+        }
+    end
+    return {
+        x = x,
+        y = y,
+        tile_id = tile,
+        selector = map_selector,
+        offset = offset,
+        original = original,
+        patched = patched,
+        readback = selector_word(map_selector, offset),
+        descriptor = descriptor_patch,
+    }
+end
+
+local function restore_player_map_patch(patch)
+    if patch == nil then return end
+    if patch.descriptor ~= nil then
+        dosbox.mem_write_selector(patch.descriptor.selector,
+                                  patch.descriptor.offset,
+                                  string.char(patch.descriptor.original & 0xff,
+                                              (patch.descriptor.original >> 8) & 0xff))
+    end
+    dosbox.mem_write_selector(patch.selector, patch.offset,
+                              string.char(patch.original & 0xff,
+                                          (patch.original >> 8) & 0xff))
 end
 
 local function wait_hit(label)
@@ -1016,7 +1082,8 @@ end
 -- four-byte far return for them would pair the two-byte return IP with the
 -- caller's stack data and leave the callback barrier armed at a bogus CS.
 local function collision_return_location(hit)
-    if hit.offset ~= 0x3a1f and hit.offset ~= 0x3df2 then
+    if hit.offset ~= 0x3986 and hit.offset ~= 0x3a1f and
+       hit.offset ~= 0x3df2 then
         return far_return_location(hit)
     end
     local registers = hit.registers or {}
@@ -1054,6 +1121,10 @@ local function record_collision(sample, hit)
         object = callback_object_snapshot(hit),
         globals = static_globals(),
     }
+    if hit.offset == 0x3986 then
+        local code = dosbox.mem_read_selector(hit.segment, hit.offset, 0x18)
+        if code ~= nil then collision.code_hex = hex(code) end
+    end
     -- 3DF2 is the leaf that passes the current world probe through the MAP
     -- descriptor path.  Read the live cell here while its AX/BX arguments are
     -- still intact; this avoids needing a second breakpoint mode and keeps
@@ -1340,6 +1411,9 @@ end
 
 local samples = {}
 local experiment_frame = 0
+local continuous_input_active = false
+local continuous_input_released = false
+local continuous_input_callbacks = 0
 for sequence = 1, sample_count do
     if sequence > 1 then
         local phase = input_phases[sequence - 1]
@@ -1354,7 +1428,24 @@ for sequence = 1, sample_count do
             sequence >= secondary_start_sample and
             (secondary_end_sample == 0 or sequence <= secondary_end_sample)
         local secondary_pressed = false
-        if phase ~= nil then
+        if input_hold_key ~= "" then
+            if not continuous_input_active and
+                    continuous_input_callbacks < input_hold_frames then
+                dosbox.key(input_hold_key, true)
+                continuous_input_active = true
+            end
+            if continuous_input_callbacks < input_hold_frames then
+                -- The callback barrier itself is the clock in this mode.
+                -- Waiting a DOSBox display frame here would let several
+                -- player callbacks run before the breakpoint is re-armed.
+            elseif continuous_input_active and not continuous_input_released then
+                dosbox.key(input_hold_key, false)
+                continuous_input_active = false
+                continuous_input_released = true
+            end
+            continuous_input_callbacks = continuous_input_callbacks + 1
+            experiment_frame = experiment_frame + 1
+        elseif phase ~= nil then
             local keys = phase.keys or {}
             local phase_frames = phase.frames or 0
             for _, key in ipairs(keys) do dosbox.key(key, true) end
@@ -1389,9 +1480,10 @@ for sequence = 1, sample_count do
         end
         dosbox.wait_frames(frames_between)
         experiment_frame = experiment_frame + frames_between
-    end
-    arm_targets()
-    dosbox.debug_continue()
+        end
+        local map_patch = apply_player_map_patch()
+        arm_targets()
+        dosbox.debug_continue()
     local hit = wait_hit("player/object update breakpoint")
     local ignored_object_callbacks = 0
     if object_focus ~= nil and object_focus.object_offset ~= nil then
@@ -1835,6 +1927,10 @@ for sequence = 1, sample_count do
             }
             record_collision(sample, related)
         end
+        if map_patch ~= nil then
+            sample.map_patch = map_patch
+            restore_player_map_patch(map_patch)
+        end
     elseif hit.offset == 0x0f3c then
         sample.kind_scan = {
             cursor = dosbox.mem_read_word("ds", 0x36e0),
@@ -1843,6 +1939,7 @@ for sequence = 1, sample_count do
     end
     samples[#samples + 1] = sample
 end
+if continuous_input_active then dosbox.key(input_hold_key, false) end
 
 local capture = stop_for_capture()
 local result = {

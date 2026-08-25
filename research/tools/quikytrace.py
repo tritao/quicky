@@ -152,6 +152,21 @@ def parse_execute_watch(value: str) -> ExecuteWatch:
     return ExecuteWatch(segment, offset)
 
 
+def parse_map_patch_cell(value: str) -> tuple[int, int, int]:
+    """Parse X,Y=TILE for a temporary MAP-cell replacement."""
+    try:
+        raw_cell, raw_tile = value.split("=", 1)
+        raw_x, raw_y = raw_cell.split(",", 1)
+        x, y, tile = int(raw_x, 0), int(raw_y, 0), int(raw_tile, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "map patch cell must use X,Y=TILE"
+        ) from exc
+    if x < 0 or y < 0 or tile < 0:
+        raise argparse.ArgumentTypeError("map patch cell values cannot be negative")
+    return x, y, tile
+
+
 def parse_input_phase(value: str) -> InputPhase:
     """Parse KEY[+KEY...]:FRAMES, with WAIT representing no held keys."""
     key_spec, separator, frame_text = value.rpartition(":")
@@ -249,6 +264,11 @@ class PlayerTraceConfig:
     secondary_end_sample: int = 0
     input_frames: int = 0
     input_samples: int = 0
+    input_hold_key: str | None = None
+    input_hold_frames: int = 0
+    map_patch_cell: tuple[int, int, int] | None = None
+    map_patch_descriptor: int | None = None
+    map_patch_word: int | None = None
     capture_player_record: bool = False
     collision_event_limit: int = 96
     collision_repeat_limit: int = 3
@@ -370,6 +390,11 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "secondary_end_sample": config.secondary_end_sample,
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
+        "input_hold_key": config.input_hold_key or "",
+        "input_hold_frames": config.input_hold_frames,
+        "map_patch_cell": list(config.map_patch_cell) if config.map_patch_cell else None,
+        "map_patch_descriptor": config.map_patch_descriptor,
+        "map_patch_word": config.map_patch_word,
         "capture_player_record": config.capture_player_record,
         "collision_event_limit": config.collision_event_limit,
         "collision_repeat_limit": config.collision_repeat_limit,
@@ -1014,6 +1039,19 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-input-hold-key",
+                        help="keep one DOSBox key physically held while sampling each callback")
+    parser.add_argument("--player-input-hold-frames", type=int, default=0,
+                        help="number of guest frames for --player-input-hold-key")
+    parser.add_argument("--player-map-patch-cell", type=parse_map_patch_cell,
+                        metavar="X,Y=TILE",
+                        help="temporarily replace one MAP cell for each player sample")
+    parser.add_argument("--player-map-patch-descriptor", type=lambda value: int(value, 0),
+                        metavar="FLAGS",
+                        help="also temporarily replace the patched tile descriptor word")
+    parser.add_argument("--player-map-patch-word", type=lambda value: int(value, 0),
+                        metavar="RAW",
+                        help="temporarily replace the complete raw MAP cell word")
     parser.add_argument("--player-input-phase", action="append", type=parse_input_phase,
                         default=[], metavar="KEY[+KEY...]:FRAMES",
                         help="per-sample input phase; repeat in order, or use WAIT:FRAMES")
@@ -1098,6 +1136,28 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-frames cannot be negative")
     if args.player_input_samples < 0:
         raise TraceError("--player-input-samples cannot be negative")
+    if args.player_input_hold_frames < 0:
+        raise TraceError("--player-input-hold-frames cannot be negative")
+    if args.player_input_hold_frames and not args.player_input_hold_key:
+        raise TraceError("--player-input-hold-frames requires --player-input-hold-key")
+    if args.player_input_hold_key and not args.player_input_hold_frames:
+        raise TraceError("--player-input-hold-key requires --player-input-hold-frames")
+    if args.player_map_patch_cell is not None:
+        patch_x, patch_y, patch_tile = args.player_map_patch_cell
+        if not 0 <= patch_x < args.player_map_width or not 0 <= patch_y < args.player_map_height:
+            raise TraceError("--player-map-patch-cell is outside the configured MAP")
+        if not 0 <= patch_tile <= 0x1ff:
+            raise TraceError("--player-map-patch-cell tile must be between 0 and 511")
+    if args.player_map_patch_descriptor is not None:
+        if args.player_map_patch_cell is None:
+            raise TraceError("--player-map-patch-descriptor requires --player-map-patch-cell")
+        if not 0 <= args.player_map_patch_descriptor <= 0xffff:
+            raise TraceError("--player-map-patch-descriptor must be between 0 and 65535")
+    if args.player_map_patch_word is not None:
+        if args.player_map_patch_cell is None:
+            raise TraceError("--player-map-patch-word requires --player-map-patch-cell")
+        if not 0 <= args.player_map_patch_word <= 0xffff:
+            raise TraceError("--player-map-patch-word must be between 0 and 65535")
     if args.player_input_key_2 and not args.player_input_key:
         raise TraceError("--player-input-key-2 requires --player-input-key")
     if args.player_input_key_switch and not args.player_input_key:
@@ -1134,7 +1194,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.player_input_phase and (
             args.player_input_key or args.player_input_key_switch or
             args.player_input_key_2 or args.player_input_frames or
-            args.player_input_samples):
+            args.player_input_samples or args.player_input_hold_key or
+            args.player_input_hold_frames):
         raise TraceError("--player-input-phase cannot be combined with legacy player input options")
     if args.player_capture_record and not (
             args.player_focus_callback or args.player_object_focus):
@@ -1332,6 +1393,11 @@ def main(argv: list[str] | None = None) -> int:
                 secondary_end_sample=args.player_secondary_end_sample,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
+                input_hold_key=args.player_input_hold_key,
+                input_hold_frames=args.player_input_hold_frames,
+                map_patch_cell=args.player_map_patch_cell,
+                map_patch_descriptor=args.player_map_patch_descriptor,
+                map_patch_word=args.player_map_patch_word,
                 capture_player_record=args.player_capture_record,
                 patches=tuple(args.player_patch),
                 input_phases=tuple(args.player_input_phase),
