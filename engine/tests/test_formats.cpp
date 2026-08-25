@@ -757,6 +757,38 @@ void testPlayerDescriptorRules() {
     assert(query.alignsEightPixelsAt(0, 0));
 }
 
+void testWorldPlayerDescriptorTables() {
+    const quiky::PlayerDescriptorTable w1 =
+        quiky::playerDescriptorTableForWorld("W1");
+    assert(w1.word(4) == 0x0000);
+    assert(w1.word(5) == 0x000c);
+    assert(w1.word(40) == 0x0010);
+    assert(w1.word(41) == 0x0050);
+    assert(w1.word(42) == 0x0070);
+    assert(w1.word(43) == 0x0030);
+    assert(w1.word(511) == 0x000c);
+
+    const quiky::PlayerDescriptorTable w3 =
+        quiky::playerDescriptorTableForWorld("W3");
+    assert(w3.word(22) == 0x0070);
+    assert(w3.word(23) == 0x0030);
+    assert(w3.word(115) == 0x0004);
+    assert(w3.word(116) == 0x0008);
+    assert(w3.word(192) == 0x000c);
+
+    const quiky::PlayerDescriptorTable w5 =
+        quiky::playerDescriptorTableForWorld("W5");
+    assert(w5.word(87) == 0x0070);
+    assert(w5.word(88) == 0x0030);
+    assert(w5.word(89) == 0x0010);
+    assert(w5.word(90) == 0x0050);
+
+    const quiky::PlayerDescriptorTable unknown =
+        quiky::playerDescriptorTableForWorld("UNKNOWN");
+    assert(unknown.word(5) == 0);
+    assert(unknown.word(511) == 0);
+}
+
 void testPlayerInputTraceAndCollisionQuery() {
     TraceCollisionQuery collision;
     quiky::PlayerConfig config;
@@ -829,6 +861,7 @@ int main() {
         testPlayerSimulation();
         testRecoveredPlayerController();
         testPlayerDescriptorRules();
+        testWorldPlayerDescriptorTables();
         testPlayerInputTraceAndCollisionQuery();
         testLevelSession();
         testLevelSessionCollisionQuery();

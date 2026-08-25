@@ -14,10 +14,9 @@ The current iteration supports:
 - indexed level rendering to an 8-bit BMP;
 - ARE layout/entity parsing and optional debug overlays;
 - BOB sprite decoding and indexed contact sheets;
-- deterministic player simulation with provisional MAP collision masks;
-- standalone descriptor/quadrant rules recovered from the DOSBox player probes
-  (kept separate until streamed MAP cells are linked to descriptor entries);
-- an explicit MAP-cell-to-descriptor-table query bridge for those rules;
+- deterministic player simulation with a provisional compatibility collision path;
+- recovered world-specific descriptor tables linked to streamed MAP cells;
+- an explicit MAP-cell-to-descriptor query bridge using confirmed quadrant rules;
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - a shared SDL audio mixer that combines gameplay music with confirmed pickup SFX;
 - ARE-backed level streaming with provisional collectible, hazard, and exit events;
@@ -91,6 +90,20 @@ The `quiky-horizontal-tests` target checks record round trips, all horizontal
 held-out values, direct acceleration/reversal/cap vectors, Python collision
 kernel parity vectors, snapshot isolation, and trace diagnostics. Vertical
 callback orchestration remains behind `VerticalPlayerUpdatePendingResearch`.
+
+## Runtime descriptor integration
+
+`playerDescriptorTableForWorld()` reproduces the five world initializer
+tables and `LevelRuntime` supplies the selected table alongside streamed MAP
+cells. Descriptor-backed horizontal checks use the recovered forward probes
+at `(x +/- 10, y - 1/-17/-33)`. Table boundaries, special descriptor values,
+and probe coordinates have direct engine tests.
+
+The compatibility `PlayerSimulation` also uses descriptor occupancy for its
+existing floor and ceiling path, but that policy is not promoted as faithful.
+The vertical closure has not yet obtained deterministic landing and ceiling
+contact timelines. Exact floor/ceiling snapping and grounded transitions
+remain provisional until those traces exist.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
 resources use TFMX, which needs a dedicated decoder. The engine includes an

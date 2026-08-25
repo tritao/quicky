@@ -7,9 +7,31 @@
 #include <iostream>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace {
+
+class RecordingProbeQuery : public quiky::CollisionQuery,
+                            public quiky::PlayerProbeQuery {
+public:
+    mutable std::vector<std::pair<std::int32_t, std::int32_t> > probes;
+
+    const quiky::PlayerProbeQuery *probeQuery() const override { return this; }
+    bool blocksHorizontal(std::int32_t, std::int32_t) const override { return false; }
+    bool blocksFloor(std::int32_t, std::int32_t) const override { return false; }
+    bool blocksCeiling(std::int32_t, std::int32_t) const override { return false; }
+    bool blocksProbeAt(std::int32_t x, std::int32_t y) const override {
+        probes.push_back(std::make_pair(x, y));
+        return false;
+    }
+    bool hasVerticalResponseAt(std::int32_t, std::int32_t) const override {
+        return false;
+    }
+    bool alignsEightPixelsAt(std::int32_t, std::int32_t) const override {
+        return false;
+    }
+};
 
 struct FixtureRow {
     std::string trace;
@@ -235,6 +257,19 @@ void testHorizontalFormulaVectors() {
     }
 }
 
+void testNativeHorizontalProbeCoordinates() {
+    quiky::PlayerSimulation simulation;
+    quiky::PlayerState player;
+    simulation.reset(player, 100, 100);
+    player.velocityX = quiky::Fixed16::fromPixels(1);
+    RecordingProbeQuery collision;
+    simulation.tick(player, collision, quiky::InputState());
+    assert(collision.probes.size() >= 3);
+    assert(collision.probes[0] == std::make_pair(110, 99));
+    assert(collision.probes[1] == std::make_pair(110, 83));
+    assert(collision.probes[2] == std::make_pair(110, 67));
+}
+
 void testCollisionKernel() {
     assert(quiky::CollisionKernel::quadrantMask(0, 0) == 0x08);
     assert(quiky::CollisionKernel::quadrantMask(8, 0) == 0x04);
@@ -429,6 +464,7 @@ int main(int argc, char **argv) {
     testHorizontalFixture(argv[1]);
     testSimultaneousInputPrecedence();
     testHorizontalFormulaVectors();
+    testNativeHorizontalProbeCoordinates();
     testCollisionKernel();
     testSnapshotsAndTraceIsolation();
     std::cout << "all horizontal player and collision tests passed\n";
