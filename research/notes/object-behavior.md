@@ -711,6 +711,14 @@ The high-effect contract comparator now validates this queued position whenever
 four owning callbacks with their full update/visibility contracts and
 reproduce their queue insertion/order in the recreation.
 
+The static initializer at `01F7:B142` confirms the first owner directly: it
+writes slot `0x03B7` (951) and callback `B33B`. The adjacent `B1F0` initializer
+installs `B226`, matching the slot-904/905/906 owner; `B20B/B25D` is the slot
+994/993 owner already covered by the high-family pass. The checkpoint begun
+after the high callback observes the later `B25D -> 3FF8 -> 3587` sequence;
+the phase-1 `B33B`/`B226` entries have already run by that point and need a
+frame-boundary trace for their complete insertion logic.
+
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
 can reach the visibility check, descriptor advance, and local `0x9C29`

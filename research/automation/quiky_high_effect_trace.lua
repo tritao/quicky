@@ -210,6 +210,7 @@ end
 local function trace_render_window()
     if not trace_render then return nil end
     local records = {}
+    local callback_offsets = {0xb226, 0xb33b, 0xb25d, 0x4c74, 0x3ff8}
     -- The callback pass may have left one-shot body breakpoints armed for a
     -- later scheduler callback. Remove those before observing the renderer;
     -- otherwise the first hit would be mistaken for a draw-path entry.
@@ -217,6 +218,12 @@ local function trace_render_window()
     for attempt = 1, render_trace_hits do
         dosbox.breakpoint_set(0x01f7, 0x3529, {once = true})
         dosbox.breakpoint_set(0x01f7, 0x3587, {once = true})
+        if attempt == 1 then
+            for _, offset in ipairs(callback_offsets) do
+                dosbox.breakpoint_set(0x01f7, offset, {once = true})
+                dosbox.breakpoint_set(0x1997, offset, {once = true})
+            end
+        end
         dosbox.debug_continue()
         local hit = wait_hit("render path breakpoint")
         local record = {
@@ -230,6 +237,20 @@ local function trace_render_window()
         end
         if hit.offset == 0x3529 or hit.offset == 0x3587 then
             record.record = render_record_snapshot(hit)
+        end
+        for _, offset in ipairs(callback_offsets) do
+            if hit.offset == offset then
+                local selector = hit.registers.es or 0
+                local object_offset = (hit.registers.edi or 0) & 0xffff
+                local ok, object = pcall(object_snapshot, selector,
+                                         object_offset, -1)
+                if ok then
+                    record.callback_object = object
+                else
+                    record.callback_object_error = tostring(object)
+                end
+                break
+            end
         end
         records[#records + 1] = record
         if hit.offset == 0x3587 then break end
