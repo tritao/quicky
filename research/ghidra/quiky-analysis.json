@@ -22,7 +22,7 @@
       "segment": 3,
       "offset": "3F27",
       "kind": "function",
-      "name": "initialize_player_object",
+      "name": "initialize_player_record",
       "confidence": "confirmed",
       "closures": ["player"],
       "evidence": ["static:initializer-callback-write", "runtime:player-pool-offset-zero"]
@@ -31,7 +31,7 @@
       "segment": 3,
       "offset": "3FF8",
       "kind": "function",
-      "name": "update_player_object",
+      "name": "update_player_record",
       "confidence": "confirmed",
       "closures": ["player"],
       "evidence": ["static:initializer-callback-write", "runtime:callback-barrier"]
@@ -40,7 +40,7 @@
       "segment": 3,
       "offset": "3D02",
       "kind": "function",
-      "name": "player_collision_helper_3d02",
+      "name": "player_resolve_descriptor_response",
       "confidence": "mechanical",
       "closures": ["player", "collision"],
       "evidence": ["static:descriptor-response-decode", "runtime:controlled-branch-matrix"]
@@ -49,7 +49,7 @@
       "segment": 3,
       "offset": "5C27",
       "kind": "function",
-      "name": "map_tile_descriptor_query_5c27",
+      "name": "map_descriptor_quadrant_test",
       "confidence": "confirmed",
       "closures": ["player", "collision", "descriptor"],
       "evidence": ["static:quadrant-mask-decode", "runtime:selector-safe-property-matrix"]
@@ -58,10 +58,100 @@
       "segment": 3,
       "offset": "5CC3",
       "kind": "function",
-      "name": "map_descriptor_read",
+      "name": "map_descriptor_word_at_pixel",
       "confidence": "confirmed",
       "closures": ["player", "collision", "descriptor"],
       "evidence": ["static:descriptor-table-read", "runtime:selector-safe-property-matrix"]
+    },
+    {
+      "segment": 3,
+      "offset": "3376",
+      "kind": "function",
+      "name": "map_tile_id_at_pixel",
+      "confidence": "confirmed",
+      "closures": ["player", "map"],
+      "evidence": ["static:map-cell-address-formula", "runtime:tile-id-probes"]
+    },
+    {
+      "segment": 3,
+      "offset": "3A1F",
+      "kind": "function",
+      "name": "player_probe_side_clear",
+      "confidence": "mechanical",
+      "closures": ["player", "collision"],
+      "evidence": ["static:x-minus-plus-five-probes", "runtime:ordered-property-trace"]
+    },
+    {
+      "segment": 3,
+      "offset": "3DF2",
+      "kind": "function",
+      "name": "player_snap_y_on_side_contact",
+      "confidence": "mechanical",
+      "closures": ["player", "collision"],
+      "evidence": ["static:y-high-word-fff8-write", "runtime:side-probe-trace"]
+    },
+    {
+      "segment": 3,
+      "offset": "3A8A",
+      "kind": "function",
+      "name": "player_probe_transition_tiles",
+      "confidence": "mechanical",
+      "closures": ["player", "map", "transition"],
+      "evidence": ["static:tile-0b-0d-dispatch"]
+    },
+    {
+      "segment": 3,
+      "offset": "648E",
+      "kind": "function",
+      "name": "player_probe_hazard_right",
+      "confidence": "mechanical",
+      "closures": ["player", "map", "hazard"],
+      "evidence": ["static:tile-5-0a-hazard-probe"]
+    },
+    {
+      "segment": 3,
+      "offset": "6484",
+      "kind": "function",
+      "name": "player_probe_hazard_plus5",
+      "confidence": "mechanical",
+      "closures": ["player", "map", "hazard"],
+      "evidence": ["static:stores-hazard-probe-offset-5"]
+    },
+    {
+      "segment": 3,
+      "offset": "6370",
+      "kind": "function",
+      "name": "player_probe_hazard_offset",
+      "confidence": "mechanical",
+      "closures": ["player", "map", "hazard"],
+      "evidence": ["static:offset-tile-id-probe"]
+    },
+    {
+      "segment": 3,
+      "offset": "1B07",
+      "kind": "function",
+      "name": "player_begin_tile_transition",
+      "confidence": "mechanical",
+      "closures": ["player", "transition"],
+      "evidence": ["static:transition-state-writes"]
+    },
+    {
+      "segment": 3,
+      "offset": "19E6",
+      "kind": "function",
+      "name": "player_apply_transition_reset",
+      "confidence": "mechanical",
+      "closures": ["player", "transition"],
+      "evidence": ["static:transition-reset-writes"]
+    },
+    {
+      "segment": 3,
+      "offset": "44DC",
+      "kind": "function",
+      "name": "player_update_transition_motion",
+      "confidence": "mechanical",
+      "closures": ["player", "transition"],
+      "evidence": ["static:transition-callback-call"]
     },
     {
       "segment": 6,

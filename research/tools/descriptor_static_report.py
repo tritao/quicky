@@ -227,17 +227,20 @@ def build_report(executable: Path) -> dict[str, Any]:
                 "entry": "01F7:5CC3",
                 "descriptor_read": "record + 2 -> DX",
                 "direct_callers": ["01F7:3D19", "01F7:3D31"],
-                "semantics": "3D02 consumes DX & 0x30, 0x20, and 0x40",
+                "semantics": "3D02 consumes DX & 0x30, 0x20, and 0x40; 5C27 also leaves the same descriptor word in DX for transition callers",
+                "transition_dx_consumers": [
+                    "01F7:447B", "01F7:448C", "01F7:44A0", "01F7:44B1"
+                ],
             },
             "unresolved_bits": {
-                "bit_10": "suppresses 3D02's eight-pixel X retry; no standalone gameplay name proven",
+                "bit_10": "suppresses 3D02's y-minus-8 retry; no standalone gameplay name proven",
                 "bit_20": "suppresses that retry and selects vertical-response polarity/state",
                 "bit_40": "selects the eight-pixel Y alignment path",
             },
             "collision_state_latch": {
                 "field": "player object +0x3a",
                 "producer": "01F7:3D02 sets 0x01 or 0xff from descriptor bit 0x20; clears it on reject",
-                "consumer": "01F7:3DF2 tests it only as zero/nonzero before the X snap",
+                "consumer": "01F7:3DF2 tests it only as zero/nonzero before the integer-Y snap",
                 "semantics": "transient accepted vertical-response branch latch, not a persistent surface type",
             },
         },

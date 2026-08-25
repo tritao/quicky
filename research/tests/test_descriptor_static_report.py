@@ -98,6 +98,8 @@ class DescriptorStaticReportTests(unittest.TestCase):
                       consumers["low_nibble_query"]["coordinate_bits"])
         self.assertEqual(consumers["full_word_query"]["direct_callers"],
                          ["01F7:3D19", "01F7:3D31"])
+        self.assertEqual(consumers["full_word_query"]["transition_dx_consumers"],
+                         ["01F7:447B", "01F7:448C", "01F7:44A0", "01F7:44B1"])
         self.assertIn("no standalone gameplay name",
                       consumers["unresolved_bits"]["bit_10"])
         latch = consumers["collision_state_latch"]

@@ -301,9 +301,9 @@ The curated selector-safe cases and source hashes are recorded in
 [`notes/descriptor-collision-evidence.json`](notes/descriptor-collision-evidence.json).
 
 The descriptor flag roles are mechanically resolved: the low nibble is a
-four-way occupancy mask; `0x10` or `0x20` suppresses the `3D02` eight-pixel X
+four-way occupancy mask; `0x10` or `0x20` suppresses the `3D02` y-minus-8
 retry; `0x20` selects the vertical response polarity; and `0x40` selects the
-eight-pixel Y alignment. Only `01F7:3D19/3D31` directly call `5CC3`; the many
+integer-Y target alignment. Only `01F7:3D19/3D31` directly call `5CC3`; the many
 other `5C27` callers use only the low nibble. A standalone gameplay name for
 `0x10` is still not justified.
 
@@ -328,7 +328,8 @@ stationary probe artifact. The exact trace and hash are in
 Target decompilation also closes the nearby player-state ambiguity: `3D02`
 clears object `+0x3a`, sets it to `0x01` or `0xff` for the two `0x20` response
 branches, and clears it on a rejected target-Y comparison. `3DF2` is the only
-identified consumer and tests the byte only as zero/nonzero before the X snap.
+identified consumer and tests the byte only as zero/nonzero before the
+integer-Y snap.
 So `+0x3a` is a transient accepted-vertical-response latch, not a persistent
 floor/ceiling or surface-type field.
 

@@ -241,9 +241,10 @@ The final findings and evidence boundaries are in
 - The four-record flag matrix (`0x10`, `0x50`, `0x70`, `0x30`) shows that the
   `3D02` positive branch requires both `0x20` and `0x40`.
 - Static flag-use filtering closes the mechanical schema: `0x10` and `0x20`
-  suppress the `3D02` X retry, `0x20` selects response polarity, and `0x40`
-  selects the eight-pixel Y alignment. Only `3D19/3D31` call `5CC3`; all
-  other direct property callers use the low-nibble occupancy mask.
+  suppress the `3D02` y-minus-8 retry, `0x20` selects response polarity, and `0x40`
+  selects the eight-pixel Y alignment. Only `3D19/3D31` call `5CC3`; direct
+  `5C27` callers use its low-nibble condition result, while the transition
+  block also consumes the full descriptor word left in `DX`.
 - Transition diagnostics show `01F7:1AE6` repeatedly clears `DS:89EA` while
   `DS:880A` remains `4`; no unmodified `4BD8`/secondary call was reached.
   The relocation survey found no direct static caller of `01F7:5C9D`.
@@ -384,7 +385,7 @@ The final findings and evidence boundaries are in
 - Target decompilation closes the object-state ambiguity beside `3D02`: the
   player byte at `+0x3a` is cleared on entry/rejection, set to `0x01` or
   `0xff` by the descriptor `0x20` branches, and consumed only by `3DF2` as a
-  zero/nonzero gate for the X snap. The durable static report and curated
+  zero/nonzero gate for the integer-Y snap. The durable static report and curated
   evidence now call it a transient accepted-vertical-response latch rather
   than a surface-type field.
 - Descriptor-constructor target decompilation now confirms that `01E7:382B`
@@ -432,7 +433,7 @@ debugger-only result into normal-gameplay attribution.
 ### O1. Give flag `0x10` a historical gameplay name
 
 **Current fact:** the executable-level behavior is already proven: `0x10` (and
-`0x20`) suppresses the `3D02` eight-pixel X retry; `0x20` additionally selects
+`0x20`) suppresses the `3D02` y-minus-8 retry; `0x20` additionally selects
 vertical-response polarity, and `0x40` selects the eight-pixel Y alignment.
 
 **Method:** enumerate every MAP tile ID carrying `0x10` in W1-W5, retain its

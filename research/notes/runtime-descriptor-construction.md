@@ -56,10 +56,12 @@ The low nibble is a four-way occupancy mask: `5C27` selects `0x02`, `0x01`,
 `0x04`, or `0x08` from coordinate bit 3. In the `3D02` caller, `0x20` is the
 vertical-response polarity/state selector and `0x40` selects the eight-pixel
 vertical alignment. `0x10` participates in the caller's `DX & 0x30` gate:
-either `0x10` or `0x20` suppresses the eight-pixel X retry, while `0x20` also
+either `0x10` or `0x20` suppresses the y-minus-8 retry, while `0x20` also
 selects the response polarity. Static relocation filtering finds only two
 direct `5CC3` calls, both at `01F7:3D19/3D31` inside `3D02`; the many other
-`5C27` callers consume only the low-nibble occupancy mask. Thus the
+`5C27` reports the selected low-nibble occupancy through its carry/branch
+result, but also leaves the full descriptor word in `DX`; the transition gate
+at `01F7:447B/448C/44A0/44B1` tests `DX & 0x70` after those calls. Thus the
 mechanical roles of every descriptor flag bit are proven, but a standalone
 gameplay name for `0x10` remains unjustified. “Floor” and “ceiling” remain
 provisional labels for the combined branches.
@@ -67,16 +69,18 @@ provisional labels for the combined branches.
 The static consumer audit is deliberately narrower than a raw byte search.
 Filtering the NE relocation records for the descriptor-query entries finds 78
 direct calls to `01F7:5C27` and exactly two direct calls to `01F7:5CC3`, at
-`01F7:3D19` and `01F7:3D31` inside `3D02`. The former exposes only the low
-nibble/quadrant result; the latter is the only file-backed path that receives
-the complete `+2` word. The renderers at `01F7:20C8` and `01F7:2CB2` then load
+`01F7:3D19` and `01F7:3D31` inside `3D02`. The former exposes the low
+nibble/quadrant result through flags and leaves the complete descriptor word
+in `DX`; the latter is the only direct file-backed path that explicitly
+requests the complete `+2` word for `3D02`. The transition callers also
+consume the word left by `5C27`. The renderers at `01F7:20C8` and `01F7:2CB2` then load
 record `+0`, zero-extend it, and shift it left by eight to select the
 corresponding `0x100`-byte image block. Because the initializers write
 `+0 = tile_id`, this proves the identity field is the direct ICO/image
-resource index; it is not merely an unused copy of the lookup key. No second
-descriptor-`+2` consumer was found. This rules out a hidden renderer-side
+resource index; it is not merely an unused copy of the lookup key. No other
+direct `5CC3` call was found. This rules out a hidden renderer-side
 interpretation of `0x10` in the executable. The only mechanically supported
-name for that bit is therefore “suppress the `3D02` eight-pixel X retry”; a
+name for that bit is therefore “suppress the `3D02` y-minus-8 retry”; a
 more specific gameplay name still requires a distinct normal branch.
 
 Static flag histograms show world-specific content, including `0x04` and
@@ -347,7 +351,7 @@ The same natural pass also reaches tile `0x028` at player `(1080,380)` and
 probe `(1085,380)`: raw MAP `0x2028` (upper field `0x0010`) maps to descriptor
 `0x0010` and returns through `3DF1` with `AL=1`/`object+3a=1`. This rules out
 the over-strong interpretation that `0x10` intrinsically means “negative”;
-its proven standalone role remains suppression of the eight-pixel X retry,
+its proven standalone role remains suppression of the y-minus-8 retry,
 while the final correction depends on the target coordinate and other state.
 
 The low-nibble helper's target disassembly also fixes the occupancy-bit
@@ -399,7 +403,7 @@ Target decompilation closes the remaining ambiguity around player object
 the two `0x20` response-polarity branches, and clears it again when the
 computed target is rejected (`original_y < target_y`). The only identified
 consumer is `3DF2`, which tests the byte only for zero/nonzero before deciding
-whether to perform the eight-pixel X snap. It is therefore a transient
+whether to perform the integer-Y eight-pixel snap. It is therefore a transient
 accepted-vertical-response latch, not a persistent floor/ceiling or MAP
 surface-type field; the `0x01` versus `0xff` values preserve the branch's
 polarity for any later code that needs the byte value.

@@ -259,9 +259,9 @@ public class AnnotateQuiky extends GhidraScript {
             "Returns four bounds from the object pointed to by DS:881A: position fields plus +2C/+30/+2E/+32, or four zeroes when DS:89EA is nonzero.");
         function(0x39fe, "query_player_collision_state",
             "Returns the persistent-player X/Y and collision-class byte used by the type-0x34 proximity test.");
-        function(0x3f27, "initialize_player_object",
+        function(0x3f27, "initialize_player_record",
             "Initializes the persistent player object: stores ES:DI into DS:881A, clears player globals, and installs callback 01F7:3FF8; runtime W1L1 pool offset 0 confirms this record.");
-        function(0x3ff8, "update_player_object",
+        function(0x3ff8, "update_player_record",
             "Persistent player callback installed by 01F7:3F27; checks DS:89EA, runs MAP collision probes, and advances the player record at ES:DI.");
         function(0x44ff, "reset_contact_effect_table",
             "Resets the contact-effect table and its runtime ring state.");
@@ -273,23 +273,23 @@ public class AnnotateQuiky extends GhidraScript {
             "Removes a contact-effect entry and advances the ring state.");
         function(0x58a0, "clear_ufo_contact_effect",
             "Clears the UFO contact-effect state and its ring coordinates.");
-        function(0x3a1f, "player_collision_probe_3a1f",
+        function(0x3a1f, "player_probe_side_clear",
             "Player callback helper reached during grounded/collision resolution; exact return flags remain to be correlated with controlled input.");
         function(0x3a62, "player_collision_probe_3a62",
             "Player callback helper reached during finalization of a movement step; exact field semantics remain provisional.");
-        function(0x3a8a, "player_collision_helper_3a8a",
+        function(0x3a8a, "player_probe_transition_tiles",
             "Static target in the zero-DS:89EA player path; correlate its MAP reads and return flags with controlled input.");
         function(0x3ab9, "player_collision_probe_3ab9",
             "Player callback helper reached near the final object update path; semantics remain provisional.");
-        function(0x3d02, "player_collision_helper_3d02",
-            "Calls the descriptor query, retries after an eight-pixel X adjustment when DX&30 is clear, then uses DX&20 for vertical response polarity/state and DX&40 for the eight-pixel Y alignment before returning the correction result.");
-        function(0x3df2, "player_collision_helper_3df2",
-            "Player movement helper: when the vertical state permits, probes descriptor quadrants at X-5/X+5 and snaps X to an eight-pixel boundary only when both probes return clear.");
+        function(0x3d02, "player_resolve_descriptor_response",
+            "Calls the descriptor query, retries at y-8 when DX&30 is clear, then uses DX&20 for vertical response polarity/state and DX&40 for the integer-Y target alignment before returning the correction result.");
+        function(0x3df2, "player_snap_y_on_side_contact",
+            "Player movement helper: when the response state permits, probes descriptor quadrants at X-5/X+5 and snaps the integer Y word to an eight-pixel boundary when either probe reports occupancy.");
         function(0x3e41, "player_collision_probe_3e41",
             "Player callback helper reached while committing the post-collision state.");
-        function(0x6484, "player_collision_helper_6484",
+        function(0x6484, "player_probe_hazard_plus5",
             "Collision helper identified by the player callback call graph; runtime input correlation is pending.");
-        function(0x648e, "player_collision_helper_648e",
+        function(0x648e, "player_probe_hazard_right",
             "Collision helper reached by the player callback; a controlled W1L1 right-input run hits this entry at the persistent ES:0000 record; return semantics remain under test.");
         function(0x487f, "alternate_completion_initializer",
             "Initializes the late ending/cutscene object; runtime callers are the world-specific blocks at B82B/C0E2/C933/D2A8/DBE9.");
@@ -354,9 +354,9 @@ public class AnnotateQuiky extends GhidraScript {
             "Forms the directional type-0x33 MAP probe and forwards it to the 16-pixel raw MAP-word helper.");
         function(0x1c6e, "map_word_probe_16px",
             "Computes a 16-pixel MAP address, returns the raw word, and tests bit 0x4000.");
-        function(0x5c27, "map_tile_descriptor_query_5c27",
+        function(0x5c27, "map_descriptor_quadrant_test",
             "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and tests descriptor flags against coordinate bit 3.");
-        function(0x5cc3, "map_descriptor_read",
+        function(0x5cc3, "map_descriptor_word_at_pixel",
             "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and returns the descriptor word in DX.");
         function(0x5c9d, "map_cell_word_store",
             "Stores a complete CX word into one loaded MAP cell using the row stride and coordinate-derived byte offset.");
@@ -366,7 +366,7 @@ public class AnnotateQuiky extends GhidraScript {
             "Loads a descriptor/table entry into object animation state and selects the current slot/action.");
         function(0x5d60, "advance_animation_descriptor",
             "Decrements the active descriptor timer or advances the descriptor cursor when it expires.");
-        function(0x6370, "player_collision_helper_6370",
+        function(0x6370, "player_probe_hazard_offset",
             "MAP tile-ID collision helper parallel to 648E; calls 3376 and applies tile IDs 5-10 to player state.");
         function(0x8d20, "update_collectible_effect",
             "Updates collectible-effect objects: runs the visibility gate, then delegates to the player-bounds state routine.");
@@ -407,7 +407,7 @@ public class AnnotateQuiky extends GhidraScript {
         label(0x6584, "tile_descriptor_table_segment", "Segment of the tile descriptor table.");
         label(0x85da, "type34_activation_state", "State word checked by the type-0x34 callback against 0x32; broader role is provisional.");
         label(0x881a, "player_object_offset", "Persistent player object offset; W1L1 uses pool record offset zero.");
-        label(0x89ea, "player_collision_mode", "Shared zero/nonzero mode consumed by the player-bounds helper; broader role is provisional.");
+        label(0x89ea, "player_transition_mode", "Shared zero/nonzero mode selecting ordinary callback versus transition block.");
         label(0x612e, "pending_action_word", "Action word changed from zero to four on the controlled type-0x34 proximity hit.");
         label(0x504c, "pending_effect_code", "Effect code published by the type-0x34 action chain; observed value is 0x2A.");
         label(0x88bc, "keyboard_action_flags", "Normalized make/break action flags populated by poll_keyboard_ring_to_input_flags.");

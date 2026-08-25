@@ -22,7 +22,7 @@
     "collision_state_latch": {
       "field": "player object +0x3a",
       "producer": "01F7:3D02 sets 0x01/0xff from descriptor bit 0x20 and clears on reject",
-      "consumer": "01F7:3DF2 tests zero/nonzero before the X snap",
+      "consumer": "01F7:3DF2 tests zero/nonzero before the integer-Y snap",
       "meaning": "transient accepted-vertical-response latch, not a persistent surface type"
     }
   },
