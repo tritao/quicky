@@ -126,6 +126,8 @@ public class AnnotateQuiky extends GhidraScript {
     }
 
     private void annotateSegment3() throws Exception {
+        bindBossFactoryCalls();
+        annotateLateBossFactoryArguments();
         int[] targets = {0x05a0, 0x106a, 0x1ec4, 0x332c, 0x335e, 0x33bf, 0x342f,
             0x5c27, 0x5cc3, 0x5d00, 0x5d38, 0x5d60, 0x6370};
         for (int target : targets) {
@@ -184,6 +186,8 @@ public class AnnotateQuiky extends GhidraScript {
             "Decrements DS:89EA and handles the transitional vertical-motion control path.");
         function(0x0e06, "are_object_factory",
             "Scans the 64-entry pooled-object array and initializes a free object; the normal ARE path returns ES:DI and type 0x2B is initialized by the caller.");
+        function(0x1036, "object_scheduler_insert",
+            "Links a newly allocated object into the active scheduler/list structure; the allocator calls this after initializing the record.");
         function(0x1749, "create_dedicated_are_effect",
             "Shared creator used by types 0x65/0x66/0x67 after selecting subtype 0x00/0x08/0x10.");
         function(0x178d, "create_are_type_65", "Dedicated ARE type 0x65 wrapper.");
@@ -205,6 +209,14 @@ public class AnnotateQuiky extends GhidraScript {
             "Builds an adjacent MAP-cell descriptor used by player movement; exact field meanings remain under analysis.");
         function(0x5d60, "map_cell_state_decay_5d60",
             "Updates a temporary MAP-cell state/counter used by player movement.");
+        function(0x5c11, "boss_random_byte_5c11",
+            "Consumes one byte from the world random table at DS:646C using the cursor at DS:6468.");
+        function(0x1bd1, "boss_map_helper_1bd1",
+            "Local helper used by the W5 phase callback; targeted decompilation remains provisional.");
+        function(0x1b77, "boss_helper_runtime_1b77",
+            "Local helper called by multiple boss callbacks; targeted decompilation identifies its state/side-effect contract.");
+        function(0x1c6e, "boss_helper_runtime_1c6e",
+            "Local helper called by multiple boss callbacks; targeted decompilation identifies its state/side-effect contract.");
         function(0x6370, "player_collision_helper_6370",
             "MAP tile-ID collision helper parallel to 648E; calls 3376 and applies tile IDs 5-10 to player state.");
         function(0x8e4b, "update_tile_effect_state_machine",
@@ -227,8 +239,189 @@ public class AnnotateQuiky extends GhidraScript {
         label(0x81c4, "camera_y", "Current integer camera Y used by visibility, streaming, and renderer clipping.");
         label(0x81ce, "camera_subtile_x", "Derived camera sub-tile X value written by update_camera_scroll.");
         label(0x81d0, "camera_subtile_phase", "Derived camera phase byte written by update_camera_scroll.");
+        label(0x755e, "object_pool_base_farptr", "Far pointer to the first 0x78-byte pooled-object record.");
+        label(0x30ce, "object_pool_stride", "Stride used when scanning the 64-entry pooled-object array.");
+        label(0x7566, "object_scheduler_entries", "Four-word active-object scheduler/list entries; object pointers are consumed by update passes.");
+        label(0x7966, "object_scheduler_phase_toggle", "Scheduler double-buffer/phase toggle used by the generic object update passes.");
+        label(0x88c8, "active_object_count", "Count of pooled records whose callback field is nonzero.");
         label(0x88bc, "keyboard_action_flags", "Normalized make/break action flags populated by poll_keyboard_ring_to_input_flags.");
         label(0x88ba, "last_keyboard_scan_code", "Most recently consumed keyboard scan code.");
+    }
+
+    private void bindBossFactoryCalls() throws Exception {
+        // The raw segment contains NE fixup placeholders (9a ff ff 00 00).
+        // Resolve only the boss-family calls to the local pooled-object factory
+        // in this disposable Ghidra project; the original executable is never
+        // modified.  This lets the decompiler show the allocator at the call
+        // sites instead of a generic far-call stub.
+        int[] factoryCalls = {
+            0xb120, 0xb18d, 0xb1c4,
+            0xb2c4, 0xb515, 0xb6c9, 0xb725, 0xb82f,
+            0xb9d1, 0xba3e, 0xba75,
+            0xbb75, 0xbdc6, 0xbf80, 0xbfdc, 0xc0e6, 0xc11f, 0xc162,
+            0xc269, 0xc2db,
+            0xc38f, 0xc4e3, 0xc6fe, 0xc806, 0xc865, 0xc937, 0xc9d0, 0xca73,
+            0xcc46, 0xccbc, 0xccf3,
+            0xce0a, 0xd139, 0xd198, 0xd2ac,
+            0xd2d5, 0xd347, 0xd37e, 0xd3b5,
+            0xd4b3, 0xd5c1, 0xd932, 0xdabc, 0xdb1b, 0xdbed, 0xdc84,
+            0xde52, 0xde7d, 0xdea1, 0xdecc, 0xdf7c, 0xdfef,
+            0xe059, 0xe493, 0xe4c2, 0xe4ea, 0xe514, 0xe548, 0xe5aa, 0xe610,
+        };
+        function(0x0e06, "are_object_factory",
+            "Pooled-object allocator; boss-family call sites are locally bound below.");
+        for (int offset : factoryCalls) {
+            Address address = toAddr(offset);
+            if ((currentProgram.getMemory().getByte(address) & 0xff) != 0x9a) {
+                println("Factory bind skipped; no far call at " + address);
+                continue;
+            }
+            currentProgram.getListing().clearCodeUnits(address, address.add(4), false);
+            currentProgram.getMemory().setBytes(address,
+                new byte[] {(byte) 0x9a, 0x06, 0x0e, 0x00, 0x00});
+            disassemble(address);
+            CodeUnit unit = currentProgram.getListing().getCodeUnitAt(address);
+            if (unit != null) {
+                unit.setComment(CodeUnit.PLATE_COMMENT,
+                    "Disposable-project binding of the NE far call to 01F7:0E06.");
+            }
+        }
+        function(0x1036, "object_scheduler_insert",
+            "Active-object scheduler/list insertion called after pooled-record initialization.");
+        int[] schedulerCalls = {0x0e60, 0x0ed3, 0x0efd, 0x0f26};
+        for (int offset : schedulerCalls) {
+            bindLocalFarCall(offset, 0x1036,
+                "Disposable-project binding of the NE far call to 01F7:1036.");
+        }
+        int[] descriptorCalls = {
+            0xb1f3, 0xb20e, 0xb2ee, 0xb32e,
+            0xbaa4, 0xbabf, 0xbb9f, 0xbbdf,
+            0xc310, 0xc3b9, 0xc3fe,
+            0xcd8b, 0xce34, 0xce74,
+            0xd423, 0xd542, 0xd5eb, 0xd630,
+            0xdf11, 0xdf20, 0xdf2f, 0xdf3e, 0xdf4d, 0xdf57,
+            0xe575, 0xe5db, 0xe641, 0xe674,
+            0x4b73, 0x4ba3, 0x4c8e,
+            0xe404, 0xe40e, 0x92b6, 0x9539, 0x955a, 0x95ca, 0x98de,
+        };
+        for (int offset : descriptorCalls) {
+            bindLocalFarCall(offset, 0x5d38,
+                "Disposable-project binding of the NE far call to 01F7:5D38.");
+        }
+        bindLocalFarCall(0x4882, 0x5d38,
+            "Disposable-project binding of the NE far call to 01F7:5D38.");
+        int[] stateDecayCalls = {
+            0xb257, 0xb335, 0xbb08, 0xbbe6,
+            0xc405, 0xce7b, 0xd492, 0xd637,
+            0xe1da, 0xe2b9, 0xe398, 0xe487, 0x4879, 0x95c1, 0x98d5,
+            0x4c6e, 0x4c85,
+        };
+        for (int offset : stateDecayCalls) {
+            bindLocalFarCall(offset, 0x5d60,
+                "Disposable-project binding of the NE far call to 01F7:5D60.");
+        }
+        int[] bossHelperCalls = {
+            0xb350, 0xbc01, 0xc420, 0xcc35, 0xce9f, 0xd652,
+        };
+        for (int offset : bossHelperCalls) {
+            bindLocalFarCall(offset, 0x1b77,
+                "Disposable-project binding of the NE far call to 01F7:1B77.");
+        }
+        int[] bossHelperCallsB = {
+            0xb36e, 0xb390, 0xb3b3,
+            0xbc1f, 0xbc41, 0xbc64,
+            0xcebd, 0xcedf, 0xcf02,
+            0xd670, 0xd692, 0xd6b5,
+        };
+        for (int offset : bossHelperCallsB) {
+            bindLocalFarCall(offset, 0x1c6e,
+                "Disposable-project binding of the NE far call to 01F7:1C6E.");
+        }
+        bindLocalFarCall(0x1b86, 0x393c,
+            "Disposable-project binding of the NE far call to 01F7:393C.");
+        int[] phaseFactoryCalls = {0x4bd5, 0x4c04, 0x4c33,
+            0x49a4, 0x49c7, 0x4a1d, 0x4a40};
+        for (int offset : phaseFactoryCalls) {
+            bindLocalFarCall(offset, 0x0e06,
+                "Disposable-project binding of the NE far call to 01F7:0E06.");
+        }
+        int[] mapQueryCalls = {0xdd6d, 0xdd7e, 0xdd95, 0xdda6,
+            0x48e3, 0x48f4, 0x4908, 0x4919,
+            0x9337, 0x934b, 0x964b, 0x965f};
+        for (int offset : mapQueryCalls) {
+            bindLocalFarCall(offset, 0x5c27,
+                "Disposable-project binding of the NE far call to 01F7:5C27.");
+        }
+        int[] mapQueryCallsB = {
+            0xe030, 0xe09a, 0xe0d1, 0xe49d, 0xe4f4,
+            0xe51e, 0xe552, 0xe58a, 0xe5f0, 0xe656, 0xe689,
+        };
+        for (int offset : mapQueryCallsB) {
+            bindLocalFarCall(offset, 0x5c11,
+                "Disposable-project binding of the NE far call to 01F7:5C11.");
+        }
+        bindLocalFarCall(0xdd52, 0x1bd1,
+            "Disposable-project binding of the NE far call to 01F7:1BD1.");
+        bindLocalFarCall(0x48c8, 0x1bd1,
+            "Disposable-project binding of the NE far call to 01F7:1BD1.");
+        bindLocalFarCall(0x4936, 0x393c,
+            "Disposable-project binding of the NE far call to 01F7:393C.");
+        bindLocalFarCall(0x9276, 0x393c,
+            "Disposable-project binding of the NE far call to 01F7:393C.");
+        bindLocalFarCall(0x9319, 0x1c4d,
+            "Disposable-project binding of the NE far call to 01F7:1C4D.");
+        bindLocalFarCall(0x962d, 0x1c4d,
+            "Disposable-project binding of the NE far call to 01F7:1C4D.");
+        bindLocalFarCall(0x9941, 0x1c4d,
+            "Disposable-project binding of the NE far call to 01F7:1C4D.");
+        bindLocalFarCall(0x49f2, 0x5d60,
+            "Disposable-project binding of the NE far call to 01F7:5D60.");
+        bindLocalFarCall(0x49f8, 0x5d60,
+            "Disposable-project binding of the NE far call to 01F7:5D60.");
+    }
+
+    private void annotateLateBossFactoryArguments() throws Exception {
+        // The allocator receives the next constructor in AX.  Ghidra's
+        // decompiler does not preserve that register argument after the
+        // disposable far-call binding, so leave an explicit call-site note.
+        comment(0xc6fe, "Boss phase factory: AX=0xC955 -> W3 phase actor constructor.");
+        comment(0xc806, "Boss phase factory: AX=0x4B70 -> shared phase-child constructor.");
+        comment(0xc865, "Boss phase factory: AX=0x4B70 -> shared phase-child constructor.");
+        comment(0xc937, "Boss terminal factory: AX=0x487F -> shared post-boss contact constructor.");
+        comment(0xc9d0, "Boss phase factory: AX=0xC9F8 -> W3 phase actor constructor.");
+        comment(0xca73, "Boss phase factory: AX=0xCA9B -> W3 phase actor constructor.");
+        comment(0xd932, "Boss phase factory: AX=0xDC09 -> W5 phase actor constructor.");
+        comment(0xdabc, "Boss phase factory: AX=0x4B70 -> shared phase-child constructor.");
+        comment(0xdb1b, "Boss phase factory: AX=0x4B70 -> shared phase-child constructor.");
+        comment(0xdbed, "Boss terminal factory: AX=0x487F -> shared post-boss contact constructor.");
+        comment(0xdc84, "Boss phase factory: AX=0xDCAC -> W5 phase actor constructor.");
+        comment(0x49a4, "Transition auxiliary factory: AX=0x49FF -> W1 transition child constructor.");
+        comment(0x49c7, "Transition auxiliary factory: AX=0x92F2 -> directional auxiliary constructor.");
+        comment(0x4a1d, "Transition auxiliary factory: AX=0x9614 -> directional auxiliary constructor.");
+        comment(0x4a40, "Transition auxiliary factory: AX=0x991A -> directional auxiliary constructor.");
+    }
+
+    private void bindLocalFarCall(int offset, int target, String comment) throws Exception {
+        Address address = toAddr(offset);
+        if ((currentProgram.getMemory().getByte(address) & 0xff) != 0x9a) {
+            println("Local-call bind skipped; no far call at " + address);
+            return;
+        }
+        currentProgram.getListing().clearCodeUnits(address, address.add(4), false);
+        currentProgram.getMemory().setBytes(address,
+            new byte[] {(byte) 0x9a, (byte) (target & 0xff), (byte) ((target >> 8) & 0xff), 0x00, 0x00});
+        disassemble(address);
+        CodeUnit unit = currentProgram.getListing().getCodeUnitAt(address);
+        if (unit != null) {
+            unit.setComment(CodeUnit.PLATE_COMMENT, comment);
+        }
+    }
+
+    private void comment(int offset, String text) throws Exception {
+        CodeUnit unit = currentProgram.getListing().getCodeUnitAt(toAddr(offset));
+        if (unit != null) {
+            unit.setComment(CodeUnit.PLATE_COMMENT, text);
+        }
     }
 
     private void annotateSegment5() throws Exception {

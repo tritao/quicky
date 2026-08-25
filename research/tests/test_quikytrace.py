@@ -8,7 +8,13 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 from quikytrace import (  # noqa: E402
     EntityTraceConfig,
+    GlobalWordPatch,
+    InputPhase,
+    MapCellWordPatch,
+    ObjectFocusConfig,
+    ObjectWordPatch,
     PlayerTraceConfig,
+    SelectorWordPatch,
     TraceError,
     StateMachineTraceConfig,
     decode_lookup_call,
@@ -103,6 +109,247 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual([event["sequence"] for event in events], [1])
         self.assertIn('TRACE_NAVIGATE_LEVEL="W4L1"', api.loaded_source)
         self.assertTrue(api.replayed)
+
+    def test_player_input_phases_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            input_phases=(InputPhase("KBD_left", 30),
+                          InputPhase("KBD_leftalt", 1, "KBD_space", "KBD_left")),
+        )
+        self.assertEqual(player_trace_lua_config(config)["input_phases"], [
+            {"key": "KBD_left", "key_2": "", "key_3": "", "frames": 30},
+            {"key": "KBD_leftalt", "key_2": "KBD_space",
+             "key_3": "KBD_left", "frames": 1},
+        ])
+
+    def test_player_factory_focus_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            factory_focus=True,
+            factory_start_sample=12,
+        )
+        self.assertTrue(player_trace_lua_config(config)["factory_focus"])
+        self.assertEqual(player_trace_lua_config(config)["factory_start_sample"], 12)
+
+    def test_player_pool_offsets_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            pool_offsets=(0, 0x168),
+        )
+        self.assertEqual(player_trace_lua_config(config)["pool_offsets"], [0, 0x168])
+
+    def test_player_callback_return_following_can_be_disabled(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            focus_callback=True,
+            focus_callback_offset=0xA101,
+            callback_follow_return=False,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["focus_callback_offset"], 0xA101)
+        self.assertFalse(payload["callback_follow_return"])
+
+    def test_player_callback_can_start_after_input_samples(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            focus_callback=True,
+            focus_callback_offset=0x45AB,
+            callback_start_sample=4,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["callback_start_sample"], 4)
+
+    def test_player_object_watch_offsets_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            focus_object=ObjectFocusConfig(
+                sprite_slot_min=0, sprite_slot_max=0xffff,
+                object_offset=0, callback_offset=0x3ff8,
+            ),
+            watch_offsets=(0x19A3, 0x1A3D),
+            watch_segments=(0x01F7,),
+            watch_start_sample=19,
+        )
+        self.assertEqual(player_trace_lua_config(config)["watch_offsets"],
+                         [0x19A3, 0x1A3D])
+        self.assertEqual(player_trace_lua_config(config)["watch_segments"],
+                         [0x01F7])
+        self.assertEqual(player_trace_lua_config(config)["watch_start_sample"], 19)
+
+    def test_player_stop_on_watch_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            watch_offsets=(0x4EA0,),
+            watch_segments=(0x01D7,),
+            stop_on_watch=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["stop_on_watch"])
+
+    def test_player_stop_watch_offsets_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            watch_offsets=(0x171F, 0x1724),
+            watch_segments=(0x01D7,),
+            stop_on_watch=True,
+            stop_watch_offsets=(0x1724,),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["stop_watch_offsets"], [0x1724]
+        )
+
+    def test_player_exact_watch_targets_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            watch_targets=((0x01E7, 0x0CD3), (0x01D7, 0x1724)),
+            stop_on_watch=True,
+            stop_watch_offsets=(0x1724,),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["watch_targets"],
+            [{"segment": 0x01E7, "offset": 0x0CD3},
+             {"segment": 0x01D7, "offset": 0x1724}],
+        )
+
+    def test_player_exact_watch_targets_can_be_staged(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            watch_targets=((0x01D7, 0x4F0D, 4), (0x01E7, 0x0CAA, 6)),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["watch_targets"],
+            [{"segment": 0x01D7, "offset": 0x4F0D, "start_sample": 4},
+             {"segment": 0x01E7, "offset": 0x0CAA, "start_sample": 6}],
+        )
+
+    def test_player_selector_word_patches_are_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            selector_word_patches=(SelectorWordPatch(
+                selector=0xFFFF, address=0x2FEB, value=0,
+                start_sample=4, end_sample=8,
+            ),),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["selector_word_patches"],
+            [{"selector": 0xFFFF, "address": 0x2FEB, "value": 0,
+              "start_sample": 4, "end_sample": 8}],
+        )
+
+    def test_player_watch_only_start_sample_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            watch_offsets=(0x4FAF,),
+            watch_segments=(0x01D7,),
+            watch_only_start_sample=8,
+        )
+        self.assertEqual(player_trace_lua_config(config)["watch_only_start_sample"], 8)
+
+    def test_player_teleport_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            player_teleport_x=1600,
+            player_teleport_y=500,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["player_teleport_x"], 1600)
+        self.assertEqual(payload["player_teleport_y"], 500)
+
+    def test_player_teleport_start_sample_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            player_teleport_x=251,
+            player_teleport_y=640,
+            player_teleport_start_sample=6,
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["player_teleport_start_sample"], 6
+        )
+
+    def test_player_teleport_persist_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            player_teleport_x=1000,
+            player_teleport_y=650,
+            player_teleport_persist=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["player_teleport_persist"])
+
+    def test_player_patch_every_frame_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            patch_every_frame=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["patch_every_frame"])
+
+    def test_player_death_bypass_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            player_death_bypass=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["player_death_bypass"])
+
+    def test_player_death_bypass_start_sample_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            player_death_bypass=True,
+            player_death_bypass_start_sample=41,
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["player_death_bypass_start_sample"], 41
+        )
+
+    def test_player_global_word_patch_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            global_word_patches=(GlobalWordPatch(0x89EA, 0, 26),),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["global_word_patches"],
+            [{"address": 0x89EA, "value": 0, "start_sample": 26}],
+        )
+
+    def test_player_map_cell_word_patch_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            map_cell_word_patches=(MapCellWordPatch(23, 36, 0x1001),),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["map_cell_word_patches"],
+            [{"cell_x": 23, "cell_y": 36, "value": 0x1001,
+              "start_sample": 1}],
+        )
+
+    def test_player_global_word_patch_range_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            global_word_patches=(GlobalWordPatch(0x88AE, 2, 2, 2),),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["global_word_patches"],
+            [{"address": 0x88AE, "value": 2,
+              "start_sample": 2, "end_sample": 2}],
+        )
 
     def test_entity_trace_config_is_nested_and_lua_safe(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
@@ -212,6 +459,8 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(player_trace_lua_config(config)["frames_between"], 4)
         self.assertEqual(player_trace_lua_config(config)["input_frames"], 0)
         self.assertEqual(player_trace_lua_config(config)["input_samples"], 0)
+        self.assertEqual(player_trace_lua_config(config)["input_key_2"], "")
+        self.assertEqual(player_trace_lua_config(config)["input_phases"], [])
         self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
         self.assertFalse(player_trace_lua_config(config)["collision_focus"])
         self.assertFalse(player_trace_lua_config(config)["map_focus"])
@@ -239,6 +488,86 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["property_focus"])
         self.assertEqual(payload["property_helper_offset"], 0x5C27)
+
+    def test_player_object_focus_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            focus_object=ObjectFocusConfig(
+                sprite_slot_min=900, sprite_slot_max=999,
+                object_offset=0x78, callback_offset=0xA234,
+            ),
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["focus_object"], {
+            "sprite_slot_min": 900,
+            "sprite_slot_max": 999,
+            "object_offset": 0x78,
+            "callback_offset": 0xA234,
+        })
+
+    def test_player_multiple_object_focus_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            focus_objects=(
+                ObjectFocusConfig(object_offset=0x78, callback_offset=0xB33B),
+                ObjectFocusConfig(object_offset=0x1E0, callback_offset=0x45AB),
+            ),
+        )
+        self.assertEqual(player_trace_lua_config(config)["focus_objects"], [
+            {
+                "sprite_slot_min": 900,
+                "sprite_slot_max": 999,
+                "object_offset": 0x78,
+                "callback_offset": 0xB33B,
+            },
+            {
+                "sprite_slot_min": 900,
+                "sprite_slot_max": 999,
+                "object_offset": 0x1E0,
+                "callback_offset": 0x45AB,
+            },
+        ])
+
+    def test_player_object_word_patch_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            object_word_patches=(ObjectWordPatch(0x168, 0x2C, 4, 4),),
+        )
+        self.assertEqual(player_trace_lua_config(config)["object_word_patches"], [{
+            "object_offset": 0x168,
+            "field_offset": 0x2C,
+            "value": 4,
+            "start_sample": 4,
+        }])
+
+    def test_player_object_word_patch_range_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            object_word_patches=(ObjectWordPatch(0x78, 0x38, 40, 2, 2),),
+        )
+        self.assertEqual(player_trace_lua_config(config)["object_word_patches"], [{
+            "object_offset": 0x78, "field_offset": 0x38,
+            "value": 40, "start_sample": 2, "end_sample": 2,
+        }])
+
+    def test_player_callback_word_patch_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            object_word_patches=(
+                ObjectWordPatch(0, 0x2A, 1, 4, 10, callback_offset=0x489C),
+            ),
+        )
+        self.assertEqual(
+            player_trace_lua_config(config)["object_word_patches"], [{
+                "object_offset": 0, "field_offset": 0x2A, "value": 1,
+                "start_sample": 4, "end_sample": 10,
+                "callback_offset": 0x489C,
+            }])
 
     def test_player_branch_focus_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
@@ -275,6 +604,16 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("selector_word, descriptor_selector", source)
         self.assertNotIn("mem_read_word, map_selector", source)
         self.assertNotIn("mem_read_word, descriptor_selector", source)
+
+    def test_player_trace_supports_staged_watches_and_experiment_segments(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("target.start_sample", source)
+        self.assertIn("watch_target_consumed", source)
+        self.assertIn("local function experiment_segment_read", source)
+        self.assertIn('dosbox.mem_read(selector, address, size)', source)
+        self.assertIn("skipped_for_transition_watch", source)
+        self.assertIn("stopped_during_callback_watch", source)
 
     def test_player_collision_trace_distinguishes_near_leaf_returns(self):
         script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"

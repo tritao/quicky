@@ -421,6 +421,17 @@ python3 research/tools/quikytrace.py --launch --headless \
   --player-frames-between 5 --output research/build/traces/player-right.json
 ~~~
 
+For level-specific pooled-object construction, use the dedicated allocator
+focus. It records nested `01F7:0E06` calls, constructor `AX`, returned `ES:DI`,
+and the post-update scheduler barrier without changing the executable:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-factory-focus --select-level W3L3 \
+  --player-samples 8 --player-frames-between 20 \
+  --output research/build/traces/w3l3-factory-focus.json
+~~~
+
 The corresponding `--player-collision-focus` and `--player-map-focus` modes
 break on the candidate collision helpers or `01F7:3376`; the structured output
 keeps the helper registers, player object state, MAP coordinates, and tile IDs
@@ -434,6 +445,69 @@ the held key after N post-baseline samples and observe the release/reset path.
 The current boundary evidence distinguishes a stable left wall at `x=72` from
 a right-side reset near `(2132,368)`; it does not yet turn either case into a
 hard-coded engine rule.
+
+For a low-cost boss/player trace, restrict the pool snapshot to the player and
+one known boss record. Offsets are `0x78` bytes apart:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-focus-callback --player-callback-offset 0x3ff8 \
+  --player-pool-offset 0 --player-pool-offset 0x168 \
+  --player-samples 40 --player-frames-between 1 \
+  --output research/build/traces/player-boss-focused.json
+~~~
+
+Repeat `--player-pool-offset` for additional records. This is useful when a
+natural projectile hit must be aligned with the boss callback without paying
+the instruction cost of decoding all 64 pool records. Code-offset watches can
+be added with repeated `--player-object-watch-offset` and
+`--player-object-watch-segment`; those watches are diagnostic around player
+transition barriers and should be validated against an unmodified route. For
+late encounter windows, `--player-factory-start-sample N` leaves the ordinary
+pool barrier active until sample N, then switches to allocator capture.
+Use the real code segment for cross-segment watches—for example,
+`--player-object-watch-segment 0x01d7` for the SEG01 transition routines. Watch
+hits encountered while the tracer is filtering an object are now retained in
+`watch_events` as well as `ignored_focus_callbacks`, so intermediate setters
+and consumers are not silently lost.
+
+When several code paths share an offset, use repeated exact watches in the
+form `--player-object-watch-target SEGMENT:OFFSET[:START]`. The optional
+sample stages a target without arming later transition labels too early; this
+is useful for call-chain work such as `4F0D -> 14EC -> 171F -> 1724`.
+
+For a reversible transition-boundary probe, add `--player-stop-on-watch`; the
+trace stops at the first watched instruction and captures registers before the
+next guest callback can invalidate the focused object.
+`--player-watch-only-start-sample N` disables the ordinary callback barrier
+from sample N onward, which is useful after a boss transition begins.
+Debugger-only pooled-object words can be patched by exact offset with
+`--player-object-word-patch`, or on every active object using
+`--player-object-callback-word-patch CALLBACK:FIELD:VALUE[:START[:END]]`.
+DS words can be patched with `--player-global-word-patch`, and selector-backed
+or conventional `FFFF:offset` words with
+`--player-selector-word-patch SELECTOR:ADDRESS:VALUE[:START[:END]]`.
+All such mutations are recorded in `trace_config` and restored before exit.
+
+The native W2/W4 terminal boundary probes use this shape, changing only the
+terminal pool offset and selected level between worlds:
+
+~~~sh
+python3 research/tools/quikytrace.py --launch --headless \
+  --player-trace --player-focus-callback --player-callback-offset 0x3ff8 \
+  --player-patch-every-frame --player-stop-on-watch \
+  --player-object-watch-offset 0x4ea0 --player-object-watch-segment 0x1d7 \
+  --player-object-patch-offset 0x78 --player-object-patch-callback 0x489c \
+  --player-object-patch-reference-offset 0 \
+  --player-global-word-patch 0x88ae:5:1:2 \
+  --player-global-word-patch 0x88ae:1:3:8 \
+  --player-global-word-patch 0x89ea:0:3:8 \
+  --select-level W2L3 --player-samples 8 --player-frames-between 0 \
+  --output research/build/traces/w2-native-terminal-4ea0.json
+~~~
+
+This is controlled branch evidence, not natural encounter timing: the object
+position mutation is debugger-only and must remain labeled as such.
 
 MAP and descriptor pointers are protected-mode selectors. Traces produced
 before the selector-read correction used the real-mode `mem_read_word` helper
@@ -809,6 +883,12 @@ timing, breakpoints, registers, and memory. State-machine-only controls are
 nested under `TRACE_CONFIG.state_machine`, and the resulting entity record
 includes `trace_schema_version`. This keeps debugger experiments explicit
 without turning their flags into engine or gameplay API semantics.
+
+Player/object-pool traces now preserve the complete guest-visible
+`trace_config` alongside the samples. This includes input phases, callback and
+allocator focus, pool offsets, watches, and debugger-only patch intervals, so a
+successful boss route can be replayed and audited without reconstructing its
+keyboard schedule from frame deltas.
 
 ### ARE entity catalog and controlled experiment
 

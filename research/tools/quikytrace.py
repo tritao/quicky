@@ -74,6 +74,70 @@ class EntityTraceConfig:
 
 
 @dataclass(frozen=True)
+class ObjectFocusConfig:
+    """Selector for a live object family in the pooled runtime records."""
+
+    sprite_slot_min: int = 900
+    sprite_slot_max: int = 999
+    object_offset: int | None = None
+    callback_offset: int | None = None
+
+
+@dataclass(frozen=True)
+class InputPhase:
+    """One one-shot keyboard hold between two player samples."""
+
+    key: str
+    frames: int
+    key_2: str | None = None
+    key_3: str | None = None
+
+
+@dataclass(frozen=True)
+class ObjectWordPatch:
+    """Debugger-only reversible word mutation on one pooled object."""
+
+    object_offset: int
+    field_offset: int
+    value: int
+    start_sample: int = 1
+    end_sample: int | None = None
+    callback_offset: int | None = None
+
+
+@dataclass(frozen=True)
+class GlobalWordPatch:
+    """Debugger-only reversible word mutation in the live DS data segment."""
+
+    address: int
+    value: int
+    start_sample: int = 1
+    end_sample: int | None = None
+
+
+@dataclass(frozen=True)
+class SelectorWordPatch:
+    """Debugger-only reversible word mutation through a protected selector."""
+
+    selector: int
+    address: int
+    value: int
+    start_sample: int = 1
+    end_sample: int | None = None
+
+
+@dataclass(frozen=True)
+class MapCellWordPatch:
+    """Debugger-only reversible word mutation on one loaded MAP cell."""
+
+    cell_x: int
+    cell_y: int
+    value: int
+    start_sample: int = 1
+    end_sample: int | None = None
+
+
+@dataclass(frozen=True)
 class PlayerTraceConfig:
     """Settings for the player/object-pool and MAP-consumer probe."""
 
@@ -82,8 +146,25 @@ class PlayerTraceConfig:
     poll_interval: float = 0.05
     samples: int = 8
     frames_between: int = 30
+    factory_focus: bool = False
+    factory_start_sample: int = 1
+    focus_object: ObjectFocusConfig | None = None
+    focus_objects: tuple[ObjectFocusConfig, ...] = ()
     focus_callback: bool = False
     focus_callback_offset: int = 0x3FF8
+    callback_follow_return: bool = True
+    callback_start_sample: int = 1
+    watch_offsets: tuple[int, ...] = ()
+    watch_segments: tuple[int, ...] = ()
+    watch_targets: tuple[tuple[int, ...], ...] = ()
+    watch_start_sample: int = 1
+    stop_on_watch: bool = False
+    stop_watch_offsets: tuple[int, ...] = ()
+    watch_only_start_sample: int = 0
+    pool_offsets: tuple[int, ...] = ()
+    global_word_patches: tuple[GlobalWordPatch, ...] = ()
+    selector_word_patches: tuple[SelectorWordPatch, ...] = ()
+    map_cell_word_patches: tuple[MapCellWordPatch, ...] = ()
     map_focus: bool = False
     collision_focus: bool = False
     property_focus: bool = False
@@ -96,8 +177,27 @@ class PlayerTraceConfig:
     map_width: int = 270
     map_height: int = 30
     input_key: str | None = None
+    input_key_2: str | None = None
     input_frames: int = 0
     input_samples: int = 0
+    input_phases: tuple[InputPhase, ...] = ()
+    player_teleport_x: int | None = None
+    player_teleport_y: int | None = None
+    player_teleport_start_sample: int = 1
+    player_teleport_persist: bool = False
+    patch_every_frame: bool = False
+    player_death_bypass: bool = False
+    player_death_bypass_start_sample: int = 1
+    object_patch_offset: int | None = None
+    object_patch_callback: int | None = None
+    object_patch_x: int | None = None
+    object_patch_y: int | None = None
+    object_patch_table_index: int | None = None
+    object_patch_reference_offset: int | None = None
+    object_patch_dx: int = 0
+    object_patch_dy: int = 0
+    object_patch_start_sample: int = 1
+    object_word_patches: tuple[ObjectWordPatch, ...] = ()
     select_level: str | None = None
     selector_frames: int = 60
     screenshot: Path | None = None
@@ -127,6 +227,8 @@ def lua_literal(value: Any) -> str:
             for key, item in value.items()
         ]
         return "{" + ",".join(entries) + "}"
+    if isinstance(value, (list, tuple)):
+        return "{" + ",".join(lua_literal(item) for item in value) + "}"
     raise TypeError(f"cannot encode {type(value).__name__} as Lua")
 
 
@@ -160,13 +262,82 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
 
 def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
     """Return the guest-visible portion of a player trace configuration."""
+    focus_object = None
+    if config.focus_object is not None:
+        focus_object = {
+            "sprite_slot_min": config.focus_object.sprite_slot_min,
+            "sprite_slot_max": config.focus_object.sprite_slot_max,
+            "object_offset": config.focus_object.object_offset,
+            "callback_offset": config.focus_object.callback_offset,
+        }
+    focus_objects = []
+    for item in config.focus_objects:
+        focus_objects.append({
+            "sprite_slot_min": item.sprite_slot_min,
+            "sprite_slot_max": item.sprite_slot_max,
+            "object_offset": item.object_offset,
+            "callback_offset": item.callback_offset,
+        })
     return {
         "schema_version": 1,
         "timeout_ms": round(config.timeout * 1000),
         "samples": config.samples,
         "frames_between": config.frames_between,
+        "factory_focus": config.factory_focus,
+        "factory_start_sample": config.factory_start_sample,
+        "focus_object": focus_object,
+        "focus_objects": focus_objects,
         "focus_callback": config.focus_callback,
         "focus_callback_offset": config.focus_callback_offset,
+        "callback_follow_return": config.callback_follow_return,
+        "callback_start_sample": config.callback_start_sample,
+        "watch_offsets": list(config.watch_offsets),
+        "watch_segments": list(config.watch_segments),
+        "watch_targets": [
+            {
+                "segment": target[0],
+                "offset": target[1],
+                **({"start_sample": target[2]} if len(target) >= 3 else {}),
+            }
+            for target in config.watch_targets
+        ],
+        "watch_start_sample": config.watch_start_sample,
+        "stop_on_watch": config.stop_on_watch,
+        "stop_watch_offsets": list(config.stop_watch_offsets),
+        "watch_only_start_sample": config.watch_only_start_sample,
+        "pool_offsets": list(config.pool_offsets),
+        "global_word_patches": [
+            {
+                "address": patch.address,
+                "value": patch.value,
+                "start_sample": patch.start_sample,
+                **({"end_sample": patch.end_sample}
+                   if patch.end_sample is not None else {}),
+            }
+            for patch in config.global_word_patches
+        ],
+        "selector_word_patches": [
+            {
+                "selector": patch.selector,
+                "address": patch.address,
+                "value": patch.value,
+                "start_sample": patch.start_sample,
+                **({"end_sample": patch.end_sample}
+                   if patch.end_sample is not None else {}),
+            }
+            for patch in config.selector_word_patches
+        ],
+        "map_cell_word_patches": [
+            {
+                "cell_x": patch.cell_x,
+                "cell_y": patch.cell_y,
+                "value": patch.value,
+                "start_sample": patch.start_sample,
+                **({"end_sample": patch.end_sample}
+                   if patch.end_sample is not None else {}),
+            }
+            for patch in config.map_cell_word_patches
+        ],
         "map_focus": config.map_focus,
         "collision_focus": config.collision_focus,
         "property_focus": config.property_focus,
@@ -179,8 +350,45 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "map_width": config.map_width,
         "map_height": config.map_height,
         "input_key": config.input_key or "",
+        "input_key_2": config.input_key_2 or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
+        "input_phases": [
+            {"key": phase.key, "key_2": phase.key_2 or "",
+             "key_3": phase.key_3 or "", "frames": phase.frames}
+            for phase in config.input_phases
+        ],
+        "player_teleport_x": config.player_teleport_x,
+        "player_teleport_y": config.player_teleport_y,
+        "player_teleport_start_sample": config.player_teleport_start_sample,
+        "player_teleport_persist": config.player_teleport_persist,
+        "patch_every_frame": config.patch_every_frame,
+        "player_death_bypass": config.player_death_bypass,
+        "player_death_bypass_start_sample": config.player_death_bypass_start_sample,
+        "object_patch": {
+            "object_offset": config.object_patch_offset,
+            "callback_offset": config.object_patch_callback,
+            "x": config.object_patch_x,
+            "y": config.object_patch_y,
+            "table_index": config.object_patch_table_index,
+            "reference_offset": config.object_patch_reference_offset,
+            "dx": config.object_patch_dx,
+            "dy": config.object_patch_dy,
+            "start_sample": config.object_patch_start_sample,
+        } if config.object_patch_offset is not None else None,
+        "object_word_patches": [
+            {
+                "object_offset": patch.object_offset,
+                "field_offset": patch.field_offset,
+                "value": patch.value,
+                "start_sample": patch.start_sample,
+                **({"callback_offset": patch.callback_offset}
+                   if patch.callback_offset is not None else {}),
+                **({"end_sample": patch.end_sample}
+                   if patch.end_sample is not None else {}),
+            }
+            for patch in config.object_word_patches
+        ],
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
     }
@@ -502,6 +710,8 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
         pool = sample.get("pool")
         if isinstance(pool, dict):
             pool["objects"] = ordered_lua_array(pool.get("objects", []))
+            if "focus_objects" in pool:
+                pool["focus_objects"] = ordered_lua_array(pool.get("focus_objects", []))
             pool["kind_0x64"] = ordered_lua_array(pool.get("kind_0x64", []))
         scheduler = sample.get("scheduler")
         if isinstance(scheduler, dict):
@@ -511,6 +721,10 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
         if "related_breakpoints" in sample:
             sample["related_breakpoints"] = ordered_lua_array(
                 sample.get("related_breakpoints", [])
+            )
+        if "factory_events" in sample:
+            sample["factory_events"] = ordered_lua_array(
+                sample.get("factory_events", [])
             )
         if "collisions" in sample:
             sample["collisions"] = ordered_lua_array(sample.get("collisions", []))
@@ -542,6 +756,8 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
         pool = trace.get(key)
         if isinstance(pool, dict):
             pool["objects"] = ordered_lua_array(pool.get("objects", []))
+            if "focus_objects" in pool:
+                pool["focus_objects"] = ordered_lua_array(pool.get("focus_objects", []))
             pool["kind_0x64"] = ordered_lua_array(pool.get("kind_0x64", []))
     return trace
 
@@ -623,9 +839,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--navigate-w1l3", action="store_true",
                         help="launch from the menu and redirect W1L1 resource paths to W1L3 at lookup time")
     parser.add_argument("--navigate-level",
-                        help="launch from the menu and redirect W1L1 resource paths to a four-character level such as W4L1")
+                        help="launch from the menu and redirect W1L1 resource paths to a level such as W4L1")
     parser.add_argument("--select-level",
-                        help="launch the cheat level selector and choose a four-character level such as W4L1")
+                        help="launch the cheat level selector and choose a level such as W4L1 or W1IN")
     parser.add_argument("--selector-frames", type=int, default=60)
     parser.add_argument("--tail-count", type=int, default=0,
                         help="continue after the initial resource batch and collect optional lazy lookups")
@@ -642,11 +858,53 @@ def build_parser() -> argparse.ArgumentParser:
                         help="number of player/object-pool samples")
     parser.add_argument("--player-frames-between", type=int, default=30,
                         help="guest frames between player/object-pool samples")
+    parser.add_argument("--player-factory-focus", action="store_true",
+                        help="trace pooled-object allocator calls at 01F7:0E06")
+    parser.add_argument("--player-factory-start-sample", type=int, default=1,
+                        help="arm allocator focus starting at this 1-based sample")
+    parser.add_argument("--player-object-focus", action="store_true",
+                        help="focus pool samples on objects matching the boss-range selector")
+    parser.add_argument("--player-object-slot-min", type=lambda value: int(value, 0),
+                        default=900, help="minimum logical sprite slot for object focus")
+    parser.add_argument("--player-object-slot-max", type=lambda value: int(value, 0),
+                        default=999, help="maximum logical sprite slot for object focus")
+    parser.add_argument("--player-object-offset", type=lambda value: int(value, 0),
+                        help="limit object focus to one pooled object offset")
+    parser.add_argument("--player-object-callback", type=lambda value: int(value, 0),
+                        help="break on an exact focused-object callback offset")
+    parser.add_argument("--player-object-target", action="append", default=[],
+                        metavar="SLOT_MIN:SLOT_MAX[:OFFSET[:CALLBACK]]",
+                        help="add a multiple-object focus target; repeatable")
     parser.add_argument("--player-focus-callback", action="store_true",
                         help="break directly on the selected player callback (default 01F7:3FF8)")
     parser.add_argument("--player-callback-offset", type=lambda value: int(value, 0),
                         default=0x3FF8,
                         help="player callback offset for --player-focus-callback (default 0x3ff8)")
+    parser.add_argument("--player-callback-no-return", action="store_true",
+                        help="record a callback entry without following its return; for one-shot initializers")
+    parser.add_argument("--player-callback-start-sample", type=int, default=1,
+                        help="arm --player-focus-callback starting at this 1-based sample")
+    parser.add_argument("--player-object-watch-offset", action="append", default=[],
+                        type=lambda value: int(value, 0),
+                        help="record an additional code offset while filtering a focused object callback; repeatable")
+    parser.add_argument("--player-object-watch-segment", action="append", default=[],
+                        type=lambda value: int(value, 0),
+                        help="segment for --player-object-watch-offset; defaults to 0x01F7; repeatable")
+    parser.add_argument("--player-object-watch-target", action="append", default=[],
+                        metavar="SEGMENT:OFFSET[:START]",
+                        help="exact segment:offset code watch, optionally staged at START; repeatable")
+    parser.add_argument("--player-object-watch-start-sample", type=int, default=1,
+                        help="start stepping watched input before this 1-based player sample")
+    parser.add_argument("--player-stop-on-watch", action="store_true",
+                        help="stop and emit the trace at the first watched code offset")
+    parser.add_argument("--player-stop-watch-offset", action="append", default=[],
+                        type=lambda value: int(value, 0),
+                        help="limit --player-stop-on-watch to these offsets; repeatable")
+    parser.add_argument("--player-watch-only-start-sample", type=int, default=0,
+                        help="switch to transition-watch-only barriers at this sample")
+    parser.add_argument("--player-pool-offset", action="append", default=[],
+                        type=lambda value: int(value, 0),
+                        help="read only this pooled-object offset in player traces; repeatable")
     parser.add_argument("--player-map-focus", action="store_true",
                         help="break on the 01F7:3376 MAP helper used by player collision probes")
     parser.add_argument("--player-collision-focus", action="store_true",
@@ -672,10 +930,62 @@ def build_parser() -> argparse.ArgumentParser:
                         help="loaded MAP height for descriptor census (default 30)")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
+    parser.add_argument("--player-input-key-2",
+                        help="hold a second key simultaneously with --player-input-key")
     parser.add_argument("--player-input-frames", type=int, default=0,
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-input-phase", action="append", default=[],
+                        metavar="KEY[+KEY2[+KEY3]]:FRAMES",
+                        help="one-shot input phase; use WAIT:FRAMES for an unmodified wait")
+    parser.add_argument("--player-teleport-x", type=int,
+                        help="debugger-only: set the player integer X at the selected sample")
+    parser.add_argument("--player-teleport-y", type=int,
+                        help="debugger-only: set the player integer Y at the selected sample")
+    parser.add_argument("--player-teleport-start-sample", type=int, default=1,
+                        help="sample at which the debugger-only player teleport begins")
+    parser.add_argument("--player-teleport-persist", action="store_true",
+                        help="reapply the debugger-only player teleport after every selected sample")
+    parser.add_argument("--player-patch-every-frame", action="store_true",
+                        help="debugger-only: reapply configured teleport/object/global patches around every observed guest frame")
+    parser.add_argument("--player-death-bypass", action="store_true",
+                        help="debugger-only: replace the player fall/death branch with its normal continuation and restore it on exit")
+    parser.add_argument("--player-death-bypass-start-sample", type=int, default=1,
+                        help="sample at which the debugger-only player death-branch bypass begins")
+    parser.add_argument("--player-object-patch-offset", type=lambda value: int(value, 0),
+                        help="debugger-only: temporarily patch one object's X/Y after a sample")
+    parser.add_argument("--player-object-patch-callback", type=lambda value: int(value, 0),
+                        help="limit the debugger-only object patch to this callback")
+    parser.add_argument("--player-object-patch-x", type=int,
+                        help="debugger-only patched object integer X")
+    parser.add_argument("--player-object-patch-y", type=int,
+                        help="debugger-only patched object integer Y")
+    parser.add_argument("--player-object-patch-table-index", type=int,
+                        help="debugger-only shared projectile-table index to patch")
+    parser.add_argument("--player-object-patch-reference-offset", type=lambda value: int(value, 0),
+                        help="debugger-only object whose position should be copied into the patch")
+    parser.add_argument("--player-object-patch-dx", type=int, default=0,
+                        help="debugger-only X offset from the patch reference object")
+    parser.add_argument("--player-object-patch-dy", type=int, default=0,
+                        help="debugger-only Y offset from the patch reference object")
+    parser.add_argument("--player-object-patch-start-sample", type=int, default=1,
+                        help="sample at which the debugger-only object patch begins")
+    parser.add_argument("--player-object-word-patch", action="append", default=[],
+                        metavar="OBJECT_OFFSET:FIELD_OFFSET:VALUE[:START[:END]]",
+                        help="debugger-only reversible pooled-object word patch; repeatable")
+    parser.add_argument("--player-object-callback-word-patch", action="append", default=[],
+                        metavar="CALLBACK:FIELD_OFFSET:VALUE[:START[:END]]",
+                        help="debugger-only reversible word patch on every object using a callback; repeatable")
+    parser.add_argument("--player-global-word-patch", action="append", default=[],
+                        metavar="ADDRESS:VALUE[:START[:END]]",
+                        help="debugger-only reversible DS word patch; repeatable")
+    parser.add_argument("--player-selector-word-patch", action="append", default=[],
+                        metavar="SELECTOR:ADDRESS:VALUE[:START[:END]]",
+                        help="debugger-only reversible protected-selector word patch; repeatable")
+    parser.add_argument("--player-map-cell-word-patch", action="append", default=[],
+                        metavar="CELL_X:CELL_Y:VALUE[:START[:END]]",
+                        help="debugger-only reversible loaded-MAP cell word patch; repeatable")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -713,16 +1023,296 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
+    object_targets: tuple[ObjectFocusConfig, ...] = ()
+    if args.player_object_target:
+        parsed_targets: list[ObjectFocusConfig] = []
+        for raw_target in args.player_object_target:
+            parts = raw_target.split(":")
+            if len(parts) < 2 or len(parts) > 4 or any(not part for part in parts):
+                raise TraceError(
+                    "--player-object-target must use SLOT_MIN:SLOT_MAX[:OFFSET[:CALLBACK]]"
+                )
+            try:
+                values = [int(part, 0) for part in parts]
+            except ValueError as exc:
+                raise TraceError("--player-object-target values must be integers") from exc
+            parsed_targets.append(ObjectFocusConfig(
+                sprite_slot_min=values[0],
+                sprite_slot_max=values[1],
+                object_offset=values[2] if len(values) >= 3 else None,
+                callback_offset=values[3] if len(values) == 4 else None,
+            ))
+        object_targets = tuple(parsed_targets)
+        if args.player_object_focus:
+            raise TraceError("--player-object-target cannot be combined with --player-object-focus")
+    object_word_patches: tuple[ObjectWordPatch, ...] = ()
+    if args.player_object_word_patch:
+        parsed_patches: list[ObjectWordPatch] = []
+        for raw_patch in args.player_object_word_patch:
+            parts = raw_patch.split(":")
+            if len(parts) not in (3, 4, 5) or any(not part for part in parts):
+                raise TraceError(
+                    "--player-object-word-patch must use OBJECT_OFFSET:FIELD_OFFSET:VALUE[:START[:END]]"
+                )
+            try:
+                values = [int(part, 0) for part in parts]
+            except ValueError as exc:
+                raise TraceError("--player-object-word-patch values must be integers") from exc
+            start_sample = values[3] if len(values) >= 4 else 1
+            end_sample = values[4] if len(values) >= 5 else None
+            if start_sample < 1 or (end_sample is not None and end_sample < start_sample):
+                raise TraceError("--player-object-word-patch sample range is invalid")
+            parsed_patches.append(ObjectWordPatch(
+                object_offset=values[0], field_offset=values[1], value=values[2],
+                start_sample=start_sample, end_sample=end_sample,
+            ))
+        object_word_patches = tuple(parsed_patches)
+    if args.player_object_callback_word_patch:
+        parsed_patches = list(object_word_patches)
+        for raw_patch in args.player_object_callback_word_patch:
+            parts = raw_patch.split(":")
+            if len(parts) not in (3, 4, 5) or any(not part for part in parts):
+                raise TraceError(
+                    "--player-object-callback-word-patch must use CALLBACK:FIELD_OFFSET:VALUE[:START[:END]]"
+                )
+            try:
+                values = [int(part, 0) for part in parts]
+            except ValueError as exc:
+                raise TraceError(
+                    "--player-object-callback-word-patch values must be integers"
+                ) from exc
+            start_sample = values[3] if len(values) >= 4 else 1
+            end_sample = values[4] if len(values) >= 5 else None
+            if start_sample < 1 or (end_sample is not None and end_sample < start_sample):
+                raise TraceError(
+                    "--player-object-callback-word-patch sample range is invalid"
+                )
+            parsed_patches.append(ObjectWordPatch(
+                object_offset=0,
+                field_offset=values[1], value=values[2],
+                start_sample=start_sample, end_sample=end_sample,
+                callback_offset=values[0],
+            ))
+        object_word_patches = tuple(parsed_patches)
+    watch_targets: tuple[tuple[int, ...], ...] = ()
+    if args.player_object_watch_target:
+        parsed_targets = []
+        for raw_target in args.player_object_watch_target:
+            parts = raw_target.split(":")
+            if len(parts) not in (2, 3) or any(not part for part in parts):
+                raise TraceError(
+                    "--player-object-watch-target must use SEGMENT:OFFSET[:START]"
+                )
+            try:
+                values = [int(part, 0) for part in parts]
+            except ValueError as exc:
+                raise TraceError(
+                    "--player-object-watch-target values must be integers"
+                ) from exc
+            parsed_targets.append(tuple(values))
+        watch_targets = tuple(parsed_targets)
+    global_word_patches: tuple[GlobalWordPatch, ...] = ()
+    if args.player_global_word_patch:
+        parsed_patches = []
+        for raw_patch in args.player_global_word_patch:
+            parts = raw_patch.split(":")
+            if len(parts) not in (2, 3, 4) or any(not part for part in parts):
+                raise TraceError(
+                    "--player-global-word-patch must use ADDRESS:VALUE[:START[:END]]"
+                )
+            try:
+                values = [int(part, 0) for part in parts]
+            except ValueError as exc:
+                raise TraceError("--player-global-word-patch values must be integers") from exc
+            start_sample = values[2] if len(values) >= 3 else 1
+            end_sample = values[3] if len(values) >= 4 else None
+            if start_sample < 1 or (end_sample is not None and end_sample < start_sample):
+                raise TraceError("--player-global-word-patch sample range is invalid")
+            parsed_patches.append(GlobalWordPatch(
+                address=values[0], value=values[1],
+                start_sample=start_sample, end_sample=end_sample,
+            ))
+        global_word_patches = tuple(parsed_patches)
+    selector_word_patches: tuple[SelectorWordPatch, ...] = ()
+    if args.player_selector_word_patch:
+        parsed_patches = []
+        for raw_patch in args.player_selector_word_patch:
+            parts = raw_patch.split(":")
+            if len(parts) not in (3, 4, 5) or any(not part for part in parts):
+                raise TraceError(
+                    "--player-selector-word-patch must use SELECTOR:ADDRESS:VALUE[:START[:END]]"
+                )
+            try:
+                values = [int(part, 0) for part in parts]
+            except ValueError as exc:
+                raise TraceError(
+                    "--player-selector-word-patch values must be integers"
+                ) from exc
+            start_sample = values[3] if len(values) >= 4 else 1
+            end_sample = values[4] if len(values) >= 5 else None
+            if start_sample < 1 or (end_sample is not None and end_sample < start_sample):
+                raise TraceError(
+                    "--player-selector-word-patch sample range is invalid"
+                )
+            parsed_patches.append(SelectorWordPatch(
+                selector=values[0], address=values[1], value=values[2],
+                start_sample=start_sample, end_sample=end_sample,
+            ))
+        selector_word_patches = tuple(parsed_patches)
+    map_cell_word_patches: tuple[MapCellWordPatch, ...] = ()
+    if args.player_map_cell_word_patch:
+        parsed_patches = []
+        for raw_patch in args.player_map_cell_word_patch:
+            parts = raw_patch.split(":")
+            if len(parts) not in (3, 4, 5) or any(not part for part in parts):
+                raise TraceError(
+                    "--player-map-cell-word-patch must use CELL_X:CELL_Y:VALUE[:START[:END]]"
+                )
+            try:
+                values = [int(part, 0) for part in parts]
+            except ValueError as exc:
+                raise TraceError("--player-map-cell-word-patch values must be integers") from exc
+            start_sample = values[3] if len(values) >= 4 else 1
+            end_sample = values[4] if len(values) >= 5 else None
+            if (values[0] < 0 or values[1] < 0 or values[2] < 0 or values[2] > 0xffff or
+                    start_sample < 1 or
+                    (end_sample is not None and end_sample < start_sample)):
+                raise TraceError("--player-map-cell-word-patch range/value is invalid")
+            parsed_patches.append(MapCellWordPatch(
+                cell_x=values[0], cell_y=values[1], value=values[2],
+                start_sample=start_sample, end_sample=end_sample,
+            ))
+        map_cell_word_patches = tuple(parsed_patches)
+    input_phases: tuple[InputPhase, ...] = ()
+    if args.player_input_phase:
+        parsed_phases: list[InputPhase] = []
+        for raw_phase in args.player_input_phase:
+            key_spec, separator, frame_text = raw_phase.rpartition(":")
+            if not separator or not key_spec or not frame_text:
+                raise TraceError(
+                    "--player-input-phase must use KEY[+KEY2]:FRAMES"
+                )
+            if key_spec == "WAIT":
+                keys = []
+            else:
+                keys = key_spec.split("+")
+            if len(keys) > 3 or any(not key for key in keys):
+                raise TraceError(
+                    "--player-input-phase accepts at most three '+'-separated keys"
+                )
+            try:
+                frames = int(frame_text, 0)
+            except ValueError as exc:
+                raise TraceError("--player-input-phase frames must be an integer") from exc
+            if frames < 0:
+                raise TraceError("--player-input-phase frames cannot be negative")
+            parsed_phases.append(InputPhase(
+                key=keys[0] if keys else "", frames=frames,
+                key_2=keys[1] if len(keys) >= 2 else None,
+                key_3=keys[2] if len(keys) == 3 else None,
+            ))
+        input_phases = tuple(parsed_phases)
     if args.count < 1:
         raise TraceError("--count must be positive")
     if args.player_samples < 1:
         raise TraceError("--player-samples must be positive")
     if args.player_frames_between < 0:
         raise TraceError("--player-frames-between cannot be negative")
+    if not 0 <= args.player_object_slot_min <= 0xffff:
+        raise TraceError("--player-object-slot-min must be between 0 and 65535")
+    if not 0 <= args.player_object_slot_max <= 0xffff:
+        raise TraceError("--player-object-slot-max must be between 0 and 65535")
+    if args.player_object_slot_min > args.player_object_slot_max:
+        raise TraceError("--player-object-slot-min cannot exceed --player-object-slot-max")
+    object_focus_requested = args.player_object_focus or bool(object_targets)
+    if args.player_object_offset is not None and not object_focus_requested:
+        raise TraceError("--player-object-offset requires --player-object-focus")
+    if args.player_object_callback is not None and not object_focus_requested:
+        raise TraceError("--player-object-callback requires --player-object-focus")
+    for name in ("player_object_offset", "player_object_callback"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    for value in args.player_pool_offset:
+        if not 0 <= value <= 0xffff:
+            raise TraceError("--player-pool-offset must be between 0 and 65535")
+    if object_focus_requested and args.player_focus_callback:
+        raise TraceError("--player-object-focus cannot be combined with --player-focus-callback")
     if args.player_input_frames < 0:
         raise TraceError("--player-input-frames cannot be negative")
     if args.player_input_samples < 0:
         raise TraceError("--player-input-samples cannot be negative")
+    if (args.player_teleport_x is None) != (args.player_teleport_y is None):
+        raise TraceError("--player-teleport-x and --player-teleport-y must be used together")
+    for name in ("player_teleport_x", "player_teleport_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if args.player_teleport_start_sample < 1:
+        raise TraceError("--player-teleport-start-sample must be positive")
+    if args.player_death_bypass_start_sample < 1:
+        raise TraceError("--player-death-bypass-start-sample must be positive")
+    patch_values = (args.player_object_patch_offset, args.player_object_patch_x,
+                    args.player_object_patch_y)
+    if args.player_object_patch_reference_offset is None and any(
+            value is not None for value in patch_values) and not all(
+                value is not None for value in patch_values):
+        raise TraceError(
+            "--player-object-patch-offset/x/y must be used together"
+        )
+    if args.player_object_patch_reference_offset is not None and args.player_object_patch_offset is None:
+        raise TraceError("--player-object-patch-reference-offset requires --player-object-patch-offset")
+    if args.player_object_patch_offset is not None:
+        if not 0 <= args.player_object_patch_offset <= 0xffff:
+            raise TraceError("--player-object-patch-offset must be between 0 and 65535")
+        if args.player_object_patch_callback is not None and not 0 <= args.player_object_patch_callback <= 0xffff:
+            raise TraceError("--player-object-patch-callback must be between 0 and 65535")
+        if args.player_object_patch_reference_offset is not None and not 0 <= args.player_object_patch_reference_offset <= 0xffff:
+            raise TraceError("--player-object-patch-reference-offset must be between 0 and 65535")
+        if args.player_object_patch_reference_offset is None and (
+                not 0 <= args.player_object_patch_x <= 0xffff or
+                not 0 <= args.player_object_patch_y <= 0xffff):
+            raise TraceError("--player-object-patch-x/y must be between 0 and 65535")
+        if args.player_object_patch_table_index is not None and not 0 <= args.player_object_patch_table_index <= 15:
+            raise TraceError("--player-object-patch-table-index must be between 0 and 15")
+        if args.player_object_patch_start_sample < 1:
+            raise TraceError("--player-object-patch-start-sample must be positive")
+    elif (args.player_object_patch_callback is not None or
+          args.player_object_patch_table_index is not None or
+          args.player_object_patch_reference_offset is not None):
+        raise TraceError("object patch options require --player-object-patch-offset")
+    for patch in object_word_patches:
+        if not 0 <= patch.object_offset <= 0xffff:
+            raise TraceError("--player-object-word-patch object offset must be between 0 and 65535")
+        if patch.callback_offset is not None and not 0 <= patch.callback_offset <= 0xffff:
+            raise TraceError("--player-object-callback-word-patch callback must be between 0 and 65535")
+        if not 0 <= patch.field_offset <= 0x77:
+            raise TraceError("--player-object-word-patch field offset must be between 0 and 119")
+        if not 0 <= patch.value <= 0xffff:
+            raise TraceError("--player-object-word-patch value must be between 0 and 65535")
+        if patch.start_sample < 1:
+            raise TraceError("--player-object-word-patch start sample must be positive")
+    for patch in global_word_patches:
+        if not 0 <= patch.address <= 0xffff:
+            raise TraceError("--player-global-word-patch address must be between 0 and 65535")
+        if not 0 <= patch.value <= 0xffff:
+            raise TraceError("--player-global-word-patch value must be between 0 and 65535")
+        if patch.start_sample < 1:
+            raise TraceError("--player-global-word-patch start sample must be positive")
+    for patch in selector_word_patches:
+        if not 0 <= patch.selector <= 0xffff:
+            raise TraceError("--player-selector-word-patch selector must be between 0 and 65535")
+        if not 0 <= patch.address <= 0xffff:
+            raise TraceError("--player-selector-word-patch address must be between 0 and 65535")
+        if not 0 <= patch.value <= 0xffff:
+            raise TraceError("--player-selector-word-patch value must be between 0 and 65535")
+        if patch.start_sample < 1:
+            raise TraceError("--player-selector-word-patch start sample must be positive")
+    if input_phases and (args.player_input_key or args.player_input_key_2 or
+                         args.player_input_frames or args.player_input_samples):
+        raise TraceError("--player-input-phase cannot be combined with legacy input options")
+    if args.player_input_key_2 and not args.player_input_key:
+        raise TraceError("--player-input-key-2 requires --player-input-key")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
     if args.player_map_focus and args.player_collision_focus:
@@ -750,6 +1340,33 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-property-helper requires --player-property-focus")
     if not 0 <= args.player_callback_offset <= 0xffff:
         raise TraceError("--player-callback-offset must be between 0 and 65535")
+    if args.player_callback_start_sample < 1:
+        raise TraceError("--player-callback-start-sample must be positive")
+    for offset in args.player_object_watch_offset:
+        if not 0 <= offset <= 0xffff:
+            raise TraceError("--player-object-watch-offset must be between 0 and 65535")
+    for segment in args.player_object_watch_segment:
+        if not 0 <= segment <= 0xffff:
+            raise TraceError("--player-object-watch-segment must be between 0 and 65535")
+    for target in watch_targets:
+        segment, offset = target[:2]
+        if not 0 <= segment <= 0xffff or not 0 <= offset <= 0xffff:
+            raise TraceError("--player-object-watch-target values must be between 0 and 65535")
+        if len(target) >= 3 and target[2] < 1:
+            raise TraceError("--player-object-watch-target start sample must be positive")
+    if args.player_object_watch_start_sample < 1:
+        raise TraceError("--player-object-watch-start-sample must be positive")
+    if args.player_stop_on_watch and not (args.player_object_watch_offset or watch_targets):
+        raise TraceError(
+            "--player-stop-on-watch requires --player-object-watch-offset or --player-object-watch-target"
+        )
+    for offset in args.player_stop_watch_offset:
+        if not 0 <= offset <= 0xffff:
+            raise TraceError("--player-stop-watch-offset must be between 0 and 65535")
+    if args.player_stop_watch_offset and not args.player_stop_on_watch:
+        raise TraceError("--player-stop-watch-offset requires --player-stop-on-watch")
+    if args.player_watch_only_start_sample < 0:
+        raise TraceError("--player-watch-only-start-sample cannot be negative")
     if (args.player_focus_callback and args.player_callback_offset == 0x3f27
             and args.player_samples != 1):
         raise TraceError("--player-focus-callback 0x3f27 requires --player-samples 1; use 0x3ff8 for repeated updates")
@@ -783,9 +1400,17 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--select-level cannot be combined with another level navigation mode")
     if args.player_trace and (args.dispatch_table or args.entity_record_offset is not None):
         raise TraceError("--player-trace cannot be combined with --dispatch-table or --entity-record-offset")
+    if args.player_factory_start_sample < 1:
+        raise TraceError("--player-factory-start-sample must be positive")
+    if args.player_factory_focus and (args.player_object_focus or args.player_object_target or
+                                      args.player_focus_callback or args.player_map_focus or
+                                      args.player_collision_focus or args.player_property_focus or
+                                      args.player_branch_focus or args.player_descriptor_census):
+        raise TraceError("--player-factory-focus cannot be combined with another player focus mode")
     for option_name, option_value in (("navigate-level", args.navigate_level),
                                       ("select-level", args.select_level)):
-        if option_value is not None and (
+        is_w1in_selector = option_name == "select-level" and option_value == "W1IN"
+        if option_value is not None and not is_w1in_selector and (
                 len(option_value) != 4 or option_value[0] != "W" or
                 option_value[1] not in "12345" or option_value[2] != "L" or
                 option_value[3] not in "1234"):
@@ -852,6 +1477,7 @@ def main(argv: list[str] | None = None) -> int:
     screenshot_bytes = None
     entity_screenshots: list[Path] = []
     player_screenshots: list[Path] = []
+    trace_config_metadata: dict[str, Any] | None = None
     try:
         if not info.get("features", {}).get("debugger"):
             raise TraceError("the running dosbox-automation build has no debugger API")
@@ -862,8 +1488,30 @@ def main(argv: list[str] | None = None) -> int:
                 poll_interval=args.poll_interval,
                 samples=args.player_samples,
                 frames_between=args.player_frames_between,
+                factory_focus=args.player_factory_focus,
+                factory_start_sample=args.player_factory_start_sample,
+                focus_object=(ObjectFocusConfig(
+                    sprite_slot_min=args.player_object_slot_min,
+                    sprite_slot_max=args.player_object_slot_max,
+                    object_offset=args.player_object_offset,
+                    callback_offset=args.player_object_callback,
+                ) if args.player_object_focus else None),
+                focus_objects=object_targets,
                 focus_callback=args.player_focus_callback,
                 focus_callback_offset=args.player_callback_offset,
+                callback_follow_return=not args.player_callback_no_return,
+                callback_start_sample=args.player_callback_start_sample,
+                watch_offsets=tuple(args.player_object_watch_offset),
+                watch_segments=tuple(args.player_object_watch_segment),
+                watch_targets=watch_targets,
+                watch_start_sample=args.player_object_watch_start_sample,
+                stop_on_watch=args.player_stop_on_watch,
+                stop_watch_offsets=tuple(args.player_stop_watch_offset),
+                watch_only_start_sample=args.player_watch_only_start_sample,
+                pool_offsets=tuple(args.player_pool_offset),
+                global_word_patches=global_word_patches,
+                selector_word_patches=selector_word_patches,
+                map_cell_word_patches=map_cell_word_patches,
                 map_focus=args.player_map_focus,
                 collision_focus=args.player_collision_focus,
                 property_focus=args.player_property_focus,
@@ -876,13 +1524,33 @@ def main(argv: list[str] | None = None) -> int:
                 map_width=args.player_map_width,
                 map_height=args.player_map_height,
                 input_key=args.player_input_key,
+                input_key_2=args.player_input_key_2,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
+                input_phases=input_phases,
+                player_teleport_x=args.player_teleport_x,
+                player_teleport_y=args.player_teleport_y,
+                player_teleport_start_sample=args.player_teleport_start_sample,
+                player_teleport_persist=args.player_teleport_persist,
+                patch_every_frame=args.player_patch_every_frame,
+                player_death_bypass=args.player_death_bypass,
+                player_death_bypass_start_sample=args.player_death_bypass_start_sample,
+                object_patch_offset=args.player_object_patch_offset,
+                object_patch_callback=args.player_object_patch_callback,
+                object_patch_x=args.player_object_patch_x,
+                object_patch_y=args.player_object_patch_y,
+                object_patch_table_index=args.player_object_patch_table_index,
+                object_patch_reference_offset=args.player_object_patch_reference_offset,
+                object_patch_dx=args.player_object_patch_dx,
+                object_patch_dy=args.player_object_patch_dy,
+                object_patch_start_sample=args.player_object_patch_start_sample,
+                object_word_patches=object_word_patches,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,
                 screenshot_mode=args.screenshot_mode,
             )
+            trace_config_metadata = player_trace_lua_config(player_config)
             player_trace, player_screenshots = trace_player_lua(
                 api, player_script_path, player_config,
             )
@@ -990,6 +1658,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.navigate_w1l3 or args.navigate_level or args.select_level or args.player_trace else None,
         "breakpoint": {"segment": LOOKUP[0], "offset": LOOKUP[1]}, "events": events,
     }
+    if trace_config_metadata is not None:
+        ledger["trace_config"] = trace_config_metadata
     if entity_screenshots:
         ledger["screenshots"] = [str(path) for path in entity_screenshots]
     if player_screenshots:
