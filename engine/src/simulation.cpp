@@ -1,5 +1,7 @@
 #include "quiky/simulation.h"
 
+#include "quiky/player_update.h"
+
 namespace quiky {
 
 SimulationOutput::SimulationOutput()
@@ -27,18 +29,22 @@ SimulationState::SimulationState(std::size_t schedulerCapacity)
 }
 
 Simulation::Simulation(std::size_t schedulerCapacity)
-    : _state(schedulerCapacity) {
+    : _state(schedulerCapacity), _experimentalPlayerUpdater(0) {
 }
 
 void Simulation::reset() {
     _state.tick = 0;
-    _state.player = RecoveredPlayerState();
+    _state.player = PlayerRecord();
     _state.scheduler.reset();
     _state.queuedEvents.clear();
 }
 
 void Simulation::enqueueEvent(const SimulationEvent &event) {
     _state.queuedEvents.push_back(event);
+}
+
+void Simulation::setExperimentalPlayerUpdater(PlayerUpdateCallback *updater) {
+    _experimentalPlayerUpdater = updater;
 }
 
 void Simulation::tick(const InputState &input,
@@ -51,6 +57,11 @@ void Simulation::tick(const InputState &input,
 
     ++_state.tick;
     _state.scheduler.beginTick(_state.tick);
+    if (_experimentalPlayerUpdater != 0) {
+        PlayerUpdateTrace trace;
+        _experimentalPlayerUpdater->updatePlayer(_state.player, input, world,
+                                                  &trace);
+    }
     output.clearForTick(_state.tick, input);
     output.player = _state.player;
     output.player.syncToRaw();

@@ -40,6 +40,51 @@ private:
     static void checkRange(std::size_t offset, std::size_t width);
 };
 
+struct PlayerRecordLayout {
+    enum : std::size_t {
+        kSize = 0x78,
+        kActionWord = 0x00,
+        kXFixed = 0x02,
+        kYFixed = 0x06,
+        kVelocityXFixed = 0x0a,
+        kVelocityYFixed = 0x0e,
+        kStatusWord = 0x12,
+        kCallbackOffset = 0x18,
+        kDirectionByte = 0x28,
+        kMotionDirectionByte = 0x29,
+        kActionCounter = 0x2a,
+        kContactScratch = 0x2b,
+        kState2C = 0x2c,
+        kVerticalStepOrDirection = 0x2e,
+        kState30 = 0x30,
+        kCallbackState = 0x32,
+        kTimer = 0x34,
+        kAnimationState = 0x36,
+        kMode = 0x37,
+        kCollisionGate = 0x38,
+        kTransitionPending = 0x39,
+        kVerticalResponse = 0x3a,
+        kSideResponse = 0x3b,
+        kResetDeathTimer = 0x3e,
+        kCallbackCounter = 0x40,
+        kSavedY = 0x44,
+        kSavedX = 0x48,
+        kAcceleration = 0x4c,
+        kPositiveYAcceleration = 0x50,
+        kFriction = 0x54,
+        kNegativeYAcceleration = 0x58,
+        kHorizontalSpeedCap = 0x5c,
+        kPositiveYSpeedCap = 0x60,
+        kNegativeYSpeed = 0x64,
+        kVerticalStepPixels = 0x72
+    };
+};
+
+static_assert(PlayerRawRecord::kSize == PlayerRecordLayout::kSize,
+              "player record size constant drifted");
+static_assert(sizeof(PlayerRawRecord::bytes) == PlayerRecordLayout::kSize,
+              "player raw record must contain exactly 0x78 bytes");
+
 enum class PlayerFieldConfidence {
     Unknown,
     ObservedLayout,
@@ -47,7 +92,8 @@ enum class PlayerFieldConfidence {
 };
 
 // Typed projection of the recovered 0x78-byte record. The names and offsets
-// below are evidence-qualified by research/notes/player-contract.md. Fields
+// below are evidence-qualified by research/notes/player-static-closure.md and
+// research/notes/player-horizontal.md. Fields
 // that are not yet semantically understood intentionally retain fieldXX names.
 // The legacy PlayerState in runtime.h is a separate provisional frontend type.
 struct RecoveredPlayerState {
@@ -60,50 +106,52 @@ struct RecoveredPlayerState {
     Fixed16 velocityX;
     Fixed16 velocityY;
 
-    // Stable names for observed bytes/words whose gameplay meaning is still
-    // under investigation.
-    std::uint16_t field12;
+    // Exact static-closure fields. Unknown bytes retain offset names and are
+    // intentionally not promoted to gameplay concepts.
+    std::uint16_t statusWord12;
     std::uint16_t field14;
-    std::uint16_t field16;
+    std::uint8_t field16;
+    std::uint8_t field17;
     std::uint16_t callbackOffset18;
     std::uint16_t field1A;
     std::uint16_t field1C;
     std::uint16_t field1E;
-    std::uint16_t field20;
-    std::uint16_t field22;
+    std::uint16_t animationDelay20;
+    std::uint16_t animationCursor22;
     std::uint16_t field24;
     std::uint16_t field26;
-    std::uint8_t inputByte28;
-    std::uint8_t animationByte29;
-    std::uint16_t field2A;
-    std::uint16_t field2C;
-    std::uint16_t field2E;
-    std::uint16_t field30;
+    std::uint8_t directionByte28;
+    std::uint8_t motionDirectionByte29;
+    std::uint8_t actionCounter2A;
+    std::uint8_t contactScratch2B;
+    std::int16_t state2C;
+    std::int16_t verticalStepOrDirection2E;
+    std::int16_t state30;
     std::uint16_t callbackState32;
     std::uint16_t timer34;
     std::uint8_t animationState36;
     std::int8_t mode37;
     std::uint8_t gate38;
     std::uint8_t transition39;
-    std::uint8_t verticalResponse3A;
+    std::int8_t verticalResponse3A;
     std::uint8_t sideResponse3B;
     std::uint16_t field3C;
     std::uint16_t resetDeathTimer3E;
     std::uint16_t callbackCounter40;
     std::uint16_t field42;
-    Fixed16 savedX44;
-    Fixed16 savedY48;
-    std::int32_t field4C;
-    std::int32_t field50;
-    std::int32_t field54;
-    std::int32_t field58;
-    std::int32_t field5C;
-    std::int32_t field60;
-    std::int32_t field64;
+    Fixed16 savedY44;
+    Fixed16 savedX48;
+    Fixed16 acceleration4C;
+    Fixed16 positiveYAcceleration50;
+    Fixed16 friction54;
+    Fixed16 negativeYAcceleration58;
+    Fixed16 horizontalSpeedCap5C;
+    Fixed16 positiveYSpeedCap60;
+    Fixed16 negativeYSpeed64;
     std::uint32_t field68;
     std::uint32_t field6C;
     std::uint16_t field70;
-    std::int16_t field72;
+    std::uint16_t verticalStepPixels72;
     std::uint16_t field74;
     std::uint16_t field76;
 
@@ -113,6 +161,27 @@ struct RecoveredPlayerState {
     void syncFromRaw();
     void syncToRaw();
     PlayerRawRecord toRaw() const;
+};
+
+// Canonical engine-facing name for the exact runtime record. The recovered
+// projection remains a base so existing foundation clients can continue to
+// use it while new code gets explicit record/trace terminology.
+struct PlayerRecord : public RecoveredPlayerState {
+    PlayerRecord();
+
+    static PlayerRecord fromRaw(const PlayerRawRecord &record);
+    static PlayerRecord fromBytes(const Bytes &source,
+                                  std::size_t offset = 0);
+    Bytes toBytes() const;
+
+    std::uint16_t statusWord() const;
+    void setStatusWord(std::uint16_t value);
+    std::int16_t xPixel() const;
+    std::int16_t yPixel() const;
+    std::int16_t viewAnchorX() const;
+    void setXPixel(std::int16_t value);
+    void setYPixel(std::int16_t value);
+    void initializeConfirmedHorizontalFields();
 };
 
 } // namespace quiky

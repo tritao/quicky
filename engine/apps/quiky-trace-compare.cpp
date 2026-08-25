@@ -18,7 +18,27 @@ int main(int argc, char **argv) {
     std::cout << "first divergence: frame " << difference.frameIndex
               << ", tick " << difference.tick << ", field "
               << difference.field << "\n"
-              << "  expected: " << difference.expected << "\n"
-              << "  actual:   " << difference.actual << "\n";
+              << "  source: " << difference.sourceExperiment
+              << ", sequence: " << difference.sequence
+              << ", input_flags: 0x" << std::hex << difference.inputFlags
+              << std::dec << "\n";
+    if (difference.hasRawOffset) {
+        std::cout << "  raw offset: 0x" << std::hex << difference.rawOffset
+                  << std::dec << " (" << difference.semanticField << ")\n"
+                  << "  expected byte: " << difference.expected
+                  << " decoded: " << difference.decodedExpected << "\n"
+                  << "  actual byte:   " << difference.actual
+                  << " decoded: " << difference.decodedActual << "\n";
+    } else {
+        std::cout << "  expected: " << difference.expected << "\n"
+                  << "  actual:   " << difference.actual << "\n";
+    }
+    if (!difference.expectedCollisionProbes.empty() ||
+        !difference.actualCollisionProbes.empty()) {
+        std::cout << "  expected collision probes: "
+                  << difference.expectedCollisionProbes << "\n"
+                  << "  actual collision probes:   "
+                  << difference.actualCollisionProbes << "\n";
+    }
     return 1;
 }

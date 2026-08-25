@@ -11,6 +11,8 @@
 
 namespace quiky {
 
+class PlayerUpdateCallback;
+
 enum class SimulationEventKind {
     Game,
     Audio
@@ -55,7 +57,7 @@ struct RenderObjectState {
 struct SimulationOutput {
     std::uint64_t tick;
     std::uint16_t inputFlags;
-    RecoveredPlayerState player;
+    PlayerRecord player;
     std::vector<RenderObjectState> renderObjects;
     std::vector<SchedulerInvocation> schedulerCallbacks;
     std::vector<SimulationEvent> gameEvents;
@@ -69,7 +71,7 @@ struct SimulationOutput {
 // const view to tick(); renderer and audio code only receive SimulationOutput.
 struct SimulationState {
     std::uint64_t tick;
-    RecoveredPlayerState player;
+    PlayerRecord player;
     ObjectScheduler scheduler;
     std::deque<SimulationEvent> queuedEvents;
 
@@ -82,6 +84,7 @@ public:
 
     void reset();
     void enqueueEvent(const SimulationEvent &event);
+    void setExperimentalPlayerUpdater(PlayerUpdateCallback *updater);
 
     // One deterministic gameplay boundary. This first shell advances the tick
     // and scheduler and drains events; player behavior is intentionally not
@@ -95,6 +98,7 @@ public:
 
 private:
     SimulationState _state;
+    PlayerUpdateCallback *_experimentalPlayerUpdater;
 };
 
 } // namespace quiky

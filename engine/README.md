@@ -52,7 +52,7 @@ The foundation currently includes:
   the confirmed descriptor predicates, not a guessed `isSolid()` rule;
 - `ObjectScheduler`, which applies deferred spawn/release mutations, walks
   stable slot order, and records callback identity and invocation order;
-- `quiky-trace-v1`, a normalized trace interchange containing the raw player,
+- `quiky-trace-v2`, a normalized trace interchange containing the raw player,
   MAP lookups, scheduler callbacks, state writes, and emitted events. The
   `quiky-trace-compare` tool reports the first divergent tick and field.
 
@@ -60,6 +60,37 @@ The existing `PlayerSimulation` and SDL frontend remain compatibility code and
 are still provisional. No movement, collision, grounded, facing, or transition
 formula is promoted by this shell. `player_update.h` defines the replaceable
 callback stages for the later evidence-backed implementation.
+
+## Horizontal player closure
+
+The `engine/player-horizontal-collision` branch adds the confirmed horizontal
+callback slice without enabling it in the normal frontend. `PlayerRecord`
+preserves all `0x78` bytes and exposes the static-closure fields, including
+the overlapping pixel-word views and confirmed horizontal constants. The
+experimental updater integrates old X velocity first, applies right-before-
+left precedence, uses `0x2800` acceleration, `0x2000` release friction, and
+the `+/-0x18000` cap through `Fixed16` helpers.
+
+`CollisionKernel` is a pure MAP/descriptor query layer for the recovered
+quadrant mask, ordered `x-5`/`x+5` probes, `3DF2` Y alignment, and `3D02`
+descriptor response. It does not implement gravity, jumping, floor/ceiling
+or grounded policy. `Simulation::setExperimentalPlayerUpdater()` is the
+explicit opt-in integration point; the default simulation remains unchanged.
+
+The compact `tests/fixtures/player-horizontal-v1.tsv` contains the 1,261
+formula samples represented by all 5,044 values checked by the Python model.
+Regenerate it from the research ledgers with:
+
+```sh
+python3 engine/tools/generate_horizontal_fixture.py \
+  research/evidence/player-horizontal \
+  engine/tests/fixtures/player-horizontal-v1.tsv
+```
+
+The `quiky-horizontal-tests` target checks record round trips, all horizontal
+held-out values, direct acceleration/reversal/cap vectors, Python collision
+kernel parity vectors, snapshot isolation, and trace diagnostics. Vertical
+callback orchestration remains behind `VerticalPlayerUpdatePendingResearch`.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
 resources use TFMX, which needs a dedicated decoder. The engine includes an

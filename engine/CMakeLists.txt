@@ -11,9 +11,11 @@ add_library(quiky_core
     src/archive.cpp
     src/bob.cpp
     src/binary_reader.cpp
+    src/collision_kernel.cpp
     src/fixed.cpp
     src/map.cpp
     src/player_record.cpp
+    src/player_update.cpp
     src/palette.cpp
     src/pcx.cpp
     src/player_animation.cpp
@@ -138,6 +140,12 @@ add_test(NAME quiky-tests COMMAND quiky-tests)
 add_executable(quiky-foundation-tests tests/test_foundation.cpp)
 target_link_libraries(quiky-foundation-tests PRIVATE quiky_core)
 add_test(NAME quiky-foundation-tests COMMAND quiky-foundation-tests)
+
+add_executable(quiky-horizontal-tests tests/test_horizontal.cpp)
+target_link_libraries(quiky-horizontal-tests PRIVATE quiky_core)
+add_test(NAME quiky-horizontal-tests
+    COMMAND quiky-horizontal-tests
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/player-horizontal-v1.tsv)
 
 add_executable(quiky-sfx-event-tests tests/test_sfx_events.cpp)
 target_link_libraries(quiky-sfx-event-tests PRIVATE quiky_core)

@@ -114,23 +114,25 @@ RecoveredPlayerState::RecoveredPlayerState()
       positionY(),
       velocityX(),
       velocityY(),
-      field12(0),
+      statusWord12(0),
       field14(0),
       field16(0),
+      field17(0),
       callbackOffset18(0),
       field1A(0),
       field1C(0),
       field1E(0),
-      field20(0),
-      field22(0),
+      animationDelay20(0),
+      animationCursor22(0),
       field24(0),
       field26(0),
-      inputByte28(0),
-      animationByte29(0),
-      field2A(0),
-      field2C(0),
-      field2E(0),
-      field30(0),
+      directionByte28(0),
+      motionDirectionByte29(0),
+      actionCounter2A(0),
+      contactScratch2B(0),
+      state2C(0),
+      verticalStepOrDirection2E(0),
+      state30(0),
       callbackState32(0),
       timer34(0),
       animationState36(0),
@@ -143,19 +145,19 @@ RecoveredPlayerState::RecoveredPlayerState()
       resetDeathTimer3E(0),
       callbackCounter40(0),
       field42(0),
-      savedX44(),
-      savedY48(),
-      field4C(0),
-      field50(0),
-      field54(0),
-      field58(0),
-      field5C(0),
-      field60(0),
-      field64(0),
+      savedY44(),
+      savedX48(),
+      acceleration4C(),
+      positiveYAcceleration50(),
+      friction54(),
+      negativeYAcceleration58(),
+      horizontalSpeedCap5C(),
+      positiveYSpeedCap60(),
+      negativeYSpeed64(),
       field68(0),
       field6C(0),
       field70(0),
-      field72(0),
+      verticalStepPixels72(0),
       field74(0),
       field76(0) {
 }
@@ -174,48 +176,50 @@ void RecoveredPlayerState::syncFromRaw() {
     positionY = Fixed16::fromRaw(raw.s32(0x06));
     velocityX = Fixed16::fromRaw(raw.s32(0x0a));
     velocityY = Fixed16::fromRaw(raw.s32(0x0e));
-    field12 = raw.u16(0x12);
+    statusWord12 = raw.u16(0x12);
     field14 = raw.u16(0x14);
-    field16 = raw.u16(0x16);
+    field16 = raw.u8(0x16);
+    field17 = raw.u8(0x17);
     callbackOffset18 = raw.u16(0x18);
     field1A = raw.u16(0x1a);
     field1C = raw.u16(0x1c);
     field1E = raw.u16(0x1e);
-    field20 = raw.u16(0x20);
-    field22 = raw.u16(0x22);
+    animationDelay20 = raw.u16(0x20);
+    animationCursor22 = raw.u16(0x22);
     field24 = raw.u16(0x24);
     field26 = raw.u16(0x26);
-    inputByte28 = raw.u8(0x28);
-    animationByte29 = raw.u8(0x29);
-    field2A = raw.u16(0x2a);
-    field2C = raw.u16(0x2c);
-    field2E = raw.u16(0x2e);
-    field30 = raw.u16(0x30);
+    directionByte28 = raw.u8(0x28);
+    motionDirectionByte29 = raw.u8(0x29);
+    actionCounter2A = raw.u8(0x2a);
+    contactScratch2B = raw.u8(0x2b);
+    state2C = raw.s16(0x2c);
+    verticalStepOrDirection2E = raw.s16(0x2e);
+    state30 = raw.s16(0x30);
     callbackState32 = raw.u16(0x32);
     timer34 = raw.u16(0x34);
     animationState36 = raw.u8(0x36);
     mode37 = raw.s8(0x37);
     gate38 = raw.u8(0x38);
     transition39 = raw.u8(0x39);
-    verticalResponse3A = raw.u8(0x3a);
+    verticalResponse3A = raw.s8(0x3a);
     sideResponse3B = raw.u8(0x3b);
     field3C = raw.u16(0x3c);
     resetDeathTimer3E = raw.u16(0x3e);
     callbackCounter40 = raw.u16(0x40);
     field42 = raw.u16(0x42);
-    savedX44 = Fixed16::fromRaw(raw.s32(0x44));
-    savedY48 = Fixed16::fromRaw(raw.s32(0x48));
-    field4C = raw.s32(0x4c);
-    field50 = raw.s32(0x50);
-    field54 = raw.s32(0x54);
-    field58 = raw.s32(0x58);
-    field5C = raw.s32(0x5c);
-    field60 = raw.s32(0x60);
-    field64 = raw.s32(0x64);
+    savedY44 = Fixed16::fromRaw(raw.s32(0x44));
+    savedX48 = Fixed16::fromRaw(raw.s32(0x48));
+    acceleration4C = Fixed16::fromRaw(raw.s32(0x4c));
+    positiveYAcceleration50 = Fixed16::fromRaw(raw.s32(0x50));
+    friction54 = Fixed16::fromRaw(raw.s32(0x54));
+    negativeYAcceleration58 = Fixed16::fromRaw(raw.s32(0x58));
+    horizontalSpeedCap5C = Fixed16::fromRaw(raw.s32(0x5c));
+    positiveYSpeedCap60 = Fixed16::fromRaw(raw.s32(0x60));
+    negativeYSpeed64 = Fixed16::fromRaw(raw.s32(0x64));
     field68 = raw.u32(0x68);
     field6C = raw.u32(0x6c);
     field70 = raw.u16(0x70);
-    field72 = raw.s16(0x72);
+    verticalStepPixels72 = raw.u16(0x72);
     field74 = raw.u16(0x74);
     field76 = raw.u16(0x76);
 }
@@ -226,48 +230,50 @@ void RecoveredPlayerState::syncToRaw() {
     raw.setS32(0x06, positionY.raw);
     raw.setS32(0x0a, velocityX.raw);
     raw.setS32(0x0e, velocityY.raw);
-    raw.setU16(0x12, field12);
+    raw.setU16(0x12, statusWord12);
     raw.setU16(0x14, field14);
-    raw.setU16(0x16, field16);
+    raw.setU8(0x16, field16);
+    raw.setU8(0x17, field17);
     raw.setU16(0x18, callbackOffset18);
     raw.setU16(0x1a, field1A);
     raw.setU16(0x1c, field1C);
     raw.setU16(0x1e, field1E);
-    raw.setU16(0x20, field20);
-    raw.setU16(0x22, field22);
+    raw.setU16(0x20, animationDelay20);
+    raw.setU16(0x22, animationCursor22);
     raw.setU16(0x24, field24);
     raw.setU16(0x26, field26);
-    raw.setU8(0x28, inputByte28);
-    raw.setU8(0x29, animationByte29);
-    raw.setU16(0x2a, field2A);
-    raw.setU16(0x2c, field2C);
-    raw.setU16(0x2e, field2E);
-    raw.setU16(0x30, field30);
+    raw.setU8(0x28, directionByte28);
+    raw.setU8(0x29, motionDirectionByte29);
+    raw.setU8(0x2a, actionCounter2A);
+    raw.setU8(0x2b, contactScratch2B);
+    raw.setU16(0x2c, static_cast<std::uint16_t>(state2C));
+    raw.setU16(0x2e, static_cast<std::uint16_t>(verticalStepOrDirection2E));
+    raw.setU16(0x30, static_cast<std::uint16_t>(state30));
     raw.setU16(0x32, callbackState32);
     raw.setU16(0x34, timer34);
     raw.setU8(0x36, animationState36);
     raw.setU8(0x37, static_cast<std::uint8_t>(mode37));
     raw.setU8(0x38, gate38);
     raw.setU8(0x39, transition39);
-    raw.setU8(0x3a, verticalResponse3A);
+    raw.setU8(0x3a, static_cast<std::uint8_t>(verticalResponse3A));
     raw.setU8(0x3b, sideResponse3B);
     raw.setU16(0x3c, field3C);
     raw.setU16(0x3e, resetDeathTimer3E);
     raw.setU16(0x40, callbackCounter40);
     raw.setU16(0x42, field42);
-    raw.setS32(0x44, savedX44.raw);
-    raw.setS32(0x48, savedY48.raw);
-    raw.setS32(0x4c, field4C);
-    raw.setS32(0x50, field50);
-    raw.setS32(0x54, field54);
-    raw.setS32(0x58, field58);
-    raw.setS32(0x5c, field5C);
-    raw.setS32(0x60, field60);
-    raw.setS32(0x64, field64);
+    raw.setS32(0x44, savedY44.raw);
+    raw.setS32(0x48, savedX48.raw);
+    raw.setS32(0x4c, acceleration4C.raw);
+    raw.setS32(0x50, positiveYAcceleration50.raw);
+    raw.setS32(0x54, friction54.raw);
+    raw.setS32(0x58, negativeYAcceleration58.raw);
+    raw.setS32(0x5c, horizontalSpeedCap5C.raw);
+    raw.setS32(0x60, positiveYSpeedCap60.raw);
+    raw.setS32(0x64, negativeYSpeed64.raw);
     raw.setU32(0x68, field68);
     raw.setU32(0x6c, field6C);
     raw.setU16(0x70, field70);
-    raw.setU16(0x72, static_cast<std::uint16_t>(field72));
+    raw.setU16(0x72, verticalStepPixels72);
     raw.setU16(0x74, field74);
     raw.setU16(0x76, field76);
 }
@@ -276,6 +282,66 @@ PlayerRawRecord RecoveredPlayerState::toRaw() const {
     RecoveredPlayerState copy = *this;
     copy.syncToRaw();
     return copy.raw;
+}
+
+PlayerRecord::PlayerRecord() : RecoveredPlayerState() {
+}
+
+PlayerRecord PlayerRecord::fromRaw(const PlayerRawRecord &record) {
+    PlayerRecord result;
+    result.raw = record;
+    result.syncFromRaw();
+    return result;
+}
+
+PlayerRecord PlayerRecord::fromBytes(const Bytes &source, std::size_t offset) {
+    return fromRaw(PlayerRawRecord::fromBytes(source, offset));
+}
+
+Bytes PlayerRecord::toBytes() const {
+    return toRaw().toBytes();
+}
+
+std::uint16_t PlayerRecord::statusWord() const {
+    return statusWord12;
+}
+
+void PlayerRecord::setStatusWord(std::uint16_t value) {
+    statusWord12 = value;
+}
+
+std::int16_t PlayerRecord::xPixel() const {
+    return raw.s16(0x04);
+}
+
+std::int16_t PlayerRecord::yPixel() const {
+    return raw.s16(0x08);
+}
+
+std::int16_t PlayerRecord::viewAnchorX() const {
+    return raw.s16(0x4a);
+}
+
+void PlayerRecord::setXPixel(std::int16_t value) {
+    raw.setU16(0x04, static_cast<std::uint16_t>(value));
+    positionX = Fixed16::fromRaw(raw.s32(0x02));
+}
+
+void PlayerRecord::setYPixel(std::int16_t value) {
+    raw.setU16(0x08, static_cast<std::uint16_t>(value));
+    positionY = Fixed16::fromRaw(raw.s32(0x06));
+}
+
+void PlayerRecord::initializeConfirmedHorizontalFields() {
+    acceleration4C = Fixed16::fromRaw(0x00002800);
+    positiveYAcceleration50 = Fixed16::fromRaw(0x00002800);
+    friction54 = Fixed16::fromRaw(0x00002000);
+    negativeYAcceleration58 = Fixed16::fromRaw(0x00002000);
+    horizontalSpeedCap5C = Fixed16::fromRaw(0x00018000);
+    positiveYSpeedCap60 = Fixed16::fromRaw(0x00040000);
+    negativeYSpeed64 = Fixed16::fromRaw(static_cast<std::int32_t>(0xfffb6000U));
+    verticalStepPixels72 = 0x0028;
+    syncToRaw();
 }
 
 } // namespace quiky
