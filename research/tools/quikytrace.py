@@ -998,10 +998,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-collision-focus", action="store_true",
                         help="break on the candidate player collision helpers 6484/648e/3a8a")
     parser.add_argument("--player-property-focus", action="store_true",
-                        help="break on raw MAP/tile-property helpers 5c27/5cc3")
+                        help="break on raw MAP/tile-property helpers 1c6e/1c92/5c27/5cc3")
     parser.add_argument("--player-property-helper", type=lambda value: int(value, 0),
-                        choices=(0x5C27, 0x5CC3),
-                        help="limit --player-property-focus to helper 0x5c27 or 0x5cc3")
+                        choices=(0x1C6E, 0x1C92, 0x5C27, 0x5CC3),
+                        help="limit --player-property-focus to helper 0x1c6e, 0x1c92, 0x5c27, or 0x5cc3")
     parser.add_argument("--player-branch-focus", action="store_true",
                         help="trace the 01F7:3D02 descriptor branch masks and return path")
     parser.add_argument("--player-branch-patch-tile", type=lambda value: int(value, 0),

@@ -1,0 +1,1099 @@
+{
+  "events": [
+    {
+      "samples": [
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 262,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 211,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 212,
+                "before": 211,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000d006c316c31000001010000f6ffd8ff0a0000000000ff0000000001000000000100000000009001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000000090010000000000000000000000000002f83fffff97190e000e006c316c31000001010000f6ff28000a0000000000ff00ff000001000000000000000000000000000000000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 1
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 233,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 32,
+            "horizontal_timer": 0,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 32,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7314,
+              "map_lookup": {
+                "cell_word": 70,
+                "tile_id": 70,
+                "x": 128,
+                "y": 283
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7314,
+              "map_lookup": {
+                "cell_word": 70,
+                "tile_id": 70,
+                "x": 128,
+                "y": 282
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 321
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 305
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 179,
+                "tile_id": 179,
+                "x": 138,
+                "y": 289
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [],
+            "post_object": {
+              "state_hex": "200000008000006042010000000000c0feff0c0000000002f83fffff97190800070062316631000001010000f6ffd8ff0a0000000000ffff000000000000e8031d00000000a04301000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "20000000800000a043010000000000a0feff0c0000000002f83fffff97190800080062316631000001010000f6ffd8ff0a0000000000ffff000000000000e8031c00000000004501000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 2
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 226,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 0,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 123,
+                "y": 343
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 133,
+                "y": 343
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 128,
+                "y": 343
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 128,
+                "y": 343
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 128,
+                "y": 335
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 123,
+                "y": 346
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 133,
+                "y": 346
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 345
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 329
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 313
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [],
+            "post_object": {
+              "state_hex": "00000000800000705a010000000000f802000d0000000002f83fffff97191400000088318831000001010000f6ffd8ff0a0000000000ff01000000ff0000fa030100000000785701000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000007857010000000000d002000d0000000002f83fffff97191400010088318831000001010000f6ffd8ff0a0000000000ff01000000ff0000f9030100000000a85401000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 3
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 250,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 14,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 15,
+                "before": 14,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 4
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 250,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 43,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 44,
+                "before": 43,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 5
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 250,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 72,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 73,
+                "before": 72,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 6
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 250,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 101,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 102,
+                "before": 101,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 7
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 250,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 131,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 132,
+                "before": 131,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 8
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 250,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 160,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 161,
+                "before": 160,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 9
+        },
+        {
+          "globals": {
+            "camera_x": 0,
+            "camera_y": 250,
+            "horizontal_accumulator": 0,
+            "horizontal_aux": 0,
+            "horizontal_branch_counter": 0,
+            "horizontal_limit": 0,
+            "horizontal_result_byte": 0,
+            "horizontal_timer": 189,
+            "input_action_flags": 0,
+            "keyboard_action_flags": 0,
+            "player_vertical_adjust": 0
+          },
+          "map_properties": [
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23591,
+              "map_lookup": {
+                "cell_word": 45,
+                "tile_id": 45,
+                "x": 123,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 12,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 46,
+                "tile_id": 46,
+                "x": 128,
+                "y": 400
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 23747,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 128,
+                "y": 392
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 26,
+                "tile_id": 26,
+                "x": 138,
+                "y": 399
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 383
+              },
+              "raw_map_bit_set": false
+            },
+            {
+              "descriptor_word": 0,
+              "helper_offset": 7278,
+              "map_lookup": {
+                "cell_word": 1,
+                "tile_id": 1,
+                "x": 138,
+                "y": 367
+              },
+              "raw_map_bit_set": false
+            }
+          ],
+          "player_callback": {
+            "global_writes": [
+              {
+                "after": 190,
+                "before": 189,
+                "field": "horizontal_timer"
+              }
+            ],
+            "post_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            },
+            "pre_object": {
+              "state_hex": "000000008000008890010000000000000000000000000002f83fffff97190400030058315831000001010000f6ffd8ff0a00000000000100000000ff000009040100000000889001000080000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000"
+            }
+          },
+          "sequence": 10
+        }
+      ]
+    }
+  ],
+  "schema": "quiky-player-dos-parity-v1",
+  "source_trace": "quiky-player-jump-property-v3",
+  "trace_kind": "player_callback"
+}

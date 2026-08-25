@@ -95,6 +95,49 @@ def validate_record(value: str | None, label: str) -> str:
 
 
 def canonical_probes(sample: dict[str, Any]) -> list[Any] | None:
+    property_events = sample.get("map_properties")
+    if isinstance(property_events, list):
+        result: list[Any] = []
+        for event in property_events:
+            if not isinstance(event, dict):
+                result.append(event)
+                continue
+            lookup = event.get("map_lookup")
+            if not isinstance(lookup, dict):
+                lookup = event
+            coordinates = event.get("coordinates")
+            if not isinstance(coordinates, dict):
+                coordinates = {}
+            x = lookup.get("x", coordinates.get("x"))
+            y = lookup.get("y", coordinates.get("y"))
+            descriptor = event.get("descriptor_word")
+            if isinstance(x, int) and isinstance(y, int):
+                x_bit = (x & 0x0008) != 0
+                y_bit = (y & 0x0008) != 0
+                quadrant = ((0x02 if x_bit else 0x01) if y_bit else
+                            (0x04 if x_bit else 0x08))
+            else:
+                quadrant = event.get("quadrant_flag_mask")
+            helper = event.get("helper_offset")
+            if helper in (0x1C6E, 0x1C92):
+                occupied = event.get("raw_map_bit_set")
+            elif isinstance(descriptor, int) and isinstance(quadrant, int):
+                occupied = bool((descriptor & 0x000f) and
+                                (descriptor & quadrant))
+            else:
+                occupied = event.get("descriptor_flag_set")
+            result.append({
+                "x": x,
+                "y": y,
+                "cell_word": lookup.get("cell_word",
+                                         lookup.get("raw_cell_word")),
+                "tile_id": lookup.get("tile_id"),
+                "descriptor_word": descriptor,
+                "quadrant_mask": quadrant,
+                "occupied": occupied,
+            })
+        return result
+
     events = sample.get("collisions")
     if events is None:
         events = sample.get("collision_probes")
@@ -184,9 +227,18 @@ def canonical_input(sample: dict[str, Any]) -> Any:
     if cb is not None and isinstance(cb.get("input_flags"), int):
         return cb["input_flags"]
     globals_value = sample.get("globals")
-    if isinstance(globals_value, dict) and isinstance(
-            globals_value.get("input_action_flags"), int):
-        return globals_value["input_action_flags"]
+    if isinstance(globals_value, dict):
+        keyboard = globals_value.get("keyboard_action_flags")
+        auxiliary = globals_value.get("input_action_flags")
+        if isinstance(keyboard, int) and isinstance(auxiliary, int):
+            # Static 01F7:F21B/F21C returns DS:88BC | DS:8196.  Preserve
+            # that normalized action word when the DOS trace publishes the
+            # two source words rather than a callback-local input field.
+            return (keyboard | auxiliary) & 0xffff
+        if isinstance(auxiliary, int):
+            return auxiliary
+        if isinstance(keyboard, int):
+            return keyboard
     return None
 
 

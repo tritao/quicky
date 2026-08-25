@@ -99,10 +99,24 @@ def callback_record(sample: dict[str, Any], which: str) -> str:
 
 def action_flags(sample: dict[str, Any]) -> int:
     globals_value = sample.get("globals")
-    if isinstance(globals_value, dict) and "input_action_flags" in globals_value:
-        return integer(globals_value["input_action_flags"], "input_action_flags")
+    if isinstance(globals_value, dict):
+        # Static 01F7:F21B/F21C returns DS:88BC | DS:8196.  The tracer
+        # publishes those words separately: keyboard_action_flags is the
+        # physical/scripted keyboard word at DS:88BC and input_action_flags
+        # is the auxiliary word at DS:8196.  Replaying only the latter loses
+        # jump and other held-input edges when the keyboard word is nonzero.
+        keyboard = globals_value.get("keyboard_action_flags")
+        auxiliary = globals_value.get("input_action_flags")
+        if keyboard is not None and auxiliary is not None:
+            keyboard_value = integer(keyboard, "keyboard_action_flags")
+            auxiliary_value = integer(auxiliary, "input_action_flags")
+            return (keyboard_value | auxiliary_value) & 0xffff
+        if auxiliary is not None:
+            return integer(auxiliary, "input_action_flags")
+        if keyboard is not None:
+            return integer(keyboard, "keyboard_action_flags")
     raise ReplayManifestError(
-        "sample is missing globals.input_action_flags; action is not guessed from the record"
+        "sample is missing both input action words; action is not guessed from the record"
     )
 
 

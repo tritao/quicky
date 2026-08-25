@@ -374,6 +374,12 @@ local function map_property_snapshot(hit)
         end
     end
     local descriptor_word = ok and descriptor_word_or_error or nil
+    local raw_map_mask = nil
+    if hit.offset == 0x1c6e then
+        raw_map_mask = 0x4000
+    elseif hit.offset == 0x1c92 then
+        raw_map_mask = 0x1000
+    end
     local descriptor_flag_set = nil
     local quadrant_bits = nil
     if descriptor_word ~= nil and quadrant_flag_mask ~= nil then
@@ -405,6 +411,9 @@ local function map_property_snapshot(hit)
         quadrant_flag_mask = quadrant_flag_mask,
         quadrant_bits = quadrant_bits,
         descriptor_flag_set = descriptor_flag_set,
+        raw_map_mask = raw_map_mask,
+        raw_map_bit_set = raw_map_mask ~= nil and lookup.cell_word ~= nil and
+            ((lookup.cell_word & raw_map_mask) ~= 0),
         descriptor_read_error = descriptor_read_error,
     }
 end
@@ -591,14 +600,15 @@ local function arm_callback_targets()
 end
 
 local function arm_property_targets(blocked)
-    if property_helper_offset == 0x5c27 or property_helper_offset == 0x5cc3 then
+    if property_helper_offset == 0x1c6e or property_helper_offset == 0x1c92 or
+       property_helper_offset == 0x5c27 or property_helper_offset == 0x5cc3 then
         local key = address_key({segment = 0x01f7,
                                  offset = property_helper_offset})
         if not blocked or not blocked[key] then
             arm_breakpoint("property", 0x01f7, property_helper_offset)
         end
     else
-        for _, offset in ipairs({0x5c27, 0x5cc3}) do
+        for _, offset in ipairs({0x1c6e, 0x1c92, 0x5c27, 0x5cc3}) do
             local key = address_key({segment = 0x01f7, offset = offset})
             if not blocked or not blocked[key] then
                 arm_breakpoint("property", 0x01f7, offset)
@@ -713,7 +723,8 @@ local function restore_branch_probe_cell(patch)
 end
 
 local function is_property_target(offset)
-    return property_focus and (offset == 0x5c27 or offset == 0x5cc3) and
+    return property_focus and (offset == 0x1c6e or offset == 0x1c92 or
+                               offset == 0x5c27 or offset == 0x5cc3) and
            (property_helper_offset == 0 or offset == property_helper_offset)
 end
 
@@ -1597,7 +1608,9 @@ for sequence = 1, sample_count do
                 sample, initial_hit.offset, census_return,
                 census_reason or "descriptor census return failed validation")
         end
-    elseif property_focus and (initial_hit.offset == 0x5c27 or
+    elseif property_focus and (initial_hit.offset == 0x1c6e or
+                           initial_hit.offset == 0x1c92 or
+                           initial_hit.offset == 0x5c27 or
                            initial_hit.offset == 0x5cc3) then
         sample.related_breakpoints[#sample.related_breakpoints + 1] = {
             segment = initial_hit.segment, offset = initial_hit.offset,

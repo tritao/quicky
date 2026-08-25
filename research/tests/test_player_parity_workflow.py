@@ -15,6 +15,14 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class PlayerParityWorkflowTests(unittest.TestCase):
+    def test_committed_w1l1_dos_fixture_has_a_closed_candidate(self):
+        source = ROOT / "research/evidence/player-dos-parity/w1l1-jump-property-v3.json"
+        candidate = ROOT / "research/evidence/player-dos-parity/w1l1-jump-property-v3-candidate.json"
+        manifest = build_manifest(source)
+        self.assertEqual(len(manifest["rows"]), 10)
+        self.assertEqual(manifest["rows"][1][1], "32")
+        self.assertFalse(compare(source, candidate))
+
     def test_manifest_restores_complete_pre_state_and_action(self):
         source = ROOT / "research/build/player-followup-standing-v1.json"
         manifest = build_manifest(source)
@@ -30,6 +38,18 @@ class PlayerParityWorkflowTests(unittest.TestCase):
         self.assertEqual(len(fields[0]), 22)
         self.assertEqual(fields[0][-1], manifest["rows"][0][-1])
 
+    def test_manifest_replays_the_static_normalized_input_word(self):
+        source = ROOT / "research/build/player-followup-standing-v1.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        sample = payload["events"][0]["samples"][0]
+        sample["globals"]["input_action_flags"] = 0x04
+        sample["globals"]["keyboard_action_flags"] = 0x20
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "input.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            manifest = build_manifest(path)
+        self.assertEqual(manifest["rows"][0][1], "36")
+
     def test_probe_coordinates_and_occupancy_are_compared(self):
         source = ROOT / "research/build/player-followup-side-rising-falling-v2.json"
         payload = json.loads(source.read_text(encoding="utf-8"))
@@ -40,6 +60,23 @@ class PlayerParityWorkflowTests(unittest.TestCase):
             path.write_text(json.dumps(candidate), encoding="utf-8")
             mismatches = compare(source, path)
         self.assertTrue(any(item["field"] == "probes" for item in mismatches))
+
+    def test_input_comparison_uses_the_normalized_word(self):
+        source = ROOT / "research/build/player-followup-standing-v1.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        sample = payload["events"][0]["samples"][0]
+        sample["globals"]["input_action_flags"] = 0x04
+        sample["globals"]["keyboard_action_flags"] = 0x20
+        candidate = json.loads(json.dumps(payload))
+        candidate["events"][0]["samples"][0]["player_callback"][
+            "input_flags"] = 0x24
+        with tempfile.TemporaryDirectory() as directory:
+            original_path = Path(directory) / "original.json"
+            candidate_path = Path(directory) / "candidate.json"
+            original_path.write_text(json.dumps(payload), encoding="utf-8")
+            candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+            mismatches = compare(original_path, candidate_path)
+        self.assertFalse(any(item["field"] == "input_flags" for item in mismatches))
 
     def test_missing_probe_array_is_not_treated_as_empty(self):
         source = ROOT / "research/build/player-followup-side-rising-falling-v2.json"

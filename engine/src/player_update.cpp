@@ -484,6 +484,12 @@ bool probeForwardSurface(const PlayerRecord &player,
 bool sideProbeClear(PlayerRecord &player,
                     const WorldCollisionView &world,
                     PlayerTraceSink *trace) {
+    // Static 01F7:3A1F exits before either 5C27 probe while +0x38 is set.
+    // The ordinary branch still evaluates its gate and may enter 3DF2, so
+    // preserve that caller-visible decision without inventing side probes.
+    if (player.gate38 != 0) {
+        return true;
+    }
     const CollisionDecision decision = CollisionKernel::sideProbePair(
         world, player.xPixel(), player.yPixel());
     captureProbes(decision, trace);

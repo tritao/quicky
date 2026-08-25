@@ -20,7 +20,9 @@ The current iteration supports:
 - an explicit MAP-cell-to-descriptor query bridge using confirmed quadrant rules;
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - a shared SDL audio mixer that combines gameplay music with confirmed pickup SFX;
-- ARE-backed level streaming with provisional collectible, hazard, and exit events;
+- ARE-backed level streaming with the scoped W1L1 object-family inventory;
+  collectible, enemy, environmental, and transition contracts remain explicit
+  at their recovered boundaries;
 - source-less high-effect rendering from the recovered `4B70 -> 4C74` chain:
   world-specific `PUFF.BOB`/`PUFFW2.BOB`, slots `611/612/613`, and the
   31-update terminal lifecycle;
@@ -98,19 +100,29 @@ Dynamically parity-validated:
 - candidate-to-candidate full-record/probe/global/effect comparison through
   `player_parity_compare.py`.
 
-These checks do not yet constitute full DOS callback parity. The first
-captured-DOS replay set is intentionally reported as a diagnostic: its
-standing and jump fixtures omit native collision-probe arrays, and the late-
-release jump fixture stops matching after landing at the animation/contact
-boundary. The C++ replay now reports those omissions and mismatches explicitly.
+The captured-DOS replay set is mixed: older standing and late-release fixtures
+remain diagnostic when their source traces omit native probe arrays or opaque
+helper outputs, while the complete W1L1 jump/property window is now a closed
+fixture. It compares all ten callback records, normalized input words, ordered
+`1C6E/1C92/5C27/5CC3` property probes, callback-global writes, and known
+effects exactly.
+
+The committed fixture and its candidate are under
+`research/evidence/player-dos-parity/`. Re-run the live replay with:
+
+```sh
+python3 research/tools/player_callback_parity.py \
+  --original research/evidence/player-dos-parity/w1l1-jump-property-v3.json \
+  --archive game/NESTLE.DAT --map W1L1.MAP \
+  --binary build/engine/quiky-player-trace
+```
 
 Explicit unresolved boundaries:
 
-- natural `648E/6484` contact behavior and the `0E06` contact-object family;
-- the direct gameplay contract of `5937` when the `DS:89EA` transition gate is
-  active;
-- the input-dispatch capture at `F21B/F21C`, including the malformed computed
-  jump tail and scripted-input overrides;
+- full natural `648E/6484` contact-effect creation and any gameplay feedback
+  from the `0E06` object family;
+- the ordinary-level transition behavior of `5937` beyond its recovered direct
+  read/write and return contract;
 - natural ceiling validation, descriptor semantic labels/one-way policy, and
   moving-platform scheduler/culling behavior;
 - the no-descriptor-table fallback, which remains a deliberate research
@@ -120,7 +132,7 @@ The repeatable callback replay workflow is:
 
 ```sh
 python3 research/tools/player_callback_parity.py \
-  --original research/build/player-followup-standing-v1.json \
+  --original research/evidence/player-dos-parity/w1l1-jump-property-v3.json \
   --archive game/NESTLE.DAT --map W1L1.MAP \
   --binary build/engine/quiky-player-trace
 ```
