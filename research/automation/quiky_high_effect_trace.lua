@@ -16,23 +16,26 @@ local target_x_delta = trace_config.target_x_delta or 0
 local target_y_delta = trace_config.target_y_delta or -10
 local target_cursor_offset = trace_config.target_cursor_offset or 0x2a
 local callback_segments = {0x01f7, 0x1997}
+local watched_effect_callbacks = {}
+local watched_effect_objects = {}
+local watch_effect_object
 
 local high_families = {
     {name = "B25D/B266", initializer = 0xb20b, steady = 0xb25d,
      tail = 0xb266, body_offsets = {0xb266, 0xb2b0, 0xb2b8, 0xb2ba,
-                                     0xb2bf, 0xb303}},
+                                     0xb2bf, 0xb2c4, 0xb303}, action_call = 0xb2c4},
     {name = "BABC/BB0E", initializer = 0xbabc, steady = 0xbb0e,
      tail = 0xbb17, body_offsets = {0xbb17, 0xbb61, 0xbb69, 0xbb6b,
-                                     0xbb70, 0xbbb4}},
+                                     0xbb70, 0xbb75, 0xbbb4}, action_call = 0xbb75},
     {name = "C30D/C328", initializer = 0xc30d, steady = 0xc328,
      tail = 0xc331, body_offsets = {0xc331, 0xc37b, 0xc383, 0xc385,
-                                     0xc38a, 0xc3ce}},
+                                     0xc38a, 0xc38f, 0xc3ce}, action_call = 0xc38f},
     {name = "CD88/CDA3", initializer = 0xcd88, steady = 0xcda3,
      tail = 0xcdac, body_offsets = {0xcdac, 0xcdf6, 0xcdfe, 0xce00,
-                                    0xce05, 0xce49}},
+                                    0xce05, 0xce0a, 0xce49}, action_call = 0xce0a},
     {name = "D53F/D55A", initializer = 0xd53f, steady = 0xd55a,
      tail = 0xd563, body_offsets = {0xd563, 0xd5ad, 0xd5b5, 0xd5b7,
-                                    0xd5bc, 0xd600}},
+                                    0xd5bc, 0xd5c1, 0xd600}, action_call = 0xd5c1},
 }
 
 local function word(s, index)
@@ -225,6 +228,12 @@ local function arm_callback_targets()
             dosbox.breakpoint_set(segment, family.steady, {once = true})
         end
     end
+    for _, segment in ipairs(callback_segments) do
+        dosbox.breakpoint_set(segment, 0x4b70, {once = true})
+        for callback in pairs(watched_effect_callbacks) do
+            dosbox.breakpoint_set(segment, callback, {once = true})
+        end
+    end
 end
 
 local function family_body_offset(family, offset)
@@ -309,6 +318,8 @@ local function trace_high_callback(hit)
     end
     local callback_return = nil
     local helper_return = nil
+    local import_target_pending = nil
+    local import_return = nil
     for attempt = 1, 32 do
         dosbox.debug_continue()
         local candidate = wait_hit("high callback action/return")
@@ -319,6 +330,37 @@ local function trace_high_callback(hit)
                 kind = "4b70_return", registers = candidate.registers,
             }
             helper_return = nil
+        elseif import_return ~= nil and candidate.segment == import_return.segment and
+               candidate.offset == import_return.offset then
+            event.import_return = {
+                segment = candidate.segment, offset = candidate.offset,
+                registers = candidate.registers,
+            }
+            local imported_selector = candidate.registers.es
+            local imported_offset = candidate.registers.edi & 0xffff
+            local ok, imported_object = pcall(object_snapshot,
+                                               imported_selector,
+                                               imported_offset, -1)
+            if ok then
+                event.imported_object_after = imported_object
+            else
+                event.imported_object_error = tostring(imported_object)
+            end
+            import_return = nil
+        elseif import_target_pending ~= nil and
+               candidate.segment == import_target_pending.segment and
+               candidate.offset == import_target_pending.offset then
+            event.import_entry = {
+                segment = candidate.segment, offset = candidate.offset,
+                registers = candidate.registers,
+            }
+            import_target_pending = nil
+            local target_return = far_return(candidate)
+            if target_return ~= nil then
+                import_return = target_return
+                dosbox.breakpoint_set(target_return.segment, target_return.offset,
+                                      {once = true})
+            end
         elseif candidate.segment == returned.segment and
                candidate.offset == returned.offset then
             callback_return = candidate
@@ -334,10 +376,27 @@ local function trace_high_callback(hit)
                                       {once = true})
             end
         elseif family_body_offset(family, candidate.offset) then
-            event.related_hits[#event.related_hits + 1] = {
+            local body_hit = {
                 segment = candidate.segment, offset = candidate.offset,
                 kind = "high-tail", registers = candidate.registers,
             }
+            if candidate.offset == family.action_call then
+                local code = dosbox.mem_read("cs", candidate.offset, 8) or ""
+                body_hit.code_hex = hex(code)
+                if #code >= 5 and string.byte(code, 1) == 0x9a then
+                    local target = {
+                        segment = word(code, 4), offset = word(code, 2),
+                    }
+                    body_hit.import_target = target
+                    event.import_call = body_hit
+                    if target.segment ~= 0xffff and target.offset ~= 0xffff then
+                        dosbox.breakpoint_set(target.segment, target.offset,
+                                              {once = true})
+                        import_target_pending = target
+                    end
+                end
+            end
+            event.related_hits[#event.related_hits + 1] = body_hit
             arm_high_body_targets(returned.segment, family, candidate.offset)
         else
             error(string.format("unexpected high callback hit %04x:%04x",
@@ -352,6 +411,59 @@ local function trace_high_callback(hit)
     }
     event.object_after = object_snapshot(selector, offset, -1)
     event.globals_after = globals_snapshot()
+    if event.imported_object_after ~= nil then
+        local ok, imported_after = pcall(object_snapshot,
+                                         event.imported_object_after.selector,
+                                         event.imported_object_after.offset, -1)
+        if ok then
+            event.imported_object_after_callback = imported_after
+            watch_effect_object(imported_after)
+        end
+    end
+    return event
+end
+
+local function effect_object_key(selector, offset)
+    return string.format("%04x:%04x", selector, offset)
+end
+
+watch_effect_object = function(object)
+    if object == nil or object.callback == 0 then return end
+    watched_effect_objects[effect_object_key(object.selector, object.offset)] = true
+    if object.callback ~= 0x4b70 then
+        watched_effect_callbacks[object.callback] = true
+    end
+end
+
+local function trace_spawned_effect_callback(hit)
+    local selector = hit.registers.es
+    local offset = hit.registers.edi & 0xffff
+    if hit.offset ~= 0x4b70 and
+       not watched_effect_objects[effect_object_key(selector, offset)] then
+        return nil
+    end
+    local event = {
+        callback_entry = {segment = hit.segment, offset = hit.offset,
+                          registers = hit.registers},
+        object_before = object_snapshot(selector, offset, -1),
+    }
+    local returned = near_return(hit)
+    assert(returned ~= nil, "spawned effect callback has no near return")
+    event.return_expected = returned
+    dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
+    dosbox.debug_continue()
+    local callback_return = wait_hit("spawned effect callback return")
+    assert(callback_return.segment == returned.segment and
+           callback_return.offset == returned.offset,
+           string.format("unexpected spawned effect callback hit %04x:%04x",
+                         callback_return.segment, callback_return.offset))
+    event.return_actual = {
+        segment = callback_return.segment,
+        offset = callback_return.offset,
+        registers = callback_return.registers,
+    }
+    event.object_after = object_snapshot(selector, offset, -1)
+    watch_effect_object(event.object_after)
     return event
 end
 
@@ -367,6 +479,7 @@ end
 
 local frames = {}
 local callback_events = {}
+local spawned_effect_events = {}
 for frame = 1, frame_count do
     if frame > 1 and input_key ~= "" and input_frames > 0 and
        (input_samples == 0 or frame <= input_samples + 1) then
@@ -383,8 +496,14 @@ for frame = 1, frame_count do
     arm_callback_targets()
     dosbox.debug_continue()
     local hit = wait_hit("high-effect callback")
-    local event = trace_high_callback(hit)
-    if event ~= nil then callback_events[#callback_events + 1] = event end
+    local event = nil
+    if hit.offset == 0x4b70 or watched_effect_callbacks[hit.offset] then
+        event = trace_spawned_effect_callback(hit)
+        if event ~= nil then spawned_effect_events[#spawned_effect_events + 1] = event end
+    else
+        event = trace_high_callback(hit)
+        if event ~= nil then callback_events[#callback_events + 1] = event end
+    end
     frames[#frames + 1] = {
         sequence = frame,
         breakpoint = {segment = hit.segment, offset = hit.offset,
@@ -400,6 +519,7 @@ dosbox.output.high_effect_trace = {
     select_level = select_level,
     frames = frames,
     callback_events = callback_events,
+    spawned_effect_events = spawned_effect_events,
     target_probe = {
         x_delta = target_x_delta,
         y_delta = target_y_delta,

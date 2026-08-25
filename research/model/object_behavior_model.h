@@ -11,6 +11,10 @@ namespace quiky::research {
 constexpr std::size_t kObjectPoolSize = 64;
 constexpr std::uint16_t kFreeCallback = 0;
 constexpr std::uint16_t kSourceUnset = 0xffff;
+constexpr std::uint16_t kHighEffectFactoryCallback = 0x4b70;
+constexpr std::uint16_t kHighEffectUpdateCallback = 0x4c74;
+constexpr std::uint16_t kHighEffectFirstSpriteSlot = 611;
+constexpr std::uint16_t kHighEffectTerminalCursor = 31;
 
 constexpr std::int32_t fixed16_16_from_pixels(std::int32_t pixels) {
     return pixels * 0x10000;
@@ -53,6 +57,10 @@ struct ObjectRecord {
     // The same +0x2A word is a target slot byte offset for 45AB emitters;
     // type-0x33 uses the callback-specific travel counter above instead.
     std::uint16_t target_emitter_slot = 0;
+    // High transient effects use this same +0x2A word as their animation
+    // cursor. The fields above are callback-specific views of polymorphic
+    // executable storage, not a packed representation of the DOS object.
+    std::uint16_t high_effect_cursor = 0; // object +0x2A
     std::uint16_t update_state = 0; // object +0x32
     std::uint8_t player_collision_class = 0; // object +0x37, player use
 
@@ -159,6 +167,21 @@ struct Type33TargetStepResult {
 // active pass and clears only the matching target X word; target Y survives.
 Type33TargetStepResult step_type33_target_tail(
     ObjectRecord& object, Type33TargetList& target_list);
+
+struct HighEffectStepResult {
+    bool initialized = false;
+    bool callback_cleared = false;
+    std::uint16_t cursor_before = 0;
+    std::uint16_t cursor_after = 0;
+    std::uint16_t sprite_slot_before = 0xffff;
+    std::uint16_t sprite_slot_after = 0xffff;
+};
+
+// Models the confirmed source-less effect chain created by the high-address
+// target tails: the factory-created 4B70 object installs 4C74 and sprite 611;
+// 4C74 advances +0x2A once per update, selects three ten-update sprite groups,
+// and clears +0x18 after cursor 30 -> 31.
+HighEffectStepResult step_high_effect(ObjectRecord& object);
 
 struct Type33TargetRegistrationResult {
     bool admitted = false;

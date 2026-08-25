@@ -11,12 +11,16 @@ Implemented evidence-backed behavior:
 - descriptor load/advance behavior from `01F7:5D38` and `01F7:5D60`, including
   reload timers, byte cursors, signed relative jumps, and the `0x32` mode
   adjustment;
+- the source-less high-effect chain: `4B70` initialization, `4C74` cursor and
+  sprite progression (`611/612/613`), and terminal callback clear at cursor
+  `31`;
 - type-0x34 strict proximity bounds, action word `4`, effect code `0x2A`, and
   observed player displacement output `-0x1B000`.
 
 The model keeps executable offsets in the research notes rather than pretending
 that the recovered labels are original source symbols. Unresolved MAP branch
-semantics and the complete player-effect consumer remain outside this slice.
+semantics, high-effect world-resource selection, and the complete player-effect
+consumer remain outside this slice.
 
 Build/test:
 

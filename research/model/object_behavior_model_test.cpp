@@ -230,6 +230,57 @@ static void test_type33_target_tail() {
     assert(object.type33_target_cursor == 1);
 }
 
+static void test_high_effect_lifecycle() {
+    ObjectRecord object;
+    object.update_callback = kHighEffectFactoryCallback;
+    object.update_callback_segment = 0x01f7;
+    object.source_are_offset = kSourceUnset;
+    object.scheduler_phase = 2;
+    object.high_effect_cursor = 23;
+    object.sprite_or_action = 0xffff;
+
+    const auto initialized = step_high_effect(object);
+    assert(initialized.initialized);
+    assert(!initialized.callback_cleared);
+    assert(initialized.cursor_before == 23);
+    assert(initialized.cursor_after == 0);
+    assert(initialized.sprite_slot_before == 0xffff);
+    assert(initialized.sprite_slot_after == kHighEffectFirstSpriteSlot);
+    assert(object.update_callback == kHighEffectUpdateCallback);
+    assert(object.source_are_offset == kSourceUnset);
+    assert(object.scheduler_phase == 2);
+
+    object.high_effect_cursor = 9;
+    object.sprite_or_action = kHighEffectFirstSpriteSlot;
+    const auto second_frame = step_high_effect(object);
+    assert(!second_frame.initialized);
+    assert(second_frame.cursor_before == 9);
+    assert(second_frame.cursor_after == 10);
+    assert(second_frame.sprite_slot_after == 612);
+    assert(object.update_callback == kHighEffectUpdateCallback);
+
+    object.high_effect_cursor = 19;
+    object.sprite_or_action = 612;
+    const auto third_frame = step_high_effect(object);
+    assert(third_frame.cursor_after == 20);
+    assert(third_frame.sprite_slot_after == 613);
+
+    object.high_effect_cursor = 29;
+    object.sprite_or_action = 613;
+    const auto last_sprite_frame = step_high_effect(object);
+    assert(last_sprite_frame.cursor_after == 30);
+    assert(last_sprite_frame.sprite_slot_after == 613);
+
+    object.high_effect_cursor = 30;
+    object.sprite_or_action = 613;
+    const auto terminal = step_high_effect(object);
+    assert(terminal.callback_cleared);
+    assert(terminal.cursor_before == 30);
+    assert(terminal.cursor_after == kHighEffectTerminalCursor);
+    assert(terminal.sprite_slot_after == 613);
+    assert(object.update_callback == kFreeCallback);
+}
+
 static void test_type33_target_emitter_lifecycle() {
     ObjectRecord object;
     object.update_callback = 0x45ab;
@@ -265,5 +316,6 @@ int main() {
     test_type33_motion_states();
     test_type33_travel_ring();
     test_type33_target_tail();
+    test_high_effect_lifecycle();
     test_type33_target_emitter_lifecycle();
 }

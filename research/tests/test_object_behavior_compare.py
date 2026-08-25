@@ -26,6 +26,42 @@ def descriptor_sample(sequence, before, after, sprite_before=0xD6,
 
 
 class ObjectBehaviorCompareTests(unittest.TestCase):
+    def test_high_effect_factory_and_animation_contract(self):
+        def event(callback, before, after):
+            return {
+                "callback_entry": {"offset": callback},
+                "object_before": before,
+                "object_after": after,
+            }
+
+        events = [event(0x4B70,
+                        {"callback": 0x4B70, "sprite_slot": 0xffff,
+                         "target_cursor": 23, "source": 0xffff, "phase": 2},
+                        {"callback": 0x4C74, "sprite_slot": 611,
+                         "target_cursor": 0, "source": 0xffff, "phase": 2})]
+        for cursor in (0, 9, 10, 19, 20, 29):
+            events.append(event(
+                0x4C74,
+                {"callback": 0x4C74,
+                 "sprite_slot": 611 + cursor // 10,
+                 "target_cursor": cursor, "source": 0xffff, "phase": 2},
+                {"callback": 0x4C74,
+                 "sprite_slot": 611 + min(2, (cursor + 1) // 10),
+                 "target_cursor": cursor + 1, "source": 0xffff, "phase": 2}))
+        events.append(event(
+            0x4C74,
+            {"callback": 0x4C74, "sprite_slot": 613,
+             "target_cursor": 30, "source": 0xffff, "phase": 2},
+            {"callback": 0, "sprite_slot": 613,
+             "target_cursor": 31, "source": 0xffff, "phase": 2}))
+        result = compare_payload({
+            "trace_kind": "high-effect",
+            "events": [{"spawned_effect_events": events}],
+        })
+        self.assertTrue(result["passed"], result)
+        self.assertEqual(result["family"], "high-effect")
+        self.assertEqual(result["family_result"]["events_checked"], 8)
+
     def test_descriptor_timer_contract(self):
         descriptor = {
             "mode": 1, "reload_delay": 3, "timer": 3,

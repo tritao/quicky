@@ -495,6 +495,89 @@ def compare_type34(payload: dict[str, Any], samples: list[dict[str, Any]],
             "predicted_hit_frames": hit_frames}
 
 
+def _high_effect_events(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    traces = payload.get("events")
+    trace = traces[0] if isinstance(traces, list) and traces else payload
+    if not isinstance(trace, dict):
+        return []
+    value = trace.get("spawned_effect_events", [])
+    if isinstance(value, dict):
+        pairs = []
+        for key, event in value.items():
+            try:
+                pairs.append((int(key), event))
+            except (TypeError, ValueError):
+                continue
+        value = [event for _, event in sorted(pairs)]
+    if not isinstance(value, list):
+        return []
+    return [event for event in value if isinstance(event, dict)]
+
+
+def _effect_field(object_record: dict[str, Any], *names: str) -> Any:
+    for name in names:
+        if name in object_record:
+            return object_record[name]
+    return None
+
+
+def compare_high_effect(payload: dict[str, Any],
+                        issues: list[ComparisonIssue]) -> dict[str, int]:
+    """Check the source-less 4B70 -> 4C74 animation contract."""
+    checked = 0
+    factory_frames = 0
+    update_frames = 0
+    for sequence, event in enumerate(_high_effect_events(payload)):
+        entry = event.get("callback_entry") or event.get("callback") or {}
+        before = event.get("object_before") or {}
+        after = event.get("object_after") or {}
+        try:
+            callback = int(entry["offset"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if callback not in (0x4b70, 0x4c74):
+            continue
+        checked += 1
+        before_cursor = _effect_field(before, "target_cursor", "high_effect_cursor")
+        after_cursor = _effect_field(after, "target_cursor", "high_effect_cursor")
+        before_sprite = _effect_field(before, "sprite_slot", "sprite_or_action")
+        after_sprite = _effect_field(after, "sprite_slot", "sprite_or_action")
+        after_callback = _effect_field(after, "callback", "update_callback")
+        if callback == 0x4b70:
+            factory_frames += 1
+            checks = {
+                "callback": (0x4c74, after_callback),
+                "sprite_slot": (611, after_sprite),
+                "cursor": (0, after_cursor),
+            }
+        else:
+            update_frames += 1
+            if before_cursor is None or after_cursor is None:
+                continue
+            next_cursor = int(before_cursor) + 1
+            expected_callback = 0 if next_cursor >= 31 else 0x4c74
+            expected_sprite = (before_sprite if next_cursor >= 31 else
+                               611 + min(2, next_cursor // 10))
+            checks = {
+                "callback": (expected_callback, after_callback),
+                "sprite_slot": (expected_sprite, after_sprite),
+                "cursor": (next_cursor, after_cursor),
+            }
+        for field, (expected, actual) in checks.items():
+            if actual is not None and int(actual) != expected:
+                _issue(issues, sequence, "high-effect", field, expected,
+                       actual, "high-effect callback diverged from the recovered lifecycle")
+        for field, expected in (("source", 0xffff), ("phase", 2)):
+            actual = _effect_field(after, field,
+                                   "source_are_offset" if field == "source" else
+                                   "scheduler_phase")
+            if actual is not None and int(actual) != expected:
+                _issue(issues, sequence, "high-effect", field, expected,
+                       actual, "high-effect pooled-object identity changed")
+    return {"events_checked": checked, "factory_frames": factory_frames,
+            "update_frames": update_frames}
+
+
 def compare_type33(samples: list[dict[str, Any]],
                    issues: list[ComparisonIssue]) -> dict[str, int]:
     """Check stable type-0x33 facts without pretending MAP state is solved."""
@@ -538,7 +621,10 @@ def compare_payload(payload: dict[str, Any], family: str = "auto") -> dict[str, 
     samples = _samples(payload)
     entity_type = int(_config(payload).get("entity_type", -1))
     if family == "auto":
-        family = {0x33: "type33", 0x34: "type34"}.get(entity_type, "generic")
+        if payload.get("trace_kind") == "high-effect":
+            family = "high-effect"
+        else:
+            family = {0x33: "type33", 0x34: "type34"}.get(entity_type, "generic")
 
     issues: list[ComparisonIssue] = []
     descriptor_result = compare_descriptors(samples, issues, _config(payload))
@@ -547,6 +633,8 @@ def compare_payload(payload: dict[str, Any], family: str = "auto") -> dict[str, 
         family_result = compare_type33(samples, issues)
     elif family == "type34":
         family_result = compare_type34(payload, samples, issues)
+    elif family == "high-effect":
+        family_result = compare_high_effect(payload, issues)
 
     return {
         "schema": "quiky-object-behavior-comparison-v1",
@@ -564,7 +652,8 @@ def compare_payload(payload: dict[str, Any], family: str = "auto") -> dict[str, 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("trace", type=Path)
-    parser.add_argument("--family", choices=("auto", "generic", "type33", "type34"),
+    parser.add_argument("--family", choices=("auto", "generic", "type33", "type34",
+                                             "high-effect"),
                         default="auto")
     parser.add_argument("--output", type=Path)
     args = parser.parse_args(argv)

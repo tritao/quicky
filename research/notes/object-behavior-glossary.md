@@ -164,8 +164,13 @@ W2L3, W3L3, W4L3, and W5L3. Each first steady hit clears target X, retains Y,
 advances the `+0x2A` cursor, increments `+0x2C`, changes the low state byte
 to `1`, and publishes action `0x000D` at `DS:612E`. The objects are phase-2,
 source-less (`+0x1A=FFFF`) transient pool entries, not normal ARE declarations.
-The exact imported routine represented by static `AX=4B70` remains unnamed,
-as do the gameplay/effect asset identities.
+Static `AX=4B70` relocates to the confirmed factory `01F7:0E06`. The factory
+creates a source-less callback-`4B70` pool object; its first update installs
+callback `4C74` and sprite slot `611`, which resolves to `PUFF.BOB` in W1/W3/W4/W5
+level contexts and `PUFFW2.BOB` in W2. `4C74` advances `+0x2A` once per
+update, displays slots `611/612/613` for cursor ranges `0..9/10..19/20..30`,
+and clears `object+0x18` on `30 -> 31`. The C++ model and frame comparator now
+encode this callback lifecycle.
 
 | shared | `01F7:44FF` | `reset_target_list` | confirmed | Sets target capacity to four, clears the active count, and zeroes target slots. |
 | shared | `01F7:4519` | `init_target_emitter` | confirmed | Reserves a shared target-list slot and installs callback `45AB`. |

@@ -274,6 +274,40 @@ Type33TargetStepResult step_type33_target_tail(
     return result;
 }
 
+HighEffectStepResult step_high_effect(ObjectRecord& object) {
+    HighEffectStepResult result;
+    result.cursor_before = object.high_effect_cursor;
+    result.cursor_after = object.high_effect_cursor;
+    result.sprite_slot_before = object.sprite_or_action;
+    result.sprite_slot_after = object.sprite_or_action;
+
+    if (object.update_callback == kHighEffectFactoryCallback) {
+        object.high_effect_cursor = 0;
+        object.sprite_or_action = kHighEffectFirstSpriteSlot;
+        object.update_callback = kHighEffectUpdateCallback;
+        result.initialized = true;
+    } else if (object.update_callback == kHighEffectUpdateCallback) {
+        const std::uint16_t next_cursor = static_cast<std::uint16_t>(
+            object.high_effect_cursor + 1);
+        object.high_effect_cursor = next_cursor;
+        if (next_cursor >= kHighEffectTerminalCursor) {
+            // The terminal update leaves the last sprite selected while the
+            // scheduler-visible callback is cleared by the object itself.
+            object.update_callback = kFreeCallback;
+            result.callback_cleared = true;
+        } else {
+            const auto sprite_group = std::min<std::uint16_t>(
+                2, static_cast<std::uint16_t>(next_cursor / 10));
+            object.sprite_or_action = static_cast<std::uint16_t>(
+                kHighEffectFirstSpriteSlot + sprite_group);
+        }
+    }
+
+    result.cursor_after = object.high_effect_cursor;
+    result.sprite_slot_after = object.sprite_or_action;
+    return result;
+}
+
 Type33TargetRegistrationResult register_type33_target_emitter(
     ObjectRecord& object, Type33TargetList& target_list) {
     Type33TargetRegistrationResult result;

@@ -90,6 +90,12 @@ def ordered_lua_array(value: Any) -> list[Any]:
 def normalize_high_effect_trace(trace: dict[str, Any]) -> dict[str, Any]:
     trace["frames"] = ordered_lua_array(trace.get("frames", []))
     trace["callback_events"] = ordered_lua_array(trace.get("callback_events", []))
+    trace["spawned_effect_events"] = ordered_lua_array(
+        trace.get("spawned_effect_events", [])
+    )
+    for event in trace["callback_events"]:
+        if isinstance(event, dict):
+            event["related_hits"] = ordered_lua_array(event.get("related_hits", []))
     for frame in trace["frames"]:
         if isinstance(frame, dict):
             pool = frame.get("pool")

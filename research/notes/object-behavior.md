@@ -578,17 +578,41 @@ The one-frame cadence is important: after the first hit, the state word
 advances to `0x0101`, `0x0201`, and so on, and the steady callback's initial
 state gate skips the target tail. The high objects are source-less
 (`+0x1A=FFFF`), phase-2 transient pool entries, not normal ARE declarations.
-Their gameplay identities and the exact imported routine behind the static
-`AX=4B70` handoff remain unnamed; the state mutation and shared-list contract
-are now safe to implement.
+The static `AX=4B70` handoff is a runtime relocation to `01F7:0E06`, the
+confirmed pooled-object factory. It creates a source-less object with callback
+`4B70`; that callback installs `4C74` and logical sprite slot `611`. The
+high-tail code copies the source effect position into the new object and adds
+`0x0A0000` to its fixed-point Y before the factory-created effect becomes
+visible.
+
+| Level | Factory result offset | Follow-up callback | Sprite slot | BOB in level context |
+| --- | ---: | --- | ---: | --- |
+| W1L3 | `01E0` | `4C74` | `611` | `PUFF.BOB`, record 0, `32x32`, origin `(16,32)` |
+| W2L3 | `0078` | `4C74` | `611` | `PUFFW2.BOB`, record 0, `34x26`, origin `(17,26)` |
+| W3L3 | `0618` | `4C74` | `611` | `PUFF.BOB`, record 0, `32x32`, origin `(16,32)` |
+| W4L3 | `01E0` | `4C74` | `611` | `PUFF.BOB`, record 0, `32x32`, origin `(16,32)` |
+| W5L3 | `0690` | `4C74` | `611` | `PUFF.BOB`, record 0, `32x32`, origin `(16,32)` |
+
+The `4C74` follow-up is now closed dynamically in both W1L3 and W2L3. It
+advances the effect object's `+0x2A` animation cursor once per update, keeps
+the object at phase `2` with source `FFFF`, and displays three frames in ten
+update groups: slot `611` for cursors `0..9`, slot `612` for `10..19`, and
+slot `613` for `20..30`. On the terminal update it advances `30 -> 31` and
+clears `object+0x18`; the pool object is then no longer scheduled. W1 uses
+`PUFF.BOB` and W2 uses `PUFFW2.BOB`, but the callback/timing contract is
+identical.
 
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction
 matters for breakpoints and callback reconstruction. The shared list is a
 cross-family collision/effect handoff, not a type-`0x33` private queue. The
-remaining work is to resolve the imported `4B70` action routine, correlate the
-five transient families with their sprite/BOB assets, and add the now-confirmed
-high-effect state contract to the C++ engine model.
+high-effect factory, position offset, sprite sequence, and terminal clear
+contract are now represented by `step_high_effect` in the C++ model. The frame
+comparator also accepts the high-effect trace schema (`--family high-effect`)
+and checks each `4B70`/`4C74` event against the same cursor, callback, and
+sprite rules. The remaining engine-recreation work is to connect this contract
+to the renderer's resource lookup and run a real recreated-vs-DOSBox frame
+comparison.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`

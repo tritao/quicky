@@ -339,9 +339,13 @@ PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
 
 The one-frame cadence is intentional: the first steady callback consumes the
 target before its state gate advances the transient object to the next phase.
-All five high tails now have live target-hit evidence; the exact imported
-routine behind their static `AX=4B70` handoff and their sprite/BOB identities
-remain open in `notes/object-behavior.md`.
+All five high tails now have live target-hit evidence. Their static
+`AX=4B70` handoff relocates to the pooled factory `01F7:0E06`; the resulting
+effect callback installs sprite slot `611` and callback `4C74`. The remaining
+`4C74` callback contract is three ten-update sprite groups (`611/612/613`)
+followed by a terminal callback clear at cursor `31`. The C++ model and frame
+comparator now encode this contract; resource-specific BOB selection remains
+level data rather than callback logic.
 
 The first standalone C++ behavior model is in
 [`model/`](model/), covering the proven pool/scheduler operations, descriptor

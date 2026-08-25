@@ -44,6 +44,19 @@ class HighEffectTraceTests(unittest.TestCase):
                          ["B20B/B25D", "D53F/D55A"])
         self.assertEqual(trace["frames"][1]["pool"]["objects"][0]["index"], 3)
 
+    def test_normalizes_spawned_effect_events(self):
+        trace = normalize_high_effect_trace({
+            "spawned_effect_events": {
+                "2": {"callback_entry": {"offset": 0x4C74}},
+                "1": {"callback_entry": {"offset": 0x4B70}},
+            },
+        })
+        self.assertEqual(
+            [item["callback_entry"]["offset"]
+             for item in trace["spawned_effect_events"]],
+            [0x4B70, 0x4C74],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

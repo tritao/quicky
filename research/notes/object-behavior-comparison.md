@@ -15,6 +15,8 @@ The comparator currently checks:
   and one-shot `1B5D/0FCF` action-chain entry;
 - type-`0x33` callback persistence and frame-level motion fields; helper traces
   additionally validate the MAP-derived transition and state `0–3` branches.
+- source-less high-effect `4B70` initialization, `4C74` cursor progression,
+  sprite slots `611/612/613`, and terminal callback clear at cursor `31`.
 
 Example:
 
@@ -41,3 +43,15 @@ The current DOSBox evidence passes the recovered contracts:
 Traces without helper tracing remain conservative: they still check lifecycle,
 descriptor, and type-specific observations, but do not infer an unrecorded MAP
 decision as a mismatch.
+
+High-effect traces use their separate event schema and can be checked with:
+
+```sh
+PYTHONPATH=research/tools python3 research/tools/object_behavior_compare.py \
+  research/build/high-effect/w2l3-effect-60.json \
+  --family high-effect
+```
+
+The comparator is intentionally callback-level. It does not yet compare the
+renderer bitmap output or choose between `PUFF.BOB` and `PUFFW2.BOB`; those are
+the next engine-integration inputs.
