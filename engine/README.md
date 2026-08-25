@@ -20,6 +20,8 @@ The current iteration supports:
 - source-less high-effect rendering from the recovered `4B70 -> 4C74` chain:
   world-specific `PUFF.BOB`/`PUFFW2.BOB`, slots `611/612/613`, and the
   31-update terminal lifecycle;
+- DOSBox-equivalent runtime VGA palette output while preserving raw PCC
+  values for asset inspection;
 - synthetic unit tests for the format readers.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`

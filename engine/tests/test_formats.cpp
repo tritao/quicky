@@ -109,6 +109,16 @@ void testMapPaletteTilesetAndRenderer() {
     assert(palette.colors[3].red == 3);
     assert(palette.colors[3].green == 4);
     assert(palette.colors[3].blue == 5);
+    const quiky::Palette vgaPalette = palette.toVgaOutput();
+    assert(vgaPalette.colors[3].red == 0);
+    assert(vgaPalette.colors[3].green == 0);
+    assert(vgaPalette.colors[3].blue == 0);
+    quiky::Palette knownPalette;
+    knownPalette.colors[0] = {151, 183, 227};
+    const quiky::Palette knownVga = knownPalette.toVgaOutput();
+    assert(knownVga.colors[0].red == 146);
+    assert(knownVga.colors[0].green == 178);
+    assert(knownVga.colors[0].blue == 223);
 
     quiky::Bytes icoData(512, 0);
     for (std::size_t index = 0; index < 256; ++index) {

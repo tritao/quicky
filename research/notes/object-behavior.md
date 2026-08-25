@@ -628,10 +628,12 @@ issue. For W1, source palette colors `(151,151,151)`, `(183,183,183)`, and
 shared colors. Static decoding of `0207:061D` shows that the game reduces
 8-bit PCC channels with `>> 2` before storing its VGA palette, while
 `0207:052C`/`0207:0536` writes the active 768-byte table to VGA DAC port
-`3C9`. DOSBox then expands the 6-bit DAC values with its `rgb6_to_8` LUT. The observed
-one-DAC-step offset is therefore evidence about the game's active/fade palette
-state, and should not be baked into the BOB renderer until a settled gameplay
-palette capture distinguishes the runtime table from the source PCC file.
+`3C9`. DOSBox then expands the 6-bit DAC values with its `rgb6_to_8` LUT.
+Across isolated W1, W2, and W3 frames, the `max(0,(PCC >> 2)-1)` DAC
+conversion explains 60,219/64,000, 58,541/64,000, and 59,470/64,000 pixels;
+the plain `PCC >> 2` conversion explains only 3,511, 4,236, and 14,028.
+The recreation's runtime palette now applies this display conversion while
+`parsePcx` remains raw for asset tools.
 
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction

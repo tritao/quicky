@@ -57,8 +57,9 @@ PYTHONPATH=research/tools python3 research/tools/object_behavior_compare.py \
 The comparator remains intentionally callback-level for object ledgers. The
 separate forced-position render pass now compares the decoded BOB crop against
 DOSBox for all three W1 frames and the W2 slot-611 frame, including the
-world-specific `PUFF.BOB`/`PUFFW2.BOB` choice and draw origins. The remaining
-scene-comparison input is the active VGA palette: DOSBox's raw RGB output is a
-few values below the source PCC colors, so a full-frame comparator must either
-capture the runtime DAC/fade table or explicitly compare in palette-index
-space before judging recreation colors.
+world-specific `PUFF.BOB`/`PUFFW2.BOB` choice and draw origins. The runtime
+recreation now applies the measured VGA palette transform before uploading
+colors, so the remaining scene-comparison work can compare RGB frames
+directly. A full-frame comparator still needs to account for camera timing and
+unrelated active objects; palette-index comparison remains useful for
+separating those scene differences from color regressions.

@@ -34,7 +34,7 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
     const Map map = Map::parse(archive.read(mapName), mapName);
     const Area area = Area::parse(archive.read(areaName), areaName);
     const Palette palette = Palette::parsePcx(
-        archive.read(worldName + ".PCC"), worldName + ".PCC");
+        archive.read(worldName + ".PCC"), worldName + ".PCC").toVgaOutput();
     const Tileset tileset = Tileset::parseIco(
         archive.read(worldName + ".ICO"), worldName + ".ICO");
     const std::string loopName = "LOOP_" + worldName + ".ICO";
