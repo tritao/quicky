@@ -1457,3 +1457,18 @@ python3 research/tools/quiky_renderer_pixel_trace.py --level W1L1 \
 The trace wrappers record executable/archive hashes and debugger metadata; the
 PNG checkpoint frames and JSON ledgers under `research/build/` are generated
 artifacts and remain ignored by Git.
+
+The focused native post-input closure trace
+`research/build/traces/player-w1l1-goal-cloud-current/native-cloud-post-input-v23.json`
+observes the reload order directly: `5010 -> 5017 -> 0908 -> 0931
+-> 0207:18C7 -> 5038 -> 0227:0D5A -> 503D -> 1AAA -> 5D38 -> 5042
+-> 321F -> 5047 -> 313D -> 504F -> 35C7`. The lookup argument is the
+Pascal path `GAMEDATA\\W1L4.map`; the trace records the published
+`DS:97E8=952944`, `DS:97E4=957333`, and `DS:97EC=4389` values. `0D5A` is
+armed only after `5038`, because the same helper also occurs in the preceding
+fade path. The player snapshot is valid before `5010`, becomes unavailable
+while `1AAA` tears down/reinitializes the pool identity, is populated by
+`5D38`, and is present again at the first post-cleanup `35C7` render. This
+closes the gameplay-affecting reload order for the focused fixture; the
+remaining unclassified calls in the export are presentation/resource helpers
+with no demonstrated player-state feedback.

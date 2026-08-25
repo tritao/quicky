@@ -1,0 +1,77 @@
+{
+  "schema": "quiky.transition-reload-closure.v1",
+  "purpose": "Focused Ghidra closure for the post-01D7:5010 resource, player-reposition, camera, and world-rebuild path.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "loader": "raw NE segments through BinaryLoader",
+    "processor": "x86:LE:16:Protected Mode",
+    "ghidra": "12.1.3"
+  },
+  "reproduction": "python3 research/tools/run_transition_reload_closure.py --output research/build/transition-reload-closure",
+  "targets": {
+    "01D7": ["5010", "5017", "5038", "503D", "5042", "5047", "504F", "313D"],
+    "01E7": ["0CAA", "0D18"],
+    "01F7": ["0908", "0931", "1AAA", "1AE6", "20AF", "3062", "31D1", "321F", "5D38"],
+    "0207": ["022A", "18C7"],
+    "0227": ["05CD", "0D5A"]
+  },
+  "static_contracts": {
+    "5010": "Branches on DS:89E0; the non-terminal path enters the reload setup and the terminal sentinel path continues through 504F.",
+    "5017": "Relocated far call to 01F7:0908, the bounded transition delay loop.",
+    "5038": "Relocated far call to 0227:0D5A, copying the transition buffer into the far destination at DS:60E4.",
+    "503D": "Relocated far call to 01F7:1AAA, repositioning the player and reinstalling callback 01F7:3F27.",
+    "5042": "Relocated far call to 01F7:321F, rebuilding camera/MAP state from the player position.",
+    "5047": "Local call to 01D7:313D, dispatching the next world/selector constructor path.",
+    "18C7": "Common Pascal resource lookup publishing DS:97E4/97E8/97EC after path resolution.",
+    "1AAA": "Consumes the indexed DS:8828/882A transition coordinate, clears DS:89EA, and calls 5D38.",
+    "321F": "Rebuilds camera/map state through 31D1, 20AF, 3062, and 17AE."
+  },
+  "exports": {
+    "QUIKY_SEG01.bin.c": "16a318f506ecdd2af55156373257b5e91e7778b6beb7ee2b4a261f32f36a28d1",
+    "QUIKY_SEG02.bin.c": "b458f993ce310ce17405d23773aa74b3a1425ab426b4dd7ab97917bd31925244",
+    "QUIKY_SEG03.bin.c": "dc687c99d7bbf9f09b01cb615b7ae349471741d7ed74af6047f732a2c01e5c08",
+    "QUIKY_SEG04.bin.c": "49f0267de40dc31d295628ead9937015ab9196e70de76c2dc7df539c5d13d245",
+    "QUIKY_SEG05.bin.c": "8b11ed4d65c6a058e3c25cf10cbcc65f822074fd5d464e97f2be57b76dd0d257"
+  },
+  "dynamic_observations": {
+    "trace": "research/build/traces/player-w1l1-goal-cloud-current/native-cloud-post-input-v23.json",
+    "trace_sha256": "06843b35a326e420f2eac237a1011548f816cec5a2d6333fc23079eaf1c3a61a",
+    "command": "python3 research/tools/quiky_goal_transition_trace.py --runtime-dir research/build/traces/player-w1l1-goal-cloud-current/goal/game --native-goal --native-cloud-focus --native-post-input --deep --force-player-x 256 --force-player-y 390 --timeout 20 --output research/build/traces/player-w1l1-goal-cloud-current/native-cloud-post-input-v23.json",
+    "pre_reload": {
+      "01D7:5010": {
+        "DS:85D4": "0x0010",
+        "DS:85D2": "0x0000",
+        "DS:880A": "0x0004",
+        "DS:881A": "0x0000",
+        "player_selector": "0x027F"
+      }
+    },
+    "ordered_hits": [
+      "01D7:01F0", "01D7:01AC", "01D7:01BD", "01D7:01D1",
+      "01D7:01D6", "01D7:01D6", "01E7:0CAA", "0207:022A",
+      "01D7:5010", "01D7:5017", "01F7:0908", "01F7:0931",
+      "0207:18C7", "01D7:5038", "0227:0D5A", "01D7:503D",
+      "01F7:1AAA", "01F7:5D38", "01D7:5042", "01F7:321F",
+      "01D7:5047", "01D7:313D", "01D7:504F", "01F7:35C7"
+    ],
+    "resource_lookup": {
+      "path": "GAMEDATA\\W1L4.map",
+      "path_selector": "0x023F",
+      "path_offset": "0x33D6",
+      "DS:97E8": 952944,
+      "DS:97E4": 957333,
+      "DS:97EC": 4389
+    },
+    "state_effects": [
+      "01F7:5D38 is reached after 01F7:1AAA and the player snapshot changes to the initialized 0x78-byte record.",
+      "01F7:321F follows 01D7:5042; DS:81D1 is 1 at the subsequent 01D7:5047 dispatch.",
+      "01F7:35C7 follows 01D7:504F and the player snapshot is populated with the post-reload record."
+    ],
+    "evidence_limits": [
+      "The trace uses the established debugger-only player placement (256,390) to enter the native cloud transition; it does not claim that placement is a natural input path.",
+      "The 0207:18C7 breakpoint records the lookup arguments and published resource words at entry; the lookup contract and write timing remain statically established."
+    ]
+  },
+  "dynamic_status": "confirmed focused native post-input reload order and resource lookup; remaining presentation-only helpers stay address-qualified"
+}

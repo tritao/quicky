@@ -24,6 +24,67 @@ local function little_dword(value)
                        (value >> 16) & 0xff, (value >> 24) & 0xff)
 end
 
+local function hex(raw)
+    local output = {}
+    for index = 1, #raw do
+        output[#output + 1] = string.format("%02x", string.byte(raw, index))
+    end
+    return table.concat(output)
+end
+
+local function player_snapshot()
+    local offset = dosbox.mem_read_word("ds", 0x881a)
+    local snapshot = {selector = 0x027f, offset = offset}
+    if offset == nil then return snapshot end
+    local ok, raw = pcall(dosbox.mem_read_selector, snapshot.selector, offset, 0x78)
+    if ok and type(raw) == "string" and #raw > 0 then
+        snapshot.raw_hex = hex(raw)
+    else
+        snapshot.read_error = (ok and "empty player record" or tostring(raw))
+    end
+    return snapshot
+end
+
+local function read_dword_ds(address)
+    local raw = dosbox.mem_read("ds", address, 4)
+    if type(raw) ~= "string" or #raw < 4 then return nil end
+    return string.byte(raw, 1) |
+        (string.byte(raw, 2) << 8) |
+        (string.byte(raw, 3) << 16) |
+        (string.byte(raw, 4) << 24)
+end
+
+local function resource_lookup_snapshot(hit)
+    if not hit or hit.segment ~= 0x0207 or hit.offset ~= 0x18c7 then
+        return nil
+    end
+    local registers = hit.registers or {}
+    local sp = (registers.esp or registers.sp or 0) & 0xffff
+    local path_offset = dosbox.mem_read_word("ss", (sp + 0x04) & 0xffff)
+    local path_selector = dosbox.mem_read_word("ss", (sp + 0x06) & 0xffff)
+    local raw = ""
+    if path_selector ~= nil and path_offset ~= nil then
+        local ok, value = pcall(dosbox.mem_read_selector, path_selector,
+                                path_offset, 0x40)
+        if ok and type(value) == "string" then raw = value end
+    end
+    local length = (#raw > 0) and string.byte(raw, 1) or 0
+    local text = ""
+    if length > 0 and #raw >= length + 1 then
+        text = string.sub(raw, 2, length + 1)
+    end
+    return {
+        stack_pointer = sp,
+        path = {selector = path_selector, offset = path_offset,
+                pascal_length = length, text = text, raw_hex = hex(raw)},
+        published_before = {
+            start = read_dword_ds(0x97e8),
+            ['end'] = read_dword_ds(0x97e4),
+            size = read_dword_ds(0x97ec),
+        },
+    }
+end
+
 local function checkpoint(name, hit, hold_frames)
     local record = {
         name = name,
@@ -37,6 +98,30 @@ local function checkpoint(name, hit, hold_frames)
         transition_done = dosbox.mem_read_word("ds", 0x89e0),
         transition_pending = dosbox.mem_read_word("ds", 0x89ec),
         audio_ready = dosbox.mem_read_byte("ds", 0x5044),
+        reload_state = {
+            level_index = dosbox.mem_read_word("ds", 0x60b2),
+            object_count = dosbox.mem_read_word("ds", 0x880a),
+            object_reset = dosbox.mem_read_word("ds", 0x8810),
+            player_offset = dosbox.mem_read_word("ds", 0x881a),
+            transition_index = dosbox.mem_read_word("ds", 0x85d2),
+            map_pointer = dosbox.mem_read_word("ds", 0x657a),
+            map_stride = dosbox.mem_read_word("ds", 0x657e),
+            page_current = dosbox.mem_read_word("ds", 0x817a),
+            page_pending = dosbox.mem_read_word("ds", 0x817c),
+            field_81a6 = dosbox.mem_read_word("ds", 0x81a6),
+            field_81aa = dosbox.mem_read_word("ds", 0x81aa),
+            field_81be = dosbox.mem_read_word("ds", 0x81be),
+            field_81c2 = dosbox.mem_read_word("ds", 0x81c2),
+            field_81d1 = dosbox.mem_read_byte("ds", 0x81d1),
+            world_selector = dosbox.mem_read_word("ds", 0x5042),
+        },
+        player = player_snapshot(),
+        resource_lookup = resource_lookup_snapshot(hit),
+        resource_state = {
+            start = read_dword_ds(0x97e8),
+            ['end'] = read_dword_ds(0x97e4),
+            size = read_dword_ds(0x97ec),
+        },
     }
     checkpoints[#checkpoints + 1] = record
     dosbox.output.goal_transition_checkpoints = checkpoints
@@ -185,6 +270,22 @@ if native_cloud_focus and native_goal then
             {name = "transition-effect", segment = 0x01e7, offset = 0x0caa},
             {name = "fade-helper", segment = 0x0207, offset = 0x022a},
             {name = "reload-gate", segment = 0x01d7, offset = 0x5010},
+            -- These are the callsites and entries of the focused post-5010
+            -- closure.  Keep them in the same native run so the ledger
+            -- records the actual order instead of treating the reload as one
+            -- opaque call.
+            {name = "reload-delay-callsite", segment = 0x01d7, offset = 0x5017},
+            {name = "reload-delay-callee", segment = 0x01f7, offset = 0x0908},
+            {name = "reload-delay-tick", segment = 0x01f7, offset = 0x0931},
+            {name = "reload-buffer-copy-callsite", segment = 0x01d7, offset = 0x5038},
+            {name = "reload-player-reposition-callsite", segment = 0x01d7, offset = 0x503d},
+            {name = "reload-player-reposition-callee", segment = 0x01f7, offset = 0x1aaa},
+            {name = "reload-animation-loader", segment = 0x01f7, offset = 0x5d38},
+            {name = "reload-camera-rebuild-callsite", segment = 0x01d7, offset = 0x5042},
+            {name = "reload-camera-rebuild-callee", segment = 0x01f7, offset = 0x321f},
+            {name = "reload-world-dispatch-callsite", segment = 0x01d7, offset = 0x5047},
+            {name = "reload-world-dispatch", segment = 0x01d7, offset = 0x313d},
+            {name = "reload-resource-lookup", segment = 0x0207, offset = 0x18c7},
             {name = "cleanup", segment = 0x01d7, offset = 0x504f},
             {name = "post-cleanup-render", segment = 0x01f7, offset = 0x35c7},
         }
@@ -207,6 +308,13 @@ if native_cloud_focus and native_goal then
             local label = string.format("native-post-input-%04x:%04x",
                                         hit.segment, hit.offset)
             checkpoint(label, hit, 0)
+            if hit.segment == 0x01d7 and hit.offset == 0x5038 then
+                -- 0D5A is also used by the preceding transition-buffer
+                -- helper. Arm it only after this reload callsite so the
+                -- observed callee is attributed to 5038 rather than to the
+                -- earlier fade path.
+                dosbox.breakpoint_set(0x0227, 0x0d5a, {once = true})
+            end
             if hit.segment == 0x01d7 and hit.offset == 0x01d6 then
                 dosbox.key("KBD_space", true)
                 space_active = true

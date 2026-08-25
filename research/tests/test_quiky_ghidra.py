@@ -47,6 +47,31 @@ class QuikyGhidraManifestTests(unittest.TestCase):
             with self.assertRaises(AnalysisError):
                 load_manifest(path, ROOT)
 
+    def test_transition_reload_closure_manifest_records_static_and_dynamic_evidence(self):
+        path = ROOT / "research" / "ghidra" / "transition-reload-closure.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(
+            manifest["source"]["executable_sha256"],
+            "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+        )
+        self.assertEqual(len(manifest["exports"]), 5)
+        self.assertEqual(
+            manifest["dynamic_observations"]["ordered_hits"][8:15],
+            [
+                "01D7:5010",
+                "01D7:5017",
+                "01F7:0908",
+                "01F7:0931",
+                "0207:18C7",
+                "01D7:5038",
+                "0227:0D5A",
+            ],
+        )
+        self.assertEqual(
+            manifest["dynamic_observations"]["resource_lookup"]["path"],
+            "GAMEDATA\\W1L4.map",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
