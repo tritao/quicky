@@ -16,7 +16,7 @@
     "interpretation_rule": "A relocation targeting 01F7:0E06 is the pooled-object factory call; the caller's AX immediate is the initializer callback offset passed to that factory."
   },
   "effect_table": {
-    "reset": {
+                  "reset": {
       "entry": "01F7:44FF",
       "relocated_call_sites": [
         {
@@ -32,8 +32,25 @@
           "evidence": "NE relocation source 01D7:44EA targets segment 3 offset 0x44FF"
         }
       ],
-      "known_behavior": "Clears DS:87DE rows and resets DS:8806/DS:8808."
-    },
+                            "known_behavior": "Clears DS:87DE rows and resets DS:8806/DS:8808.",
+                            "callsite_semantics": [
+                              {
+                                "call": "01D7:3FC6",
+                                "context": "Level-state initialization after DS:88BA and DS:880C are cleared; the reset precedes selector/resource and object-state setup.",
+                                "interpretation": "This is a level/session table reset, not an individual Wind/UFO death callback."
+                              },
+                              {
+                                "call": "01D7:44E9",
+                                "context": "Reached from main-loop transition paths 01D7:4BCB and 01D7:4CC4 through 01D7:44D0; 44D0 first clamps DS:8822 to at least DS:8824.",
+                                "interpretation": "This is a transition/effect-lifecycle reset shared by the main loop after presentation or state changes."
+                              }
+                            ],
+                            "static_inputs": {
+                              "segment1_sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6",
+                              "relocation_targets": ["01D7:3FC6 -> 01F7:44FF", "01D7:44E9 -> 01F7:44FF"],
+                              "near_call_callers_of_44d0": ["01D7:4BCB", "01D7:4CC4"]
+                            }
+                  },
     "spawn": {
       "entry": "01F7:4519",
       "factory": "01F7:0E06",
