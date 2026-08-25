@@ -43,6 +43,8 @@ local boss_damage_callback_offset = trace_config.boss_damage_callback_offset or 
 local boss_player_lock_x = trace_config.boss_player_lock_x
 local boss_player_lock_y = trace_config.boss_player_lock_y
 local boss_player_lock_interval = trace_config.boss_player_lock_interval or 1
+local boss_player_lock_to_damage_target =
+    trace_config.boss_player_lock_to_damage_target or false
 local trace_event_counter = 0
 local descriptor_census_done = false
 
@@ -1020,6 +1022,58 @@ local function lock_boss_player_position(sequence)
     }
 end
 
+-- Debugger-only spatial control for authored boss probes.  Read the native
+-- damage callback's live object and place the persistent player record on the
+-- same integer coordinates before the callback executes.  This is a diagnostic
+-- alignment aid: the damage callback, shared row table, and player producer
+-- remain native.
+local function lock_boss_player_to_damage_target(sequence, hit)
+    if not boss_player_lock_to_damage_target then return nil end
+    if sequence ~= nil and (sequence % boss_player_lock_interval) ~= 0 then
+        return nil
+    end
+    if hit == nil or hit.registers == nil then
+        return {error = "damage target breakpoint has no registers"}
+    end
+    local target_selector = hit.registers.es
+    local target_offset = hit.registers.edi & 0xffff
+    local target_raw = dosbox.mem_read_selector(target_selector, target_offset, 0x10)
+    if target_raw == nil or #target_raw < 0x0a then
+        return {error = "damage target object read is truncated",
+                selector = target_selector, offset = target_offset}
+    end
+    local target_x = dword(target_raw, 3) >> 16
+    local target_y = dword(target_raw, 7) >> 16
+    local player_offset = dosbox.mem_read_word("ds", 0x881a)
+    local pointer_raw = dosbox.mem_read("ds", 0x755e, 4) or ""
+    if #pointer_raw < 4 then
+        return {error = "player pool pointer is truncated"}
+    end
+    local pointer = dword(pointer_raw, 1)
+    local pool_selector = (pointer >> 16) & 0xffff
+    if pool_selector == 0 then
+        return {error = "player pool selector is zero"}
+    end
+    local ok, err = pcall(function()
+        write_dword_selector(pool_selector, player_offset + 0x02,
+                             (target_x & 0xffff) << 16)
+        write_dword_selector(pool_selector, player_offset + 0x06,
+                             (target_y & 0xffff) << 16)
+    end)
+    if not ok then
+        return {error = tostring(err), selector = pool_selector,
+                offset = player_offset, target_selector = target_selector,
+                target_offset = target_offset}
+    end
+    return {
+        selector = pool_selector,
+        offset = player_offset,
+        target_selector = target_selector,
+        target_offset = target_offset,
+        position = {x = target_x, y = target_y},
+    }
+end
+
 local function write_word_ds(offset, value)
     value = value & 0xffff
     dosbox.mem_write(
@@ -1220,7 +1274,13 @@ if boss_stage_focus then
         end
         local target = boss_target_for(hit)
         if target ~= nil then
-            local player_lock = lock_boss_player_position(sequence)
+            local player_lock
+            if boss_player_lock_to_damage_target and
+               target.kind == "damage_callback" then
+                player_lock = lock_boss_player_to_damage_target(sequence, hit)
+            else
+                player_lock = lock_boss_player_position(sequence)
+            end
             if target.kind == "constructor" or target.kind == "stage_initializer" or
                target.kind == "end_child" or target.kind == "stage_write" or
                (target.kind == "main_callback" and

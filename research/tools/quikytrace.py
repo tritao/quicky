@@ -123,6 +123,7 @@ class PlayerTraceConfig:
     boss_player_lock_x: int | None = None
     boss_player_lock_y: int | None = None
     boss_player_lock_interval: int = 1
+    boss_player_lock_to_damage_target: bool = False
 
 
 def lua_literal(value: Any) -> str:
@@ -225,6 +226,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "boss_player_lock_x": config.boss_player_lock_x,
         "boss_player_lock_y": config.boss_player_lock_y,
         "boss_player_lock_interval": config.boss_player_lock_interval,
+        "boss_player_lock_to_damage_target": config.boss_player_lock_to_damage_target,
     }
 
 
@@ -739,6 +741,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--boss-player-lock-interval", type=int, default=1,
         help="debugger-only: re-center the player every N boss events (default 1)",
     )
+    parser.add_argument(
+        "--boss-player-lock-to-damage-target", action="store_true",
+        help="debugger-only: align the live player to the native damage target before each damage callback",
+    )
     parser.add_argument("--player-samples", type=int, default=8,
                         help="number of player/object-pool samples")
     parser.add_argument("--player-frames-between", type=int, default=30,
@@ -1052,6 +1058,7 @@ def main(argv: list[str] | None = None) -> int:
                 boss_player_lock_x=args.boss_player_lock_x,
                 boss_player_lock_y=args.boss_player_lock_y,
                 boss_player_lock_interval=args.boss_player_lock_interval,
+                boss_player_lock_to_damage_target=args.boss_player_lock_to_damage_target,
             )
             player_trace, player_screenshots = trace_player_lua(
                 api, player_script_path, player_config,

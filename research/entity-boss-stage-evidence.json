@@ -300,6 +300,27 @@
     },
     "interpretation": "A fixed spatial point preserves the native row-to-boss path but still yields only one hit. Repeated authored progression therefore requires a moving platform/vertical route and timing relation, not a static player coordinate or action cadence alone."
   },
+  "runtime_damage_target_lock_boundary_probe": {
+    "trace": "research/build/player-w1l3-native-target-lock-interval60-pulse60-256.json",
+    "trace_sha256": "f5efc7e48fe8f1bc8153a604a6f23b3b481d36db68a7f0911fb7f9097fee695e",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "1bad64e2cbbda916eeb2b3a91873ca5715cc58aaecd93918ed3ee0f4ce403df7",
+    "host_tool": "research/tools/quikytrace.py",
+    "host_tool_sha256": "486e9be31fbe3d08313a3e7fe2825ab8388c6b90d29f4d3eecb73914d0aaa884",
+    "fixture": "Native W1L3 selector with 550-frame left warmup, left-alt pulse every 60 boss events, and debugger alignment of the persistent player record to the live B25D damage target every 60 events.",
+    "mutation_scope": "Only the persistent player fixed-point position is written at selected damage breakpoints; the shared row producer, B25D consumer, boss movement, and stage callbacks remain native.",
+    "observed": {
+      "boss_events": 256,
+      "target_lock_events": 3,
+      "damage_match_clear": 1,
+      "damage_hit_increment": 1,
+      "stage_writer_hits": 0,
+      "final_effect_active_count": 0,
+      "final_stage_gate": 1,
+      "target_positions_locked": [[357, 551], [349, 563], [340, 561]]
+    },
+    "interpretation": "Following the native damage target preserves one strict row match but does not produce repeated hits. The remaining authored condition is not merely player-to-sensor spatial alignment; it includes the action-latch/row-spawn cadence and the moving route state that determines when fresh rows occupy the B25D overlap band. This diagnostic is debugger-only and does not model retail behavior."
+  },
   "runtime_cross_world_reachability_probe": {
     "script": "research/automation/quiky_player_trace.lua",
     "script_sha256": "6e7b03cf6c8f97fac4b2326f19700fca82be4e91348d5f18924aded56a61a0bc",

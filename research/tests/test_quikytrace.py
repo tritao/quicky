@@ -348,6 +348,16 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(payload["boss_player_lock_x"], 340)
         self.assertEqual(payload["boss_player_lock_y"], 560)
         self.assertEqual(payload["boss_player_lock_interval"], 60)
+        self.assertFalse(payload["boss_player_lock_to_damage_target"])
+
+    def test_player_boss_target_lock_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            boss_stage_focus=True,
+            boss_player_lock_to_damage_target=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["boss_player_lock_to_damage_target"])
 
     def test_player_branch_patch_tile_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
