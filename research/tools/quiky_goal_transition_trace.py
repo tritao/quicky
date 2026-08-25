@@ -40,6 +40,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="directory containing QUIKY.EXE/NESTLE.DAT for a fixture run")
     parser.add_argument("--native-goal", action="store_true",
                         help="do not seed flags; use a fixture's native letter callbacks")
+    parser.add_argument("--native-cloud-focus", action="store_true",
+                        help="watch the native cloud callback's DS:89E6 writer")
     parser.add_argument("--force-player-x", type=int)
     parser.add_argument("--force-player-y", type=int)
     parser.add_argument("--deep", action="store_true",
@@ -91,6 +93,7 @@ def run(args: argparse.Namespace) -> int:
                   f"TRACE_DEEP_ONLY={'true' if args.deep else 'false'}\n"
                   f"TRACE_GOAL_MASK={args.goal_mask}\n"
                   f"TRACE_NATIVE_GOAL={'true' if args.native_goal else 'false'}\n"
+                  f"TRACE_NATIVE_CLOUD_FOCUS={'true' if args.native_cloud_focus else 'false'}\n"
                   + (f"TRACE_FORCE_PLAYER_X={args.force_player_x}\n"
                      if args.force_player_x is not None else "")
                   + (f"TRACE_FORCE_PLAYER_Y={args.force_player_y}\n"

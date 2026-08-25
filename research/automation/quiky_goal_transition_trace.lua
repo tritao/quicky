@@ -7,6 +7,7 @@ local optional_timeout_ms = TRACE_OPTIONAL_TIMEOUT_MS or timeout_ms
 local goal_mask = TRACE_GOAL_MASK
 local deep_only = TRACE_DEEP_ONLY
 local native_goal = TRACE_NATIVE_GOAL or false
+local native_cloud_focus = TRACE_NATIVE_CLOUD_FOCUS or false
 local force_player_x = TRACE_FORCE_PLAYER_X
 local force_player_y = TRACE_FORCE_PLAYER_Y
 local checkpoints = {}
@@ -149,6 +150,18 @@ else
     dosbox.mem_write("ds", 0x85da, "\x00")
     dosbox.mem_write("ds", 0x89ec, "\x00\x00")
     dosbox.mem_write("ds", 0x89e0, "\x00\x00")
+end
+
+if native_cloud_focus and native_goal then
+    -- 01F7:92A9 is the accepted cloud/player overlap branch and writes
+    -- DS:89E6.  Keep this as an optional one-shot observation so the native
+    -- letter fixture can distinguish the real cloud gate from the synthetic
+    -- DS:89E6 seed used by older completion probes.
+    optional_checkpoint("native-cloud-flag-writer", 0x01f7, 0x92a9)
+    optional_checkpoint("native-cloud-outer-gate", 0x01d7, 0x4ea0)
+    optional_checkpoint("native-cloud-completion-call", 0x01d7, 0x4f0d)
+    optional_checkpoint("native-cloud-completion-check", 0x01d7, 0x1669)
+    optional_checkpoint("native-cloud-completion-branch", 0x01d7, 0x16c6)
 end
 
 -- These are selector-relative segment-1 offsets.  01D7:1669 is the separate

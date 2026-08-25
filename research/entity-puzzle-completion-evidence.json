@@ -244,6 +244,26 @@
         "transition_reload_hits": []
       },
       "interpretation": "The current-main runtime reaches the complete seven-letter mask through the native object callbacks, but the fixture does not place the player on the native cloud at (368,304). No 01F7:92A9/01D7:4EA0 completion path fires, so this validates native letter accumulation only and does not close the cloud-contact or downstream reload route."
+    },
+    "current_main_native_cloud_gate_probe": {
+      "trace": "research/build/traces/player-w1l1-goal-cloud-current/native-cloud-focus-v4.json",
+      "trace_sha256": "c87edc85ff2e9b7f56c1ad3832af27303c415b740df16fb93aabd86307aa12ef",
+      "trace_script": "research/automation/quiky_goal_transition_trace.lua",
+      "trace_script_sha256": "6d062938d965e9f4c67daa70919d5ae5d41d36bf95cd57d3a0131bf95dc26807",
+      "host_tool": "research/tools/quiky_goal_transition_trace.py",
+      "host_tool_sha256": "00c9d5e5b18ae579fb41bd57130411de838a1926a60721053242323580abfeb0",
+      "fixture_builder": "research/tools/quiky_goal_all_fixture.py",
+      "fixture_builder_sha256": "511ceb0ad99a259cf66d19ea07727cdf99cbb90e6b2c1f5509fee34e3fde44e1",
+      "fixture": "Current-main W1L1 ARE variant with seven letters at (256,390) and the authored cloud moved to (256,390) in the adjacent streamed cell.",
+      "archive_sha256": "d4ef4ed3c1a2324d36c18bdeb78fb373d80f9ec76f7903f4fbdc1ed7a58da19c",
+      "observed": {
+        "cloud_writer": "01F7:92A9",
+        "cloud_writer_mask_at_entry": "0x0000",
+        "mask_after_writer_window": "0x007F",
+        "cloud_signal_after_writer_window": "0xFFFF",
+        "outer_gate_hits_in_followup_window": []
+      },
+      "interpretation": "The real cloud callback reaches its accepted 01F7:92A9 path in the current-main runtime, and the native state later contains both the complete letter mask and DS:89E6=-1. The writer checkpoint itself is before the store, so the pre-entry DS:89E6 value is zero. The one-shot outer consumer was not captured in the follow-up window because the checkpoint acknowledgement can advance past it; completion presentation and resource reload remain unresolved here."
     }
   },
   "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. The explicit transition census still observes no 01D7:5010 or downstream reload hit in the synthetic fixture, so exact retail timing and the resource/object rebuild require a fully authored completion or more faithful transition fixture."
