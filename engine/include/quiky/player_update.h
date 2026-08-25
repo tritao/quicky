@@ -65,6 +65,7 @@ public:
 struct PlayerUpdateTrace : public PlayerTraceSink {
     std::vector<PlayerUpdateStage> stages;
     std::uint16_t inputFlags;
+    bool hasPreState;
     PlayerRawRecord preState;
     PlayerRawRecord postState;
     std::vector<TraceStateWrite> stateWrites;
@@ -92,9 +93,9 @@ struct PlayerUpdateResult {
     bool appliedYCorrection;
 };
 
-// Horizontal-only callback implementation. It does not apply gravity,
-// jump, floor/ceiling response, grounded state, or vertical descriptor
-// response; those remain behind the pending vertical research interface.
+// Horizontal-only callback implementation. The trace-closed updater below
+// adds only the already-recovered free-space vertical branch; contact,
+// grounded, and jump initiation remain behind the pending research interface.
 PlayerUpdateResult updatePlayerHorizontal(
     PlayerRecord &player,
     const InputState &input,
@@ -111,7 +112,7 @@ public:
                               PlayerUpdateTrace *trace) = 0;
 };
 
-class ExperimentalHorizontalPlayerUpdate : public PlayerUpdateCallback {
+class TraceClosedPlayerUpdate : public PlayerUpdateCallback {
 public:
     void updatePlayer(PlayerRecord &player,
                       const InputState &input,

@@ -427,7 +427,7 @@ int main(int argc, char **argv) {
             levelConfig.spawnY = startY;
         }
         quiky::Simulation simulation;
-        quiky::ExperimentalHorizontalPlayerUpdate playerUpdater;
+        quiky::TraceClosedPlayerUpdate playerUpdater;
         simulation.setExperimentalPlayerUpdater(&playerUpdater);
         std::unique_ptr<quiky::LevelRuntime> runtime =
             quiky::LevelRuntime::load(archive, mapName, bobName, levelConfig);

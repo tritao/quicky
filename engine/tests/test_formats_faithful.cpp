@@ -261,7 +261,7 @@ void testLevelSessionUsesSimulationBoundary() {
     config.enableEdgeExit = false;
     quiky::LevelSession session("W1L1.MAP", map, makeArea(0x6f, 0x79), config);
     quiky::Simulation simulation;
-    quiky::ExperimentalHorizontalPlayerUpdate updater;
+    quiky::TraceClosedPlayerUpdate updater;
     simulation.setExperimentalPlayerUpdater(&updater);
     quiky::SimulationOutput output;
     session.reset(simulation);

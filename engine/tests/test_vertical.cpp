@@ -90,6 +90,39 @@ void testTerminalVelocityAndOrdinaryBoundary() {
     assert(result.postState.bytes == before.bytes);
 }
 
+void testTraceClosedUpdaterIntegratesAirborneBranch() {
+    quiky::Map map;
+    map.width = 1;
+    map.height = 64;
+    map.unknown = 0;
+    map.cells.assign(map.width * map.height, 0);
+    const quiky::WorldCollisionView world(map);
+    quiky::TraceClosedPlayerUpdate updater;
+
+    quiky::PlayerRecord ascent = playerFor(-1, 0, 0, 25100288, -8192);
+    const quiky::PlayerRawRecord ascentBefore = ascent.toRaw();
+    quiky::PlayerUpdateTrace ascentTrace;
+    updater.updatePlayer(ascent, quiky::InputState(), world, &ascentTrace);
+    assert(ascent.positionY.raw == 25100288);
+    assert(ascent.velocityY.raw == 0);
+    assert(ascent.mode37 == 1);
+    assert(ascentTrace.preState.s32(0x06) == ascentBefore.s32(0x06));
+    assert(ascentTrace.postState.s32(0x06) == ascent.positionY.raw);
+    assert(ascentTrace.postState.s32(0x0e) == ascent.velocityY.raw);
+
+    quiky::PlayerRecord descent = playerFor(1, 0, 0, 25100288, 0);
+    updater.updatePlayer(descent, quiky::InputState(), world, 0);
+    assert(descent.positionY.raw == 25110528);
+    assert(descent.velocityY.raw == 10240);
+
+    quiky::PlayerRecord ordinary = playerFor(0, 0, 0, 25100288, 0);
+    const quiky::PlayerRawRecord ordinaryBefore = ordinary.toRaw();
+    updater.updatePlayer(ordinary, quiky::InputState(), world, 0);
+    assert(ordinary.positionY.raw == ordinaryBefore.s32(0x06));
+    assert(ordinary.velocityY.raw == ordinaryBefore.s32(0x0e));
+    assert(ordinary.mode37 == 0);
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -97,6 +130,7 @@ int main(int argc, char **argv) {
     testEvidenceFixture(argv[1]);
     testReleaseClampAndHoldGate();
     testTerminalVelocityAndOrdinaryBoundary();
+    testTraceClosedUpdaterIntegratesAirborneBranch();
     std::cout << "vertical free-space tests passed\n";
     return 0;
 }

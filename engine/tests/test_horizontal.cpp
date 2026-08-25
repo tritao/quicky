@@ -414,7 +414,7 @@ void testSnapshotsAndTraceIsolation() {
     simulation.stateForSetup().player.positionX =
         quiky::Fixed16::fromRaw(0x00800000);
     simulation.stateForSetup().player.initializeConfirmedHorizontalFields();
-    quiky::ExperimentalHorizontalPlayerUpdate experimentalUpdater;
+    quiky::TraceClosedPlayerUpdate experimentalUpdater;
     simulation.setExperimentalPlayerUpdater(&experimentalUpdater);
     quiky::SimulationOutput output;
     simulation.tick(input, world, output);

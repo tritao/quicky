@@ -299,7 +299,7 @@ int main(int argc, char **argv) {
             config.spawnY = startY;
         }
         quiky::Simulation simulation;
-        quiky::ExperimentalHorizontalPlayerUpdate playerUpdater;
+        quiky::TraceClosedPlayerUpdate playerUpdater;
         simulation.setExperimentalPlayerUpdater(&playerUpdater);
         std::unique_ptr<quiky::LevelRuntime> runtime =
             quiky::LevelRuntime::load(archive, mapName, playerBobName, config);

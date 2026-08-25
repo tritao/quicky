@@ -67,15 +67,19 @@ The confirmed horizontal callback slice is integrated behind the explicit
 player-updater seam. `PlayerRecord`
 preserves all `0x78` bytes and exposes the static-closure fields, including
 the overlapping pixel-word views and confirmed horizontal constants. The
-experimental updater integrates old X velocity first, applies right-before-
-left precedence, uses `0x2800` acceleration, `0x2000` release friction, and
-the `+/-0x18000` cap through `Fixed16` helpers.
+trace-closed updater integrates old X velocity first, applies
+right-before-left precedence, uses `0x2800` acceleration, `0x2000` release
+friction, and the `+/-0x18000` cap through `Fixed16` helpers. For records
+already in an airborne mode, it also applies the confirmed free-space vertical
+branch, including release clamping, apex transition, gravity, and terminal
+velocity.
 
 `CollisionKernel` is a pure MAP/descriptor query layer for the recovered
 quadrant mask, ordered `x-5`/`x+5` probes, `3DF2` Y alignment, and `3D02`
-descriptor response. It does not implement gravity, jumping, floor/ceiling
-or grounded policy. `Simulation::setExperimentalPlayerUpdater()` is the
-explicit opt-in integration point; the default simulation remains unchanged.
+descriptor response. It does not implement floor/ceiling contact or grounded
+policy. `Simulation::setExperimentalPlayerUpdater()` is the explicit opt-in
+integration point; contact resolution and jump initiation remain pending
+rather than being inferred from the free-space rules.
 
 The compact `tests/fixtures/player-horizontal-v1.tsv` contains the 1,261
 formula samples represented by all 5,044 values checked by the Python model.
@@ -89,8 +93,9 @@ python3 engine/tools/generate_horizontal_fixture.py \
 
 The `quiky-horizontal-tests` target checks record round trips, all horizontal
 held-out values, direct acceleration/reversal/cap vectors, Python collision
-kernel parity vectors, snapshot isolation, and trace diagnostics. Vertical
-callback orchestration remains behind `VerticalPlayerUpdatePendingResearch`.
+kernel parity vectors, snapshot isolation, and trace diagnostics. The
+`quiky-vertical-tests` target checks the 15 trace-closed free-space rows and
+the canonical updater integration; contact orchestration remains pending.
 
 ## Runtime descriptor integration
 

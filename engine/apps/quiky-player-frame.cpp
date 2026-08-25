@@ -95,7 +95,7 @@ int main(int argc, char **argv) {
         const quiky::BobRecord &playerRecord = findPlayerRecord(bob);
 
         quiky::Simulation simulation;
-        quiky::ExperimentalHorizontalPlayerUpdate playerUpdater;
+        quiky::TraceClosedPlayerUpdate playerUpdater;
         simulation.setExperimentalPlayerUpdater(&playerUpdater);
         simulation.reset();
         quiky::PlayerRecord &setup = simulation.stateForSetup().player;

@@ -39,8 +39,8 @@ void stage(PlayerTraceSink *trace, PlayerUpdateStage value) {
 } // namespace
 
 PlayerUpdateTrace::PlayerUpdateTrace()
-    : stages(), inputFlags(0), preState(), postState(), stateWrites(),
-      collisionProbes() {
+    : stages(), inputFlags(0), hasPreState(false), preState(), postState(),
+      stateWrites(), collisionProbes() {
 }
 
 void PlayerUpdateTrace::onStage(PlayerUpdateStage stageValue) {
@@ -62,7 +62,10 @@ void PlayerUpdateTrace::onCollisionProbe(const CollisionProbe &probe,
 }
 
 void PlayerUpdateTrace::onPreState(const PlayerRawRecord &state) {
-    preState = state;
+    if (!hasPreState) {
+        preState = state;
+        hasPreState = true;
+    }
 }
 
 void PlayerUpdateTrace::onInputFlags(std::uint16_t flags) {
@@ -239,12 +242,19 @@ VerticalFreeSpaceResult updatePlayerVerticalFreeSpace(
     return result;
 }
 
-void ExperimentalHorizontalPlayerUpdate::updatePlayer(
+void TraceClosedPlayerUpdate::updatePlayer(
     PlayerRecord &player,
     const InputState &input,
     const WorldCollisionView &world,
     PlayerUpdateTrace *trace) {
     updatePlayerHorizontal(player, input, world, trace);
+    if (player.mode37 != 0) {
+        // The free-space branch is exact for already-airborne records. It
+        // intentionally does not decide whether contact is clear or initiate
+        // a jump; those caller branches still require the recovered contact
+        // orchestration.
+        updatePlayerVerticalFreeSpace(player, trace);
+    }
 }
 
 } // namespace quiky
