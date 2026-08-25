@@ -225,6 +225,8 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIsNone(player_trace_lua_config(config)["property_helper_offset"])
         self.assertFalse(player_trace_lua_config(config)["boss_stage_focus"])
         self.assertEqual(player_trace_lua_config(config)["boss_stage_events"], 64)
+        self.assertFalse(player_trace_lua_config(config)["boss_damage_focus"])
+        self.assertEqual(player_trace_lua_config(config)["boss_damage_hits"], 5)
         normalized = normalize_player_trace(trace)
         self.assertEqual(normalized["samples"], [{
             "pool": {"objects": [], "kind_0x64": []},
@@ -257,6 +259,18 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertTrue(payload["boss_stage_focus"])
         self.assertEqual(payload["boss_stage_events"], 12)
+
+    def test_player_boss_damage_focus_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, boss_stage_focus=True,
+            boss_damage_focus=True, boss_damage_hits=6,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertTrue(payload["boss_damage_focus"])
+        self.assertEqual(payload["boss_damage_hits"], 6)
+        self.assertEqual(payload["boss_damage_target_callback"], 0xA234)
+        self.assertEqual(payload["boss_damage_callback_offset"], 0xB25D)
 
     def test_normalize_player_boss_stage_events(self):
         trace = normalize_player_trace({
@@ -340,6 +354,7 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("boss_stage_focus", source)
         self.assertIn("boss_stage_trace", source)
         self.assertIn("offset = 0xa234", source)
+        self.assertIn("prepare_boss_damage_fixture", source)
 
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

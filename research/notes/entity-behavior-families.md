@@ -411,10 +411,17 @@ The same pass closes the branch-level behavior for the remaining effects:
   stage initializer `01F7:A101` is followed by child callbacks `A39B`, `A234`,
   `A1F8`, `A213`, `A3CB`, `A228`, and `A22E`; the callbacks execute with CS
   `01F7`, while their scheduler records retain callback segment `0x1997`. The
-  fixture ends with `DS:88AE=1`, `DS:880C=0`, and END slots `0x385`, `0x388`,
-  `0x3AC`, and `0x2C7` active. This is a bounded topology/gate observation,
-  not a claim that the later damage-forced stage values or completion handoff
-  have been timed. Full details and hashes are in
+  authored fixture starts at `DS:88AE=1`, `DS:880C=0`, with END slots `0x385`,
+  `0x388`, `0x3AC`, and `0x2C7` active. A separate controlled callback probe
+  rewrites one live `A234` child to native `B25D`, seeds matching `DS:87DE`
+  rows, and observes five native damage cycles followed by `B30E` (gate 1->2).
+  It then promotes that same record to `B33B` and captures `B61A`, `B791`,
+  `B824`, and the post-write `B84C` return with `DS:88AE=5`; the final return
+  shows callback `01F7:487F` and slot `0xFFFF`, with four pool records active.
+  This proves the recovered native callback progression, including helper kill,
+  timed effect bursts, exit, and replacement. It remains controlled evidence:
+  the retail producer of damage rows and the completion handoff into
+  `DS:85DB/DS:85D4` are not identified. Full details and hashes are in
   [`entity-boss-stage-evidence.json`](../entity-boss-stage-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
@@ -649,13 +656,14 @@ captures `01D7:4EA0 -> 4EAA -> 4F0D -> 14E1 -> 1670 -> 16C6 -> 16DE -> 16F0 ->
 probe, not a substitute for the fully authored all-seven-letter run; the
 post-message `4FAF-5047` continuation remains the timing gap.
 
-A current-script stage-writer diagnostic arms the known END constructors and
-state writes (`01D7:3147`, `01F7:A101/B115/C25E/CC3B`, `B30E/B61A/B791/B824`,
-and `D60B`) around the same forced outer-gate handoff. It reaches the outer
+An authored completion stage-writer diagnostic arms the known END constructors
+and state writes (`01D7:3147`, `01F7:A101/B115/C25E/CC3B`, `B30E/B61A/B791/B824`,
+and `D60B`) around the forced outer-gate handoff. It reaches the outer
 completion entry and PIT wait helper, records zero stage-writer hits, and leaves
-`DS:88AE=0` over the bounded 180-frame window. This narrows the result to a
-timing/authoring boundary: the completion presentation is not itself proof that
-the END stage machine has advanced. See
+`DS:88AE=0` over the bounded 180-frame window. The controlled damage probe now
+separates this authored timing gap from the native callback behavior: the
+callback path is verified through gate 5, but the producer that supplies its
+damage rows and the unforced completion handoff remain unresolved. See
 [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json)
 for the trace hash and exact watcher points.
 
@@ -682,8 +690,9 @@ are deliberately narrower:
    generic `0013` VGA/BOB primitive, ordinary queue path, player-state gate,
    cross-world usage, removal path, and both player-side readers are confirmed;
    the 64-sample queue probe ruled out an explicit ordinary-queue injection.
-3. Capture one authored boss/end transition to map `DS:88AE` stage values and
-   the non-keyboard player bit-`0x10` producer. Then trace a WERBE or
+3. Capture the authored boss/end damage or completion producer (the controlled
+   callback path already maps `DS:88AE` 1->5). Identify the non-keyboard player
+   bit-`0x10` producer, then trace a WERBE or
    dedicated-effect `DS:880C` increment after that transition and correlate the
    separate Wind/UFO row producers that seed `DS:87DE`. Assign the paper
    `DS:880A` bounded HUD counter its human-facing label afterward.

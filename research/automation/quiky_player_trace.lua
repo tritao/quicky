@@ -30,6 +30,10 @@ local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local boss_stage_focus = trace_config.boss_stage_focus or false
 local boss_stage_events = trace_config.boss_stage_events or 64
+local boss_damage_focus = trace_config.boss_damage_focus or false
+local boss_damage_hits = trace_config.boss_damage_hits or 5
+local boss_damage_target_callback = trace_config.boss_damage_target_callback or 0xa234
+local boss_damage_callback_offset = trace_config.boss_damage_callback_offset or 0xb25d
 local trace_event_counter = 0
 local descriptor_census_done = false
 
@@ -139,6 +143,7 @@ local function object_snapshot(raw, selector, offset, index)
         callback = word(raw, 0x18 + 1),
         callback_data = word(raw, 0x1a + 1),
         sprite_slot = word(raw, 0x12 + 1),
+        link_word_0x2a = word(raw, 0x2a + 1),
         lifetime = word(raw, 0x2c + 1),
         state_field = word(raw, 0x2e + 1),
         update_state = word(raw, 0x32 + 1),
@@ -815,11 +820,15 @@ local boss_targets = {
     {segment = 0x01f7, offset = 0xcc68, kind = "constructor", world = "W4"},
     {segment = 0x01f7, offset = 0xd2f6, kind = "constructor", world = "W5"},
     {segment = 0x01f7, offset = 0xb33b, kind = "main_callback", world = "W1"},
+    {segment = 0x01f7, offset = 0xb84c, kind = "main_callback_return", world = "W1"},
     {segment = 0x01f7, offset = 0xbbec, kind = "main_callback", world = "W2"},
     {segment = 0x01f7, offset = 0xc40b, kind = "main_callback", world = "W3"},
     {segment = 0x01f7, offset = 0xce81, kind = "main_callback", world = "W4"},
     {segment = 0x01f7, offset = 0xd63d, kind = "main_callback", world = "W5"},
     {segment = 0x01f7, offset = 0xb25d, kind = "damage_callback", world = "W1"},
+    {segment = 0x01f7, offset = 0xb33a, kind = "damage_callback_return", world = "W1"},
+    {segment = 0x01f7, offset = 0xb2b0, kind = "damage_match_clear", world = "W1"},
+    {segment = 0x01f7, offset = 0xb2ba, kind = "damage_hit_increment", world = "W1"},
     {segment = 0x01f7, offset = 0xbb0e, kind = "damage_callback", world = "W2"},
     {segment = 0x01f7, offset = 0xc328, kind = "damage_callback", world = "W3"},
     {segment = 0x01f7, offset = 0xcda3, kind = "damage_callback", world = "W4"},
@@ -848,18 +857,45 @@ local function boss_target_for(hit)
     return nil
 end
 
-local function arm_boss_targets()
+local boss_damage_state = {
+    prepared = false,
+    selector = nil,
+    offset = nil,
+    target_callback = nil,
+    preparation = nil,
+    refreshes = 0,
+    inflight = false,
+    promote_pending = false,
+    main_promoted = false,
+    main_inflight = false,
+    main_callback_trace = true,
+    exit_return_pending = false,
+    main_promotion = nil,
+}
+
+local function arm_boss_targets(exclude_segment, exclude_offset)
     if not boss_stage_focus then return end
     for _, target in ipairs(boss_targets) do
         -- A constructor can be called once per pooled child.  Capture the
         -- first entry, then leave its breakpoint disarmed so it cannot starve
         -- the callback/stage events we are trying to reach.
+        local allow_exit_return = target.kind == "main_callback_return" and
+                                  boss_damage_state.exit_return_pending
+        local suppress_main_trace = boss_damage_state.main_promoted and
+                                    not boss_damage_state.main_callback_trace and
+                                    (target.kind == "main_callback" or
+                                     (target.kind == "main_callback_return" and
+                                      not allow_exit_return))
         local one_shot = target.kind == "constructor" or
                          target.kind == "stage_initializer" or
                          target.kind == "end_child" or
-                         target.kind == "main_callback" or
+                         (target.kind == "main_callback" and
+                          (not boss_damage_state.main_promoted or
+                           not boss_damage_state.main_callback_trace)) or
                          target.kind == "stage_write"
-        if not (one_shot and target.seen) then
+        if not suppress_main_trace and
+           not (target.segment == exclude_segment and target.offset == exclude_offset) and
+           not (one_shot and target.seen) then
             dosbox.breakpoint_set(target.segment, target.offset, {once = true})
         end
     end
@@ -882,6 +918,7 @@ local function boss_event_snapshot(hit, target, event_index, previous_globals)
             "ss", (hit.registers.esp or 0) & 0xffff, 12) or ""),
         globals = globals,
         object = callback_object_snapshot(hit),
+        effect_table_87de_hex = hex(dosbox.mem_read("ds", 0x87de, 16) or ""),
     }
     if previous_globals ~= nil then
         event.stage_delta = {
@@ -892,6 +929,166 @@ local function boss_event_snapshot(hit, target, event_index, previous_globals)
         }
     end
     return event, globals
+end
+
+local function write_word_selector(selector, offset, value)
+    value = value & 0xffff
+    dosbox.mem_write_selector(
+        selector, offset,
+        string.char(value & 0xff, (value >> 8) & 0xff)
+    )
+end
+
+local function write_dword_selector(selector, offset, value)
+    value = value & 0xffffffff
+    write_word_selector(selector, offset, value & 0xffff)
+    write_word_selector(selector, offset + 2, (value >> 16) & 0xffff)
+end
+
+local function write_word_ds(offset, value)
+    value = value & 0xffff
+    dosbox.mem_write(
+        "ds", offset,
+        string.char(value & 0xff, (value >> 8) & 0xff)
+    )
+end
+
+local function write_damage_row(index, x, y)
+    local base = 0x87de + (index & 0x0f) * 4
+    write_word_ds(base, x)
+    write_word_ds(base + 2, y)
+end
+
+-- Turn one already-live W1L4 END child into the native W1 damage helper.
+-- This is deliberately a debugger-only fixture: it does not claim that the
+-- authored game mutates A234 into B25D.  It lets the original damage callback
+-- consume real DS:87DE rows and prove the hit-count/stage-write path without
+-- inventing a replacement callback in the engine.
+local function prepare_boss_damage_fixture()
+    if not boss_damage_focus or boss_damage_state.prepared then return nil end
+    local pool = pool_snapshot()
+    local selected = nil
+    for _, object in ipairs(pool.objects) do
+        if object.callback == boss_damage_target_callback then
+            selected = object
+            break
+        end
+    end
+    if selected == nil then
+        for _, object in ipairs(pool.objects) do
+            if object.sprite_slot == 0x385 then
+                selected = object
+                break
+            end
+        end
+    end
+    if selected == nil then
+        return {error = "no live W1L4 END child matched the damage fixture target"}
+    end
+    local selector = selected.selector
+    local offset = selected.offset
+    write_word_selector(selector, offset + 0x18, boss_damage_callback_offset)
+    -- Keep the position in the existing fixture, but make the native helper's
+    -- comparison operands explicit in the same 16-bit coordinate fields used
+    -- by B25D (+0x04/+0x08).  The row below is written from these exact words.
+    local x_word = dosbox.mem_read_selector(selector, offset + 0x04, 2) or "\0\0"
+    local y_word = dosbox.mem_read_selector(selector, offset + 0x08, 2) or "\0\0"
+    write_word_selector(selector, offset + 0x2a, 0)
+    write_word_selector(selector, offset + 0x2c, 0)
+    write_word_selector(selector, offset + 0x2e, 0)
+    write_word_ds(0x8806, 1)
+    write_word_ds(0x8808, 4)
+    write_damage_row(0, word(x_word, 1), word(y_word, 1))
+    boss_damage_state.prepared = true
+    boss_damage_state.selector = selector
+    boss_damage_state.offset = offset
+    boss_damage_state.target_callback = selected.callback
+    boss_damage_state.preparation = {
+        selector = selector,
+        offset = offset,
+        original_callback = selected.callback,
+        replacement_callback = boss_damage_callback_offset,
+        original_sprite_slot = selected.sprite_slot,
+        position = selected.position,
+        compare_words = {x = word(x_word, 1), y = word(y_word, 1)},
+        row_index = 0,
+        requested_hits = boss_damage_hits,
+        globals = static_globals(),
+    }
+    return boss_damage_state.preparation
+end
+
+local function refresh_boss_damage_fixture(event)
+    if not boss_damage_focus or not boss_damage_state.prepared then return nil end
+    local object = nil
+    if boss_damage_state.selector ~= nil and boss_damage_state.offset ~= nil then
+        local ok, raw = pcall(
+            dosbox.mem_read_selector, boss_damage_state.selector,
+            boss_damage_state.offset, 0x40
+        )
+        if ok and raw and #raw >= 0x40 then
+            object = object_snapshot(
+                raw, boss_damage_state.selector, boss_damage_state.offset, -1
+            )
+        end
+    end
+    if object == nil and event ~= nil then object = event.object end
+    if object == nil then return nil end
+    local row_index = object.link_word_0x2a or 0
+    write_word_selector(object.selector, object.offset + 0x2e, 0)
+    write_damage_row(row_index, object.position.x, object.position.y)
+    write_word_ds(0x8806, 1)
+    boss_damage_state.refreshes = boss_damage_state.refreshes + 1
+    boss_damage_state.inflight = false
+    return {
+        refresh_index = boss_damage_state.refreshes,
+        row_index = row_index,
+        position = object.position,
+        object_counter = object.lifetime,
+        object_link = object.link_word_0x2a,
+        globals = static_globals(),
+    }
+end
+
+-- Promote the same live pooled object to the native W1 main callback after
+-- B25D has authored the stage-2 gate.  This debugger-only fixture exercises
+-- the original B33B state machine and stage writers without claiming that
+-- retail code performs this callback replacement directly.
+local function promote_boss_main_fixture()
+    if not boss_damage_focus or not boss_damage_state.prepared or
+       boss_damage_state.main_promoted then return nil end
+    local selector = boss_damage_state.selector
+    local offset = boss_damage_state.offset
+    if selector == nil or offset == nil then
+        return {error = "damage fixture object identity is unavailable"}
+    end
+    write_word_selector(selector, offset + 0x18, 0xb33b)
+    write_word_selector(selector, offset + 0x12, 0x0385)
+    -- Reuse valid W1L4 child records that B33B expects at +0x2A/+0x36.
+    write_word_selector(selector, offset + 0x2a, 0x00f0)
+    write_word_selector(selector, offset + 0x36, 0x01e0)
+    write_word_selector(selector, offset + 0x28, 0x0101)
+    write_word_selector(selector, offset + 0x2c, 0)
+    write_word_selector(selector, offset + 0x2e, 0)
+    write_word_selector(selector, offset + 0x34, 0)
+    write_word_selector(selector, offset + 0x38, 0)
+    write_word_selector(selector, offset + 0x3e, 0)
+    write_word_selector(selector, offset + 0x40, 0)
+    write_word_selector(selector, offset + 0x42, 0x14)
+    write_dword_selector(selector, offset + 0x0e, 0xffff9000)
+    boss_damage_state.promote_pending = false
+    boss_damage_state.main_promoted = true
+    boss_damage_state.main_inflight = false
+    boss_damage_state.main_promotion = {
+        selector = selector,
+        offset = offset,
+        replacement_callback = 0xb33b,
+        sprite_slot = 0x0385,
+        helper_0x2a = 0x00f0,
+        helper_0x36 = 0x01e0,
+        globals = static_globals(),
+    }
+    return boss_damage_state.main_promotion
 end
 
 dosbox.output.awaiting_startup_replay = true
@@ -910,6 +1107,7 @@ if boss_stage_focus then
     local boss_events = {}
     local initial_globals = static_globals()
     local previous_globals = initial_globals
+    local boss_damage_preparation = nil
     arm_boss_targets()
     dosbox.debug_continue()
     for sequence = 1, boss_stage_events do
@@ -926,18 +1124,61 @@ if boss_stage_focus then
         local target = boss_target_for(hit)
         if target ~= nil then
             if target.kind == "constructor" or target.kind == "stage_initializer" or
-               target.kind == "end_child" or
-               target.kind == "main_callback" or target.kind == "stage_write" then
+               target.kind == "end_child" or target.kind == "stage_write" or
+               (target.kind == "main_callback" and
+                not boss_damage_state.main_promoted) then
                 target.seen = true
             end
             local event
             event, previous_globals = boss_event_snapshot(
                 hit, target, sequence, previous_globals
             )
+            if boss_damage_focus and not boss_damage_state.prepared then
+                boss_damage_preparation = prepare_boss_damage_fixture()
+            end
+            if boss_damage_focus and target.kind == "damage_callback" then
+                boss_damage_state.inflight = true
+                event.damage_fixture_inflight = true
+            elseif boss_damage_focus and
+                   target.kind == "damage_callback_return" then
+                if boss_damage_state.promote_pending then
+                    event.damage_fixture_promotion = promote_boss_main_fixture()
+                else
+                    event.damage_fixture_refresh = refresh_boss_damage_fixture(event)
+                end
+            elseif boss_damage_focus and target.kind == "stage_write" and
+                   target.offset == 0xb30e then
+                boss_damage_state.promote_pending = true
+                event.damage_fixture_promotion_pending = true
+            elseif boss_damage_focus and target.kind == "stage_write" and
+                   target.offset == 0xb61a then
+                boss_damage_state.main_callback_trace = false
+                event.main_callback_trace_disabled = true
+            elseif boss_damage_focus and target.kind == "main_callback" then
+                boss_damage_state.main_inflight = true
+                event.main_fixture_inflight = true
+            elseif boss_damage_focus and target.kind == "main_callback_return" then
+                boss_damage_state.main_inflight = false
+                event.main_fixture_return = true
+            end
             boss_events[#boss_events + 1] = event
+            if boss_damage_focus and target.kind == "stage_write" and
+               target.offset == 0xb824 then
+                boss_damage_state.exit_return_pending = true
+            elseif boss_damage_focus and target.kind == "main_callback_return" and
+                   boss_damage_state.exit_return_pending then
+                boss_damage_state.exit_return_pending = false
+                boss_stage_trace = {
+                    stop_reason = "stage5_return",
+                    attempts = sequence,
+                    events = boss_events,
+                    initial_globals = initial_globals,
+                }
+                break
+            end
         end
         if sequence < boss_stage_events then
-            arm_boss_targets()
+            arm_boss_targets(hit.segment, hit.offset)
             dosbox.debug_continue()
         else
             boss_stage_trace = {
@@ -1192,6 +1433,16 @@ local result = {
 }
 if boss_stage_trace ~= nil then
     result.boss_stage_trace = boss_stage_trace
+end
+if boss_damage_focus then
+    result.boss_damage_fixture = {
+        preparation = boss_damage_preparation or boss_damage_state.preparation,
+        requested_hits = boss_damage_hits,
+        refreshes = boss_damage_state.refreshes,
+        main_promotion = boss_damage_state.main_promotion,
+        final_globals = static_globals(),
+        final_pool = pool_snapshot(),
+    }
 end
 for _, sample in ipairs(samples) do
     if sample.descriptor_census ~= nil then

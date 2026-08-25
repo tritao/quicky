@@ -165,11 +165,36 @@
       "interpretation": "The authored W1L4 fixture enters the END child callback set with DS:88AE=1. The bounded run did not reach a later stage-writer breakpoint, so it proves the active END callback topology and gate value, not the full timed transition sequence."
     }
   },
+  "runtime_controlled_damage_probe": {
+    "trace": "research/build/player-w1l4-boss-damage-promotion-complete.json",
+    "trace_sha256": "62ba912cb1d514e93921445cff54b77409395ac029627985c5ea615b27312fe3",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "869708a5bfceecd79c4703b2b79fff302b8011f0f7b07f9d120d814eccf60eff",
+    "fixture": "Native W1L4 END pool; debugger replaces the live A234 child callback with the original W1 B25D damage callback, seeds matching DS:87DE rows, then promotes that same record to B33B after the native stage-2 write.",
+    "observed": {
+      "damage_cycles": 5,
+      "damage_callback": "01F7:B25D",
+      "damage_return": "01F7:B33A",
+      "row_matching": "B25D consumed five coordinate rows at the live object position; the row x word was cleared and object+0x2C advanced from 0 through 5.",
+      "stage_writers": [
+        {"site": "01F7:B30E", "before": 1, "after": 2},
+        {"site": "01F7:B61A", "before": 2, "after": 3},
+        {"site": "01F7:B791", "before": 3, "after": 4},
+        {"site": "01F7:B824", "before": 4, "after": 5}
+      ],
+      "main_callback": "01F7:B33B",
+      "stage2_helper_action": "B33B cleared the +0x36 helper callback, toggled the END slot from 0x385 to 0x384, and reached B61A.",
+      "stage3_timing": "The reduced trace waited natively through the +0x38 timer and captured B791 after the +0x44 burst counter exceeded 0x0F; it did not breakpoint every identical frame callback.",
+      "stage5_return": "The post-write B84C return observed DS:88AE=5, callback 01F7:487F, and sprite slot 0xFFFF on the promoted record; the final pool active count was 4.",
+      "final_gate": 5
+    },
+    "interpretation": "This is controlled callback-path evidence, not an authored damage/completion run: the fixture deliberately rewrites one live A234 callback and seeds the shared row table. It proves that the recovered native W1 damage/main callbacks implement the five-hit gate and stage progression 1->2->3->4->5, including helper kill, effect-loop timing, exit, and post-stage child replacement. It does not identify the retail producer that delivers damage rows or the completion handoff into DS:85DB/DS:85D4."
+  },
   "remaining": [
-    "Capture a longer or damage-forced authored boss transition to observe DS:88AE values 2-6 and stage-writer timing.",
+    "Capture the authored damage/completion producer that feeds DS:87DE rows or invokes the world-boss damage callbacks; the native callback state machine is now controlled-verified.",
     "Trace the completion handoff that changes DS:85DB/DS:85D4 and maps the end-stage selector into the world transition.",
     "Correlate DS:880C pending-effect increments with Wind/UFO row producers and the player 01F7:38EC trigger.",
     "Resolve WOLKE-specific rendering/descriptor selection after the 01D7:4EA0 consumer."
   ],
-  "confidence": "Static world-specific state machines are high-confidence raw-segment recoveries. Runtime W1L4 confirms the pooled END callback topology and DS:88AE=1, while later authored stage timing remains an explicit open boundary."
+  "confidence": "Static world-specific state machines and the controlled W1 callback progression are high-confidence raw-segment/runtime recoveries. Native W1L4 confirms the pooled END topology and DS:88AE=1; the authored damage/completion producer and cross-world runtime timing remain open."
 }

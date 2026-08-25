@@ -110,6 +110,10 @@ class PlayerTraceConfig:
     screenshot_mode: str = "rendered"
     boss_stage_focus: bool = False
     boss_stage_events: int = 64
+    boss_damage_focus: bool = False
+    boss_damage_hits: int = 5
+    boss_damage_target_callback: int = 0xA234
+    boss_damage_callback_offset: int = 0xB25D
 
 
 def lua_literal(value: Any) -> str:
@@ -199,6 +203,10 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "selector_frames": config.selector_frames,
         "boss_stage_focus": config.boss_stage_focus,
         "boss_stage_events": config.boss_stage_events,
+        "boss_damage_focus": config.boss_damage_focus,
+        "boss_damage_hits": config.boss_damage_hits,
+        "boss_damage_target_callback": config.boss_damage_target_callback,
+        "boss_damage_callback_offset": config.boss_damage_callback_offset,
     }
 
 
@@ -667,6 +675,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--boss-stage-events", type=int, default=64,
         help="maximum pooled boss-stage breakpoint events (default 64)",
     )
+    parser.add_argument(
+        "--boss-damage-focus", action="store_true",
+        help="prepare a live pooled END object for the native damage callback",
+    )
+    parser.add_argument(
+        "--boss-damage-hits", type=int, default=5,
+        help="number of controlled native damage cycles to attempt (default 5)",
+    )
     parser.add_argument("--player-samples", type=int, default=8,
                         help="number of player/object-pool samples")
     parser.add_argument("--player-frames-between", type=int, default=30,
@@ -762,8 +778,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-samples must be positive")
     if args.boss_stage_events < 1:
         raise TraceError("--boss-stage-events must be positive")
-    if args.boss_stage_focus and not args.player_trace:
-        raise TraceError("--boss-stage-focus requires --player-trace")
+    if args.boss_damage_hits < 1:
+        raise TraceError("--boss-damage-hits must be positive")
+    if (args.boss_stage_focus or args.boss_damage_focus) and not args.player_trace:
+        raise TraceError("boss-stage focus requires --player-trace")
     if args.player_frames_between < 0:
         raise TraceError("--player-frames-between cannot be negative")
     if args.player_input_frames < 0:
@@ -932,8 +950,10 @@ def main(argv: list[str] | None = None) -> int:
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,
                 screenshot_mode=args.screenshot_mode,
-                boss_stage_focus=args.boss_stage_focus,
+                boss_stage_focus=args.boss_stage_focus or args.boss_damage_focus,
                 boss_stage_events=args.boss_stage_events,
+                boss_damage_focus=args.boss_damage_focus,
+                boss_damage_hits=args.boss_damage_hits,
             )
             player_trace, player_screenshots = trace_player_lua(
                 api, player_script_path, player_config,
