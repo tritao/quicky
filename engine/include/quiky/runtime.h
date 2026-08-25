@@ -1,27 +1,13 @@
 #ifndef QUIKY_RUNTIME_H
 #define QUIKY_RUNTIME_H
 
+#include "quiky/fixed.h"
 #include "quiky/map.h"
 
 #include <array>
 #include <cstdint>
 
 namespace quiky {
-
-struct Fixed16 {
-    static const std::int32_t kOne = 1 << 16;
-
-    std::int32_t raw;
-
-    Fixed16() : raw(0) {}
-    explicit Fixed16(std::int32_t rawValue) : raw(rawValue) {}
-
-    static Fixed16 fromPixels(std::int32_t pixels) {
-        return Fixed16(pixels * kOne);
-    }
-
-    std::int32_t floorPixels() const;
-};
 
 struct InputState {
     bool left;
@@ -36,6 +22,7 @@ struct InputState {
           alternate(false) {}
 
     static InputState fromActionFlags(std::uint16_t flags);
+    std::uint16_t actionFlags() const;
 };
 
 struct PlayerConfig {
