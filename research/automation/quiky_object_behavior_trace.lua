@@ -1140,12 +1140,19 @@ if trace_puzzle_completion and force_tile_mask ~= nil and callback_offset == 0 t
             dosbox.mem_write("ds", 0x89e0, string.char(0x00, 0x00))
             completion_transition_gate_value = dosbox.mem_read_word("ds", 0x89e0)
             completion_transition_gate_forced = completion_transition_gate_value == 0
-            -- Keep a debugger-only fall-through in case the active selector
-            -- reloads DS before 5010; OR sets ZF=0 for the authored JE.
-            dosbox.mem_write_selector(
-                hit.segment, 0x5010,
-                string.char(0x83, 0xc8, 0x01, 0x90, 0x90, 0x90)
-            )
+            -- The zero sentinel should naturally take the authored reload
+            -- branch.  Do not rewrite the instruction bytes: software
+            -- breakpoints are encoded in those bytes, and preserving the
+            -- original compare lets the probe observe the real gate result.
+            -- The full presentation + stage-writer watch list can exceed the
+            -- debugger's hardware/software breakpoint capacity.  At this
+            -- point the presentation has completed, so clear that list and
+            -- arm only the transition gates we still need.
+            dosbox.breakpoint_clear()
+            dosbox.breakpoint_set(0x01d7, 0x5010, {once = true})
+            for _, offset in ipairs({0x5017, 0x5038, 0x503d, 0x5042, 0x5047}) do
+                dosbox.breakpoint_set(0x01d7, offset, {once = true})
+            end
         end
         if force_completion_wait_release and hit.segment == 0x0207 and
            (hit.offset == 0x10d3 or hit.offset == 0x1113) then

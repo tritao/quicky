@@ -730,6 +730,13 @@ damage rows and the unforced completion handoff remain unresolved. See
 [`entity-puzzle-completion-evidence.json`](../entity-puzzle-completion-evidence.json)
 for the trace hash and exact watcher points.
 
+The current transition-release retry also removes breakpoint-capacity pressure
+at `01D7:4FAF`, forces `DS:89E0=0`, and arms only `5010/5017/5038/503D/5042/5047`.
+It still observes the `4F10 -> 4FAF` handoff but no `5010` or downstream reload
+entry before returning to the main loop. This is a stronger bounded negative
+for the synthetic fixture, not a claim that the retail reload branch is dead;
+the authored transition state or resource context is still missing.
+
 The first unmodified authored row-to-boss delivery is now captured on native
 W1L3. Holding left through a 550-frame warmup places the W1 boss over the
 player's left-alt row; the live `01F7:B25D` callback reaches `01F7:B2B0`

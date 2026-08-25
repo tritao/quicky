@@ -170,6 +170,28 @@
       "score_after_probe": {"low_word": 2100, "high_word": 0},
       "transition_setup_hits": [],
       "interpretation": "Controlled release of the authored presentation/audio/input waits now proves the native DS:85DB handoff through 01D7:4F10-4FAF and the selector advance to 0x10. The downstream 01D7:5017/5038/5047 resource/object calls remain statically resolved but did not fire in this synthetic fixture even after the DS:89E0 gate was forced; this is a runtime-boundary result, not evidence that the retail reload branch is absent."
+    },
+    "transition_release_capacity_probe": {
+      "trace": "research/build/entity-7f-puzzle-completion-transition-release-1200-v6.json",
+      "trace_sha256": "1c965f197d0b119cd4a4e2834889f1a44c103ba578fb772aebd93cfd1168514a",
+      "trace_script_sha256": "4a3bb8341c261b92b72eb813403a0b083cfb25a0f5e6de1074a19e296dcf78ec",
+      "fixture": "Current synthetic W1L1 type-0x7F final-letter archive variant",
+      "controls": [
+        "force DS:89E6=0xFFFF",
+        "release PIT/input/audio waits",
+        "force DS:89E0=0 at 01D7:4FAF",
+        "clear the presentation/stage breakpoint set at 01D7:4FAF and arm only 01D7:5010/5017/5038/503D/5042/5047"
+      ],
+      "observed": {
+        "handoff_hits": ["01D7:4F10", "01D7:4FAF"],
+        "transition_gate_value": 0,
+        "downstream_hits": [],
+        "completion_flag": 1,
+        "selector_index": 16,
+        "selector_state": 0,
+        "post_probe_cpu": "01D7:48BB"
+      },
+      "interpretation": "Even after removing breakpoint-capacity pressure and forcing the non-terminal DS:89E0 value, the synthetic fixture returns to the main loop without executing 01D7:5010 or the downstream reload calls. The handoff and its gate are therefore confirmed, but the fixture still lacks the authored transition state needed to enter the resource/object rebuild branch."
     }
   },
   "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The new controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. Exact retail timing and the downstream resource/object reload calls at 01D7:5017/5038/5047 still need a non-synthetic completion or a more faithful transition fixture."
