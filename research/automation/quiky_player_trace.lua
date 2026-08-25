@@ -24,6 +24,7 @@ local map_width = trace_config.map_width or 270
 local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
 local input_secondary_key = trace_config.input_secondary_key or ""
+local input_secondary_frames = trace_config.input_secondary_frames
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
 local input_hold_until_callback = trace_config.input_hold_until_callback or false
@@ -1215,10 +1216,18 @@ for sequence = 1, sample_count do
                 dosbox.key(input_secondary_key, true)
             end
             held_input = input_hold_until_callback
-            dosbox.wait_frames(input_frames)
+            if input_secondary_key ~= "" and input_secondary_frames ~= nil and
+               input_secondary_frames < input_frames and not input_hold_until_callback then
+                dosbox.wait_frames(input_secondary_frames)
+                dosbox.key(input_secondary_key, false)
+                dosbox.wait_frames(input_frames - input_secondary_frames)
+            else
+                dosbox.wait_frames(input_frames)
+            end
             if not input_hold_until_callback then
                 dosbox.key(input_key, false)
-                if input_secondary_key ~= "" then
+                if input_secondary_key ~= "" and
+                   not (input_secondary_frames ~= nil and input_secondary_frames < input_frames) then
                     dosbox.key(input_secondary_key, false)
                 end
             end
