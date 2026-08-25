@@ -144,7 +144,7 @@
     "capacity": "DS:8808",
     "coordinate_table": "DS:87DE, shared x/y entry storage",
     "pending_effect_counter": "DS:880C is decremented by the spawn path and consumed by 01D7:14E1",
-    "producer": "01F7:38EC conditionally calls the pooled-object factory 01F7:0E06 with AX=0x4519 when the player object has flags bit 0x10 and byte +0x1E is clear; 01F7:4519 then claims one shared row and installs 01F7:45AB.",
+    "producer": "01F7:38EC conditionally calls the pooled-object factory 01F7:0E06 with AX=0x4519 when the player object has flags bit 0x10 and byte +0x3C is clear; 01F7:4519 then claims one shared row and installs 01F7:45AB.",
     "reset_callers": ["01D7:3FC6 (unclassified level-state routine)", "01D7:44E9 from 01D7:44D0"],
     "interpretation": "Shared transient effect/contact table. Wind, UFO, and normal-effect callbacks scan the table for matching x/y entries and clear rows through the remove path; the reset path clears the table storage and restores the active-count state. The first authored producer now recovered is the player-update tail at 01F7:38EC; Wind/UFO-specific declaration producers remain open."
   },

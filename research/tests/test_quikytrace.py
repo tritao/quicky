@@ -214,6 +214,7 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(player_trace_lua_config(config)["input_samples"], 0)
         self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
         self.assertFalse(player_trace_lua_config(config)["effect_table_focus"])
+        self.assertIsNone(player_trace_lua_config(config)["force_player_action_word"])
         self.assertFalse(player_trace_lua_config(config)["collision_focus"])
         self.assertFalse(player_trace_lua_config(config)["map_focus"])
         self.assertFalse(player_trace_lua_config(config)["property_focus"])
@@ -254,6 +255,14 @@ class QuikyTraceTests(unittest.TestCase):
             startup_recording=recording, effect_table_focus=True,
         )
         self.assertTrue(player_trace_lua_config(config)["effect_table_focus"])
+
+    def test_player_force_action_word_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, effect_table_focus=True,
+            force_player_action_word=0x10,
+        )
+        self.assertEqual(player_trace_lua_config(config)["force_player_action_word"], 0x10)
 
     def test_player_branch_patch_tile_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

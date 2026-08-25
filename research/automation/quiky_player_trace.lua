@@ -8,6 +8,7 @@ local frames_between = trace_config.frames_between or 30
 local focus_callback = trace_config.focus_callback or false
 local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
 local effect_table_focus = trace_config.effect_table_focus or false
+local force_player_action_word = trace_config.force_player_action_word
 local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
@@ -27,7 +28,7 @@ local trace_event_counter = 0
 local descriptor_census_done = false
 
 local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
-local effect_table_offsets = {0x4384, 0x44ff, 0x4519, 0x45ab, 0x470c}
+local effect_table_offsets = {0x38ec, 0x0e06, 0x44ff, 0x4519, 0x45ab, 0x470c}
 
 local function is_effect_table_target(offset)
     if not effect_table_focus then return false end
@@ -45,7 +46,7 @@ end
 local function arm_effect_table_lifecycle()
     if not effect_table_focus then return end
     for index, offset in ipairs(effect_table_offsets) do
-        if index ~= 1 then
+        if index ~= 1 and offset ~= 0x0e06 then
             dosbox.breakpoint_set(0x01f7, offset, {once = true})
         end
     end
@@ -626,6 +627,26 @@ local function record_effect_table(sample, hit)
     sample.effect_table_events[#sample.effect_table_events + 1] = event
 end
 
+local function force_player_action(sample, hit)
+    if force_player_action_word == nil then return false end
+    local object = callback_object_snapshot(hit)
+    if object == nil or object.selector == nil or object.offset == nil then
+        return false
+    end
+    dosbox.mem_write_selector(
+        object.selector, object.offset,
+        string.char(force_player_action_word & 0xff,
+                    (force_player_action_word >> 8) & 0xff)
+    )
+    sample.forced_player_action = {
+        value = force_player_action_word,
+        selector = object.selector,
+        offset = object.offset,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+    }
+    return true
+end
+
 local function stop_for_capture()
     local current = dosbox.cpu_state()
     dosbox.breakpoint_set(current.cs, current.eip, {once = true})
@@ -802,6 +823,7 @@ for sequence = 1, sample_count do
             local property_return = nil
             local collision_return = nil
             local effect_table_tail_seen = false
+            local factory_breakpoint_armed = false
             while returned == nil do
                 dosbox.breakpoint_set(return_segment, return_offset, {once = true})
                 if property_return ~= nil then
@@ -818,6 +840,10 @@ for sequence = 1, sample_count do
                     end
                 elseif effect_table_focus then
                     arm_effect_table_lifecycle()
+                    if force_player_action_word ~= nil and not factory_breakpoint_armed then
+                        dosbox.breakpoint_set(0x01f7, 0x0e06, {once = true})
+                        factory_breakpoint_armed = true
+                    end
                     if not effect_table_tail_seen then
                         arm_effect_table_tail_once()
                     end
@@ -850,6 +876,7 @@ for sequence = 1, sample_count do
                         record_effect_table(sample, candidate)
                         if candidate.offset == effect_table_offsets[1] then
                             effect_table_tail_seen = true
+                            force_player_action(sample, candidate)
                         end
                     end
                 end

@@ -86,6 +86,7 @@ class PlayerTraceConfig:
     focus_callback: bool = False
     focus_callback_offset: int = 0x3FF8
     effect_table_focus: bool = False
+    force_player_action_word: int | None = None
     map_focus: bool = False
     collision_focus: bool = False
     property_focus: bool = False
@@ -170,6 +171,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "focus_callback": config.focus_callback,
         "focus_callback_offset": config.focus_callback_offset,
         "effect_table_focus": config.effect_table_focus,
+        "force_player_action_word": config.force_player_action_word,
         "map_focus": config.map_focus,
         "collision_focus": config.collision_focus,
         "property_focus": config.property_focus,
@@ -651,6 +653,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="player callback offset for --player-focus-callback (default 0x3ff8)")
     parser.add_argument("--player-effect-table-focus", action="store_true",
                         help="record shared effect-table reset/spawn/update/remove hits during player callbacks")
+    parser.add_argument("--player-force-action-word", type=lambda value: int(value, 0),
+                        help="debugger-only: write this action word at the player producer-tail breakpoint")
     parser.add_argument("--player-map-focus", action="store_true",
                         help="break on the 01F7:3376 MAP helper used by player collision probes")
     parser.add_argument("--player-collision-focus", action="store_true",
@@ -729,6 +733,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-frames cannot be negative")
     if args.player_input_samples < 0:
         raise TraceError("--player-input-samples cannot be negative")
+    if args.player_force_action_word is not None and not 0 <= args.player_force_action_word <= 0xffff:
+        raise TraceError("--player-force-action-word must be between 0 and 65535")
+    if args.player_force_action_word is not None and not args.player_effect_table_focus:
+        raise TraceError("--player-force-action-word requires --player-effect-table-focus")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
     if args.player_map_focus and args.player_collision_focus:
@@ -865,6 +873,7 @@ def main(argv: list[str] | None = None) -> int:
                 focus_callback=args.player_focus_callback,
                 focus_callback_offset=args.player_callback_offset,
                 effect_table_focus=args.player_effect_table_focus,
+                force_player_action_word=args.player_force_action_word,
                 map_focus=args.player_map_focus,
                 collision_focus=args.player_collision_focus,
                 property_focus=args.player_property_focus,

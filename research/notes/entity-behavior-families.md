@@ -354,11 +354,17 @@ The same pass closes the branch-level behavior for the remaining effects:
   capacity bound, and `DS:880C` the pending-effect count consumed by
   `01D7:14E1`. A relocation-backed producer is now identified: player-update
   tail `01F7:38EC` calls the pooled-object factory `01F7:0E06` with `AX=0x4519`
-  when player flags bit `0x10` is set and byte `+0x1E` is clear. Reset has two
+  when player flags bit `0x10` is set and byte `+0x3C` is clear. Reset has two
   cross-segment callsites, `01D7:3FC6` and `01D7:44E9` (the latter from
   `01D7:44D0`). This proves one authored producer and the reset boundaries;
   which gameplay state raises bit `0x10`, and whether Wind/UFO declarations
-  use another producer, remain open.
+  use another producer, remain open. A controlled main-tree mutation at the
+  actual `01F7:38EC` entry (rather than its earlier `4384` prelude) writes
+  action word `0x0010`, observes byte `+0x3C: 0 -> FF`, and reaches the
+  relocation-backed factory `01F7:0E06` with `AX=0x4519`. This closes the
+  player-state-to-factory edge; the authored gameplay transition that sets the
+  bit and the later pooled-object callback scheduling remain open. See
+  [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
   while below 9), and clears the live callback. `01D7:1084` initializes the

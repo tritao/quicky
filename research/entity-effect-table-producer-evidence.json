@@ -40,7 +40,7 @@
       "producer": {
         "routine": "01F7:38EC",
         "label": "spawn_effect_table_from_player_state",
-        "condition": "The player-update tail takes this branch only when object flags at +0x00 include 0x10 and object byte +0x1E is zero.",
+        "condition": "The player-update tail takes this branch only when object flags at +0x00 include 0x10 and object byte +0x3C is zero.",
         "factory_call": "01F7:390E relocated far call to 01F7:0E06",
         "callback_argument": "AX=0x4519, DX=0x0000 immediately before the factory call",
         "post_call": "The factory-created object is initialized by 01F7:4519, which installs 01F7:45AB and claims one DS:87DE row."
@@ -65,7 +65,7 @@
     "runtime": "main-tree game/QUIKY.EXE",
     "fixture": "W1L1 selected through the native cheat selector",
     "samples": 8,
-    "focus": "player callback 01F7:3FF8 with effect-table breakpoints 4384/44FF/4519/45AB/470C",
+    "focus": "player callback 01F7:3FF8 with effect-table breakpoints 38EC/44FF/4519/45AB/470C",
     "hits": [],
     "observed_player_flags": "The sampled player object action word remained 0x0000 and the shared effect-table breakpoints were not reached.",
     "interpretation": "The producer is statically recovered but not reached in this ordinary W1L1 idle trace; a targeted player-state trigger or controlled flag probe is still needed.",
@@ -85,8 +85,22 @@
     "fixture": "W1L1 main-tree native selector with KBD_right held for 30 frames before each of six samples",
     "samples": 6,
     "observed": "All six tail snapshots had player action word 0x0000 and DS:656C source word 0x0000; no 44FF/4519/45AB/470C lifecycle hit followed.",
-    "interpretation": "The ordinary input path does not raise the producer's 0x10 flag in this fixture; the trigger is likely a collision/death or other gameplay-state transition rather than directional input."
-  },
+      "interpretation": "The ordinary input path does not raise the producer's 0x10 flag in this fixture; the trigger is likely a collision/death or other gameplay-state transition rather than directional input."
+    },
+    "forced_trigger_probe": {
+      "trace": "research/build/player-effect-table-force-action-w1l1-v4.json",
+      "trace_sha256": "504911cd749d5f79cf1443e17b04bab4702e2120740a777b2aafb16d596bc0b7",
+      "trace_script_sha256": "fa4c736e8ff259c381193a30841e3cb57ab893b846035dfbe0db6852cdd7bf02",
+      "fixture": "W1L1 main-tree native selector",
+      "samples": 1,
+      "mutation": "At 01F7:38EC, write player action word 0x0010 before the producer condition is evaluated.",
+      "observed": [
+        "The producer branch writes object byte +0x3C from 0x00 to 0xFF.",
+        "The relocated factory 01F7:0E06 is reached with AX=0x4519.",
+        "The player callback returns with action word 0x0010; no 01F7:4519 callback entry is observed before the player-callback barrier ends."
+      ],
+      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied. This closes the player-state-to-factory edge but does not yet identify the gameplay transition that authors the bit or the later pooled-object callback scheduling."
+    },
   "remaining": [
     "Which gameplay state sets player object flags bit 0x10 and therefore triggers 01F7:38EC in normal play.",
     "Whether Wind/UFO authored declarations use this player-state producer or another producer path.",
