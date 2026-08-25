@@ -1,6 +1,7 @@
 #include "quiky/archive.h"
 #include "quiky/bob.h"
 #include "quiky/level_runtime.h"
+#include "quiky/player_animation.h"
 #ifdef QUIKY_WITH_MUSIC
 #include "quiky/audio.h"
 #include "quiky/sfx_events.h"
@@ -141,24 +142,10 @@ void drawEntitySprites(quiky::IndexedSurface &surface,
 }
 
 const quiky::BobRecord &choosePlayerFrame(const quiky::Bob &bob,
-                                          const quiky::PlayerState &player,
-                                          std::uint64_t frame) {
-    // QUIKYW1.BOB currently has two 40-frame ranges, 0..39 and 50..89. The
-    // direction assignment and exact animation cadence remain provisional;
-    // keeping the policy here makes it easy to replace with trace evidence.
-    const std::uint16_t base = player.facingRight ? 0 : 50;
-    const std::int32_t speed = player.velocityX.raw < 0
-                                   ? -player.velocityX.raw
-                                   : player.velocityX.raw;
-    std::uint16_t slot = base;
-    if (!player.grounded) {
-        slot = static_cast<std::uint16_t>(base + 20);
-    } else if (speed > quiky::Fixed16::kOne / 4) {
-        slot = static_cast<std::uint16_t>(base + ((frame / 6) % 10));
-    }
-    const quiky::BobRecord *record = findSlot(bob, slot);
+                                          const quiky::PlayerAnimation &animation) {
+    const quiky::BobRecord *record = findSlot(bob, animation.slot());
     if (record == nullptr) {
-        record = findSlot(bob, base);
+        record = findSlot(bob, animation.slot() >= 50 ? 50 : 0);
     }
     if (record == nullptr) {
         throw quiky::FormatError("player BOB resource is missing the selected frame");
@@ -442,6 +429,9 @@ int main(int argc, char **argv) {
             quiky::LevelRuntime::load(archive, mapName, bobName, levelConfig);
         quiky::PlayerState player;
         runtime->reset(player, simulation);
+        quiky::PlayerAnimation playerAnimation;
+        playerAnimation.reset();
+        playerAnimation.advance(player);
 
         checkSdl(SDL_Init(SDL_INIT_VIDEO), "SDL_Init");
 #ifdef QUIKY_WITH_MUSIC
@@ -521,6 +511,8 @@ int main(int argc, char **argv) {
                         stepRequested = true;
                     } else if (key == SDL_SCANCODE_R && down && !event.key.repeat) {
                         runtime->reset(player, simulation);
+                        playerAnimation.reset();
+                        playerAnimation.advance(player);
                         frame = 0;
                         accumulator = 0;
                         jumpPressed = false;
@@ -541,6 +533,7 @@ int main(int argc, char **argv) {
                     input.jump = jumpPressed;
                     input.alternate = alternate;
                     runtime->tick(player, simulation, input);
+                    playerAnimation.advance(player);
                     ++frame;
                     jumpPressed = false;
                     const quiky::LevelEvent event = runtime->session().consumeEvent();
@@ -589,6 +582,8 @@ int main(int argc, char **argv) {
                             carriedDeaths += runtime->session().deaths();
                             runtime.swap(next);
                             runtime->reset(player, simulation);
+                            playerAnimation.reset();
+                            playerAnimation.advance(player);
                             frame = 0;
                             accumulator = 0;
                             jumpPressed = false;
@@ -608,6 +603,7 @@ int main(int argc, char **argv) {
                 input.jump = jumpPressed;
                 input.alternate = alternate;
                 runtime->tick(player, simulation, input);
+                playerAnimation.advance(player);
                 ++frame;
                 jumpPressed = false;
                 stepRequested = false;
@@ -631,7 +627,7 @@ int main(int argc, char **argv) {
             drawEntitySprites(surface, *runtime);
             drawTransientEffects(surface, *runtime);
             const quiky::BobRecord &record =
-                choosePlayerFrame(runtime->playerBob(), player, frame);
+                choosePlayerFrame(runtime->playerBob(), playerAnimation);
             quiky::drawBobRecord(surface, record,
                                  player.x.floorPixels(), player.y.floorPixels());
             uploadSurface(sdl.texture, surface, framePalette);

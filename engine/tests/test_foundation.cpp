@@ -1,5 +1,6 @@
 #include "quiky/fixed.h"
 #include "quiky/player_record.h"
+#include "quiky/player_animation.h"
 #include "quiky/scheduler.h"
 #include "quiky/simulation.h"
 #include "quiky/trace.h"
@@ -87,6 +88,34 @@ void testInputAndPlayerRecord() {
     const quiky::PlayerRawRecord updated = state.toRaw();
     assert(updated.s32(0x02) == 0x22220000);
     assert(updated.bytes[0x18] == bytes[0x18]);
+}
+
+void testPlayerAnimationTables() {
+    quiky::PlayerAnimation animation;
+    quiky::PlayerState player;
+    player.grounded = true;
+
+    animation.reset();
+    animation.advance(player);
+    assert(animation.slot() == 0);
+
+    player.grounded = false;
+    player.velocityY = quiky::Fixed16::fromPixels(-1);
+    animation.advance(player);
+    assert(animation.slot() == 10);
+
+    player.facingRight = false;
+    animation.advance(player);
+    assert(animation.slot() == 60);
+
+    player.velocityY = quiky::Fixed16::fromPixels(1);
+    animation.advance(player);
+    assert(animation.slot() == 63);
+
+    player.grounded = true;
+    player.velocityX = quiky::Fixed16::fromPixels(1);
+    animation.advance(player);
+    assert(animation.slot() == 50);
 }
 
 void testWorldView() {
@@ -197,6 +226,7 @@ void testTraceComparison() {
 int main() {
     testFixedPointTables();
     testInputAndPlayerRecord();
+    testPlayerAnimationTables();
     testWorldView();
     testSchedulerAndBoundary();
     testTraceComparison();
