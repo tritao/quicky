@@ -7,6 +7,7 @@ local sample_count = trace_config.samples or 8
 local frames_between = trace_config.frames_between or 30
 local focus_callback = trace_config.focus_callback or false
 local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
+local effect_table_focus = trace_config.effect_table_focus or false
 local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
@@ -26,6 +27,22 @@ local trace_event_counter = 0
 local descriptor_census_done = false
 
 local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
+local effect_table_offsets = {0x44ff, 0x4519, 0x45ab, 0x470c}
+
+local function is_effect_table_target(offset)
+    if not effect_table_focus then return false end
+    for _, target in ipairs(effect_table_offsets) do
+        if target == offset then return true end
+    end
+    return false
+end
+
+local function arm_effect_table_targets()
+    if not effect_table_focus then return end
+    for _, offset in ipairs(effect_table_offsets) do
+        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+    end
+end
 
 local function is_collision_target(offset)
     if not collision_focus then return false end
@@ -588,6 +605,18 @@ local function record_collision(sample, hit)
     sample.collision = collision
 end
 
+local function record_effect_table(sample, hit)
+    local event = {
+        event_index = next_trace_event(),
+        helper_offset = hit.offset,
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        registers = hit.registers,
+        globals = static_globals(),
+    }
+    sample.effect_table_events = sample.effect_table_events or {}
+    sample.effect_table_events[#sample.effect_table_events + 1] = event
+end
+
 local function stop_for_capture()
     local current = dosbox.cpu_state()
     dosbox.breakpoint_set(current.cs, current.eip, {once = true})
@@ -777,6 +806,8 @@ for sequence = 1, sample_count do
                     for _, offset in ipairs(collision_offsets) do
                         dosbox.breakpoint_set(0x01f7, offset, {once = true})
                     end
+                elseif effect_table_focus then
+                    arm_effect_table_targets()
                 end
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
@@ -802,6 +833,8 @@ for sequence = 1, sample_count do
                     elseif is_collision_target(candidate.offset) then
                         record_collision(sample, candidate)
                         collision_return = far_return_location(candidate)
+                    elseif is_effect_table_target(candidate.offset) then
+                        record_effect_table(sample, candidate)
                     end
                 end
             end

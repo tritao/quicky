@@ -85,6 +85,7 @@ class PlayerTraceConfig:
     frames_between: int = 30
     focus_callback: bool = False
     focus_callback_offset: int = 0x3FF8
+    effect_table_focus: bool = False
     map_focus: bool = False
     collision_focus: bool = False
     property_focus: bool = False
@@ -168,6 +169,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "frames_between": config.frames_between,
         "focus_callback": config.focus_callback,
         "focus_callback_offset": config.focus_callback_offset,
+        "effect_table_focus": config.effect_table_focus,
         "map_focus": config.map_focus,
         "collision_focus": config.collision_focus,
         "property_focus": config.property_focus,
@@ -647,6 +649,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-callback-offset", type=lambda value: int(value, 0),
                         default=0x3FF8,
                         help="player callback offset for --player-focus-callback (default 0x3ff8)")
+    parser.add_argument("--player-effect-table-focus", action="store_true",
+                        help="record shared effect-table reset/spawn/update/remove hits during player callbacks")
     parser.add_argument("--player-map-focus", action="store_true",
                         help="break on the 01F7:3376 MAP helper used by player collision probes")
     parser.add_argument("--player-collision-focus", action="store_true",
@@ -860,6 +864,7 @@ def main(argv: list[str] | None = None) -> int:
                 frames_between=args.player_frames_between,
                 focus_callback=args.player_focus_callback,
                 focus_callback_offset=args.player_callback_offset,
+                effect_table_focus=args.player_effect_table_focus,
                 map_focus=args.player_map_focus,
                 collision_focus=args.player_collision_focus,
                 property_focus=args.player_property_focus,

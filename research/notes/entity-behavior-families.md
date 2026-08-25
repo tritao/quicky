@@ -352,7 +352,13 @@ The same pass closes the branch-level behavior for the remaining effects:
   table, `4519` allocates/spawns an entry, `45AB` updates one x/y row, and
   `470C` removes it; `DS:8806` is the active-entry count, `DS:8808` the
   capacity bound, and `DS:880C` the pending-effect count consumed by
-  `01D7:14E1`.
+  `01D7:14E1`. A relocation-backed producer is now identified: player-update
+  tail `01F7:38EC` calls the pooled-object factory `01F7:0E06` with `AX=0x4519`
+  when player flags bit `0x10` is set and byte `+0x1E` is clear. Reset has two
+  cross-segment callsites, `01D7:3FC6` and `01D7:44E9` (the latter from
+  `01D7:44D0`). This proves one authored producer and the reset boundaries;
+  which gameplay state raises bit `0x10`, and whether Wind/UFO declarations
+  use another producer, remain open.
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
   while below 9), and clears the live callback. `01D7:1084` initializes the
@@ -366,8 +372,9 @@ The same pass closes the branch-level behavior for the remaining effects:
   child callback `10B5` decrements its lifetime and clears at zero, while
   `1186 -> 11B4` renders world-specific ICO data without collision.
 
-The durable ledger for this pass is
-[`entity-targeted-decompile-evidence.json`](../entity-targeted-decompile-evidence.json).
+The durable ledgers for this pass are
+[`entity-targeted-decompile-evidence.json`](../entity-targeted-decompile-evidence.json)
+and [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 
 The platform carry branch is also live-observed. Eight direct updates of type
 `0x3D` in the synthetic W1L2 cell enter `A075` and `A0B2` every time; the

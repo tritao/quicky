@@ -1,0 +1,85 @@
+{
+  "schema": "entity-effect-table-producer-evidence-v1",
+  "purpose": "Static cross-segment recovery of the shared transient-effect table's authored producer and reset callsites.",
+  "inputs": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment1_sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf"
+  },
+  "method": {
+    "static_inputs": [
+      "NE relocation records from QUIKY.EXE",
+      "raw segment-word scan",
+      "Ghidra 12.1.3 decompile of segment-relative targets"
+    ],
+    "interpretation_rule": "A relocation targeting 01F7:0E06 is the pooled-object factory call; the caller's AX immediate is the initializer callback offset passed to that factory."
+  },
+  "effect_table": {
+    "reset": {
+      "entry": "01F7:44FF",
+      "relocated_call_sites": [
+        {
+          "caller_segment": "01D7",
+          "call_offset": "0x3FC6",
+          "caller_label": "unclassified segment-1 level-state routine",
+          "evidence": "NE relocation source 01D7:3FC7 targets segment 3 offset 0x44FF"
+        },
+        {
+          "caller_segment": "01D7",
+          "call_offset": "0x44E9",
+          "caller_label": "01D7:44D0 effect_table_reset_callsite_44d0",
+          "evidence": "NE relocation source 01D7:44EA targets segment 3 offset 0x44FF"
+        }
+      ],
+      "known_behavior": "Clears DS:87DE rows and resets DS:8806/DS:8808."
+    },
+    "spawn": {
+      "entry": "01F7:4519",
+      "factory": "01F7:0E06",
+      "producer": {
+        "routine": "01F7:38EC",
+        "label": "spawn_effect_table_from_player_state",
+        "condition": "The player-update tail takes this branch only when object flags at +0x00 include 0x10 and object byte +0x1E is zero.",
+        "factory_call": "01F7:390E relocated far call to 01F7:0E06",
+        "callback_argument": "AX=0x4519, DX=0x0000 immediately before the factory call",
+        "post_call": "The factory-created object is initialized by 01F7:4519, which installs 01F7:45AB and claims one DS:87DE row."
+      },
+      "raw_word_occurrence": "The little-endian word 0x4519 occurs once in segment 3, at 01F7:3909, as the immediate AX operand."
+    },
+    "update_and_remove": {
+      "update": "01F7:45AB",
+      "remove": "01F7:470C",
+      "pointer_occurrences": "The raw segment contains 0x45AB at 01F7:4559 and 0x470C at 01F7:45BA/45E4; these are callback-pointer stores inside the table lifecycle, not additional authored producers."
+    },
+    "direct_reference_scan": {
+      "targets": ["01F7:44FF", "01F7:4519", "01F7:45AB", "01F7:470C"],
+      "result": "No direct same-program Ghidra incoming call references were emitted for these four entries.",
+      "explanation": "The authored spawn call is relocation-backed through the generic pooled-object factory with AX carrying the callback offset; update/remove are installed as object callback pointers, and reset has cross-segment NE relocations."
+    }
+  },
+  "runtime_reachability_probe": {
+    "trace": "research/build/player-effect-table-focus-w1l1.json",
+    "trace_sha256": "8a73b65733e362bdfbf7dc3bf4f3dc869653cebafb5bb9ba01a1b7064fd6e31b",
+    "trace_script_sha256": "a4333a286aac89ad621993a210e281d9aaae7a8ae289b5aef148df9af69410cc",
+    "runtime": "main-tree game/QUIKY.EXE",
+    "fixture": "W1L1 selected through the native cheat selector",
+    "samples": 8,
+    "focus": "player callback 01F7:3FF8 with effect-table breakpoints 44FF/4519/45AB/470C",
+    "hits": [],
+    "observed_player_flags": "The sampled player object action word remained 0x0000 and the shared effect-table breakpoints were not reached.",
+    "interpretation": "The producer is statically recovered but not reached in this ordinary W1L1 idle trace; a targeted player-state trigger or controlled flag probe is still needed.",
+    "input_variant": {
+      "trace": "research/build/player-effect-table-focus-w1l1-right.json",
+      "trace_sha256": "f80d1a3e6136dd7e21273a66c7932b73c2b2a2aa5220ca525112e2515cfe3854",
+      "input": "KBD_right for 30 frames before each of 8 samples",
+      "hits": [],
+      "observed_action_words": "0x0000 in all eight sampled player callbacks"
+    }
+  },
+  "remaining": [
+    "Which gameplay state sets player object flags bit 0x10 and therefore triggers 01F7:38EC in normal play.",
+    "Whether Wind/UFO authored declarations use this player-state producer or another producer path.",
+    "The semantic names and level/reload triggers of the two reset callsites."
+  ]
+}

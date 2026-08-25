@@ -96,6 +96,8 @@ public class AnnotateQuiky extends GhidraScript {
             "Candidate gameplay-state routine; writes the paper/effect counter during level-state setup.");
         function(0x14e1, "completion_effect_consumer_candidate",
             "Candidate completion/effect consumer reading DS:880C and DS:881C.");
+        function(0x44d0, "effect_table_reset_callsite_44d0",
+            "Gameplay-state helper whose relocated far call at 01D7:44E9 targets 01F7:44FF.");
     }
 
     private void annotateSegment2() throws Exception {
@@ -210,6 +212,8 @@ public class AnnotateQuiky extends GhidraScript {
             "Collision helper reached by the player callback; a controlled W1L1 right-input run hits this entry at the persistent ES:0000 record; return semantics remain under test.");
         function(0x69ff, "player_bounds_or_collision_69ff",
             "Reads the persistent offset-zero player record while comparing another object position; higher-level role remains provisional.");
+        function(0x38ec, "spawn_effect_table_from_player_state",
+            "Player-update tail: when object flags include 0x10 and +0x1E is clear, calls 01F7:0E06 with AX=01F7:4519 to allocate the shared transient-effect entry.");
         function(0x44dc, "player_control_transition_44dc",
             "Decrements DS:89EA and handles the transitional vertical-motion control path.");
         function(0x44ff, "effect_table_reset",
