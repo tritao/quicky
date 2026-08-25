@@ -71,3 +71,6 @@ hidden by an asset-only mask.
 For the dynamic queue pass, add `--trace-render` to
 `high_effect_trace.py`. It records the first spawned effect's `3529`/`3587`
 breakpoints and snapshots the shared eight-byte draw records before the flush.
+When render data is present, `object_behavior_compare.py` checks that the
+expected high-effect slot and `(x,y)` occur exactly once in the `3587` queue;
+older traces without render data retain their callback-only coverage.

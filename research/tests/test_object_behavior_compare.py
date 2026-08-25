@@ -62,6 +62,28 @@ class ObjectBehaviorCompareTests(unittest.TestCase):
         self.assertEqual(result["family"], "high-effect")
         self.assertEqual(result["family_result"]["events_checked"], 8)
 
+    def test_high_effect_render_queue_contract(self):
+        result = compare_payload({
+            "trace_kind": "high-effect",
+            "events": [{"spawned_effect_events": [{
+                "callback_entry": {"offset": 0x4B70},
+                "object_before": {"callback": 0x4B70},
+                "object_after": {
+                    "callback": 0x4C74, "sprite_slot": 611,
+                    "target_cursor": 0, "source": 0xffff, "phase": 2,
+                    "position": {"x": 300, "y": 510},
+                },
+                "render_trace": {"1": {
+                    "breakpoint": {"offset": 0x3587},
+                    "queue": {"records": {"1": {
+                        "word0": 300, "word2": 510, "word4": 611,
+                    }}},
+                }},
+            }]}],
+        })
+        self.assertTrue(result["passed"], result)
+        self.assertEqual(result["family_result"]["render_frames"], 1)
+
     def test_descriptor_timer_contract(self):
         descriptor = {
             "mode": 1, "reload_delay": 3, "timer": 3,

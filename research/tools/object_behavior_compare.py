@@ -521,12 +521,75 @@ def _effect_field(object_record: dict[str, Any], *names: str) -> Any:
     return None
 
 
+def _ordered_values(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        pairs: list[tuple[int, Any]] = []
+        for key, item in value.items():
+            try:
+                pairs.append((int(key), item))
+            except (TypeError, ValueError):
+                continue
+        return [item for _, item in sorted(pairs)]
+    return []
+
+
+def _compare_render_queue(event: dict[str, Any], sequence: int,
+                          issues: list[ComparisonIssue]) -> bool:
+    """Validate a captured 3587 queue without requiring older traces to have it."""
+    render_trace = _ordered_values(event.get("render_trace"))
+    if not render_trace:
+        return False
+    after = event.get("object_after") or {}
+    position = after.get("position") or {}
+    expected_x = position.get("x")
+    expected_y = position.get("y")
+    cursor = _effect_field(after, "target_cursor", "high_effect_cursor")
+    if expected_x is None or expected_y is None or cursor is None:
+        return False
+    expected_slot = 611 + min(2, int(cursor) // 10)
+    checked = False
+    for frame in render_trace:
+        if not isinstance(frame, dict):
+            continue
+        breakpoint = frame.get("breakpoint") or {}
+        try:
+            offset = int(breakpoint.get("offset"))
+        except (TypeError, ValueError):
+            continue
+        if offset != 0x3587:
+            continue
+        queue = frame.get("queue") or {}
+        records = _ordered_values(queue.get("records"))
+        matches = [record for record in records
+                   if isinstance(record, dict) and
+                   record.get("word4") == expected_slot]
+        checked = True
+        if len(matches) != 1:
+            _issue(issues, sequence, "high-effect-render", "sprite_record",
+                   1, len(matches),
+                   "3587 queue did not contain exactly one recovered effect record")
+            continue
+        record = matches[0]
+        if record.get("word0") != expected_x:
+            _issue(issues, sequence, "high-effect-render", "x",
+                   expected_x, record.get("word0"),
+                   "queued high-effect X diverged from the pooled object")
+        if record.get("word2") != expected_y:
+            _issue(issues, sequence, "high-effect-render", "y",
+                   expected_y, record.get("word2"),
+                   "queued high-effect Y diverged from the pooled object")
+    return checked
+
+
 def compare_high_effect(payload: dict[str, Any],
                         issues: list[ComparisonIssue]) -> dict[str, int]:
     """Check the source-less 4B70 -> 4C74 animation contract."""
     checked = 0
     factory_frames = 0
     update_frames = 0
+    render_frames = 0
     for sequence, event in enumerate(_high_effect_events(payload)):
         entry = event.get("callback_entry") or event.get("callback") or {}
         before = event.get("object_before") or {}
@@ -538,6 +601,8 @@ def compare_high_effect(payload: dict[str, Any],
         if callback not in (0x4b70, 0x4c74):
             continue
         checked += 1
+        if _compare_render_queue(event, sequence, issues):
+            render_frames += 1
         before_cursor = _effect_field(before, "target_cursor", "high_effect_cursor")
         after_cursor = _effect_field(after, "target_cursor", "high_effect_cursor")
         before_sprite = _effect_field(before, "sprite_slot", "sprite_or_action")
@@ -575,7 +640,7 @@ def compare_high_effect(payload: dict[str, Any],
                 _issue(issues, sequence, "high-effect", field, expected,
                        actual, "high-effect pooled-object identity changed")
     return {"events_checked": checked, "factory_frames": factory_frames,
-            "update_frames": update_frames}
+            "update_frames": update_frames, "render_frames": render_frames}
 
 
 def compare_type33(samples: list[dict[str, Any]],

@@ -225,6 +225,9 @@ local function trace_render_window()
             camera = globals_snapshot(),
             queue = render_queue_snapshot(),
         }
+        if hit.offset == 0x3587 then
+            record.pool = pool_snapshot()
+        end
         if hit.offset == 0x3529 or hit.offset == 0x3587 then
             record.record = render_record_snapshot(hit)
         end
@@ -603,7 +606,10 @@ for frame = 1, frame_count do
                event.object_after.target_cursor >= stop_at_cursor then
                 stopped_at_cursor = event.object_after.target_cursor
             end
-            if trace_render and not render_trace_taken then
+            local render_target_reached = stop_at_cursor == nil or
+                (event.object_after ~= nil and
+                 event.object_after.target_cursor >= stop_at_cursor)
+            if trace_render and not render_trace_taken and render_target_reached then
                 event.render_trace = trace_render_window()
                 render_trace_taken = true
             end

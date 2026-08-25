@@ -698,9 +698,18 @@ with slot `611`. No `01F7:3529` hit precedes this flush, so this callback path
 publishes its BOB draw record directly into the shared queue. The current C++
 order (all ARE entity sprites, then transient effects, then player) therefore
 cannot yet be called faithful even though the isolated BOB pixels match. The
-next trace should resolve the other four queue records to object/resource
-owners and repeat at cursors 12 and 20 to determine whether the early extra
-rows are a one-time queue entry or a frame-buffer artifact.
+same queue at cursor 12 is `[951, 905, 612, 993, 16]`, and at cursor 20 it is
+`[951, 906, 613, 994, 16]`. The effect remains record 2 at `(300,510)` while
+the neighboring END/DOKTOR records and the player animation slots advance.
+The pool snapshots tie the queue order to live records: pool indices
+`[1,2,4,3,0]`, with offsets `[0x78,0xf0,0x1e0,0x168,0x000]` and callbacks
+`[0xb33b,0xb226,0x4c74,0xb25d,0x3ff8]`. The corresponding BOB ownership is
+`END1.BOB` slots `951/904..906`, `PUFF.BOB` slots `611..613`,
+`DOKTOR1.BOB` slot `994/993`, and `QUIKYW1.BOB` player slots `0/16`.
+The high-effect contract comparator now validates this queued position whenever
+`--trace-render` data is present. The remaining queue work is to correlate the
+four owning callbacks with their full update/visibility contracts and
+reproduce their queue insertion/order in the recreation.
 
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
