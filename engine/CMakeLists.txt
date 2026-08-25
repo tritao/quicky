@@ -21,6 +21,7 @@ add_library(quiky_core
     src/player_animation.cpp
     src/renderer.cpp
     src/runtime.cpp
+    src/descriptors.cpp
     src/scheduler.cpp
     src/simulation.cpp
     src/level.cpp

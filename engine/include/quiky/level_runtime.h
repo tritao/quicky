@@ -42,6 +42,7 @@ public:
     const Tileset &tileset() const { return _tileset; }
     const Tileset &loopTileset() const { return _loopTileset; }
     const Bob &playerBob() const { return _playerBob; }
+    const PlayerDescriptorTable &descriptors() const { return _descriptors; }
     const std::map<std::string, Bob> &entityBobs() const { return _entityBobs; }
     const std::map<std::string, Bob> &effectBobs() const { return _effectBobs; }
 
@@ -75,6 +76,7 @@ private:
     Tileset _tileset;
     Tileset _loopTileset;
     Bob _playerBob;
+    PlayerDescriptorTable _descriptors;
     LevelSession _session;
     std::map<std::string, Bob> _entityBobs;
     std::map<std::string, Bob> _effectBobs;

@@ -125,6 +125,10 @@ public:
         return _base.blocksCeiling(tileX, tileY);
     }
 
+    const PlayerProbeQuery *probeQuery() const override {
+        return _base.probeQuery();
+    }
+
 private:
     const CollisionQuery &_base;
     const std::vector<LevelEntity> &_entities;

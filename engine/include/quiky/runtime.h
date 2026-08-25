@@ -6,6 +6,7 @@
 
 #include <array>
 #include <cstdint>
+#include <string>
 
 namespace quiky {
 
@@ -80,6 +81,11 @@ private:
     std::array<std::uint16_t, PlayerDescriptorRules::kEntryCount> _words;
 };
 
+// The retail executable builds one 512-entry descriptor table per world from
+// its world initializer.  Keep the recovered tables in the engine so MAP
+// collision uses the same tile-ID-to-descriptor mapping as the game.
+PlayerDescriptorTable playerDescriptorTableForWorld(const std::string &worldName);
+
 // Resolves a streamed MAP cell through the descriptor table.  This is a
 // read-only bridge for the recovered player helpers; it does not yet claim
 // that every descriptor flag has a final floor/ceiling gameplay name.
@@ -124,6 +130,11 @@ class CollisionQuery {
 public:
     virtual ~CollisionQuery() {}
 
+    // Rectangle-based test doubles can leave this null. Descriptor-backed
+    // world queries expose the recovered pixel probes through this optional
+    // capability, including when a level adds an entity-collision wrapper.
+    virtual const PlayerProbeQuery *probeQuery() const { return 0; }
+
     virtual bool blocksHorizontal(std::int32_t tileX,
                                   std::int32_t tileY) const = 0;
     virtual bool blocksFloor(std::int32_t tileX,
@@ -150,6 +161,8 @@ public:
                                std::int32_t y) const override;
     bool alignsEightPixelsAt(std::int32_t x,
                              std::int32_t y) const override;
+
+    const PlayerProbeQuery *probeQuery() const override { return this; }
 
 private:
     MapDescriptorQuery _query;

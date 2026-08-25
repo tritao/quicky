@@ -278,13 +278,16 @@ bool PlayerSimulation::collidesHorizontal(const CollisionQuery &collision,
     const std::int32_t bottom = floorFixed(
         rightOrBottomRaw(player.y.raw, _config.height));
     const std::int32_t edge = player.velocityX.raw > 0 ? right : left;
-    const PlayerProbeQuery *probes =
-        dynamic_cast<const PlayerProbeQuery *>(&collision);
+    const PlayerProbeQuery *probes = collision.probeQuery();
     if (probes != 0) {
-        const std::int32_t middle = top + _config.height / 2;
-        return probes->blocksProbeAt(edge, top) ||
-               probes->blocksProbeAt(edge, middle) ||
-               probes->blocksProbeAt(edge, bottom);
+        // The retail player coordinate is an anchor at the feet/centre, not
+        // the top-left corner of a rectangle.  Its forward collision helper
+        // probes one pixel above the anchor and then 16/32 pixels higher.
+        const std::int32_t direction = player.velocityX.raw > 0 ? 10 : -10;
+        const std::int32_t y = player.y.floorPixels();
+        return probes->blocksProbeAt(player.x.floorPixels() + direction, y - 1) ||
+               probes->blocksProbeAt(player.x.floorPixels() + direction, y - 17) ||
+               probes->blocksProbeAt(player.x.floorPixels() + direction, y - 33);
     }
     const std::int32_t tileX = floorTile(edge);
     const std::int32_t firstTileY = floorTile(top);
@@ -307,6 +310,13 @@ bool PlayerSimulation::collidesFloor(const CollisionQuery &collision,
     const std::int32_t tileY = floorTile(bottom);
     const std::int32_t firstTileX = floorTile(left);
     const std::int32_t lastTileX = floorTile(right);
+    const PlayerProbeQuery *probes = collision.probeQuery();
+    if (probes != 0) {
+        const std::int32_t x = player.x.floorPixels();
+        const std::int32_t y = player.y.floorPixels();
+        return probes->blocksProbeAt(x - 5, y) ||
+               probes->blocksProbeAt(x + 5, y);
+    }
     for (std::int32_t tileX = firstTileX; tileX <= lastTileX; ++tileX) {
         if (collision.blocksFloor(tileX, tileY)) {
             return true;
@@ -324,6 +334,13 @@ bool PlayerSimulation::collidesCeiling(const CollisionQuery &collision,
     const std::int32_t tileY = floorTile(top);
     const std::int32_t firstTileX = floorTile(left);
     const std::int32_t lastTileX = floorTile(right);
+    const PlayerProbeQuery *probes = collision.probeQuery();
+    if (probes != 0) {
+        const std::int32_t x = player.x.floorPixels();
+        const std::int32_t top = player.y.floorPixels() - _config.height;
+        return probes->blocksProbeAt(x - 5, top) ||
+               probes->blocksProbeAt(x + 5, top);
+    }
     for (std::int32_t tileX = firstTileX; tileX <= lastTileX; ++tileX) {
         if (collision.blocksCeiling(tileX, tileY)) {
             return true;
@@ -353,8 +370,7 @@ void PlayerSimulation::moveHorizontal(PlayerState &player,
         const std::int32_t tileX = floorTile(left);
         player.x.raw = Fixed16::fromPixels((tileX + 1) * 16).raw;
     }
-    const PlayerProbeQuery *probes =
-        dynamic_cast<const PlayerProbeQuery *>(&collision);
+    const PlayerProbeQuery *probes = collision.probeQuery();
     if (probes != 0) {
         const std::int32_t probeX = movingRight
                                          ? player.x.floorPixels() + _config.width
@@ -371,15 +387,24 @@ void PlayerSimulation::moveHorizontal(PlayerState &player,
 void PlayerSimulation::moveVertical(PlayerState &player,
                                     const CollisionQuery &collision) const {
     player.y.raw = Fixed16::wrapAddRaw(player.y.raw, player.velocityY.raw);
+    const PlayerProbeQuery *probes = collision.probeQuery();
     if (player.velocityY.raw > 0) {
         player.grounded = false;
         if (!collidesFloor(collision, player)) {
             return;
         }
-        const std::int32_t bottom = floorFixed(
-            rightOrBottomRaw(player.y.raw, _config.height));
-        const std::int32_t tileY = floorTile(bottom);
-        player.y.raw = Fixed16::fromPixels(tileY * 16 - _config.height).raw;
+        if (probes != 0) {
+            // Descriptor occupancy is sampled at the native feet anchor.
+            // Correct to the top of the occupied 16-pixel cell rather than
+            // adding the compatibility rectangle height a second time.
+            const std::int32_t feet = player.y.floorPixels();
+            player.y.raw = Fixed16::fromPixels(floorTile(feet) * 16).raw;
+        } else {
+            const std::int32_t bottom = floorFixed(
+                rightOrBottomRaw(player.y.raw, _config.height));
+            const std::int32_t tileY = floorTile(bottom);
+            player.y.raw = Fixed16::fromPixels(tileY * 16 - _config.height).raw;
+        }
         player.velocityY.raw = 0;
         player.grounded = true;
         player.callbackMode = 1;
@@ -388,9 +413,15 @@ void PlayerSimulation::moveVertical(PlayerState &player,
         if (!collidesCeiling(collision, player)) {
             return;
         }
-        const std::int32_t top = player.y.floorPixels();
-        const std::int32_t tileY = floorTile(top);
-        player.y.raw = Fixed16::fromPixels((tileY + 1) * 16).raw;
+        if (probes != 0) {
+            const std::int32_t top = player.y.floorPixels() - _config.height;
+            const std::int32_t tileY = floorTile(top);
+            player.y.raw = Fixed16::fromPixels((tileY + 1) * 16 + _config.height).raw;
+        } else {
+            const std::int32_t top = player.y.floorPixels();
+            const std::int32_t tileY = floorTile(top);
+            player.y.raw = Fixed16::fromPixels((tileY + 1) * 16).raw;
+        }
         player.velocityY.raw = 0;
         player.callbackMode = 1;
         player.verticalResponse = 1;

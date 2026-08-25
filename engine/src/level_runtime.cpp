@@ -72,6 +72,7 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
       _tileset(tileset),
       _loopTileset(loopTileset),
       _playerBob(playerBob),
+      _descriptors(playerDescriptorTableForWorld(worldName)),
       _session(mapName, _map, _area, config),
       _entityBobs() {
 }
@@ -98,7 +99,7 @@ void LevelRuntime::reset(PlayerState &player,
 void LevelRuntime::tick(PlayerState &player,
                         const PlayerSimulation &simulation,
                         const InputState &input) {
-    const MapCollisionQuery collision(_map, simulation.collisionRules());
+    const MapDescriptorCollisionQuery collision(_map, _descriptors);
     _session.tick(player, simulation, collision, input);
 }
 
