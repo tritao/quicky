@@ -568,6 +568,72 @@ void testRecoveredW1L1AmbientAndDedicatedContracts() {
     assert(dedicated.effects().size() == 1);
 }
 
+void testRecoveredMovingPlatformCarryContract() {
+    quiky::Map map = makeMap(16, 8);
+    // An explicit (empty) descriptor table selects the trace-closed callback
+    // path; the raw MAP bits used by the platform helper remain independent
+    // of this table.
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 24;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+
+    quiky::LevelSession session("W1L1.MAP", map, makeSingleArea(0x3f), config);
+    session.reset(simulation);
+    session.updateStreaming(simulation, 24, 16);
+    assert(session.entities()[0].kind == quiky::EntityKind::MovingPlatform);
+    assert(session.entities()[0].updateCallback.offset == 0x9dc7);
+    assert(session.entities()[0].spriteSlot == 301);
+    assert(session.entities()[0].spriteResource == "PLATFW1.BOB");
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(output.schedulerCallbacks.size() == 1);
+    assert(output.schedulerCallbacks[0].callback.offset == 0x9dc7);
+    assert(session.gameplayState().platformLatch5006 == 0xffff);
+    assert(session.gameplayState().platformCarryX8816 == 1);
+    assert(session.gameplayState().platformCarryY8812 == 1);
+    assert(session.entities()[0].platformCarryActive);
+    // The player callback consumes DS:8816 and DS:8812 on this same frame;
+    // the one-unit publication is retained in raw fixed-point state.
+    assert(simulation.state().player.positionX.raw ==
+           quiky::Fixed16::fromPixels(24).raw + 1);
+    assert(simulation.state().player.positionY.raw ==
+           quiky::Fixed16::fromPixels(16).raw + 2);
+
+    quiky::LevelSessionConfig rejectedConfig = config;
+    rejectedConfig.spawnX = 56;
+    quiky::LevelSession rejected("W1L1.MAP", map,
+                                 makeSingleArea(0x3f), rejectedConfig);
+    rejected.reset(simulation);
+    rejected.updateStreaming(simulation, 56, 16);
+    rejected.tick(simulation, world, quiky::InputState(), output);
+    assert(rejected.gameplayState().platformLatch5006 == 0);
+    assert(!rejected.entities()[0].platformCarryActive);
+
+    quiky::Map blockedMap = makeMap(16, 8);
+    blockedMap.cells[18] = 0x0800;
+    const quiky::WorldCollisionView blockedWorld(blockedMap, &descriptors);
+    assert(blockedWorld.mapRawBit0800Confirmed(32, 16));
+    quiky::LevelSession moving("W1L1.MAP", blockedMap,
+                               makeSingleArea(0x3f), config);
+    moving.reset(simulation);
+    moving.entitiesForSetup()[0].velocityX = quiky::Fixed16(0x10000);
+    moving.updateStreaming(simulation, 24, 16);
+    moving.tick(simulation, blockedWorld, quiky::InputState(), output);
+    assert(moving.entities()[0].x == 16);
+    assert(moving.entities()[0].velocityX.raw == 0);
+    assert(moving.entities()[0].platformWait54 == 0x46);
+}
+
 } // namespace
 
 int main() {
@@ -583,6 +649,7 @@ int main() {
         testRecoveredW1L1EnemyFamilies();
         testRecoveredAnimatedTileEffectStateMachine();
         testRecoveredW1L1AmbientAndDedicatedContracts();
+        testRecoveredMovingPlatformCarryContract();
     } catch (const std::exception &error) {
         std::cerr << "unexpected test failure: " << error.what() << "\n";
         return 1;

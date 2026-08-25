@@ -185,6 +185,15 @@ public:
                               const InputState &input,
                               const WorldCollisionView &world,
                               PlayerUpdateTrace *trace) = 0;
+
+    // 01F7:A0B2 publishes these external carry globals before the player
+    // callback consumes them. Other callback implementations may ignore the
+    // contract until they model the recovered global boundary.
+    virtual void publishPlatformCarry(std::int32_t xDelta8816,
+                                      std::int32_t yDelta8812) {
+        (void)xDelta8816;
+        (void)yDelta8812;
+    }
 };
 
 class TraceClosedPlayerUpdate : public PlayerUpdateCallback {
@@ -198,6 +207,8 @@ public:
                       const InputState &input,
                       const WorldCollisionView &world,
                       PlayerUpdateTrace *trace) override;
+    void publishPlatformCarry(std::int32_t xDelta8816,
+                              std::int32_t yDelta8812) override;
 
 private:
     PlayerCallbackGlobals _globals;

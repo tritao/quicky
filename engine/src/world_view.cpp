@@ -92,6 +92,12 @@ bool WorldCollisionView::mapRawBit4000Confirmed(std::int32_t x,
     return cell.inBounds && (cell.rawWord & 0x4000U) != 0;
 }
 
+bool WorldCollisionView::mapRawBit0800Confirmed(std::int32_t x,
+                                                std::int32_t y) const {
+    const MapCell cell = cellAt(floorTile(x), floorTile(y));
+    return cell.inBounds && (cell.rawWord & 0x0800U) != 0;
+}
+
 std::int32_t WorldCollisionView::floorTile(std::int32_t pixels) {
     if (pixels >= 0) {
         return pixels / 16;

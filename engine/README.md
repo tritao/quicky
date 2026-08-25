@@ -120,6 +120,16 @@ contracts without being folded into generic gameplay behavior:
   `01F7:10B5`. The event-ring seed, exact child selector/lifetime, and human
   semantic names remain explicit external data.
 
+The moving-platform slice now executes the static `01F7:9DC7` / `A075` /
+`A0B2` publication contract for ARE types `0x3D`-`0x40`. It runs before the
+player callback, applies the strict horizontal interval and 12-pixel contact
+band, publishes `DS:5006`, `DS:8816`, and `DS:8812`, and consumes the carry in
+the same callback while preserving the packed `0x78` record's subpixel state.
+The confirmed `5DC3` raw-MAP `0x0800` stop/snap path and its `0x46` wait value
+are covered by a native contract test. Full DOS scheduler provenance,
+platform landing/jump detachment, crushing, and culling while attached remain
+explicit boundaries.
+
 ## Unified player callback status
 
 The unified `TraceClosedPlayerUpdate` is the C++ implementation of the
@@ -179,8 +189,9 @@ Explicit unresolved boundaries:
   from the `0E06` object family;
 - the ordinary-level transition behavior of `5937` beyond its recovered direct
   read/write and return contract;
-- natural ceiling validation, descriptor semantic labels/one-way policy, and
-  moving-platform scheduler/culling behavior;
+- natural ceiling validation and descriptor semantic labels/one-way policy;
+- moving-platform scheduler provenance beyond the pre-player publication,
+  landing/jump detachment, crushing, and culling while attached;
 - the no-descriptor-table fallback, which remains a deliberate research
   boundary.
 

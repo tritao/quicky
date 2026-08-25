@@ -1,4 +1,5 @@
 #include "quiky/level.h"
+#include "quiky/player_update.h"
 
 #include <algorithm>
 #include <cctype>
@@ -98,7 +99,10 @@ LevelGameplayState::LevelGameplayState()
       terminalX8828(0),
       terminalY882a(0),
       cloudSignal89e6(0),
-      transitionGate89ea(0) {
+      transitionGate89ea(0),
+      platformLatch5006(0),
+      platformCarryX8816(0),
+      platformCarryY8812(0) {
 }
 
 LevelSessionConfig::LevelSessionConfig()
@@ -160,6 +164,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         initializeEnemy(entity);
         initializeWorldEffect(entity);
         initializeAmbientVisual(entity);
+        initializeMovingPlatform(entity);
         _entities.push_back(entity);
     }
 }
@@ -208,6 +213,7 @@ void LevelSession::reset(Simulation &simulation) {
         initializeEnemy(entity);
         initializeWorldEffect(entity);
         initializeAmbientVisual(entity);
+        initializeMovingPlatform(entity);
     }
     _effects.clear();
     resetPlayer(simulation);
@@ -357,6 +363,25 @@ void LevelSession::initializeAmbientVisual(LevelEntity &entity) {
     entity.ambientAnimationDelay = entity.ambientTable == 0 ? 8 : 10;
     entity.ambientAnimationCursor = entity.ambientTable == 0
         ? 0x3314 : 0x3328;
+}
+
+void LevelSession::initializeMovingPlatform(LevelEntity &entity) {
+    entity.platformPreviousX = entity.x;
+    entity.platformPreviousY = entity.y;
+    entity.platformWait52 = 0;
+    entity.platformWait54 = 0;
+    entity.platformCooldown58 = 0;
+    entity.platformCarryActive = false;
+    if (entity.kind != EntityKind::MovingPlatform) {
+        return;
+    }
+
+    // The four 9CF5/9D19/9D5E/9D82 initializers publish static PLATFW
+    // geometry and flags. The archived post-initializer records show zero
+    // initial velocity; authored motion may seed it later through the
+    // address-qualified state path.
+    entity.velocityX = Fixed16();
+    entity.velocityY = Fixed16();
 }
 
 CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
@@ -956,6 +981,101 @@ void LevelSession::dispatchCloudCallbacks(Simulation *simulation,
     }
 }
 
+void LevelSession::dispatchMovingPlatformCallbacks(
+    Simulation *simulation, const WorldCollisionView &world,
+    PlayerRecord &player) {
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        if (!entity.active || entity.kind != EntityKind::MovingPlatform ||
+            entity.updateCallback.offset != 0x9dc7) {
+            continue;
+        }
+
+        // 01F7:9DC7 clears DS:5006 before A075. Keep the local publication
+        // visible even when no platform accepts the player this frame.
+        _gameplayState.platformLatch5006 = 0;
+        _gameplayState.platformCarryX8816 = 0;
+        _gameplayState.platformCarryY8812 = 0;
+
+        bool accepted = false;
+        if (entity.platformCooldown58 != 0) {
+            --entity.platformCooldown58;
+        } else if (player.mode37 >= 0) {
+            const std::int32_t playerX = player.positionX.floorPixels();
+            const std::int32_t playerY = player.positionY.floorPixels();
+            const std::int32_t width = entity.collisionWidth;
+            // 01F7:A075: strict X interval, half-open 12-pixel Y interval.
+            accepted = entity.x < playerX &&
+                       playerX < entity.x + width &&
+                       entity.y <= playerY && playerY < entity.y + 12;
+        }
+        if (accepted) {
+            _gameplayState.platformLatch5006 = 0xffff;
+        }
+
+        // Object+0x2A is the integer platform position captured before the
+        // motion branch. A0B2 compares the post-motion object+0x04 against it.
+        entity.platformPreviousX = entity.x;
+        entity.platformPreviousY = entity.y;
+
+        if (entity.platformWait54 != 0) {
+            --entity.platformWait54;
+        } else if (entity.platformWait52 != 0) {
+            --entity.platformWait52;
+        } else if (entity.velocityX.raw != 0) {
+            const std::int32_t direction = entity.velocityX.raw < 0 ? -1 : 1;
+            const std::int32_t probeX = entity.x + direction * 16;
+            if (world.mapRawBit0800Confirmed(probeX, entity.y)) {
+                entity.velocityX = Fixed16();
+                entity.x = (entity.x / 16) * 16;
+                entity.positionX = Fixed16::fromPixels(entity.x);
+                entity.platformWait54 = 0x46;
+            } else {
+                entity.positionX.raw = Fixed16::wrapAddRaw(
+                    entity.positionX.raw, entity.velocityX.raw);
+                entity.x = entity.positionX.floorPixels();
+            }
+        } else if (entity.velocityY.raw != 0) {
+            const std::int32_t direction = entity.velocityY.raw < 0 ? -1 : 1;
+            const std::int32_t probeY = entity.y + direction * 16;
+            if (world.mapRawBit0800Confirmed(entity.x, probeY)) {
+                entity.velocityY = Fixed16();
+                entity.y = (entity.y / 16) * 16;
+                entity.positionY = Fixed16::fromPixels(entity.y);
+                entity.platformWait54 = 0x46;
+            } else {
+                entity.positionY.raw = Fixed16::wrapAddRaw(
+                    entity.positionY.raw, entity.velocityY.raw);
+                entity.y = entity.positionY.floorPixels();
+            }
+        }
+
+        if (accepted) {
+            const std::int32_t pixelDelta =
+                entity.x - entity.platformPreviousX;
+            const std::uint32_t shiftedDelta = static_cast<std::uint32_t>(
+                pixelDelta) << 16;
+            const std::int32_t carryX = static_cast<std::int32_t>(
+                shiftedDelta) + 1;
+            const std::int32_t platformY = Fixed16::fromPixels(entity.y).raw;
+            const std::int32_t carryY = Fixed16::wrapAddRaw(
+                Fixed16::wrapSubRaw(platformY, player.positionY.raw), 1);
+            _gameplayState.platformCarryX8816 = carryX;
+            _gameplayState.platformCarryY8812 = carryY;
+            entity.platformCarryActive = true;
+            if (simulation != 0 && simulation->playerUpdater() != 0) {
+                simulation->playerUpdater()->publishPlatformCarry(
+                    carryX, carryY);
+            }
+        } else if (entity.platformCarryActive) {
+            // A0B2 clears +0x5A and starts the 0x14-tick recontact cooldown
+            // when the prior carry latch is no longer accepted.
+            entity.platformCarryActive = false;
+            entity.platformCooldown58 = 0x14;
+        }
+    }
+}
+
 bool LevelSession::dispatchWorldEffectCallbacks(Simulation *simulation) {
     ObjectScheduler *scheduler = simulation == 0
         ? 0 : &simulation->stateForSetup().scheduler;
@@ -1263,6 +1383,9 @@ void LevelSession::tick(Simulation &simulation,
     _alternateActionActive = input.alternate;
     bool spawnedTransient = updateStreaming(
         simulation, player.positionX.floorPixels(), player.positionY.floorPixels());
+    // 01D7/0E96 dispatches platform callbacks before the later player pass;
+    // A0B2's carry globals must therefore be published before 3FF8 runs.
+    dispatchMovingPlatformCallbacks(&simulation, world, player);
     simulation.tick(input, world, output);
     syncPlayerTimer(player);
     spawnedTransient = updateStreaming(

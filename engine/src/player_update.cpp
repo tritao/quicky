@@ -952,6 +952,10 @@ void TraceClosedPlayerUpdate::updatePlayer(
         player.positionY.raw = Fixed16::wrapAddRaw(
             player.positionY.raw,
             Fixed16::wrapAddRaw(_globals.deferredY8812, 1));
+        // 01F7:4008 updates the record before the following contact helpers
+        // read its packed pixel coordinates. Keep the raw view synchronized
+        // so setYPixel/probe helpers preserve the published subpixel carry.
+        player.syncToRaw();
         writeGlobal32(0x8812, _globals.deferredY8812, 0, trace);
     }
 
@@ -1123,6 +1127,12 @@ callback_complete:
     if (trace != 0) {
         trace->onPostState(postState);
     }
+}
+
+void TraceClosedPlayerUpdate::publishPlatformCarry(
+    std::int32_t xDelta8816, std::int32_t yDelta8812) {
+    _globals.externalXDelta8816 = xDelta8816;
+    _globals.deferredY8812 = yDelta8812;
 }
 
 } // namespace quiky

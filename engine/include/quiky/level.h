@@ -91,6 +91,10 @@ struct LevelGameplayState {
     // Input/transition gate consumed by the same callback; its outer state
     // machine remains outside this level closure.
     std::uint16_t transitionGate89ea;
+    // Moving-platform publication boundary from 01F7:A075/A0B2.
+    std::uint16_t platformLatch5006;
+    std::int32_t platformCarryX8816;
+    std::int32_t platformCarryY8812;
 
     LevelGameplayState();
 };
@@ -192,6 +196,13 @@ struct LevelEntity {
     std::uint16_t ambientAnimationDelay;
     std::uint16_t ambientAnimationCursor;
     std::uint8_t ambientTable;
+    // 01F7:9DC7/A0B2 platform object state.
+    std::int32_t platformPreviousX;
+    std::int32_t platformPreviousY;
+    std::uint16_t platformWait52;
+    std::uint16_t platformWait54;
+    std::uint16_t platformCooldown58;
+    bool platformCarryActive;
     bool streamSuppressed;
     bool enemyContactPending;
     CallbackIdentity contactCallback;
@@ -214,7 +225,10 @@ struct LevelEntity {
           enemyAnimationDelay(0), environmentSelector(0),
           environmentState(0), ambientVelocityY(), ambientOriginX(0),
           ambientOriginY(0), ambientTimer(0), ambientAnimationDelay(0),
-          ambientAnimationCursor(0), ambientTable(0), streamSuppressed(false),
+          ambientAnimationCursor(0), ambientTable(0), platformPreviousX(0),
+          platformPreviousY(0), platformWait52(0), platformWait54(0),
+          platformCooldown58(0), platformCarryActive(false),
+          streamSuppressed(false),
           enemyContactPending(false), contactCallback(), responseTimer(0),
           collisionWidth(0), collisionHeight(0),
           animationFrame(0), activeFrames(0),
@@ -239,6 +253,7 @@ public:
     // pooled effect is positioned at sourceY + 10 pixels.
     void emitHighEffect(std::int32_t sourceX, std::int32_t sourceY);
     const std::vector<LevelEntity> &entities() const { return _entities; }
+    std::vector<LevelEntity> &entitiesForSetup() { return _entities; }
     const std::vector<LevelEffect> &effects() const { return _effects; }
     bool hasPendingEvents() const { return !_events.empty(); }
     LevelEvent consumeEvent();
@@ -278,10 +293,14 @@ private:
                                 const PlayerRecord &player);
     void dispatchCloudCallbacks(Simulation *simulation,
                                 const PlayerRecord &player);
+    void dispatchMovingPlatformCallbacks(Simulation *simulation,
+                                         const WorldCollisionView &world,
+                                         PlayerRecord &player);
     bool dispatchWorldEffectCallbacks(Simulation *simulation);
     void initializeEnemy(LevelEntity &entity);
     void initializeWorldEffect(LevelEntity &entity);
     void initializeAmbientVisual(LevelEntity &entity);
+    void initializeMovingPlatform(LevelEntity &entity);
     bool updateWorldEffect(Simulation *simulation, LevelEntity &entity);
     void updateWurm2(LevelEntity &entity, const WorldCollisionView &world);
     void updateBiene(LevelEntity &entity, const WorldCollisionView &world);

@@ -85,6 +85,9 @@ public:
     void reset();
     void enqueueEvent(const SimulationEvent &event);
     void setExperimentalPlayerUpdater(PlayerUpdateCallback *updater);
+    PlayerUpdateCallback *playerUpdater() const {
+        return _experimentalPlayerUpdater;
+    }
 
     // One deterministic gameplay boundary. It advances the recovered player
     // callback (when installed), scheduler, and queued events, then exposes a
