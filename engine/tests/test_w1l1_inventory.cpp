@@ -88,20 +88,23 @@ void testW1L1Inventory(const std::string &archivePath) {
     // subset through the deterministic scheduler, while child-only event
     // declarations remain outside the normal callback list.
     runtime->reset(simulation);
-    // The native W1L1 startup trace publishes the initial ARE window from
-    // camera (128,262), while the player declaration starts at Y=400. Keep
-    // that camera-streaming boundary explicit until the frontend camera
-    // state is part of the end-to-end replay.
-    runtime->session().updateStreaming(simulation, 128, 262);
+    assert(runtime->session().hasStreamAnchor());
+    assert(runtime->session().streamAnchorX() == 0);
+    assert(runtime->session().streamAnchorY() == 262);
+    bool startupLeafPublished = false;
     std::size_t scheduledDeclarations = 0;
     for (std::size_t index = 0; index < runtime->session().entities().size();
          ++index) {
         const quiky::LevelEntity &entity = runtime->session().entities()[index];
+        if (entity.type == 0x2b && entity.x == 128 && entity.y == 256) {
+            startupLeafPublished = entity.active;
+        }
         if (entity.active && entity.updateCallback.offset != 0) {
             ++scheduledDeclarations;
             assert(entity.schedulerHandle.valid());
         }
     }
+    assert(startupLeafPublished);
     assert(scheduledDeclarations > 0);
     assert(simulation.state().scheduler.activeCount() == 0);
     simulation.stateForSetup().scheduler.beginTick(1);

@@ -145,7 +145,10 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _score(0),
       _deaths(0),
       _gameplayState(),
-      _alternateActionActive(false) {
+      _alternateActionActive(false),
+      _streamAnchorActive(false),
+      _streamAnchorX(0),
+      _streamAnchorY(0) {
     const std::vector<AreaPlacement> placements = _area.placements();
     _entities.reserve(placements.size());
     for (std::size_t index = 0; index < placements.size(); ++index) {
@@ -716,6 +719,19 @@ bool LevelSession::updateStreaming(Simulation &simulation,
                                playerX, playerY);
 }
 
+void LevelSession::setStreamAnchor(std::int32_t cameraX,
+                                   std::int32_t cameraY) {
+    _streamAnchorActive = true;
+    _streamAnchorX = cameraX;
+    _streamAnchorY = cameraY;
+}
+
+void LevelSession::clearStreamAnchor() {
+    _streamAnchorActive = false;
+    _streamAnchorX = 0;
+    _streamAnchorY = 0;
+}
+
 bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
                                        std::int32_t playerX,
                                        std::int32_t playerY) {
@@ -733,10 +749,25 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
             continue;
         }
         const bool wasActive = entity.phase == EntityPhase::Active;
-        const std::int32_t distanceX = std::abs(static_cast<std::int32_t>(entity.regionX) - regionX);
-        const std::int32_t distanceY = std::abs(static_cast<std::int32_t>(entity.regionY) - regionY);
-        const bool visible = distanceX <= _config.streamRadiusRegions &&
-                             distanceY <= _config.streamRadiusRegions;
+        bool visible = false;
+        if (_streamAnchorActive) {
+            // Static 01F7:1DCA: the object gate is pixel-relative to
+            // DS:81C0/81C4, with X limits -0x80..+0x1c0 and Y limits
+            // -0x80..+0x130. Do not reduce this to a centered region test:
+            // W1L1's native startup camera at (0,262) accepts objects in
+            // region X=2.
+            visible = entity.x >= _streamAnchorX - 0x80 &&
+                      entity.x <= _streamAnchorX + 0x1c0 &&
+                      entity.y >= _streamAnchorY - 0x80 &&
+                      entity.y <= _streamAnchorY + 0x130;
+        } else {
+            const std::int32_t distanceX =
+                std::abs(static_cast<std::int32_t>(entity.regionX) - regionX);
+            const std::int32_t distanceY =
+                std::abs(static_cast<std::int32_t>(entity.regionY) - regionY);
+            visible = distanceX <= _config.streamRadiusRegions &&
+                      distanceY <= _config.streamRadiusRegions;
+        }
         if (visible && (isNormalEnemyType(entity.type) ||
                         isWorldEffectType(entity.type) ||
                         isCloudType(entity.type)) &&
@@ -1427,8 +1458,12 @@ void LevelSession::tick(Simulation &simulation,
     PlayerRecord &player = simulation.stateForSetup().player;
     const bool alternatePressed = input.alternate && !_alternateActionActive;
     _alternateActionActive = input.alternate;
+    const std::int32_t streamX = _streamAnchorActive
+        ? _streamAnchorX : player.positionX.floorPixels();
+    const std::int32_t streamY = _streamAnchorActive
+        ? _streamAnchorY : player.positionY.floorPixels();
     bool spawnedTransient = updateStreaming(
-        simulation, player.positionX.floorPixels(), player.positionY.floorPixels());
+        simulation, streamX, streamY);
     // 01D7/0E96 dispatches platform callbacks before the later player pass;
     // A0B2's carry globals must therefore be published before 3FF8 runs.
     std::vector<SimulationCallbackStep> dependencyOrder;
@@ -1443,7 +1478,9 @@ void LevelSession::tick(Simulation &simulation,
     output.playerDependencyOrder = dependencyOrder;
     syncPlayerTimer(player);
     spawnedTransient = updateStreaming(
-        simulation, player.positionX.floorPixels(), player.positionY.floorPixels()) ||
+        simulation,
+        _streamAnchorActive ? _streamAnchorX : player.positionX.floorPixels(),
+        _streamAnchorActive ? _streamAnchorY : player.positionY.floorPixels()) ||
         spawnedTransient;
     advanceActiveEntities();
     advanceActiveEffects();
@@ -1501,8 +1538,10 @@ void LevelSession::tick(Simulation &simulation,
                 resetPlayer(simulation);
                 ++_deaths;
                 enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-                updateStreaming(simulation, player.positionX.floorPixels(),
-                                player.positionY.floorPixels());
+                updateStreaming(
+                    simulation,
+                    _streamAnchorActive ? _streamAnchorX : player.positionX.floorPixels(),
+                    _streamAnchorActive ? _streamAnchorY : player.positionY.floorPixels());
                 output.player = player;
                 output.player.syncToRaw();
                 return;
@@ -1512,8 +1551,10 @@ void LevelSession::tick(Simulation &simulation,
             resetPlayer(simulation);
             ++_deaths;
             enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-            updateStreaming(simulation, player.positionX.floorPixels(),
-                            player.positionY.floorPixels());
+            updateStreaming(
+                simulation,
+                _streamAnchorActive ? _streamAnchorX : player.positionX.floorPixels(),
+                _streamAnchorActive ? _streamAnchorY : player.positionY.floorPixels());
             output.player = player;
             output.player.syncToRaw();
             return;

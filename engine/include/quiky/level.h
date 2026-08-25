@@ -248,6 +248,15 @@ public:
     bool updateStreaming(std::int32_t playerX, std::int32_t playerY);
     bool updateStreaming(Simulation &simulation, std::int32_t playerX,
                          std::int32_t playerY);
+    // The native loader/renderer streams ARE declarations from the camera
+    // window, not directly from the player's authored spawn Y. Callers that
+    // own camera state can publish that anchor; setup-only callers retain the
+    // player-coordinate fallback.
+    void setStreamAnchor(std::int32_t cameraX, std::int32_t cameraY);
+    void clearStreamAnchor();
+    bool hasStreamAnchor() const { return _streamAnchorActive; }
+    std::int32_t streamAnchorX() const { return _streamAnchorX; }
+    std::int32_t streamAnchorY() const { return _streamAnchorY; }
     // Emit the source-less high-address effect recovered from the 4B70/4C74
     // callback chain. sourceX/sourceY are the hit object's coordinates; the
     // pooled effect is positioned at sourceY + 10 pixels.
@@ -347,6 +356,9 @@ private:
     std::uint32_t _deaths;
     LevelGameplayState _gameplayState;
     bool _alternateActionActive;
+    bool _streamAnchorActive;
+    std::int32_t _streamAnchorX;
+    std::int32_t _streamAnchorY;
 };
 
 } // namespace quiky

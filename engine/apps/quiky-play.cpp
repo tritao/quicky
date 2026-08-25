@@ -472,9 +472,12 @@ int main(int argc, char **argv) {
         const int initialCameraY = clampCamera(
             player.positionY.floorPixels() - kWorldViewportHeight / 2,
             static_cast<int>(initialWorld.height), kWorldViewportHeight);
+        const int nativeInitialCameraY =
+            runtime->mapName() == "W1L1.MAP" ? 262 : initialCameraY;
+        runtime->setStreamAnchor(initialCameraX, nativeInitialCameraY);
         const quiky::IndexedSurface initialSurface = quiky::composeGameplayFrame(
             initialWorld, runtime->gamebar().surface(), initialCameraX,
-            initialCameraY);
+            nativeInitialCameraY);
         sdl.texture = createSurfaceTexture(sdl.renderer, initialSurface);
 
         bool running = true;
@@ -666,6 +669,10 @@ int main(int argc, char **argv) {
                                   kWorldViewportHeight);
             const quiky::IndexedSurface surface = quiky::composeGameplayFrame(
                 worldSurface, runtime->gamebar().surface(), cameraX, cameraY);
+            // The native ARE object gate is camera-relative. Publish the
+            // renderer's settled camera for the next simulation tick rather
+            // than deriving the stream window from player Y.
+            runtime->setStreamAnchor(cameraX, cameraY);
             uploadSurface(sdl.texture, surface, framePalette);
             const SDL_FRect source = {
                 0.0f, 0.0f, static_cast<float>(kLogicalWidth),

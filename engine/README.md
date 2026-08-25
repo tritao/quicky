@@ -190,6 +190,14 @@ an inventory gate, not a claim that every family has complete gameplay parity:
 leaf PRNG emission, dedicated-event seed/lifetime, exact collectible overlap,
 and the transition consumer remain explicit boundaries above.
 
+Camera streaming is now an explicit runtime input. In camera mode the ARE
+gate uses the recovered pixel window `X: camera-0x80..camera+0x1c0` and
+`Y: camera-0x80..camera+0x130`; direct setup callers still use the former
+player-coordinate fallback. W1L1 reset seeds the observed native startup
+anchor `(0,262)`, and the SDL frontend publishes its settled camera for the
+following tick. Camera-follow recomputation beyond that published boundary is
+not inferred here.
+
 ## Unified player callback status
 
 The unified `TraceClosedPlayerUpdate` is the C++ implementation of the

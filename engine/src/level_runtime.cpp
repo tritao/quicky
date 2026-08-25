@@ -91,10 +91,31 @@ void LevelRuntime::loadEntityBobs(const Archive &archive) {
 }
 
 void LevelRuntime::reset(Simulation &simulation) {
+    if (!_session.hasStreamAnchor() &&
+        (_mapName == "W1L1.MAP" || _mapName == "w1l1.map")) {
+        // Native W1L1 startup trace: player=(128,400), camera=(0,262).
+        // This is a recovered startup anchor, not a general camera-follow
+        // rule for other levels.
+        _session.setStreamAnchor(0, 262);
+    }
     _session.reset(simulation);
     const PlayerRecord &player = simulation.state().player;
-    _session.updateStreaming(simulation, player.positionX.floorPixels(),
-                             player.positionY.floorPixels());
+    if (_session.hasStreamAnchor()) {
+        _session.updateStreaming(simulation, _session.streamAnchorX(),
+                                 _session.streamAnchorY());
+    } else {
+        _session.updateStreaming(simulation, player.positionX.floorPixels(),
+                                 player.positionY.floorPixels());
+    }
+}
+
+void LevelRuntime::setStreamAnchor(std::int32_t cameraX,
+                                   std::int32_t cameraY) {
+    _session.setStreamAnchor(cameraX, cameraY);
+}
+
+void LevelRuntime::clearStreamAnchor() {
+    _session.clearStreamAnchor();
 }
 
 std::unique_ptr<LevelRuntime> LevelRuntime::reload(

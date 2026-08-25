@@ -75,6 +75,12 @@ public:
     void tick(Simulation &simulation, const InputState &input,
               SimulationOutput &output);
 
+    // Publish the renderer's camera position for the next ARE streaming
+    // pass. The native object gate is camera-relative and is not equivalent
+    // to the player's authored spawn.
+    void setStreamAnchor(std::int32_t cameraX, std::int32_t cameraY);
+    void clearStreamAnchor();
+
     // Execute the closed high-level equivalent of the native 5010 reload
     // boundary. The returned runtime owns the newly loaded MAP/ARE/resource
     // set; simulation is reset before object reconstruction and then
