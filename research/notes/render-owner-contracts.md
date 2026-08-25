@@ -256,6 +256,15 @@ handoff is timer-driven in this run, not a direct `0x4000` MAP hit at the
 three B33B probe points. It does not yet name the bit or exclude an earlier
 action/context side effect through `1B77 -> 393C/19E6`.
 
+A longer unforced W1L3 sample resolves the ordinary lifetime of the linked
+B25D record. It remains callback `B25D` through sample `127` (the owner is
+`B33B`, `(350,565)`, with `+0x38 = 82`), then is absent at sample `128` in the
+same observation in which the B33B owner is absent. The linked B226 record
+remains active, and no B25D record is reactivated during the remaining 1,872
+sampled frames. Thus the old `+0x36` record is reclaimed as part of the natural
+B33B owner teardown rather than by an independently observed B25D terminal
+callback; the exact clear ordering still needs an entry/return trace.
+
 ### Controlled late-phase boundary
 
 The same lightweight sampler, forcing only the initial global phase to `2` and
@@ -277,8 +286,8 @@ breakpoints:
   linked record.
 
 This closes the natural timing and deactivation edge for the controlled phase
-sequence, while the remaining action/context path and the eventual B25D
-reclaim remain open.
+sequence and the ordinary B25D lifetime. The remaining action/context path and
+the exact teardown ordering remain open.
 
 ## Linked callback `B84D -> B87B`
 
@@ -305,15 +314,16 @@ at the same boundary or one scheduler pass later.
 
 ## What remains before changing the recreation
 
-1. Sample a natural B226/B25D creation at one-frame cadence to associate the
-   sequence-table entries with gameplay frames and confirm terminal callback
-   clearing under ordinary (non-probed) phase changes.
+1. Associate the natural B226/B25D sequence-table entries with gameplay
+   frames, and trace the terminal callback-clear ordering at the coupled B33B
+   teardown boundary.
 2. Trace the natural `B33B` action/context path (`1B77 -> 393C/19E6`) and
    deliberately capture a run in which one of the `1C6E` probes returns raw
    bit `0x4000`; the frame-445 sample shows that this bit is not the direct
    cause of the timer-driven handoff.
 3. Trace the linked records at `+0x2A` and `+0x36`, including `B84D`, `B84C`,
-   and `0x487F`, so object deletion and reactivation are not guessed.
+   and `0x487F`, so the coupled teardown and any later object reactivation are
+   not guessed.
 4. Resolve the remaining full-frame palette/timing residuals after the
    queue-owned records are reproduced.
 5. Once those pass, implement a queue-owned render pass in C++ and compare
