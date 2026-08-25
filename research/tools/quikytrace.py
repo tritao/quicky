@@ -115,6 +115,7 @@ class PlayerTraceConfig:
     boss_input_warmup_frames: int = 0
     boss_input_warmup_secondary_key: str | None = None
     boss_input_secondary_pulse_events: int = 0
+    boss_stage_compact: bool = False
     boss_damage_focus: bool = False
     boss_damage_hits: int = 5
     boss_damage_target_callback: int = 0xA234
@@ -213,6 +214,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "boss_input_warmup_frames": config.boss_input_warmup_frames,
         "boss_input_warmup_secondary_key": config.boss_input_warmup_secondary_key or "",
         "boss_input_secondary_pulse_events": config.boss_input_secondary_pulse_events,
+        "boss_stage_compact": config.boss_stage_compact,
         "boss_damage_focus": config.boss_damage_focus,
         "boss_damage_hits": config.boss_damage_hits,
         "boss_damage_target_callback": config.boss_damage_target_callback,
@@ -698,6 +700,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="release/re-press the boss action key at this breakpoint interval (0 keeps it held)",
     )
     parser.add_argument(
+        "--boss-stage-compact", action="store_true",
+        help="omit bulky register/object state from long boss-stage traces",
+    )
+    parser.add_argument(
         "--boss-damage-focus", action="store_true",
         help="prepare a live pooled END object for the native damage callback",
     )
@@ -1000,6 +1006,7 @@ def main(argv: list[str] | None = None) -> int:
                 boss_input_warmup_frames=args.boss_input_warmup_frames,
                 boss_input_warmup_secondary_key=args.boss_input_warmup_secondary_key,
                 boss_input_secondary_pulse_events=args.boss_input_secondary_pulse_events,
+                boss_stage_compact=args.boss_stage_compact,
                 boss_damage_focus=args.boss_damage_focus,
                 boss_damage_hits=args.boss_damage_hits,
             )

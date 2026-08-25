@@ -35,6 +35,7 @@ local boss_stage_events = trace_config.boss_stage_events or 64
 local boss_input_warmup_frames = trace_config.boss_input_warmup_frames or 0
 local boss_input_warmup_secondary_key = trace_config.boss_input_warmup_secondary_key or ""
 local boss_input_secondary_pulse_events = trace_config.boss_input_secondary_pulse_events or 0
+local boss_stage_compact = trace_config.boss_stage_compact or false
 local boss_damage_focus = trace_config.boss_damage_focus or false
 local boss_damage_hits = trace_config.boss_damage_hits or 5
 local boss_damage_target_callback = trace_config.boss_damage_target_callback or 0xa234
@@ -918,17 +919,36 @@ end
 
 local function boss_event_snapshot(hit, target, event_index, previous_globals)
     local globals = static_globals()
+    local object = callback_object_snapshot(hit)
+    local registers = hit.registers or {}
     local event = {
         event_index = event_index,
         target = target,
         breakpoint = {segment = hit.segment, offset = hit.offset},
-        registers = hit.registers,
+        registers = registers,
         stack_hex = hex(dosbox.mem_read(
-            "ss", (hit.registers.esp or 0) & 0xffff, 12) or ""),
+            "ss", (registers.esp or 0) & 0xffff, 12) or ""),
         globals = globals,
-        object = callback_object_snapshot(hit),
+        object = object,
         effect_table_87de_hex = hex(dosbox.mem_read("ds", 0x87de, 16) or ""),
     }
+    if boss_stage_compact then
+        event.registers = {
+            eip = registers.eip, eax = registers.eax, ebx = registers.ebx,
+            esi = registers.esi, edi = registers.edi, es = registers.es,
+        }
+        event.stack_hex = nil
+        if object ~= nil then
+            event.object = {
+                index = object.index, selector = object.selector,
+                offset = object.offset, position = object.position,
+                callback = object.callback, sprite_slot = object.sprite_slot,
+                phase = object.phase, lifetime = object.lifetime,
+                link_word_0x2a = object.link_word_0x2a,
+                state_field = object.state_field,
+            }
+        end
+    end
     if previous_globals ~= nil then
         event.stage_delta = {
             effect_gate_88ae = globals.effect_gate_88ae -
