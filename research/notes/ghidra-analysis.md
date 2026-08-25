@@ -17,6 +17,34 @@ The segment extractor and annotation/decompiler scripts are:
 - `research/tools/AnnotateQuiky.java`
 - `research/tools/DumpQuikyDecomp.java`
 
+### Focused post-4EAA completion closure
+
+The remaining cloud/goal continuation is kept as a small Ghidra target set,
+not a whole-segment rewrite. `research/tools/DumpPuzzleTransitionDecomp.java`
+imports the exact executable's raw NE segments with
+`x86:LE:16:Protected Mode` and decompiles `01D7:4EA0/4EAA`, the pending wait,
+the `14E1` completion consumer, the `16C6-1709` presentation branch, and the
+`4F10/4FAF/5010/504F` handoff gates. The static result is:
+
+```text
+4EA0/4EAA -> DS:5044 == 0 ? wait(0x46) : wait(0x14F)
+          -> 0207:0002 timer wait
+          -> 01D7:14E1
+          -> DS:85DB ? 4FAF selector mapping : ordinary selector mapping
+          -> DS:89E0 gate at 5010
+          -> 504F progression/ordinary-loop dispatch
+```
+
+`DS:5044` is the audio-ready byte; it selects the short versus full wait,
+while `DS:85DB` is set only by the all-seven completion branch at
+`01D7:16C6-1704`. The native adjacent-cell cloud fixture reaches `92A9`,
+`4EA0`, `4EAA`, and `0207:0002` with `DS:60D8=0x7F`, `DS:89E6=0xFFFF`, and
+`DS:5044=1`. The short continuation stops at the wait, while the extended
+`native-cloud-focus-v10` run reaches `14E1`; it then remains in the authored
+input/presentation wait before the later reload boundary. This is recorded as
+a closed post-`4EAA` entry path with an unresolved post-consumer return, not an
+unknown dispatch.
+
 Run the annotation pass with:
 
 ```sh

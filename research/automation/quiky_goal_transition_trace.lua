@@ -35,6 +35,7 @@ local function checkpoint(name, hit, hold_frames)
         transition_state = dosbox.mem_read_byte("ds", 0x85da),
         transition_done = dosbox.mem_read_word("ds", 0x89e0),
         transition_pending = dosbox.mem_read_word("ds", 0x89ec),
+        audio_ready = dosbox.mem_read_byte("ds", 0x5044),
     }
     checkpoints[#checkpoints + 1] = record
     dosbox.output.goal_transition_checkpoints = checkpoints
@@ -70,6 +71,7 @@ local function optional_checkpoint(name, segment, offset, hold_frames)
         transition_state = dosbox.mem_read_byte("ds", 0x85da),
         transition_done = dosbox.mem_read_word("ds", 0x89e0),
         transition_pending = dosbox.mem_read_word("ds", 0x89ec),
+        audio_ready = dosbox.mem_read_byte("ds", 0x5044),
     }
     checkpoints[#checkpoints + 1] = skipped
     dosbox.output.goal_transition_checkpoints = checkpoints
@@ -161,6 +163,7 @@ if native_cloud_focus and native_goal then
     optional_checkpoint("native-cloud-flag-writer", 0x01f7, 0x92a9, 0)
     optional_checkpoint("native-cloud-outer-gate", 0x01d7, 0x4ea0, 0)
     optional_checkpoint("native-cloud-outer-positive-branch", 0x01d7, 0x4eaa, 0)
+    optional_checkpoint("native-cloud-transition-wait", 0x0207, 0x0002, 0)
     optional_checkpoint("native-cloud-completion-routine", 0x01d7, 0x14e1, 0)
     optional_checkpoint("native-cloud-completion-call", 0x01d7, 0x4f0d, 0)
     optional_checkpoint("native-cloud-completion-check", 0x01d7, 0x1669, 0)

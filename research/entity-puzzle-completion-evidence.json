@@ -56,6 +56,30 @@
       "clear_site": "01D7:16BF",
       "set_sites": ["01D7:1704", "01D7:4B34"],
       "interpretation": "01D7:1704 sets the flag after the all-seven presentation; 01D7:4B34 sets it for selector transition states 0x10-0x14; 01D7:16BF clears it on the non-final comparator path."
+    },
+    "post_4eaa_transition_closure": {
+      "pipeline": {
+        "script": "research/tools/DumpPuzzleTransitionDecomp.java",
+        "loader": "raw NE file-backed segments",
+        "processor": "x86:LE:16:Protected Mode",
+        "ghidra": "12.1.3",
+        "source_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+        "independent_export_sha256": "2c7c6afb2e92237d66ff2b2ce134a300e853b2d365edf5a107463d4b439197d3",
+        "targets": [
+          "01D7:4EA0", "01D7:4EAA", "01D7:4EDD", "01D7:4EE6", "01D7:4F0D",
+          "01D7:14E1", "01D7:1669", "01D7:16C6", "01D7:16DE", "01D7:16F0",
+          "01D7:1704", "01D7:1709", "01D7:4F10", "01D7:4FAF", "01D7:5010",
+          "01D7:504F", "01D7:01F0", "01D7:01D6"
+        ]
+      },
+      "entry_guard": "01D7:4EA0 continues only when DS:89E6 != 0; zero returns through the ordinary 01D7:504F tail.",
+      "wait_selection": "01D7:4EAA/4EDD sets a local delay to 0x014F. If byte DS:5044 is zero, the wait argument is replaced by 0x46; otherwise the full 0x014F delay is used. Both branches call the pending transition wait before the completion consumer.",
+      "wait_state": "DS:5044 is the audio-ready byte. The wait call is 01D7:4EDD/4EE6 -> 0207:0002; the timer wait clears DS:819E and yields until the IRQ sets it.",
+      "completion_consumer": "01D7:4F0D calls 01D7:14E1. That routine formats the score/cereal card, tests DS:60D8 at 01D7:1670, and takes 01D7:16C6-1704 only for mask 0x007F.",
+      "post_consumer_gate": "When DS:85DB is zero, 01D7:4F10 maps the ordinary selector continuation. When nonzero, 01D7:4FAF copies DS:85D4 to DS:85D6 and maps 0/1, 3/4, 6/7, 9/10, and 0x0C/0x0D to selector states 0x10..0x14.",
+      "reload_gate": "01D7:5010 enters the reload/re-entry calls only when DS:89E0 != 0xFFFF; the 01D7:504F tail dispatches progression when DS:89EC != 0 or DS:89E0 == 0xFFFF, otherwise it returns to the ordinary loop.",
+      "static_interpretation": "The missing post-4EAA behavior is a timed presentation/audio wait followed by the completion consumer. It is not an unresolved direct jump from the cloud branch. The semantic meaning of the local stack flags and the natural condition that permits the later reload branch remain address-qualified.",
+      "confidence": "confirmed_static; target decompilation and relocation-resolved call identities"
     }
   },
   "runtime_probe": {
@@ -266,7 +290,45 @@
         "completion_followup_hits": []
       },
       "interpretation": "The real cloud callback reaches its accepted 01F7:92A9 path, and the immediate native outer path reaches 01D7:4EA0/4EAA with the complete letter mask and DS:89E6=-1. The writer checkpoint itself is before the store, so the pre-entry DS:89E6 value is zero. The bounded native fixture does not reach 01D7:14E1, 4F0D, 1669, or 16C6 after that branch; completion presentation and resource reload remain unresolved."
+    },
+    "current_main_native_cloud_wait_probe": {
+      "trace": "research/build/traces/player-w1l1-goal-cloud-current/native-cloud-focus-v9.json",
+      "trace_sha256": "b52df58b7bdddfe469c6a0ba7db9b63f9ec9f2dbc4202413dbbf01c9ef094389",
+      "trace_script": "research/automation/quiky_goal_transition_trace.lua",
+      "trace_script_sha256": "2950cb3605118b064f8bd40c6389a4d4e02738feb461709991fe8274cc3b2e09",
+      "host_tool": "research/tools/quiky_goal_transition_trace.py",
+      "host_tool_sha256": "00c9d5e5b18ae579fb41bd57130411de838a1926a60721053242323580abfeb0",
+      "fixture_archive_sha256": "d4ef4ed3c1a2324d36c18bdeb78fb373d80f9ec76f7903f4fbdc1ed7a58da19c",
+      "controls": ["native letter callbacks", "native cloud callback", "player placement 256,390", "no DS:60D8/DS:89E6 seed"],
+      "observed": {
+        "cloud_writer": {"address": "01F7:92A9", "frame": 909, "entry_mask": "0x0000", "entry_exit_flag": "0x0000"},
+        "outer_gate": {"address": "01D7:4EA0", "frame": 910, "mask": "0x007F", "exit_flag": "0xFFFF"},
+        "outer_positive_branch": {"address": "01D7:4EAA", "frame": 910, "audio_ready": 1},
+        "pending_wait": {"address": "0207:0002", "frame": 911, "audio_ready": 1},
+        "completion_consumer_within_bounded_window": false
+      },
+      "interpretation": "The native cloud path enters the statically identified timer wait with the complete letter mask, the latched exit sentinel, and audio-ready set. The bounded continuation did not reach 01D7:14E1; because the selected delay is 0x014F frames, this is evidence of the wait boundary, not proof that the completion consumer is unreachable."
+    },
+    "current_main_native_cloud_completion_probe": {
+      "trace": "research/build/traces/player-w1l1-goal-cloud-current/native-cloud-focus-v10.json",
+      "trace_sha256": "14d1fd817c7f9737332f1acdc9328317687ed140ec1704b9fb86ea3646919d82",
+      "trace_script": "research/automation/quiky_goal_transition_trace.lua",
+      "trace_script_sha256": "2950cb3605118b064f8bd40c6389a4d4e02738feb461709991fe8274cc3b2e09",
+      "host_tool": "research/tools/quiky_goal_transition_trace.py",
+      "host_tool_sha256": "00c9d5e5b18ae579fb41bd57130411de838a1926a60721053242323580abfeb0",
+      "fixture_archive_sha256": "d4ef4ed3c1a2324d36c18bdeb78fb373d80f9ec76f7903f4fbdc1ed7a58da19c",
+      "controls": ["native letter callbacks", "native cloud callback", "player placement 256,390", "no DS:60D8/DS:89E6 seed", "30-second optional continuation window"],
+      "observed": {
+        "cloud_writer": {"address": "01F7:92A9", "frame": 910, "entry_mask": "0x0000", "entry_exit_flag": "0x0000"},
+        "outer_gate": {"address": "01D7:4EA0", "frame": 911, "mask": "0x007F", "exit_flag": "0xFFFF"},
+        "outer_positive_branch": {"address": "01D7:4EAA", "frame": 911, "audio_ready": 1},
+        "pending_wait": {"address": "0207:0002", "frame": 912, "audio_ready": 1},
+        "completion_consumer": {"address": "01D7:14E1", "frame": 1329, "mask": "0x007F", "exit_flag": "0xFFFF", "audio_ready": 1},
+        "post_consumer_return_within_bounded_window": false,
+        "later_reload_gate_within_bounded_window": false
+      },
+      "interpretation": "The longer native trace confirms the complete post-4EAA sequence through the timer wait and entry to 01D7:14E1. The completion routine's own input/presentation waits prevent this staged checkpoint sequence from observing its return to 4F0D or the later reload gate; those return conditions remain unresolved without a trace that releases the authored input wait rather than only extending the timer window."
     }
   },
-  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; once gated, 01D7:14E1 reaches the all-seven comparator and completion presentation, adds 2000 points, and sets DS:85DB=1. The controlled wait/input/audio release proves the native handoff through 01D7:4F10-4FAF and advances DS:85D4 to 0x10. The explicit transition census still observes no 01D7:5010 or downstream reload hit in the synthetic fixture, so exact retail timing and the resource/object rebuild require a fully authored completion or more faithful transition fixture."
+  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; the focused Ghidra closure proves that 4EAA enters a DS:5044-selected timed wait before calling 14E1, and the extended native cloud trace reaches both the wait and the completion consumer with the complete mask and exit sentinel. The all-seven comparator, presentation, selector handoff, and reload gates are statically closed; the authored input-wait release, natural return from the completion routine, and later resource/reload state remain runtime boundaries."
 }

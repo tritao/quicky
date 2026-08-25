@@ -131,9 +131,14 @@ separate adjacent-cell fixture also reaches the accepted cloud callback at
 `01F7:92A9` and publishes `DS:89E6=0xFFFF`; the cloud writer is observed
 before the native letter mask becomes complete. The immediate outer path then
 reaches `01D7:4EA0/4EAA` with the complete mask and cloud latch. These are
-dynamic validations of letter accumulation and the outer gate only. The
-completion presentation and downstream resource reload remain explicitly
-unresolved; no completion or level-exit behavior is inferred from them.
+dynamic validations of letter accumulation and the outer gate. Static Ghidra
+closure now also proves the post-`4EAA` `DS:5044`-selected timer wait,
+`01D7:14E1` completion consumer, `DS:85DB` selector handoff, and `DS:89E0`
+reload gate. The native cloud fixture reaches `0207:0002` with the complete
+mask and sentinel, and the extended run reaches `01D7:14E1`. Its bounded
+continuation does not yet prove return from the completion routine's authored
+input wait or the later reload state, so those remain explicit runtime
+boundaries rather than guessed behavior.
 
 The moving-platform slice now executes the static `01F7:9DC7` / `A075` /
 `A0B2` publication contract for ARE types `0x3D`-`0x40`. It runs before the
