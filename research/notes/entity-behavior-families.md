@@ -450,6 +450,13 @@ The same pass closes the branch-level behavior for the remaining effects:
   the retail producer of damage rows and the completion handoff into
   `DS:85DB/DS:85D4` are not identified. Full details and hashes are in
   [`entity-boss-stage-evidence.json`](../entity-boss-stage-evidence.json).
+  A follow-up authored probe now holds left plus left Alt during that boss
+  callback loop. It observes `DS:8806=1` while the live `A228/A22E` END child
+  callbacks run, then returns to zero before the bounded wait ends. No `B25D`
+  damage callback or later stage writer fires. This closes authored row
+  creation in the END scene, but leaves spatial row delivery/consumption and
+  the retail completion producer open; the trace is recorded as
+  `runtime_authored_input_probe` in the same evidence ledger.
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
   while below 9), and clears the live callback. `01D7:1084` initializes the

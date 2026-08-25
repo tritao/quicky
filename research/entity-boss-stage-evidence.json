@@ -190,6 +190,24 @@
     },
     "interpretation": "This is controlled callback-path evidence, not an authored damage/completion run: the fixture deliberately rewrites one live A234 callback and seeds the shared row table. It proves that the recovered native W1 damage/main callbacks implement the five-hit gate and stage progression 1->2->3->4->5, including helper kill, effect-loop timing, exit, and post-stage child replacement. It does not identify the retail producer that delivers damage rows or the completion handoff into DS:85DB/DS:85D4."
   },
+  "runtime_authored_input_probe": {
+    "trace": "research/build/player-w1l4-left-leftalt-boss-authored.json",
+    "trace_sha256": "9c19a55081fc86f32f48f0d421736a40f86cbb34039bf8bc61d423062d15e5e7",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "6e7b03cf6c8f97fac4b2326f19700fca82be4e91348d5f18924aded56a61a0bc",
+    "fixture": "Native main-tree W1L4 selected through the in-game level selector; requested input held during the boss-stage callback loop",
+    "input": "KBD_left and KBD_leftalt held together",
+    "observed": {
+      "stage_events": 8,
+      "stage_gate": "DS:88AE 0 -> 1 at the authored A101/END initialization",
+      "effect_row_window": "DS:8806=1 while END callbacks A228 and A22E are observed; DS:880C remains 0",
+      "final_effect_count": 0,
+      "damage_callback_hits": 0,
+      "stage_writer_hits": 0,
+      "stop_reason": "bounded boss-stage event wait timed out after the eight one-shot constructor/child targets"
+    },
+    "interpretation": "The player action can create a live shared effect row during the authored W1L4 END sequence, closing the authored row-creation boundary. No B25D damage callback or later stage writer appears in this bounded run, so spatial row delivery/consumption and the retail completion producer remain open."
+  },
   "remaining": [
     "Capture the authored damage/completion producer that feeds DS:87DE rows or invokes the world-boss damage callbacks; the native callback state machine is now controlled-verified.",
     "Capture the authored completion producer and downstream reload/resource handoff after the controlled DS:85DB -> 01D7:4F10-4FAF selector advance; 01D7:5017/5038/5047 remains unobserved dynamically.",

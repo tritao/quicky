@@ -1114,6 +1114,18 @@ if boss_stage_focus then
     local initial_globals = static_globals()
     local previous_globals = initial_globals
     local boss_damage_preparation = nil
+    -- Player input is normally held only around sampled player callbacks.
+    -- For an authored boss probe, keep the requested action pressed while the
+    -- stage callbacks are being traced so a real projectile/effect can reach
+    -- the live END child instead of waiting until after the stage loop.
+    local boss_input_held = false
+    if input_key ~= "" and input_frames > 0 then
+        dosbox.key(input_key, true)
+        if input_secondary_key ~= "" then
+            dosbox.key(input_secondary_key, true)
+        end
+        boss_input_held = true
+    end
     arm_boss_targets()
     dosbox.debug_continue()
     for sequence = 1, boss_stage_events do
@@ -1196,6 +1208,12 @@ if boss_stage_focus then
         end
     end
     clear_boss_targets()
+    if boss_input_held then
+        dosbox.key(input_key, false)
+        if input_secondary_key ~= "" then
+            dosbox.key(input_secondary_key, false)
+        end
+    end
     if boss_stage_trace == nil then
         boss_stage_trace = {
             stop_reason = "event_limit",
