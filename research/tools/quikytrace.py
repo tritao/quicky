@@ -96,6 +96,35 @@ class MemoryPatch:
     selector: int | None = None
 
 
+@dataclass(frozen=True)
+class InputPhase:
+    """Keys and duration applied before one post-baseline sample."""
+
+    keys: tuple[str, ...]
+    frames: int
+
+
+def parse_input_phase(value: str) -> InputPhase:
+    """Parse KEY[+KEY...]:FRAMES, with WAIT representing no held keys."""
+    key_spec, separator, frame_text = value.rpartition(":")
+    if not separator or not key_spec or not frame_text:
+        raise argparse.ArgumentTypeError(
+            "input phase must use KEY[+KEY...]:FRAMES or WAIT:FRAMES"
+        )
+    keys = () if key_spec.upper() == "WAIT" else tuple(key_spec.split("+"))
+    if len(keys) > 3 or any(not key for key in keys):
+        raise argparse.ArgumentTypeError(
+            "input phase accepts at most three '+'-separated keys"
+        )
+    try:
+        frames = int(frame_text, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError("input phase frames must be an integer") from exc
+    if frames < 0:
+        raise argparse.ArgumentTypeError("input phase frames cannot be negative")
+    return InputPhase(keys, frames)
+
+
 def parse_memory_patch(value: str) -> MemoryPatch:
     """Parse SPACE:OFFSET:WIDTH=VALUE (or selector:SEL:OFFSET:WIDTH=VALUE)."""
     try:
@@ -179,6 +208,7 @@ class PlayerTraceConfig:
     screenshot: Path | None = None
     screenshot_mode: str = "rendered"
     patches: tuple[MemoryPatch, ...] = ()
+    input_phases: tuple[InputPhase, ...] = ()
 
 
 def lua_literal(value: Any) -> str:
@@ -302,6 +332,10 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
                 "value": patch.value,
             }
             for patch in config.patches
+        ],
+        "input_phases": [
+            {"keys": list(phase.keys), "frames": phase.frames}
+            for phase in config.input_phases
         ],
     }
 
@@ -867,6 +901,9 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-input-phase", action="append", type=parse_input_phase,
+                        default=[], metavar="KEY[+KEY...]:FRAMES",
+                        help="per-sample input phase; repeat in order, or use WAIT:FRAMES")
     parser.add_argument("--player-capture-record", action="store_true",
                         help="capture the complete 0x78-byte player record before/after each callback")
     parser.add_argument("--player-patch", action="append", type=parse_memory_patch,
@@ -978,6 +1015,11 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-transition-warmup-frames cannot be negative")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
+    if args.player_input_phase and (
+            args.player_input_key or args.player_input_key_switch or
+            args.player_input_key_2 or args.player_input_frames or
+            args.player_input_samples):
+        raise TraceError("--player-input-phase cannot be combined with legacy player input options")
     if args.player_capture_record and not args.player_focus_callback:
         raise TraceError("--player-capture-record requires --player-focus-callback")
     if args.player_collision_event_limit < 1:
@@ -1160,6 +1202,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_samples=args.player_input_samples,
                 capture_player_record=args.player_capture_record,
                 patches=tuple(args.player_patch),
+                input_phases=tuple(args.player_input_phase),
                 collision_event_limit=args.player_collision_event_limit,
                 collision_repeat_limit=args.player_collision_repeat_limit,
                 transition_focus=args.player_transition_focus,

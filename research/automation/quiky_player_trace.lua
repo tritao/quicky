@@ -36,6 +36,7 @@ local secondary_start_sample = trace_config.secondary_start_sample or 1
 local secondary_end_sample = trace_config.secondary_end_sample or 0
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
+local input_phases = trace_config.input_phases or {}
 local capture_player_record = trace_config.capture_player_record or false
 -- Full pool snapshots are useful for discovery, but they are expensive: each
 -- sample walks 64 records and decodes every field.  Once the callback has
@@ -1326,7 +1327,8 @@ local samples = {}
 local experiment_frame = 0
 for sequence = 1, sample_count do
     if sequence > 1 then
-        local held_input = input_key ~= "" and input_frames > 0 and
+        local phase = input_phases[sequence - 1]
+        local held_input = phase == nil and input_key ~= "" and input_frames > 0 and
             (input_samples == 0 or sequence <= input_samples + 1)
         local active_input_key = input_key
         if input_key_switch ~= "" and input_switch_sample > 0 and
@@ -1337,7 +1339,14 @@ for sequence = 1, sample_count do
             sequence >= secondary_start_sample and
             (secondary_end_sample == 0 or sequence <= secondary_end_sample)
         local secondary_pressed = false
-        if held_input then
+        if phase ~= nil then
+            local keys = phase.keys or {}
+            local phase_frames = phase.frames or 0
+            for _, key in ipairs(keys) do dosbox.key(key, true) end
+            if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+            for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
+            experiment_frame = experiment_frame + phase_frames
+        elseif held_input then
             dosbox.key(active_input_key, true)
             if held_secondary then
                 dosbox.key(input_key_secondary, true)

@@ -62,6 +62,11 @@ The first Lua consolidation pass now keeps that migration small:
 - `quikytrace.py` composes those two modules with the player probe and parses
   repeatable `--player-patch` declarations such as
   `player:0x3e:u16=0` or `selector:0x27f:0x3a:u8=0xff`.
+- Repeatable `--player-input-phase` declarations now cover the reusable
+  multi-key sequencing recovered in the boss/entity worktrees without
+  reintroducing their tracer forks. For example,
+  `KBD_right+KBD_up:12`, `WAIT:3`, and `KBD_left:8` describe three successive
+  post-baseline sample windows.
 
 The player trace schema remains version 1. Existing focused options and output
 fields are unchanged; mutation ledgers are additive and appear only when a
@@ -78,7 +83,7 @@ implementation.
 
 ## Validation
 
-- `python3 -m unittest discover -s research/tests -q`: 135 passing.
+- `python3 -m unittest discover -s research/tests -q`: 137 passing.
 - Fresh CMake configure and build: passing.
 - `ctest --test-dir build/engine --output-on-failure`: 11 passing.
 - `git diff --check`: passing.

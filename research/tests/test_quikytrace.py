@@ -9,6 +9,7 @@ sys.path.insert(0, str(TOOLS_DIR))
 
 from quikytrace import (  # noqa: E402
     EntityTraceConfig,
+    InputPhase,
     MemoryPatch,
     PlayerTraceConfig,
     TraceError,
@@ -22,6 +23,7 @@ from quikytrace import (  # noqa: E402
     normalize_player_trace,
     player_trace_lua_config,
     parse_memory_patch,
+    parse_input_phase,
     trace_player_lua,
     trace_entity_lua,
     trace_resources_lua,
@@ -59,6 +61,27 @@ class QuikyTraceTests(unittest.TestCase):
         for value in ("bogus", "cs:1:u8=0", "ds:0:u8=256", "player:0x10000:u8=0"):
             with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
                 parse_memory_patch(value)
+
+    def test_input_phase_parser_and_serialization(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        phases = (
+            parse_input_phase("KBD_right+KBD_up:12"),
+            parse_input_phase("WAIT:3"),
+        )
+        self.assertEqual(phases[0], InputPhase(("KBD_right", "KBD_up"), 12))
+        self.assertEqual(phases[1], InputPhase((), 3))
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording, input_phases=phases,
+        ))
+        self.assertEqual(payload["input_phases"], [
+            {"keys": ["KBD_right", "KBD_up"], "frames": 12},
+            {"keys": [], "frames": 3},
+        ])
+
+    def test_input_phase_parser_rejects_invalid_specs(self):
+        for value in ("KBD_right", "KBD_right:-1", "A+B+C+D:1", ":3"):
+            with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):
+                parse_input_phase(value)
 
     def test_decode_lookup_call(self):
         stack = struct.pack("<HHHH", 0x36D0, 0x01D7, 0x1234, 0x0237)
