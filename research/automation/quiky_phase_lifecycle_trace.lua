@@ -97,9 +97,10 @@ local function b33b_map_probes(raw, x, y)
 end
 
 local function hex(s)
-    return (s:gsub(".", function(c)
+    local result = s:gsub(".", function(c)
         return string.format("%02x", string.byte(c))
-    end))
+    end)
+    return result
 end
 
 local function wait_hit(label)
@@ -216,6 +217,44 @@ local function globals_snapshot()
         scheduler_cursor = dosbox.mem_read_word("ds", 0x7966),
         action_word = dosbox.mem_read_word("ds", 0x612e),
         late_owner_state = dosbox.mem_read_word("ds", 0x85d8),
+        completion_flag = dosbox.mem_read_word("ds", 0x89e6),
+        player_collision_mode = dosbox.mem_read_word("ds", 0x89ea),
+        loop_state = dosbox.mem_read_word("ds", 0x880a),
+    }
+end
+
+local function scheduler_snapshot()
+    local raw = dosbox.mem_read("ds", 0x7566, 0x200) or ""
+    local banks = {}
+    for bank = 0, 1 do
+        local entries = {}
+        local bank_offset = 0x7566 + bank * 0x100
+        for index = 0, 31 do
+            local base = bank * 0x100 + index * 8 + 1
+            if base + 7 > #raw then break end
+            local callback_offset = word(raw, base)
+            local callback_segment = word(raw, base + 2)
+            local object_offset = word(raw, base + 4)
+            local object_segment = word(raw, base + 6)
+            if callback_offset == 0xffff and callback_segment == 0xffff then
+                break
+            end
+            entries[#entries + 1] = {
+                index = index,
+                callback = {segment = callback_segment, offset = callback_offset},
+                object = {selector = object_segment, offset = object_offset},
+            }
+        end
+        banks[#banks + 1] = {
+            index = bank,
+            base = bank_offset,
+            stride = 8,
+            entries = entries,
+        }
+    end
+    return {
+        cursor = dosbox.mem_read_word("ds", 0x7966),
+        banks = banks,
     }
 end
 
@@ -284,6 +323,7 @@ local function callback_write_probe()
             {name = "owner_phase", offset = 0x88ae, size = 1},
             {name = "action_word", offset = 0x612e, size = 2},
             {name = "action_accumulator", offset = 0x881c, size = 4},
+            {name = "scheduler_cursor", offset = 0x7966, size = 2},
         }
         for _, control in ipairs(controls) do
             local raw = dosbox.mem_read_selector(0x0237, control.offset,
@@ -318,6 +358,12 @@ local function callback_write_probe()
         -- transitions. Arm their callers too, so a quiet callback window is
         -- distinguishable from a transition that did not happen.
         local transition_sites = {
+            {segment = 0x01d7, offset = 0x44fa},
+            {segment = 0x01d7, offset = 0x4518},
+            {segment = 0x01d7, offset = 0x47fc},
+            {segment = 0x01d7, offset = 0x481a},
+            {segment = 0x01d7, offset = 0x4872},
+            {segment = 0x01d7, offset = 0x4890},
             {segment = 0x01d7, offset = 0x499e},
             {segment = 0x01d7, offset = 0x4bce},
             {segment = 0x01d7, offset = 0x4c9b},
@@ -334,7 +380,6 @@ local function callback_write_probe()
     for _ = 1, teardown_max_hits do
         dosbox.debug_continue()
         local hit = dosbox.wait_for_breakpoint(teardown_timeout_ms)
-        after = pool_snapshot()
         if not hit then break end
         local changed = {}
         local changed_controls = {}
@@ -381,6 +426,18 @@ local function callback_write_probe()
                 control.raw = raw
             end
         end
+        local capture_pool = #changed > 0 or
+            hit.offset == 0x0e96 or hit.offset == 0x0fa2 or
+            hit.offset == 0x106a or hit.offset == 0x489c or
+            hit.offset == 0x49eb or hit.offset == 0xb33b or
+            hit.offset == 0xb25d
+        local pool_after = nil
+        local scheduler_after = nil
+        if capture_pool then
+            after = pool_snapshot()
+            pool_after = after
+            scheduler_after = scheduler_snapshot()
+        end
         write_hits[#write_hits + 1] = {
             hit = hit,
             changed = changed,
@@ -399,7 +456,8 @@ local function callback_write_probe()
                     "main_transition_4f08" or
                 (hit.segment == 0x01f7 and hit.offset == 0x106a and
                     "scheduler_cleanup" or nil)))))) ,
-            pool_after = after,
+            pool_after = pool_after,
+            scheduler = scheduler_after,
             globals = globals_snapshot(),
         }
         if teardown_watch_self_test then break end
@@ -434,8 +492,16 @@ local function teardown_probe_hits()
     end
     local targets = {
         {segment = 0x01f7, offset = 0x0e06, name = "factory"},
+        {segment = 0x01f7, offset = 0x0e96, name = "object_update_pass"},
+        {segment = 0x01f7, offset = 0x0fa2, name = "object_update_nonzero"},
         {segment = 0x01f7, offset = 0x106a, name = "scheduler_cleanup"},
         {segment = 0x1997, offset = 0x106a, name = "scheduler_cleanup"},
+        {segment = 0x01d7, offset = 0x44fa, name = "object_pass_call_44fa"},
+        {segment = 0x01d7, offset = 0x4518, name = "object_pass_call_4518"},
+        {segment = 0x01d7, offset = 0x47fc, name = "object_pass_call_47fc"},
+        {segment = 0x01d7, offset = 0x481a, name = "object_pass_call_481a"},
+        {segment = 0x01d7, offset = 0x4872, name = "object_pass_call_4872"},
+        {segment = 0x01d7, offset = 0x4890, name = "object_pass_call_4890"},
         {segment = 0x01f7, offset = 0x1dee, name = "deactivate"},
         {segment = 0x01f7, offset = 0x1b77, name = "context"},
         {segment = 0x01f7, offset = 0x1c6e, name = "map_contact"},
@@ -474,8 +540,8 @@ local function teardown_probe_hits()
         local hit = dosbox.wait_for_breakpoint(teardown_timeout_ms)
         if not hit then break end
         if pending_return ~= nil and
-           pending_return.segment == hit.segment and
-           pending_return.offset == hit.offset then
+            pending_return.segment == hit.segment and
+            pending_return.offset == hit.offset then
             local record = hits[pending_return.index]
             record.return_actual = {
                 segment = hit.segment,
@@ -502,6 +568,7 @@ local function teardown_probe_hits()
                 offset = hit.offset,
                 registers = hit.registers,
                 pool = pool_snapshot(),
+                scheduler = scheduler_snapshot(),
                 globals = globals_snapshot(),
             }
             hits[#hits + 1] = record
@@ -522,6 +589,23 @@ local function teardown_probe_hits()
                     dosbox.mem_write_selector(
                         hit.registers.es, (hit.registers.edi & 0xffff) + 0x2a,
                         "\x01")
+                end
+            end
+            if hit.offset == 0x489c and teardown_rearm_callbacks then
+                -- The first 489C can occur in the pass that created it. Arm
+                -- the next pass after this entry, not at the current IP.
+                dosbox.breakpoint_set(hit.segment, 0x0e96, {once = true})
+                dosbox.breakpoint_set(hit.segment, 0x0fa2, {once = true})
+            end
+            if hit.offset == 0x489c and teardown_watch_callback_writes then
+                local late = object_snapshot(
+                    hit.registers.es, hit.registers.edi & 0xffff, -1)
+                if late.linked_offset >= 2 then
+                    -- The direct 49EB execution stop is supplemented by a
+                    -- post-store watch on the callback word itself.
+                    dosbox.memory_breakpoint_set(
+                        hit.registers.es, (hit.registers.edi & 0xffff) + 0x18,
+                        {protected = true})
                 end
             end
             if (hit.offset == 0xb33b or hit.offset == 0xb25d or
@@ -614,6 +698,7 @@ for sequence = 1, sample_count do
         sequence = sequence,
         globals = globals_snapshot(),
         pool = pool_snapshot(),
+        scheduler = scheduler_snapshot(),
     }
 end
 

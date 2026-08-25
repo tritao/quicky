@@ -400,13 +400,32 @@ word. The terminal state-2 path at `496E` instead sets `+0x2A = 2`, writes
 
 A controlled W1L3 run with phase `5`, player/owner overlap at `(128,400)`,
 and `DS:85D8 = 2` reached `489C -> 4936 -> 393C -> 496E` and left the late
-record at callback `489C`, `+0x2A = 2`. The probe re-armed `489C` after its
-dispatcher return and watched both `01F7` and `1997` selector aliases, but no
-second `489C` entry or `49EB` clear occurred in the observation window;
-B33B/B25D continued to dispatch. This separates the statically known
-self-clear condition from the still-unresolved scheduler reachability/entry
-that must deliver the next callback pass. It also explains why a pool scan
-alone can show a live `489C` record after the terminal action.
+record at callback `489C`, `+0x2A = 2`. A full-caller probe then showed the
+next scheduler activity reaching another `489C` on a newly allocated duplicate
+record: the original record at offset `0x1E0` retained `+0x2A = 2`, while the
+new record at `0x2D0` started at `+0x2A = 0`. With `DS:85D8 = 2`, the terminal
+callback also writes `DS:89E6 = 0xffff`; twenty post-action frame samples
+kept that flag and both records stable, with no observed `106A` cleanup or
+main transition. The short state-2 trace therefore proves scheduler
+re-entry/allocation, but not the eventual external reclamation boundary.
+
+For `DS:85D8 = 3`, a protected memory watch on the callback word supplies the
+missing self-clear evidence independently of an execution breakpoint at
+`49EB`: the same record repeatedly follows `0 -> 487F -> 489C -> 0`, then is
+reallocated and repeats the cycle. This confirms that `489C -> 0` is a real
+callback-word store and that the apparent lack of `49EB` execution hits is a
+probe-timing issue, not evidence against the static tail. The remaining
+unknown is the coupled B33B/B25D teardown and the scheduler pass that performs
+it.
+
+The relocation scan also closes the complete near-call inventory for the
+ordinary object-update pass. `01F7:0E96` is called from segment `01D7` at
+`44FA`, `4518`, `47FC`, `481A`, `4872`, `4890`, `499E`, `4BCE`, `4C9B`,
+`4CE9`, and `4F08`; the first six are earlier object/lifecycle passes, while
+the last five are the main state-transition callers. `0FA2` shares the early
+pass sites, and `106A` is used by the last five transition sites. This gives
+the dynamic probe a complete dispatch boundary instead of relying only on the
+single `0E96` entry breakpoint.
 
 ## What remains before changing the recreation
 
