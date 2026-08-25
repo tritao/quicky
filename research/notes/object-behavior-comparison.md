@@ -67,3 +67,7 @@ and supports a region of interest for isolating one object. Full-frame
 validation is now a reproducible experiment; its remaining mismatches identify
 camera timing, unrelated active objects, and draw-order gaps rather than being
 hidden by an asset-only mask.
+
+For the dynamic queue pass, add `--trace-render` to
+`high_effect_trace.py`. It records the first spawned effect's `3529`/`3587`
+breakpoints and snapshots the shared eight-byte draw records before the flush.

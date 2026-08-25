@@ -41,6 +41,8 @@ class HighEffectConfig:
     force_object_x: int | None = None
     force_object_y: int | None = None
     stop_at_cursor: int | None = None
+    trace_render: bool = False
+    render_trace_hits: int = 64
 
 
 def lua_config(config: HighEffectConfig) -> dict[str, Any]:
@@ -60,6 +62,8 @@ def lua_config(config: HighEffectConfig) -> dict[str, Any]:
         "force_object_x": config.force_object_x,
         "force_object_y": config.force_object_y,
         "stop_at_cursor": config.stop_at_cursor,
+        "trace_render": config.trace_render,
+        "render_trace_hits": config.render_trace_hits,
     }
 
 
@@ -188,6 +192,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-object-y", type=int)
     parser.add_argument("--stop-at-cursor", type=lambda value: int(value, 0),
                         help="stop on a spawned-effect callback after this cursor")
+    parser.add_argument("--trace-render", action="store_true",
+                        help="trace the first spawned effect through 3529/3587")
+    parser.add_argument("--render-trace-hits", type=int, default=64,
+                        help="maximum render breakpoints to record")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -221,6 +229,8 @@ def main(argv: list[str] | None = None) -> int:
             raise TraceError(f"--{name.replace('_', '-')} must be signed 16-bit")
     if args.stop_at_cursor is not None and not 0 <= args.stop_at_cursor <= 0xffff:
         raise TraceError("--stop-at-cursor must be between 0 and 65535")
+    if args.render_trace_hits < 1 or args.render_trace_hits > 1024:
+        raise TraceError("--render-trace-hits must be between 1 and 1024")
 
     repo_root = Path(__file__).resolve().parents[2]
     startup_recording = args.startup_recording
@@ -293,6 +303,8 @@ def main(argv: list[str] | None = None) -> int:
             force_object_x=args.force_object_x,
             force_object_y=args.force_object_y,
             stop_at_cursor=args.stop_at_cursor,
+            trace_render=args.trace_render,
+            render_trace_hits=args.render_trace_hits,
         )
         trace = trace_high_effect(api, script_path, config)
         envelope = {

@@ -355,6 +355,19 @@ the host captures the frame, which makes later animation records reproducible.
 Use `--screenshot-format raw` when the uncompressed DOSBox frame container is
 more useful than PNG pixels.
 
+To inspect the scene draw queue around the first spawned high effect, add
+`--trace-render`. The trace records the `01F7:3529`/`01F7:3587` breakpoints and
+the shared eight-byte queue records before the flush:
+
+~~~sh
+DOSBOX_AUTOMATION_BIN=/path/to/dosbox_with_debugger \
+PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
+  --launch --headless --runtime-dir game --select-level W1L3 \
+  --frames 20 --frame-step 1 --force-object-x 300 --force-object-y 500 \
+  --stop-at-cursor 0 --trace-render \
+  --output research/build/high-effect/w1l3-render-trace.json
+~~~
+
 The one-frame cadence is intentional: the first steady callback consumes the
 target before its state gate advances the transient object to the next phase.
 All five high tails now have live target-hit evidence. Their static

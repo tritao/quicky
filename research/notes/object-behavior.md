@@ -690,6 +690,18 @@ early-row residue, the provisional entity/effect/player ordering, and the
 remaining full-frame mismatches without overlapping the separate player
 collision research.
 
+The optional `--trace-render` mode now supplies the first such dynamic sample.
+In `w1l3-render-trace-v3.json`, the DOSBox `01F7:3587` flush sees five records
+at camera `(0,358)`; their word-4 selectors are `[951, 904, 611, 994, 0]`.
+Record 2 is the recovered effect and retains world coordinates `(300,510)`
+with slot `611`. No `01F7:3529` hit precedes this flush, so this callback path
+publishes its BOB draw record directly into the shared queue. The current C++
+order (all ARE entity sprites, then transient effects, then player) therefore
+cannot yet be called faithful even though the isolated BOB pixels match. The
+next trace should resolve the other four queue records to object/resource
+owners and repeat at cursors 12 and 20 to determine whether the early extra
+rows are a one-time queue entry or a frame-buffer artifact.
+
 The type-`0x34` gate is now exact. `01F7:9C0C` begins with
 `CMP byte DS:85DA,0x32` followed by `JGE return`; only values `0x00..0x31`
 can reach the visibility check, descriptor advance, and local `0x9C29`

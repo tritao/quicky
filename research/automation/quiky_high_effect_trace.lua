@@ -18,6 +18,8 @@ local target_cursor_offset = trace_config.target_cursor_offset or 0x2a
 local force_object_x = trace_config.force_object_x
 local force_object_y = trace_config.force_object_y
 local stop_at_cursor = trace_config.stop_at_cursor
+local trace_render = trace_config.trace_render or false
+local render_trace_hits = trace_config.render_trace_hits or 64
 local callback_segments = {0x01f7, 0x1997}
 local watched_effect_callbacks = {}
 local watched_effect_objects = {}
@@ -161,6 +163,75 @@ local function globals_snapshot()
         action_word = dosbox.mem_read_word("ds", 0x612e),
         active_scheduler_count = dosbox.mem_read_word("ds", 0x88c8),
     }
+end
+
+local function render_record_snapshot(hit)
+    local selector = hit.registers.es or 0
+    local offset = (hit.registers.edi or 0) & 0xffff
+    local raw = dosbox.mem_read_selector(selector, offset, 8) or ""
+    return {
+        selector = selector,
+        offset = offset,
+        raw_hex = hex(raw),
+        x = word(raw, 1),
+        y = word(raw, 3),
+        object_x_or_width = word(raw, 5),
+        object_y_or_flags = word(raw, 7),
+    }
+end
+
+local function render_queue_snapshot()
+    local pointer_offset = dosbox.mem_read_word("ds", 0x6d86) or 0
+    local pointer_selector = dosbox.mem_read_word("ds", 0x6d88) or 0
+    local count = dosbox.mem_read_word("ds", 0x8174) or 0
+    local records = {}
+    for index = 0, math.min(count, 128) - 1 do
+        local offset = pointer_offset + index * 8
+        local raw = dosbox.mem_read_selector(pointer_selector, offset, 8) or ""
+        records[#records + 1] = {
+            index = index,
+            selector = pointer_selector,
+            offset = offset,
+            raw_hex = hex(raw),
+            word0 = word(raw, 1),
+            word2 = word(raw, 3),
+            word4 = word(raw, 5),
+            word6 = word(raw, 7),
+        }
+    end
+    return {
+        count = count,
+        pointer_offset = pointer_offset,
+        pointer_selector = pointer_selector,
+        records = records,
+    }
+end
+
+local function trace_render_window()
+    if not trace_render then return nil end
+    local records = {}
+    -- The callback pass may have left one-shot body breakpoints armed for a
+    -- later scheduler callback. Remove those before observing the renderer;
+    -- otherwise the first hit would be mistaken for a draw-path entry.
+    dosbox.breakpoint_clear()
+    for attempt = 1, render_trace_hits do
+        dosbox.breakpoint_set(0x01f7, 0x3529, {once = true})
+        dosbox.breakpoint_set(0x01f7, 0x3587, {once = true})
+        dosbox.debug_continue()
+        local hit = wait_hit("render path breakpoint")
+        local record = {
+            breakpoint = {segment = hit.segment, offset = hit.offset,
+                          registers = hit.registers},
+            camera = globals_snapshot(),
+            queue = render_queue_snapshot(),
+        }
+        if hit.offset == 0x3529 or hit.offset == 0x3587 then
+            record.record = render_record_snapshot(hit)
+        end
+        records[#records + 1] = record
+        if hit.offset == 0x3587 then break end
+    end
+    return records
 end
 
 local function scheduled_high_snapshot()
@@ -506,6 +577,7 @@ local frames = {}
 local callback_events = {}
 local spawned_effect_events = {}
 local stopped_at_cursor = nil
+local render_trace_taken = false
 for frame = 1, frame_count do
     if frame > 1 and input_key ~= "" and input_frames > 0 and
        (input_samples == 0 or frame <= input_samples + 1) then
@@ -530,6 +602,10 @@ for frame = 1, frame_count do
             if stop_at_cursor ~= nil and event.object_after ~= nil and
                event.object_after.target_cursor >= stop_at_cursor then
                 stopped_at_cursor = event.object_after.target_cursor
+            end
+            if trace_render and not render_trace_taken then
+                event.render_trace = trace_render_window()
+                render_trace_taken = true
             end
         end
     else
