@@ -84,8 +84,9 @@ def correlate_samples(trace: dict[str, Any], offset: int | None = None) -> list[
             raise TraceReportError("player trace contains a non-object sample")
         globals_state = sample.get("globals")
         pool = sample.get("pool")
-        if not isinstance(globals_state, dict) or not isinstance(pool, dict):
-            raise TraceReportError("sample is missing globals or pool")
+        callback = sample.get("player_callback")
+        if not isinstance(globals_state, dict):
+            raise TraceReportError("sample is missing globals")
         target_offset = offset
         if target_offset is None:
             raw_offset = globals_state.get("player_object_offset")
@@ -94,17 +95,29 @@ def correlate_samples(trace: dict[str, Any], offset: int | None = None) -> list[
                     "sample has no player_object_offset; pass --offset only for a reviewed trace"
                 )
             target_offset = _as_int(raw_offset, "player_object_offset")
-        matches = [
-            object_state for object_state in _objects(sample)
-            if object_state.get("offset") == target_offset
-        ]
+        if isinstance(pool, dict):
+            matches = [
+                object_state for object_state in _objects(sample)
+                if object_state.get("offset") == target_offset
+            ]
+            selector = _as_int(pool.get("selector"), "pool.selector")
+        elif isinstance(callback, dict) and isinstance(callback.get("pre_object"), dict):
+            # Full-record callback capture deliberately omits repeated 64-record
+            # pool walks after the first sample. The callback barrier's complete
+            # pre-object is the authoritative player record in those samples.
+            callback_object = callback["pre_object"]
+            matches = ([callback_object]
+                       if callback_object.get("offset") == target_offset else [])
+            selector = _as_int(callback_object.get("selector"),
+                               "player_callback.pre_object.selector")
+        else:
+            raise TraceReportError("sample is missing pool and callback pre_object")
         if len(matches) != 1:
             sequence = sample.get("sequence", "?")
             raise TraceReportError(
                 f"sample {sequence}: expected one object at offset "
                 f"0x{target_offset:04x}, found {len(matches)}"
             )
-        selector = _as_int(pool.get("selector"), "pool.selector")
         sequence = _as_int(sample.get("sequence"), "sample.sequence")
         frame_index = sample.get("frame_index", sequence - 1)
         frame_index = _as_int(frame_index, "sample.frame_index")
@@ -115,8 +128,7 @@ def correlate_samples(trace: dict[str, Any], offset: int | None = None) -> list[
             offset=target_offset,
             object=matches[0],
             globals=globals_state,
-            callback=sample.get("player_callback")
-            if isinstance(sample.get("player_callback"), dict) else None,
+            callback=callback if isinstance(callback, dict) else None,
             collision=sample.get("collision") if isinstance(sample.get("collision"), dict) else None,
             map_lookup=sample.get("map_lookup") if isinstance(sample.get("map_lookup"), dict) else None,
             collisions=sample.get("collisions") if isinstance(sample.get("collisions"), list) else None,

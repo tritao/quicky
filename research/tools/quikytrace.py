@@ -26,6 +26,8 @@ from quikyctl import build_are_type_catalog
 LOOKUP = (0x0207, 0x18C7)
 RESOURCE_STATE_OFFSET = 0x97E4
 RESOURCE_STATE_SIZE = 12
+TRACE_SCHEMA_VERSION = 1
+LEDGER_SCHEMA = "quiky-resource-trace-v1"
 
 
 class TraceError(Exception):
@@ -165,7 +167,7 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
     """Return the guest-visible portion of an entity trace configuration."""
     state_machine = config.state_machine
     return {
-        "schema_version": 1,
+        "schema_version": TRACE_SCHEMA_VERSION,
         "timeout_ms": round(config.timeout * 1000),
         "record_offset": config.record_offset,
         "entity_type": config.entity_type,
@@ -202,7 +204,7 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
 def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
     """Return the guest-visible portion of a player trace configuration."""
     return {
-        "schema_version": 1,
+        "schema_version": TRACE_SCHEMA_VERSION,
         "timeout_ms": round(config.timeout * 1000),
         "samples": config.samples,
         "frames_between": config.frames_between,
@@ -512,7 +514,7 @@ def ordered_lua_array(value: Any) -> list[Any]:
 
 def normalize_entity_trace(entity: dict[str, Any]) -> dict[str, Any]:
     """Normalize Lua table arrays while retaining the raw trace fields."""
-    entity.setdefault("trace_schema_version", 1)
+    entity.setdefault("trace_schema_version", TRACE_SCHEMA_VERSION)
     entity["lifetime_samples"] = ordered_lua_array(
         entity.get("lifetime_samples", [])
     )
@@ -576,7 +578,7 @@ def normalize_entity_trace(entity: dict[str, Any]) -> dict[str, Any]:
 
 def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
     """Normalize pool/sample arrays emitted by the player Lua probe."""
-    trace.setdefault("trace_schema_version", 1)
+    trace.setdefault("trace_schema_version", TRACE_SCHEMA_VERSION)
     samples = ordered_lua_array(trace.get("samples", []))
     for sample in samples:
         pool = sample.get("pool")
@@ -1178,7 +1180,9 @@ def main(argv: list[str] | None = None) -> int:
         args.screenshot.parent.mkdir(parents=True, exist_ok=True)
         args.screenshot.write_bytes(screenshot_bytes)
     ledger = {
-        "schema": "quiky-resource-trace-v1", "created_utc": datetime.now(timezone.utc).isoformat(),
+        "schema": LEDGER_SCHEMA,
+        "trace_schema_version": TRACE_SCHEMA_VERSION,
+        "created_utc": datetime.now(timezone.utc).isoformat(),
         "dosbox": info,
         "inputs": {"executable": str(executable), "executable_sha256": sha256(executable),
                    "archive": str(archive), "archive_sha256": sha256(archive),

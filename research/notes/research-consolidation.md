@@ -78,3 +78,17 @@ implementation.
    controls into focused scripts.
 4. Continue the player movement/collision closure from the canonical
    full-record tracer.
+
+## Infrastructure follow-up
+
+The first follow-up is now in place:
+
+- `research/ghidra/quiky-analysis.json` is the initial versioned
+  symbol/evidence manifest for the player closure.
+- `research/tools/quiky_ghidra.py validate` checks the manifest and executable
+  hash without requiring Ghidra.
+- `research/tools/quiky_ghidra.py audit-project` is a read-only PyGhidra proof
+  of concept that verifies and decompiles the canonical symbols in an existing
+  annotated raw-segment project.
+- Trace configuration and ledgers use centralized schema constants; schema
+  version 1 remains compatible with existing captures.

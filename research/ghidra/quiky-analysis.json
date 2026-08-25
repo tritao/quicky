@@ -1,0 +1,76 @@
+{
+  "schema": "quiky-ghidra-analysis-v1",
+  "executable": {
+    "path": "game/QUIKY.EXE",
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
+  },
+  "ghidra": {
+    "tested_version": "12.1.3",
+    "language": "x86:LE:16:Protected Mode:default",
+    "project_layout": "separate-raw-ne-segments"
+  },
+  "segments": {
+    "3": {"program": "/QUIKY_SEG03.bin", "runtime_selector": "01F7"},
+    "6": {
+      "program": "/QUIKY_SEG06.bin",
+      "runtime_selector": "0237",
+      "required_in_raw_project": false
+    }
+  },
+  "symbols": [
+    {
+      "segment": 3,
+      "offset": "3F27",
+      "kind": "function",
+      "name": "initialize_player_object",
+      "confidence": "confirmed",
+      "closures": ["player"],
+      "evidence": ["static:initializer-callback-write", "runtime:player-pool-offset-zero"]
+    },
+    {
+      "segment": 3,
+      "offset": "3FF8",
+      "kind": "function",
+      "name": "update_player_object",
+      "confidence": "confirmed",
+      "closures": ["player"],
+      "evidence": ["static:initializer-callback-write", "runtime:callback-barrier"]
+    },
+    {
+      "segment": 3,
+      "offset": "3D02",
+      "kind": "function",
+      "name": "player_collision_helper_3d02",
+      "confidence": "mechanical",
+      "closures": ["player", "collision"],
+      "evidence": ["static:descriptor-response-decode", "runtime:controlled-branch-matrix"]
+    },
+    {
+      "segment": 3,
+      "offset": "5C27",
+      "kind": "function",
+      "name": "map_tile_descriptor_query_5c27",
+      "confidence": "confirmed",
+      "closures": ["player", "collision", "descriptor"],
+      "evidence": ["static:quadrant-mask-decode", "runtime:selector-safe-property-matrix"]
+    },
+    {
+      "segment": 3,
+      "offset": "5CC3",
+      "kind": "function",
+      "name": "map_descriptor_read",
+      "confidence": "confirmed",
+      "closures": ["player", "collision", "descriptor"],
+      "evidence": ["static:descriptor-table-read", "runtime:selector-safe-property-matrix"]
+    },
+    {
+      "segment": 6,
+      "offset": "881A",
+      "kind": "label",
+      "name": "player_object_offset",
+      "confidence": "confirmed",
+      "closures": ["player"],
+      "evidence": ["static:initializer-store", "runtime:player-pool-offset-zero"]
+    }
+  ]
+}

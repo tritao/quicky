@@ -69,6 +69,16 @@ class PlayerTraceReportTests(unittest.TestCase):
         with self.assertRaises(TraceReportError):
             correlate_samples({"samples": [sample(1, 128, 400, 0x3F27)]}, offset=0x99)
 
+    def test_correlates_lean_full_record_callback_sample(self):
+        row = sample(2, 129, 400, 0x3FF8)
+        player = row["pool"]["objects"][0]
+        player["selector"] = row["pool"]["selector"]
+        del row["pool"]
+        row["player_callback"] = {"pre_object": player, "writes": []}
+        result = correlate_samples({"samples": [row]})
+        self.assertEqual(result[0].selector, 0x027F)
+        self.assertEqual(result[0].object["position"]["x"], 129)
+
     def test_report_and_csv_keep_provisional_fields_explicit(self):
         trace = {"samples": [sample(1, 128, 400, 0x3F27), sample(2, 129, 400, 0x3FF8)]}
         trace["samples"][0]["collisions"] = [
