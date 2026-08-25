@@ -25,8 +25,9 @@
 
 namespace {
 
-const int kViewportWidth = 640;
-const int kViewportHeight = 360;
+const int kLogicalWidth = 320;
+const int kLogicalHeight = 200;
+const int kWorldViewportHeight = 176;
 const std::uint64_t kTickNanoseconds = 1000000000ULL / 60ULL;
 
 void usage() {
@@ -450,16 +451,25 @@ int main(int argc, char **argv) {
         (void)musicEnabled;
 #endif
         checkSdl(SDL_CreateWindowAndRenderer(
-                     "Quiky", kViewportWidth * 2, kViewportHeight * 2,
+                     "Quiky", kLogicalWidth * 2, kLogicalHeight * 2,
                      SDL_WINDOW_RESIZABLE, &sdl.window, &sdl.renderer),
                  "SDL_CreateWindowAndRenderer");
         checkSdl(SDL_SetRenderLogicalPresentation(
-                     sdl.renderer, kViewportWidth, kViewportHeight,
+                     sdl.renderer, kLogicalWidth, kLogicalHeight,
                      SDL_LOGICAL_PRESENTATION_INTEGER_SCALE),
                  "SDL_SetRenderLogicalPresentation");
 
-        const quiky::IndexedSurface initialSurface =
+        const quiky::IndexedSurface initialWorld =
             quiky::renderMap(runtime->map(), runtime->tileset());
+        const int initialCameraX = clampCamera(
+            player.x.floorPixels() - kLogicalWidth / 2,
+            static_cast<int>(initialWorld.width), kLogicalWidth);
+        const int initialCameraY = clampCamera(
+            player.y.floorPixels() - kWorldViewportHeight / 2,
+            static_cast<int>(initialWorld.height), kWorldViewportHeight);
+        const quiky::IndexedSurface initialSurface = quiky::composeGameplayFrame(
+            initialWorld, runtime->gamebar().surface(), initialCameraX,
+            initialCameraY);
         sdl.texture = createSurfaceTexture(sdl.renderer, initialSurface);
 
         bool running = true;
@@ -575,8 +585,11 @@ int main(int argc, char **argv) {
                             std::unique_ptr<quiky::LevelRuntime> next =
                                 quiky::LevelRuntime::load(
                                     archive, event.targetLevel, bobName);
-                            const quiky::IndexedSurface nextSurface =
+                            const quiky::IndexedSurface nextWorld =
                                 quiky::renderMap(next->map(), next->tileset());
+                            const quiky::IndexedSurface nextSurface =
+                                quiky::composeGameplayFrame(
+                                    nextWorld, next->gamebar().surface(), 0, 0);
                             replaceSurfaceTexture(sdl, nextSurface);
                             carriedScore += runtime->session().score();
                             carriedDeaths += runtime->session().deaths();
@@ -616,32 +629,36 @@ int main(int argc, char **argv) {
             }
 
             quiky::Palette framePalette = runtime->palette();
-            quiky::IndexedSurface surface =
+            quiky::IndexedSurface worldSurface =
                 quiky::renderMap(runtime->map(), runtime->tileset());
             if (showArea) {
-                quiky::overlayArea(surface, framePalette, runtime->area());
+                quiky::overlayArea(worldSurface, framePalette, runtime->area());
             }
             if (showEntities) {
-                drawEntityMarkers(surface, framePalette, runtime->session());
+                drawEntityMarkers(worldSurface, framePalette, runtime->session());
             }
-            drawEntitySprites(surface, *runtime);
-            drawTransientEffects(surface, *runtime);
+            drawEntitySprites(worldSurface, *runtime);
+            drawTransientEffects(worldSurface, *runtime);
             const quiky::BobRecord &record =
                 choosePlayerFrame(runtime->playerBob(), playerAnimation);
-            quiky::drawBobRecord(surface, record,
+            quiky::drawBobRecord(worldSurface, record,
                                  player.x.floorPixels(), player.y.floorPixels());
-            uploadSurface(sdl.texture, surface, framePalette);
 
-            int cameraX = player.x.floorPixels() - kViewportWidth / 2;
-            int cameraY = player.y.floorPixels() - kViewportHeight / 2;
-            cameraX = clampCamera(cameraX, static_cast<int>(surface.width), kViewportWidth);
-            cameraY = clampCamera(cameraY, static_cast<int>(surface.height), kViewportHeight);
+            int cameraX = player.x.floorPixels() - kLogicalWidth / 2;
+            int cameraY = player.y.floorPixels() - kWorldViewportHeight / 2;
+            cameraX = clampCamera(cameraX, static_cast<int>(worldSurface.width),
+                                  kLogicalWidth);
+            cameraY = clampCamera(cameraY, static_cast<int>(worldSurface.height),
+                                  kWorldViewportHeight);
+            const quiky::IndexedSurface surface = quiky::composeGameplayFrame(
+                worldSurface, runtime->gamebar().surface(), cameraX, cameraY);
+            uploadSurface(sdl.texture, surface, framePalette);
             const SDL_FRect source = {
-                static_cast<float>(cameraX), static_cast<float>(cameraY),
-                static_cast<float>(kViewportWidth), static_cast<float>(kViewportHeight)};
+                0.0f, 0.0f, static_cast<float>(kLogicalWidth),
+                static_cast<float>(kLogicalHeight)};
             const SDL_FRect destination = {
-                0.0f, 0.0f, static_cast<float>(kViewportWidth),
-                static_cast<float>(kViewportHeight)};
+                0.0f, 0.0f, static_cast<float>(kLogicalWidth),
+                static_cast<float>(kLogicalHeight)};
             checkSdl(SDL_RenderClear(sdl.renderer), "SDL_RenderClear");
             checkSdl(SDL_RenderTexture(sdl.renderer, sdl.texture, &source, &destination),
                      "SDL_RenderTexture");

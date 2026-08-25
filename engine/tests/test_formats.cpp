@@ -9,6 +9,7 @@
 #include "quiky/runtime.h"
 #include "quiky/tileset.h"
 
+#include <algorithm>
 #include <cassert>
 #include <cstdint>
 #include <exception>
@@ -144,6 +145,45 @@ void testMapPaletteTilesetAndRenderer() {
 
     quiky::drawIcoTile(surface, tileset, 1, 0, 0);
     assert(surface.at(0, 0) == 7);
+}
+
+void testGameplayFrameComposition() {
+    quiky::IndexedSurface world(640, 352);
+    for (std::uint32_t y = 0; y < world.height; ++y) {
+        for (std::uint32_t x = 0; x < world.width; ++x) {
+            world.at(x, y) = static_cast<quiky::byte>((x + y) & 0xff);
+        }
+    }
+    quiky::IndexedSurface gamebar(320, 24);
+    std::fill(gamebar.pixels.begin(), gamebar.pixels.end(), 0xa5);
+    gamebar.at(0, 0) = 0x11;
+    gamebar.at(319, 23) = 0x22;
+
+    const quiky::IndexedSurface frame =
+        quiky::composeGameplayFrame(world, gamebar, 100, 80);
+    assert(frame.width == 320 && frame.height == 200);
+    assert(frame.at(0, 0) == static_cast<quiky::byte>((100 + 80) & 0xff));
+    assert(frame.at(319, 175) ==
+           static_cast<quiky::byte>((419 + 255) & 0xff));
+    assert(frame.at(0, 176) == 0x11);
+    assert(frame.at(1, 176) == 0xa5);
+    assert(frame.at(319, 199) == 0x22);
+
+    // The opaque bar wins over the world at every bar row, including index 0.
+    quiky::IndexedSurface zeroBar(320, 24);
+    const quiky::IndexedSurface zeroFrame =
+        quiky::composeGameplayFrame(world, zeroBar, 0, 0);
+    assert(zeroFrame.at(10, 175) == 185);
+    assert(zeroFrame.at(10, 176) == 0);
+
+    bool failed = false;
+    try {
+        quiky::IndexedSurface badBar(319, 24);
+        quiky::composeGameplayFrame(world, badBar, 0, 0);
+    } catch (const quiky::FormatError &) {
+        failed = true;
+    }
+    assert(failed);
 }
 
 void testAreaAndOverlay() {
@@ -856,6 +896,7 @@ int main() {
         testReader();
         testArchive();
         testMapPaletteTilesetAndRenderer();
+        testGameplayFrameComposition();
         testAreaAndOverlay();
         testBobParserDecoderAndSheet();
         testPlayerSimulation();

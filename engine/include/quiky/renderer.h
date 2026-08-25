@@ -31,6 +31,13 @@ enum class SurfaceBlitMode {
 // owns rows 0..175 and GAMEBAR.PCC is an opaque 320x24 strip at y=176.
 void compositeGamebar(IndexedSurface &screen, const IndexedSurface &gamebar);
 
+// Crop the camera-visible world to the native 320x176 gameplay area, then
+// append the opaque GAMEBAR strip to produce one complete 320x200 frame.
+IndexedSurface composeGameplayFrame(const IndexedSurface &world,
+                                    const IndexedSurface &gamebar,
+                                    std::int32_t cameraX,
+                                    std::int32_t cameraY);
+
 IndexedSurface renderMap(const Map &map, const Tileset &tileset);
 // Composite a screen-space layer with clipped indexed writes.  HUD/menu
 // surfaces use Opaque; callers that intentionally need a masked utility layer

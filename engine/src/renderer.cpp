@@ -50,6 +50,30 @@ void compositeGamebar(IndexedSurface &screen, const IndexedSurface &gamebar) {
     blitIndexedSurface(screen, gamebar, 0, 176, SurfaceBlitMode::Opaque);
 }
 
+IndexedSurface composeGameplayFrame(const IndexedSurface &world,
+                                    const IndexedSurface &gamebar,
+                                    std::int32_t cameraX,
+                                    std::int32_t cameraY) {
+    IndexedSurface screen(320, 200);
+    for (std::int32_t y = 0; y < 176; ++y) {
+        const std::int32_t sourceY = cameraY + y;
+        if (sourceY < 0 || static_cast<std::uint32_t>(sourceY) >= world.height) {
+            continue;
+        }
+        for (std::int32_t x = 0; x < 320; ++x) {
+            const std::int32_t sourceX = cameraX + x;
+            if (sourceX < 0 || static_cast<std::uint32_t>(sourceX) >= world.width) {
+                continue;
+            }
+            screen.at(static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y)) =
+                world.at(static_cast<std::uint32_t>(sourceX),
+                         static_cast<std::uint32_t>(sourceY));
+        }
+    }
+    compositeGamebar(screen, gamebar);
+    return screen;
+}
+
 IndexedSurface renderMap(const Map &map, const Tileset &tileset) {
     const std::uint32_t width = static_cast<std::uint32_t>(map.width) * 16;
     const std::uint32_t height = static_cast<std::uint32_t>(map.height) * 16;
