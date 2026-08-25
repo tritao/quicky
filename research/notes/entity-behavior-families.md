@@ -354,14 +354,24 @@ The same pass closes the branch-level behavior for the remaining effects:
   capacity bound, and `DS:880C` the pending-effect count consumed by
   `01D7:14E1`. The `4519` initializer also gates on the shared byte
   `DS:88AE`: it clears its newly allocated object unless `DS:88AE > 0` or
-  `DS:880C > 0`, then requires `DS:8806 < DS:8808`. A relocation-backed
+  `DS:880C > 0`, then requires `DS:8806 < DS:8808`. Static writer and archive
+  correlation now bounds `DS:88AE` to the boss/end-sequence stage machine:
+  `01D7:3147` resets it, `01F7:A101`, `B115`, `C25E`, and `CC3B` set stage 1
+  while allocating child callbacks, and nearby `B30E`, `B61A`, `B791`, `B824`,
+  and `D60B` sites mutate later stage values. The child paths toggle logical
+  sprite slots `0x385`/`0x3B7`, which resolve to `END1.BOB`, `END3.BOB`,
+  `END4.BOB`, and `END5.BOB`, not `WIND.BOB` or `UFO.BOB`. This is static
+  raw-segment plus archive evidence; a world-by-world authored completion
+  trace is still needed before assigning exact transition timing. A
+  relocation-backed
   producer is now identified: player-update tail `01F7:38EC` calls the
   pooled-object factory `01F7:0E06` with `AX=0x4519` when player flags bit
   `0x10` is set and byte `+0x3C` is clear. Reset has two cross-segment
   callsites, `01D7:3FC6` and `01D7:44E9` (the latter from `01D7:44D0`).
   This proves one authored factory producer and the reset boundaries; which
-  gameplay state raises bit `0x10`, and which path sets `DS:88AE`/`DS:880C`,
-  remain open. A controlled main-tree mutation at the actual `01F7:38EC`
+  gameplay state raises bit `0x10`, and which completion/boss transition
+  advances `DS:88AE` or supplies `DS:880C`, remain open. A controlled
+  main-tree mutation at the actual `01F7:38EC`
   entry (rather than its earlier `4384` prelude) writes action word `0x0010`,
   observes byte `+0x3C: 0 -> FF`, and reaches the relocation-backed factory
   `01F7:0E06` with `AX=0x4519`. The scheduler-focused trace then catches the
@@ -374,12 +384,10 @@ The same pass closes the branch-level behavior for the remaining effects:
   The unmutated input ledger identifies the tested source: holding left Alt
   (scan `0x38`) produces `DS:88BC=0x0010`, player action `0x0010`, and the
   same `+0x3C: 0 -> FF` guard transition. This closes the keyboard trigger
-  mapping; other non-keyboard gameplay producers and the `DS:88AE`/`DS:880C`
-  writers remain open. Raw disassembly narrows the gate-writer search to a
-  reset at `01D7:3147`, set-to-one sites at `01F7:A101`, `B115`, `C25E`, and
-  `CC3B`, plus state writes around `B30E`, `B61A`, `B791`, `B824`, and an
-  increment at `D60B`; those sites still need family ownership and authored
-  trigger correlation. See
+  mapping; other non-keyboard gameplay producers and the independent Wind/UFO
+  row producers remain open. The gate-writer search is now bounded to the
+  boss/end-stage constructors and callbacks; what remains is the authored
+  completion transition that advances the stage. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 - Paper `8C4E -> 8D20` shares the pickup overlap dispatcher: subtype 5 adds
   500 to `DS:881C`, emits `DS:612E=0x0C`, increments bounded `DS:880A` (only
@@ -637,9 +645,10 @@ are deliberately narrower:
    generic `0013` VGA/BOB primitive, ordinary queue path, player-state gate,
    cross-world usage, removal path, and both player-side readers are confirmed;
    the 64-sample queue probe ruled out an explicit ordinary-queue injection.
-3. If effect semantics are required beyond control flow, correlate authored
-   writers of the `DS:88AE`/`DS:880C` spawn gates and Wind/UFO row producers,
-   then assign the paper `DS:880A` bounded HUD counter its human-facing label.
+3. If effect semantics are required beyond control flow, capture one authored
+   boss/end transition to map `DS:88AE` stage values and correlate the separate
+   Wind/UFO row producers that seed `DS:87DE`; then assign the paper `DS:880A`
+   bounded HUD counter its human-facing label.
 4. If exact streaming persistence is required, identify which region/resource
    unload transition (if any) causes `1CDA -> 1E04` to revisit a cleared record
    without a full level reload. The current evidence deliberately distinguishes

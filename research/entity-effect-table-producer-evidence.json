@@ -101,7 +101,7 @@
         "One guest frame later occupancy is back to 8; no 01F7:4519, 01F7:45AB, or 01F7:470C breakpoint is observed.",
         "The player callback returns with action word 0x0010."
       ],
-      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The next-frame scheduler probe now shows the record inserted at DS:7566 and 01F7:4519 entered with DS:88AE=0 and DS:880C=0; the callback clears +0x18 at its own guard, so this fixture rejects the effect before claiming a row. The authored gameplay transition that sets bit 0x10 and the paths that set DS:88AE/DS:880C remain open."
+      "interpretation": "The recovered condition and producer call are dynamically reachable when the 0x10 action state is supplied, and the factory visibly allocates a callback-4519 pool record. The next-frame scheduler probe now shows the record inserted at DS:7566 and 01F7:4519 entered with DS:88AE=0 and DS:880C=0; the callback clears +0x18 at its own guard, so this fixture rejects the effect before claiming a row. Static disassembly and END archive-slot correlation bound DS:88AE to a boss/end-sequence stage machine, so the remaining authored trigger is the completion/boss path rather than a normal Wind/UFO initializer."
     },
     "natural_input_trigger_probe": {
       "trace": "research/build/player-effect-table-leftalt-natural-w1l1-v2.json",
@@ -141,8 +141,8 @@
   },
   "remaining": [
     "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
-    "Which authored gameplay/effect paths set DS:88AE or DS:880C so callback 01F7:4519 can claim a row.",
-    "Whether Wind/UFO authored declarations use this player-state producer or another producer path, and how they seed DS:87DE rows.",
+    "Which authored completion/boss transition advances DS:88AE (or supplies DS:880C) so callback 01F7:4519 can claim a row, and which end-stage callback consumes each stage value.",
+    "Whether Wind/UFO authored declarations use the player-state producer or another producer path, and how their paths seed DS:87DE rows independently of the boss/end-stage gate.",
     "The semantic names and level/reload triggers of the two reset callsites."
   ]
 }
