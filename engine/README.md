@@ -135,10 +135,13 @@ dynamic validations of letter accumulation and the outer gate. Static Ghidra
 closure now also proves the post-`4EAA` `DS:5044`-selected timer wait,
 `01D7:14E1` completion consumer, `DS:85DB` selector handoff, and `DS:89E0`
 reload gate. The native cloud fixture reaches `0207:0002` with the complete
-mask and sentinel, and the extended run reaches `01D7:14E1`. Its bounded
-continuation does not yet prove return from the completion routine's authored
-input wait or the later reload state, so those remain explicit runtime
-boundaries rather than guessed behavior.
+mask and sentinel, and the extended post-input run reaches `01D7:14E1`, the
+authored `01D7:01F0/01AC/01BD/01D1/01D6` input path, `01E7:0CAA`,
+`0207:022A`, `01D7:5010`, `01D7:504F`, and the first post-cleanup renderer at
+`01F7:35C7`. The trace records actual debugger hit addresses and generations;
+the repeated `01D7:01D6` hit is retained as observed. Exact object/resource
+side effects produced by helpers beyond the reload gate remain explicit
+runtime boundaries rather than guessed behavior.
 
 The moving-platform slice now executes the static `01F7:9DC7` / `A075` /
 `A0B2` publication contract for ARE types `0x3D`-`0x40`. It runs before the

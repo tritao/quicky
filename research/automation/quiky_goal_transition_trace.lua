@@ -8,6 +8,7 @@ local goal_mask = TRACE_GOAL_MASK
 local deep_only = TRACE_DEEP_ONLY
 local native_goal = TRACE_NATIVE_GOAL or false
 local native_cloud_focus = TRACE_NATIVE_CLOUD_FOCUS or false
+local native_post_input = TRACE_NATIVE_POST_INPUT or false
 local force_player_x = TRACE_FORCE_PLAYER_X
 local force_player_y = TRACE_FORCE_PLAYER_Y
 local checkpoints = {}
@@ -51,14 +52,20 @@ end
 -- the observation window, not a reason to abort the whole research run.  Keep
 -- those negative observations in the ledger and leave the guest running.
 local function optional_checkpoint(name, segment, offset, hold_frames)
+    -- The debugger can retain an already-reported one-shot until the next
+    -- command round trip. This phase has only one live optional target, so
+    -- clear the breakpoint set at each transition rather than allowing a
+    -- stale address to masquerade as the next checkpoint.
+    dosbox.breakpoint_clear()
     dosbox.breakpoint_set(segment, offset, {once = true})
     dosbox.debug_continue()
     local hit, err = dosbox.wait_for_breakpoint(optional_timeout_ms)
     if hit then
+        dosbox.breakpoint_clear()
         checkpoint(name, hit, hold_frames)
         return true
     end
-    dosbox.breakpoint_remove(segment, offset)
+    dosbox.breakpoint_clear()
     local skipped = {
         name = name,
         skipped = true,
@@ -164,10 +171,62 @@ if native_cloud_focus and native_goal then
     optional_checkpoint("native-cloud-outer-gate", 0x01d7, 0x4ea0, 0)
     optional_checkpoint("native-cloud-outer-positive-branch", 0x01d7, 0x4eaa, 0)
     optional_checkpoint("native-cloud-transition-wait", 0x0207, 0x0002, 0)
-    optional_checkpoint("native-cloud-completion-routine", 0x01d7, 0x14e1, 0)
-    optional_checkpoint("native-cloud-completion-call", 0x01d7, 0x4f0d, 0)
-    optional_checkpoint("native-cloud-completion-check", 0x01d7, 0x1669, 0)
-    optional_checkpoint("native-cloud-completion-branch", 0x01d7, 0x16c6, 0)
+    local completion_entry = optional_checkpoint("native-cloud-completion-routine", 0x01d7, 0x14e1, 0)
+    if native_post_input and completion_entry then
+        -- Arm the whole authored post-14E1 path at once. Sequential optional
+        -- waits can observe a debugger hit that was queued by the preceding
+        -- wait; a single set preserves the guest's actual execution order.
+        local post_targets = {
+            {name = "input-wait-1", segment = 0x01d7, offset = 0x01f0},
+            {name = "input-wait-2", segment = 0x01d7, offset = 0x01d6},
+            {name = "input-poll", segment = 0x01d7, offset = 0x01ac},
+            {name = "input-seed", segment = 0x01d7, offset = 0x01bd},
+            {name = "input-result", segment = 0x01d7, offset = 0x01d1},
+            {name = "transition-effect", segment = 0x01e7, offset = 0x0caa},
+            {name = "fade-helper", segment = 0x0207, offset = 0x022a},
+            {name = "reload-gate", segment = 0x01d7, offset = 0x5010},
+            {name = "cleanup", segment = 0x01d7, offset = 0x504f},
+            {name = "post-cleanup-render", segment = 0x01f7, offset = 0x35c7},
+        }
+        for _, target in ipairs(post_targets) do
+            dosbox.breakpoint_set(target.segment, target.offset, {once = true})
+        end
+        dosbox.debug_continue()
+        local space_active = false
+        for _ = 1, #post_targets + 4 do
+            local hit, err = dosbox.wait_for_breakpoint(optional_timeout_ms)
+            if not hit then
+                checkpoints[#checkpoints + 1] = {
+                    name = "native-post-input-timeout",
+                    skipped = true,
+                    frame = dosbox.frame(),
+                    error = err or "timeout",
+                }
+                break
+            end
+            local label = string.format("native-post-input-%04x:%04x",
+                                        hit.segment, hit.offset)
+            checkpoint(label, hit, 0)
+            if hit.segment == 0x01d7 and hit.offset == 0x01d6 then
+                dosbox.key("KBD_space", true)
+                space_active = true
+            elseif hit.segment == 0x01d7 and hit.offset == 0x01d1 and space_active then
+                dosbox.key("KBD_space", false)
+                space_active = false
+            end
+            if hit.segment == 0x01f7 and hit.offset == 0x35c7 then
+                break
+            end
+            dosbox.debug_continue()
+        end
+        if space_active then dosbox.key("KBD_space", false) end
+        dosbox.breakpoint_clear()
+    end
+    if not native_post_input then
+        optional_checkpoint("native-cloud-completion-call", 0x01d7, 0x4f0d, 0)
+        optional_checkpoint("native-cloud-completion-check", 0x01d7, 0x1669, 0)
+        optional_checkpoint("native-cloud-completion-branch", 0x01d7, 0x16c6, 0)
+    end
 end
 
 -- These are selector-relative segment-1 offsets.  01D7:1669 is the separate

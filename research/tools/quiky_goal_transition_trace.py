@@ -42,6 +42,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="do not seed flags; use a fixture's native letter callbacks")
     parser.add_argument("--native-cloud-focus", action="store_true",
                         help="watch the native cloud callback's DS:89E6 writer")
+    parser.add_argument("--native-post-input", action="store_true",
+                        help="after native 14E1, trace and release the authored input waits")
     parser.add_argument("--force-player-x", type=int)
     parser.add_argument("--force-player-y", type=int)
     parser.add_argument("--deep", action="store_true",
@@ -56,6 +58,7 @@ def run(args: argparse.Namespace) -> int:
         raise TraceError("--goal-mask must be between 0 and 0xffff")
     repo_root = Path(__file__).resolve().parents[2]
     script_path = repo_root / "research/automation/quiky_goal_transition_trace.lua"
+    host_tool_path = Path(__file__).resolve()
     recording_path = repo_root / "research/automation/startup-to-input.json"
     runtime_dir = (args.runtime_dir.resolve() if args.runtime_dir
                    else (repo_root / "game").resolve())
@@ -94,6 +97,7 @@ def run(args: argparse.Namespace) -> int:
                   f"TRACE_GOAL_MASK={args.goal_mask}\n"
                   f"TRACE_NATIVE_GOAL={'true' if args.native_goal else 'false'}\n"
                   f"TRACE_NATIVE_CLOUD_FOCUS={'true' if args.native_cloud_focus else 'false'}\n"
+                  f"TRACE_NATIVE_POST_INPUT={'true' if args.native_post_input else 'false'}\n"
                   + (f"TRACE_FORCE_PLAYER_X={args.force_player_x}\n"
                      if args.force_player_x is not None else "")
                   + (f"TRACE_FORCE_PLAYER_Y={args.force_player_y}\n"
@@ -136,6 +140,7 @@ def run(args: argparse.Namespace) -> int:
                     "schema": "quiky-goal-transition-trace-v1",
                     "goal_mask_seed": args.goal_mask,
                     "native_goal": args.native_goal,
+                    "native_post_input": args.native_post_input,
                     "runtime_dir": str(runtime_dir),
                     "dosbox": info,
                     "executable": str(executable),
@@ -144,6 +149,8 @@ def run(args: argparse.Namespace) -> int:
                     "archive_sha256": sha256(archive),
                     "script": str(script_path),
                     "script_sha256": sha256(script_path),
+                    "host_tool": str(host_tool_path),
+                    "host_tool_sha256": sha256(host_tool_path),
                     "checkpoints": ordered(output.get(
                         "goal_transition_checkpoints", [])),
                     "frames": captured,

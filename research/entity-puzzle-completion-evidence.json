@@ -328,7 +328,47 @@
         "later_reload_gate_within_bounded_window": false
       },
       "interpretation": "The longer native trace confirms the complete post-4EAA sequence through the timer wait and entry to 01D7:14E1. The completion routine's own input/presentation waits prevent this staged checkpoint sequence from observing its return to 4F0D or the later reload gate; those return conditions remain unresolved without a trace that releases the authored input wait rather than only extending the timer window."
+    },
+    "current_main_native_cloud_post_input_probe": {
+      "trace": "research/build/traces/player-w1l1-goal-cloud-current/native-cloud-post-input-v17.json",
+      "trace_sha256": "c9addee6fe8bdc61c983282330bc7fa0d860878d4e3a851644575f7839b7a637",
+      "trace_script": "research/automation/quiky_goal_transition_trace.lua",
+      "trace_script_sha256": "f94ecc79439bf754af1ad80b43339604ffbf805fba9bc468d62f9cac3e884953",
+      "host_tool": "research/tools/quiky_goal_transition_trace.py",
+      "host_tool_sha256": "b200e92f8f7589175dd6b108e453f16bb47d059a61d2320ef84845de1afdbdeb",
+      "fixture_archive_sha256": "d4ef4ed3c1a2324d36c18bdeb78fb373d80f9ec76f7903f4fbdc1ed7a58da19c",
+      "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+      "controls": [
+        "native letter callbacks",
+        "native cloud callback",
+        "player placement 256,390",
+        "no DS:60D8/DS:89E6 seed",
+        "post-14E1 targets armed simultaneously",
+        "KBD_space pressed at the observed 01D7:01D6 wait and released after the captured path"
+      ],
+      "observed": {
+        "cloud_writer": {"address": "01F7:92A9", "frame": 910, "entry_mask": "0x0000", "entry_exit_flag": "0x0000"},
+        "outer_gate": {"address": "01D7:4EA0", "frame": 911, "mask": "0x007F", "exit_flag": "0xFFFF"},
+        "outer_positive_branch": {"address": "01D7:4EAA", "frame": 911, "audio_ready": 1},
+        "pending_wait": {"address": "0207:0002", "frame": 912, "audio_ready": 1},
+        "completion_consumer": {"address": "01D7:14E1", "frame": 1329, "mask": "0x007F", "exit_flag": "0xFFFF", "audio_ready": 1},
+        "post_input_actual_hit_sequence": [
+          {"generation": 11, "address": "01D7:01F0", "frame": 1483},
+          {"generation": 12, "address": "01D7:01AC", "frame": 1483},
+          {"generation": 13, "address": "01D7:01BD", "frame": 1484},
+          {"generation": 14, "address": "01D7:01D1", "frame": 1484},
+          {"generation": 15, "address": "01D7:01D6", "frame": 1484},
+          {"generation": 16, "address": "01D7:01D6", "frame": 1484},
+          {"generation": 17, "address": "01E7:0CAA", "frame": 1485},
+          {"generation": 18, "address": "0207:022A", "frame": 1487},
+          {"generation": 19, "address": "01D7:5010", "frame": 1507},
+          {"generation": 20, "address": "01D7:504F", "frame": 1601},
+          {"generation": 21, "address": "01F7:35C7", "frame": 1602}
+        ],
+        "post_cleanup_renderer_reached": true
+      },
+      "interpretation": "The simultaneously armed native trace confirms that the authored input/presentation path returns from 01D7:14E1 through 01D7:01F0/01AC/01BD/01D1/01D6, reaches 01E7:0CAA and 0207:022A, then enters the 01D7:5010 reload gate, 01D7:504F cleanup, and first post-cleanup renderer at 01F7:35C7. The ledger uses each debugger hit's actual segment/offset and generation; the repeated 01D7:01D6 entry is retained as observed rather than collapsed. Exact helper-produced object/resource side effects beyond the gate remain an explicit boundary."
     }
   },
-  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; the focused Ghidra closure proves that 4EAA enters a DS:5044-selected timed wait before calling 14E1, and the extended native cloud trace reaches both the wait and the completion consumer with the complete mask and exit sentinel. The all-seven comparator, presentation, selector handoff, and reload gates are statically closed; the authored input-wait release, natural return from the completion routine, and later resource/reload state remain runtime boundaries."
+  "conclusion": "The final-letter probe reaches mask 0x7F and performs normal effect/removal. The real outer-state consumer requires DS:89E6 != 0; the focused Ghidra closure proves that 4EAA enters a DS:5044-selected timed wait before calling 14E1, and the native cloud traces reach the completion consumer, authored input path, 0CAA/022A presentation helpers, reload gate, cleanup, and first post-cleanup renderer with the complete mask and exit sentinel. The all-seven comparator and transition control flow are statically closed; exact helper-produced object/resource effects beyond the observed reload gate remain explicit runtime boundaries."
 }
