@@ -178,6 +178,18 @@ platform carry/wait state is discarded at release and the ARE anchor and
 initializer state are restored on re-entry. The effect of that release on an
 attached player remains an explicit runtime boundary.
 
+The complete W1L1 ARE declaration inventory is now a native test fixture. It
+checks all 173 declarations and the exact type counts for WURM2, BIENE,
+animated world effects, cloud, falling leaves, dedicated LOOP effects, WERBE
+pickups, and the seven `PUZZLE.BOB` letters. Each present type must resolve to
+its recovered family kind, callback identity, and resource contract; dedicated
+effect types intentionally remain callback-free parent declarations with their
+`LOOP_W1.ICO` child path. The test also verifies that the callback-bearing
+subset at the native player start is published through the scheduler. This is
+an inventory gate, not a claim that every family has complete gameplay parity:
+leaf PRNG emission, dedicated-event seed/lifetime, exact collectible overlap,
+and the transition consumer remain explicit boundaries above.
+
 ## Unified player callback status
 
 The unified `TraceClosedPlayerUpdate` is the C++ implementation of the

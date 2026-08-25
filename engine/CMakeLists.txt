@@ -164,3 +164,9 @@ target_link_libraries(quiky-transition-reload-tests PRIVATE quiky_core)
 add_test(NAME quiky-transition-reload-tests
     COMMAND quiky-transition-reload-tests
             ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT)
+
+add_executable(quiky-w1l1-inventory-tests tests/test_w1l1_inventory.cpp)
+target_link_libraries(quiky-w1l1-inventory-tests PRIVATE quiky_core)
+add_test(NAME quiky-w1l1-inventory-tests
+    COMMAND quiky-w1l1-inventory-tests
+            ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT)
