@@ -420,6 +420,16 @@ The same pass closes the branch-level behavior for the remaining effects:
   budget after that transition. See
   [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
 
+  A native W1L4 selector trace supplies the first authored counterpart to the
+  controlled W1L1 gate probe: the fixture starts with `DS:88AE=1`, and holding
+  left Alt naturally produces action `0x0010`, raises `DS:8806` to 1, and leaves
+  a live pool record at offset `0x258` running callback `01F7:45AB` (slot
+  `0x276`, position `(392,383)`). The row is gone by the final sample, so this
+  proves a real authored spawn/update window but not the direct `4519` factory
+  entry or the eventual row-removal producer. The trace and hash are recorded
+  in `authored_w1l4_natural_probe` in
+  [`entity-effect-table-producer-evidence.json`](../entity-effect-table-producer-evidence.json).
+
   The targeted boss pass now closes the pooled world-specific state machines
   at the static level. Constructors `B142/B9F3/C28A/CC68/D2F6` install the W1-W5
   main callbacks (`B33B/BBEC/C40B/CE81/D63D`) and damage callbacks, with distinct

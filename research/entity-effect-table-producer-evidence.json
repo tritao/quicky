@@ -167,6 +167,21 @@
     ],
     "interpretation": "The WERBE pending increment is real and persists through a bounded player-loop window, but it does not itself produce a pooled 4519 row in this fixture. The missing condition remains the authored player action/state transition (bit 0x10) or another consumer path; this is bounded fixture evidence, not proof that 880C is never consumed during normal completion or boss play."
   },
+  "authored_w1l4_natural_probe": {
+    "trace": "research/build/player-w1l4-leftalt-natural.json",
+    "trace_sha256": "9f06901d8610c951695654ff4eb91c18b0f87209132c66396e16eef5a14635b4",
+    "trace_script_sha256": "60aac6323dad8db8d005a5e1abb788f8d289ca64515ba0f129fcae16254b6614",
+    "fixture": "Native main-tree W1L4 selected through the level selector",
+    "samples": 8,
+    "input": "KBD_leftalt held for 30 frames and latched through each player callback",
+    "initial_state": {"DS:88AE": 1, "DS:880C": 0, "DS:8806": 0, "DS:8808": 4},
+    "observed": [
+      "Samples 2-7 show keyboard scan 0x38 / action flags 0x10 and player action word 0x0010.",
+      "Sample 2 has DS:8806=1 and a live pool object at offset 0x258 with callback 01F7:45AB, slot 0x276, and position (392,383).",
+      "The final sample has DS:8806=0 and no lasting 45AB object."
+    ],
+    "interpretation": "Unlike W1L1 (DS:88AE=0), authored W1L4 naturally passes the stage gate and reaches the live 45AB update object under the normal left-alt action. The trace does not break on 4519 itself, so factory-entry provenance remains an open dynamic detail."
+  },
   "remaining": [
     "Whether any non-keyboard gameplay transition also sets player object flags bit 0x10 in normal play.",
     "Which authored completion/boss transition advances DS:88AE and which end-stage callback consumes each stage value.",
