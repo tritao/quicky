@@ -66,7 +66,7 @@ intentional and prevents unresolved relocations from becoming guessed calls.
 - `01F7:5937` (`player_helper_5937`) remains address-named. Its writes before
   the `DS:89EA` gate are not statically established and no dynamic evidence
   has closed that question.
-- `01F7:0E06` (`initialize_contact_object`) is a closed external contract for
+- `01F7:0E06` (`object_pool_factory_0E06`) is a closed external contract for
   the contact factory's arguments and object/pool side effects, but the exact
   runtime object family remains only partially identified.
 - `01F7:F21B/F21C` is retained as the input dispatch boundary. Ghidra emits

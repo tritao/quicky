@@ -216,7 +216,7 @@
     {
       "address":"01F7:6370","range":["6370","6484"],"name":"probe_contact_tile_offset","old_symbol":"FUN_6370","classification":"inline","convention":"near","signature":"Flags probe_contact_tile_offset(PlayerRecord* es_di)",
       "inputs":["+37 mode","+04/+08 coordinates","DS:5003 offset","+72 step"],"outputs":["CF=1 only for matching negative-mode contact; contact record/object writes"],"player_reads":["02","04","06","08","2E","32","36","37","38","72"],"player_writes":["02","06","2E","32","36","38"],"global_reads":["DS:5003","DS:657A","DS:657C","DS:657E"],"global_writes":["DS:4FFE","DS:5000","DS:5001","DS:612E"],
-      "callees":[{"site":"638A,63CD","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6426","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"6431","address":"01F7:0E06","name":"initialize_contact_object","flags":"ES:DI child/object","classification":"contract"}],
+      "callees":[{"site":"638A,63CD","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6426","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"6431","address":"01F7:0E06","name":"object_pool_factory_0E06","flags":"ES:DI child/object","classification":"contract"}],
       "confidence":"confirmed","evidence":["raw:6370-6483","trace:contact-tile-matrix"]
     },
     {
@@ -226,7 +226,7 @@
     {
       "address":"01F7:648E","range":["648E","659C"],"name":"probe_contact_right","old_symbol":"FUN_648E","classification":"inline","convention":"far","signature":"Flags probe_contact_right(PlayerRecord* es_di)",
       "inputs":["+37 mode","+04/+08 coordinates","+72 step"],"outputs":["CF=1 only for matching negative-mode contact; contact record/object writes"],"player_reads":["02","06","08","2E","32","36","37","38","72"],"player_writes":["02","06","08","2E","32","36","38"],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":["DS:4FFE","DS:5000","DS:5001","DS:5003","DS:612E"],
-      "callees":[{"site":"64A7,64E9","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6542","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"654D","address":"01F7:0E06","name":"initialize_contact_object","flags":"ES:DI child/object","classification":"contract"}],
+      "callees":[{"site":"64A7,64E9","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6542","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"654D","address":"01F7:0E06","name":"object_pool_factory_0E06","flags":"ES:DI child/object","classification":"contract"}],
       "confidence":"confirmed","evidence":["raw:648E-659B","trace:contact-tile-matrix"]
     },
     {
@@ -282,7 +282,7 @@
       "inputs":["persistent player through DS:881A","DS:8822 transition counter"],"outputs":["DS:89EA transition gate and player motion reset"],"player_reads":["0E","34","37","3B","3E","4C","50","5C","60"],"player_writes":["0E","37","3B","3E","4C","50","5C","60"],"global_reads":["DS:881A","DS:8822","DS:89EA"],"global_writes":["DS:612E","DS:880A","DS:8950","DS:89EA"],"callees":[{"site":"19FC","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:19E6-1A94","callsite:3AB3"]
     },
     {
-      "address":"01F7:0E06","range":null,"name":"initialize_contact_object","old_symbol":"FUN_0E06","classification":"contract","convention":"far","signature":"ObjectRecord* initialize_contact_object(uint16_t ax, uint16_t dx)",
+      "address":"01F7:0E06","range":null,"name":"object_pool_factory_0E06","old_symbol":"FUN_0E06","classification":"contract","convention":"far","signature":"ObjectRecord* object_pool_factory_0E06(uint16_t ax, uint16_t dx)",
       "inputs":["AX=0x6328 contact descriptor","DX=0"],"outputs":["ES:DI effect/contact object or pool-side result"],"player_reads":[],"player_writes":[],"global_reads":["DS:... object pool"],"global_writes":["object pool"],"callees":[],"confidence":"mechanical","evidence":["reloc:6370/648E factory calls","trace:contact-object-creation"]
     },
     {

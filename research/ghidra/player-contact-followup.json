@@ -1,0 +1,238 @@
+{
+  "schema": "quiky.player-contact-followup.v1",
+  "purpose": "Focused static and dynamic closure audit for player contact, helper 5937, factory 0E06, input dispatch, moving platforms, and held-out parity.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment_image": "research/build/ghidra-segments/QUIKY_SEG03.bin",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "callback": "01F7:3FF8",
+    "record_size": "0x78"
+  },
+  "status": {
+    "contact_semantics": "static_closed_with_runtime_polarity_gaps",
+    "helper_5937": "direct_contract_closed_indirect_dispatch_unresolved",
+    "factory_0E06": "allocator_contract_closed_family_selection_is_caller_owned",
+    "input_dispatch": "normalized_word_closed_callback_precedence_closed",
+    "moving_platform": "carry_contract_closed_scheduler_and_crush_gaps",
+    "full_cpp_parity": "gate_ready_but_runtime_callback_not_yet_implemented"
+  },
+  "contracts": [
+    {
+      "address": "01F7:3D02",
+      "name": "apply_descriptor_vertical_correction_3D02",
+      "classification": "inline",
+      "inputs": "ES:DI player; +0x3B gate; +0x04/+0x08 integer probe coordinates; descriptor word from 5CC3",
+      "outputs": "AL/ZF branch contract: 3DF1 positive response, 3DE4 rejected response, 3D44 clear retry; +0x3A latch",
+      "player_writes": ["+0x08 optional target Y", "+0x0E arithmetic-shift-right-one only when mode==0", "+0x3A"],
+      "global_writes": [],
+      "callees": ["01F7:5CC3"],
+      "confidence": "confirmed",
+      "evidence": ["raw:3D02-3DF1", "research/notes/descriptor-collision-evidence.json"]
+    },
+    {
+      "address": "01F7:3DF2",
+      "name": "snap_player_y_on_side_contact_3DF2",
+      "classification": "inline",
+      "inputs": "ES:DI +0x3B/+0x3A; side probes at (x-5,y), then (x+5,y)",
+      "outputs": "no flag contract used by callback; integer Y low three bits cleared when either ordered probe is occupied",
+      "player_writes": ["+0x08"],
+      "global_writes": [],
+      "callees": ["01F7:5C27 at 3E10", "01F7:5C27 at 3E22"],
+      "confidence": "confirmed",
+      "evidence": ["raw:3DF2-3E2F", "dynamic:player-followup-side-rising-falling-v2"]
+    },
+    {
+      "address": "01F7:3A1F",
+      "name": "probe_player_side_clear_3A1F",
+      "classification": "inline",
+      "inputs": "ES:DI +0x38/+0x37; probes at (x-5,y), then (x+5,y)",
+      "outputs": "ZF/CF-compatible clear result; writes +0x3B=0xFF only after both probes are clear; first occupied probe short-circuits",
+      "player_writes": ["+0x3B conditional"],
+      "global_writes": [],
+      "callees": ["01F7:5C27 at 3A3E", "01F7:5C27 at 3A50"],
+      "confidence": "confirmed",
+      "evidence": ["raw:3A1F-3A57", "dynamic:player-followup-side-rising-falling-v2"]
+    },
+    {
+      "address": "01F7:3971",
+      "name": "probe_vertical_10px_3971",
+      "classification": "contract",
+      "inputs": "AX = y - 0x0A - +0x72; BX = x",
+      "outputs": "ZF from MAP word bit 0x1000",
+      "player_writes": [],
+      "global_writes": [],
+      "callees": ["01F7:1C92"],
+      "confidence": "confirmed",
+      "evidence": ["raw:3971-3985", "callsite:42E8"]
+    },
+    {
+      "address": "01F7:3986",
+      "name": "probe_vertical_step_3986",
+      "classification": "contract",
+      "inputs": "AX = y - +0x72; BX = x",
+      "outputs": "ZF from MAP word bit 0x1000",
+      "player_writes": [],
+      "global_writes": [],
+      "callees": ["01F7:1C92"],
+      "confidence": "confirmed",
+      "evidence": ["raw:3986-3997", "callsites:4323,4363,3AB9"]
+    },
+    {
+      "address": "01F7:5937",
+      "name": "player_helper_5937",
+      "classification": "contract",
+      "inputs": "DS:85DA gate; DS:60D8/60DA change word; DS:881C, DS:880A, DS:880C, DS:4FF2, DS:4FF6, DS:4FF8, DS:4FFA auxiliary state",
+      "outputs": "far return to 01F7:5BED; no player-record return value is consumed by 3FF8; external dispatches receive event-specific AX/BX/CX",
+      "player_writes": [],
+      "global_reads": ["DS:85DA", "DS:60D8", "DS:60DA", "DS:881C", "DS:881A", "DS:880A", "DS:880C", "DS:4FF2", "DS:4FF6", "DS:4FF8", "DS:4FFA"],
+      "global_writes": ["DS:60DA", "DS:4FF2", "DS:4FF8", "DS:4FFA", "DS:4FF6"],
+      "callees": ["address-named external dispatches in 594B-5BEA"],
+      "relation_to_transition_gate": "3FF8 calls 5937 before testing DS:89EA; 5937 has no direct read/write of DS:89EA. Indirect dispatch effects remain unproven.",
+      "ordinary_gameplay": "ordinary callback entry and return are observed; no direct player or transition-global mutation was observed in the ordinary trace window",
+      "confidence": "contract_with_indirect_caveat",
+      "evidence": ["raw:5937-5BED", "dynamic:player-followup-5937-entry-return-v1"]
+    },
+    {
+      "address": "01F7:0E06",
+      "name": "object_pool_factory_0E06",
+      "classification": "contract",
+      "inputs": "AX=requested callback offset; DX caller-supplied initializer word (contact call uses AX=0x6328, DX=0)",
+      "outputs": "ES:DI first free object or allocator failure; scheduler insertion through 01F7:1036",
+      "player_writes": [],
+      "global_reads": ["DS:755E pool base", "DS:30CE object stride"],
+      "global_writes": ["pool callback/header fields", "scheduler bank through 01F7:1036"],
+      "object_writes": ["+0x18=AX", "+0x1C=0x1997", "+0x28=1", "+0x17=1", "+0x12=0xFFFF", "+0x1A=0xFFFF", "+0x14=0"],
+      "callees": ["01F7:1036"],
+      "family_selection": "the caller selects the callback; 0E06 itself supplies common defaults and does not select a gameplay kind. Contact callers request 0x6328; leaf/entity callers request their own callback.",
+      "ownership_lifetime": "pooled first-free ownership; callback clear makes a slot reusable; stale bytes are not cleared by this allocator edge; phase +0x17=1 is inserted into the scheduler bank",
+      "collision_effect": "the player contact caller uses the created child as a contact/effect callback. No evidence shows the child entering solid collision queries; collision response is performed by the player before/around the factory call.",
+      "confidence": "mechanical_allocator_contract",
+      "evidence": ["raw:0E06-0E35", "research/notes/ghidra-analysis.md:pool-factory", "dynamic:player-factory-focus"]
+    },
+    {
+      "address": "01F7:6328",
+      "name": "contact_child_callback_6328",
+      "classification": "contract",
+      "inputs": "pooled child record; callback-state +0x32; child state/index +0x2E; fixed-point position",
+      "outputs": "short-lived child update; callback is cleared when its terminal +0x2E state is reached",
+      "player_writes": [],
+      "global_writes": [],
+      "object_writes": ["+0x32 countdown/state", "+0x2E state/index", "+0x18 callback clear at terminal"],
+      "callees": ["address-named contact/effect subhelper"],
+      "collision_role": "no solid-collision read is present in the recovered child contract; it consumes the contact/effect position and is presentation/effect-side until an indirect subhelper proves otherwise",
+      "ownership_lifetime": "owned by the shared pool; allocator defaults are inherited from 0E06 and terminal callback clear makes the slot reusable",
+      "confidence": "mechanical_partial",
+      "evidence": ["static:6328 callback slice", "dynamic:contact-object-creation"]
+    },
+    {
+      "address": "01F7:F21B/F21C",
+      "name": "read_normalized_action_bits_F21B__input_dispatch_F21C",
+      "classification": "contract",
+      "inputs": "DS:88BC keyboard make/break state and DS:8196 secondary action source",
+      "outputs": "AX = DS:88BC | DS:8196; no flags or side-effect contract is consumed beyond AX",
+      "player_writes": [],
+      "global_reads": ["DS:88BC", "DS:8196"],
+      "global_writes": [],
+      "callees": [],
+      "normalized_bits": {"down": "0x01", "up": "0x02", "right": "0x04", "left": "0x08", "alternate": "0x10", "jump_or_confirm": "0x20"},
+      "simultaneous_precedence": "dispatch is bitwise OR with no precedence; callback horizontal acceleration tests right before left, and 0x22 is consumed as a combined vertical action gate",
+      "edge_vs_held": "F1A8 stores held make/break state. No rising-edge detector exists at F21B/F21C; callback throttling uses +0x40 reset/increment and the +0x40<=0x0D/+0x3E gate.",
+      "suppression": "DS:656C is used as a scripted action source when DS:85DA>0; DS:89E6 later zeroes the action word. +0x39 injects mode/action state before suppression.",
+      "computed_jump": "the malformed computed tail remains address-named; no semantic target is assigned",
+      "confidence": "confirmed_word_contract",
+      "evidence": ["raw:F1A8-F21C", "research/notes/player-input-static.md", "static:3FF8 input branch"]
+    },
+    {
+      "address": "01F7:A075",
+      "name": "platform_player_overlap_A075",
+      "classification": "contract",
+      "inputs": "platform object geometry and live player position",
+      "outputs": "DS:5006=-1 on strict horizontal overlap and player_y in [object_y, object_y+12)",
+      "player_writes": [],
+      "global_writes": ["DS:5006"],
+      "callees": [],
+      "confidence": "confirmed",
+      "evidence": ["research/entity-platform-player-carry-evidence.json"]
+    },
+    {
+      "address": "01F7:A0B2",
+      "name": "platform_publish_player_carry_A0B2",
+      "classification": "contract",
+      "inputs": "platform motion and accepted DS:5006 overlap latch",
+      "outputs": "DS:8816 horizontal fixed delta; DS:8812 vertical fixed delta; platform +0x5A=FF, +0x59=0",
+      "player_writes": [],
+      "global_writes": ["DS:8812", "DS:8816"],
+      "callees": [],
+      "confidence": "confirmed",
+      "evidence": ["research/entity-platform-player-carry-evidence.json", "research/entity-platform-motion-evidence.json"]
+    }
+  ],
+  "contact_semantics": {
+    "descriptor_formula": "tile_id = MAP[(y >> 4)*DS:657E + ((x >> 3)&0xFFFE)] & 0x01FF; descriptor = DS:6582 + tile_id*DS:30D4 + 2",
+    "quadrant_masks": {"y0_x0": "0x08", "y0_x1": "0x04", "y1_x0": "0x01", "y1_x1": "0x02"},
+    "descriptor_response": {
+      "gate": "+0x3B==0 returns before a new response; accepted response clears +0x3A first",
+      "retry": "if descriptor&0x30==0, decrement Y by 8 and reread; restore Y only when retry also has descriptor&0x30==0",
+      "bit_20_set": "mode-zero +0x0E = ASR(+0x0E,1), +0x3A=0xFF, phase=(x&0x0F)>>1",
+      "bit_20_clear": "mode-zero +0x0E = ASR(-+0x0E,1), +0x3A=1, phase=(0x0F-(x&0x0F))>>1",
+      "bit_40_clear": "target Y += 8",
+      "acceptance": "target=(Y&0xFFF0)+phase+[8 if bit 0x40 clear]; original Y < target clears +0x3A and returns 3DE4; otherwise optional Y correction returns 3DF1",
+      "interpretation": "0x20/0x40 are response/alignment controls. One-way and floor/ceiling names are not assigned from these bits alone."
+    },
+    "callback_order": [
+      {"path":"entry_to_input", "order":["5937", "DS:89EA gate", "648E", "6484", "3A8A", "action/input normalization", "+0x39 override/suppression", "+0x40 reset/increment"], "confidence":"confirmed_static"},
+      {"path":"grounded_contact_427F", "order":["3D02", "3DF2", "+0x0E=0", "+0x37=0", "animation 3156 if idle counter<0xD2", "+0x36=1"], "confidence":"confirmed_static"},
+      {"path":"positive_mode_41E8", "order":["3A1F side probes", "1C6E alignment probe", "3D02 when gate clear", "vertical velocity/integration", "3A1F post-step", "427F if occupied"], "not_called":["3DF2 on clear positive integration"], "confidence":"confirmed_static"},
+      {"path":"ordinary_mode_42B4", "order":["3A1F", "3DF2", "3D02", "3971 jump probe", "0FCF sound", "jump writes", "animation 3160"], "condition":"3DF2 is entered only on side-occupied, nonzero-gate, or nonzero-response ordinary joins", "confidence":"confirmed_static"},
+      {"path":"negative_mode_4323", "order":["3986 pre-probe", "signed acceleration/release clamp", "apex or Y integration", "3986 post-probe", "41C1 or common tail"], "not_called":["3D02", "3DF2"], "condition":"the reachable 4323 path does not call descriptor correction helpers", "confidence":"confirmed_static"},
+      {"path":"common_tail_4384", "order":["38CA", "38EC/4519", "3AB9 horizontal integration/probe", "5D60 animation advance", "3A62 contact side effect", "3E41/20AF camera", "clear +0x38", "timer/transition/idle writes"], "confidence":"confirmed_static"}
+    ],
+    "landing": {
+      "static_response": "427F clears +0x0E and +0x37, conditionally loads animation sequence 3156, sets +0x36=1, then enters the common tail",
+      "observed_callback_write_offsets": ["0x07","0x08","0x0F","0x10","0x12","0x1E","0x20","0x22","0x24","0x36","0x37","0x3E","0x45","0x46"],
+      "attribution": "the offset list is the complete callback record diff for the natural landing sample; animation and common-tail writes are not falsely attributed to 3D02/3DF2 individually"
+    },
+    "ceiling_or_vertical_boundary": {
+      "static_response": "negative mode detects occupied 3986 before or after integration and joins 41C1; 41C1 writes +0x3E=0x03E7, then 41CF writes +0x37=1, +0x0E=0 and loads animation 3186",
+      "polarity": "not proven to be a natural ceiling rather than another vertical contact without an unpatched trajectory",
+      "controlled_callback_write_offsets": ["0x00","0x08","0x09","0x0F","0x10","0x11","0x12","0x1E","0x20","0x22","0x24","0x37","0x3E","0x40","0x46","0x47"],
+      "caveat": "controlled Y patch writes +0x08 before the callback; this is boundary evidence only"
+    },
+    "one_way_platform": {"status":"unproven", "reason":"descriptor flags and player vertical probes are mechanically closed, but no direction-controlled natural traversal trace isolates a one-way rule"}
+  },
+  "moving_platform": {
+    "scheduler": {"static":"0E06 inserts into the current scheduler bank through 1036; 0E96 dispatches phases 0,1,2", "player_dependency":"player callback consumes DS:8812 and DS:8816 in the callback closure", "runtime_order":"platform callback before player consumption is strongly implied by the carry publication/consumption contract but not directly captured in one combined scheduler trace"},
+    "carry": {"x":"DS:8816 is a fixed-point platform delta consumed by 3A8A/3B44 and cleared", "y":"DS:8812 is platform_y-player_y+1 in fixed point, consumed at 3FF8 and cleared", "subpixel":"fixed-point globals preserve subpixel carry; no integer rounding is present in the publication formula"},
+    "contact_shape":"strict object_x < player_x < object_x+width and object_y <= player_y < object_y+12",
+    "landing_jumping":"platform overlap/carry is confirmed; platform-specific landing, jump detachment, inherited velocity, and side/ceiling crushing remain unisolated",
+    "culling":"platform callback uses A06F -> 1DEE for off-camera removal; attached-player behavior after culling is unresolved"
+  },
+  "dynamic_checks": [
+    {"id":"standing", "trace":"research/build/player-followup-standing-v1.json", "sha256":"c0a61ce924ea664c78dd9a7cebf68b1861929d401266ba642caf2d10d8f12823", "status":"passed", "observation":"mode 0, y 400, +0x0E 0; initialization writes are distinguishable from later callback writes"},
+    {"id":"jump_early_release", "trace":"research/build/player-followup-jump-early-release-v1.json", "sha256":"990a9cbec33f4e28f0de35744b7fb22a03f6c79f77b1e30598fd88df645954c6", "status":"passed_initiation_only", "observation":"sample 2 enters mode -1 with y 400->398; phase spacing misses the later landing"},
+    {"id":"jump_late_release", "trace":"research/build/player-followup-jump-late-release-v1.json", "sha256":"a5f8f1da90dfcedfe50cebe954cc954fdc2934acae9de3ba28c70a94a441dd86", "status":"passed", "observation":"sample 2 ascent and sample 3 landing return to mode 0, y 400, +0x0E 0"},
+    {"id":"jump_apex_and_landing", "trace":"research/build/player-closure-jump-press-release-v2.json", "sha256":"ee328c425a75dac689844603f71f8d0920aeca9c15e8b9cafce2917ce6865cc5", "status":"passed", "observation":"mode -1 at ascent, mode 1 at apex/fall, mode 0 at sample 33 landing"},
+    {"id":"side_rising_falling", "trace":"research/build/player-followup-side-rising-falling-v2.json", "sha256":"b47d287f6acc4c2541a1fa95e002cb73d5d884d13148b60461ce40c185386b15", "status":"passed_for_order", "observation":"rising/falling samples preserve 648E>6484>3A8A>3A1F and landing adds 3DF2; no occupied-wall polarity claim"},
+    {"id":"ceiling_boundary_control", "trace":"research/build/player-followup-ceiling-controlled-v2.json", "sha256":"56de79d0bd16d5e9be4a1cd1d0207c0884d55a538d818dde0e84136d128b123c", "status":"control_only", "observation":"patched Y reaches 41C1/4384 and 3D02/3DF1; not a natural ceiling trace"},
+    {"id":"descriptor_20_control", "trace":"research/build/player-followup-descriptor-20-v1.json", "sha256":"cd502de4633e885eecd76d38ba6908d6100ed27ba393e79d306f3f38d526d306", "status":"negative_control", "observation":"ordinary baseline takes 3D44; no one-way interpretation"},
+    {"id":"descriptor_60_control", "trace":"research/build/player-followup-descriptor-60-v1.json", "sha256":"f6c19f9468174683d3c8268af3e8edc8225c2607e0cfe98eb5826051385343ab", "status":"negative_control", "observation":"ordinary baseline takes 3D44; direct descriptor matrix remains the positive 3D02 evidence"},
+    {"id":"helper_5937_entry_return", "trace":"research/build/player-followup-5937-entry-return-v1.json", "sha256":"c86d7ff68c6117fb39f4f04f9605e656ecb8e7490fbb69a3fa71485dd2fd13d2", "status":"passed_direct_contract", "observation":"5937 is observed before 5BED return; direct player record and transition aliases remain unchanged in ordinary samples"},
+    {"id":"factory_0E06", "trace":"research/build/player-factory-focus.json", "sha256":"89b2d6b627f94d15825446fbde98e85e3f211014b7bf852fc0fad0bbc29e861c", "status":"passed_allocator_observation", "observation":"factory entry/tail and first-free pool insertion are observable; created callback is caller-selected"},
+    {"id":"moving_platform_carry", "trace":"research/build/entity-platform-native-overlap-v1.json", "sha256":"b527c69fcb7d36684c7fa176db97baeb0ba3b7c7714a362a59289c3541d86a0a", "status":"passed_archival_native_trace", "observation":"A075/A0B2 publish carry globals and platform latch; combined scheduler/crush trace remains open"}
+  ],
+  "parity_gate": {
+    "compare": ["complete 0x78 pre/post player bytes", "ordered collision probes with coordinates and return flags", "relevant global writes", "spawned object callback/position/effect events"],
+    "held_out_matrix": ["standing", "jump initiation", "early release", "late release", "apex/free fall", "landing", "ceiling boundary", "side rising", "side falling", "one-way traversal", "moving platform"],
+    "current_cpp_status": "not executable for full parity: engine/src/player_update.cpp intentionally omits grounded/contact/jump orchestration. The research checker must fail closed when a C++ trace is absent rather than compare only positions.",
+    "implementation_gate": "do not replace the contact boundary until a natural ceiling trace, occupied side/ledge trace, one-way traversal trace, and current-main moving-platform scheduler trace are available"
+  },
+  "unresolved": [
+    {"address":"01F7:5937", "question":"effects of its external dispatch callees on indirect player/global state", "next":"trace one dispatch target per changed DS:60D8 bit with full global aliases"},
+    {"address":"01F7:3D02/3DF2", "question":"natural ceiling polarity and descriptor one-way semantics", "next":"capture unpatched controlled level geometry and approach from both vertical directions"},
+    {"address":"01F7:0E06", "question":"all caller-specific object families and exact child despawn callback semantics", "next":"trace 6328 callback lifetime and compare with non-contact 0E06 callers"},
+    {"address":"01F7:0E96/1036", "question":"direct scheduler ordering between platform and player and culling of an attached player", "next":"single trace with both callbacks and scheduler bank snapshots"},
+    {"address":"01F7:41C1", "question":"whether the early contact response is ceiling-specific or a generic vertical boundary", "next":"natural ascent impact trace without coordinate patch"}
+  ],
+  "authoritative_c_source": "research/notes/player-static-decomp.cpp"
+}

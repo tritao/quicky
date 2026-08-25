@@ -114,7 +114,11 @@ extern Flags probe_transition_descriptor(uint16_t cx, uint16_t dx); // 1bd1
 extern Flags probe_map_word_bit_4000(int16_t y, int16_t x); // 1c6e
 extern Flags probe_map_word_bit_1000(int16_t y, int16_t x); // 1c92
 extern void dispatch_pending_sound_effect();        // 01e7:0fcf
-extern PlayerRecord* initialize_contact_object(uint16_t ax, uint16_t dx); // 0e06
+// 0e06 is the shared first-free pool allocator. Its callback argument is
+// selected by the caller; the allocator itself does not identify a gameplay
+// object family. Keep the address in the name until every caller family is
+// separately closed.
+extern PlayerRecord* object_pool_factory_0E06(uint16_t ax, uint16_t dx);
 extern void apply_tile_transition_1B07();            // 1b07
 extern void apply_transition_reset_19E6();          // 19e6
 extern PlayerRecord* spawn_contact_effect_entry(PlayerRecord* owner); // 4519 contract
@@ -325,12 +329,12 @@ Flags apply_descriptor_vertical_correction(PlayerRecord* p) {
     int16_t phase;
     if ((descriptor & 0x0020) != 0) {
         if (p->mode() == 0)
-            p->vy(arithmetic_shift_right_1(p->vx())); // +0x0a -> +0x0e
+            p->vy(arithmetic_shift_right_1(p->vy()));
         p->u8(0x3a, 0xff);
         phase = static_cast<int16_t>((p->x_pixel() & 0x000f) >> 1);
     } else {
         if (p->mode() == 0)
-            p->vy(arithmetic_shift_right_1(-p->vx()));
+            p->vy(arithmetic_shift_right_1(-p->vy()));
         p->u8(0x3a, 1);
         phase = static_cast<int16_t>((0x000f - (p->x_pixel() & 0x000f)) >> 1);
     }
@@ -601,7 +605,7 @@ static bool is_contact_tile_5_to_7(uint16_t tile) {
 static void commit_contact(PlayerRecord* p, bool negative_mode) {
     DS.pending_event = 7;
     dispatch_pending_sound_effect();
-    initialize_contact_object(0x6328, 0);
+    object_pool_factory_0E06(0x6328, 0);
     p->u8(0x38, DS.contact_subtype);
     p->u8(0x2a, DS.contact_code);
     p->x(p->x() + (static_cast<Fixed16>(DS.contact_x_offset) << 16));
