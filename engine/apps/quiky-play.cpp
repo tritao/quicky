@@ -78,9 +78,28 @@ std::uint16_t dedicatedEffectSlot(const quiky::LevelEffect &effect,
 void drawTransientEffects(quiky::IndexedSurface &surface,
                           const quiky::LevelRuntime &runtime) {
     const std::vector<quiky::LevelEffect> &effects = runtime.session().effects();
+    const std::map<std::string, quiky::Bob> &effectBobs = runtime.effectBobs();
     for (std::size_t index = 0; index < effects.size(); ++index) {
         const quiky::LevelEffect &effect = effects[index];
         if (!effect.active) {
+            continue;
+        }
+        if (!effect.spriteResource.empty()) {
+            const std::map<std::string, quiky::Bob>::const_iterator resource =
+                effectBobs.find(effect.spriteResource);
+            if (resource == effectBobs.end()) {
+                throw quiky::FormatError("missing high-effect BOB resource: " +
+                                         effect.spriteResource);
+            }
+            const quiky::BobRecord *record = findSlot(resource->second,
+                                                       effect.spriteSlot);
+            if (record == nullptr) {
+                std::ostringstream message;
+                message << effect.spriteResource << " is missing high-effect sprite slot "
+                        << effect.spriteSlot;
+                throw quiky::FormatError(message.str());
+            }
+            quiky::drawBobRecord(surface, *record, effect.x, effect.y);
             continue;
         }
         const std::uint16_t slot = dedicatedEffectSlot(effect, runtime.worldName());

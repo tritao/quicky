@@ -1,0 +1,736 @@
+#!/usr/bin/env python3
+"""Compare recovered object contracts with a DOSBox object-behavior trace.
+
+This is intentionally a contract comparator, not a second game emulator.  It
+checks the parts already recovered exactly (descriptor sequencing, type-0x34
+gate/action output, lifecycle signatures, and the isolated type-0x33 motion
+state machine). MAP-dependent pre-state remains an explicit trace input.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from dataclasses import asdict, dataclass
+from pathlib import Path
+from typing import Any
+
+from object_behavior_trace import normalize_behavior_trace
+
+
+@dataclass(frozen=True)
+class ComparisonIssue:
+    sequence: int
+    contract: str
+    field: str
+    expected: Any
+    actual: Any
+    message: str
+
+
+def _issue(issues: list[ComparisonIssue], sequence: int, contract: str,
+           field: str, expected: Any, actual: Any, message: str) -> None:
+    issues.append(ComparisonIssue(
+        sequence=sequence,
+        contract=contract,
+        field=field,
+        expected=expected,
+        actual=actual,
+        message=message,
+    ))
+
+
+def _samples(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    if "events" in payload:
+        events = payload.get("events") or []
+        if not events:
+            return []
+        return events[0].get("samples", []) or []
+    return payload.get("samples", []) or []
+
+
+def _config(payload: dict[str, Any]) -> dict[str, Any]:
+    if "config" in payload:
+        return payload["config"]
+    return {}
+
+
+def _signed16(value: int) -> int:
+    return value - 0x10000 if value & 0x8000 else value
+
+
+def _sequence_words(descriptor: dict[str, Any]) -> list[int]:
+    words = descriptor.get("sequence_words", [])
+    if isinstance(words, dict):
+        return [item for _, item in sorted(
+            ((int(key), value) for key, value in words.items()),
+        )]
+    return list(words or [])
+
+
+def _sequence_value(descriptor: dict[str, Any], address: int) -> int | None:
+    base = descriptor.get("sequence_base", 0)
+    words = _sequence_words(descriptor)
+    delta = (address - base) & 0xffff
+    if delta & 1 or delta // 2 >= len(words):
+        return None
+    return _signed16(words[delta // 2] & 0xffff)
+
+
+def _resolve_descriptor(descriptor: dict[str, Any]) -> tuple[int, int] | None:
+    """Resolve the next 5D60 entry from a pre-callback descriptor state."""
+    cursor = (descriptor["sequence_cursor"] + 2) & 0xffff
+    value = _sequence_value(descriptor, cursor)
+    if value is None:
+        return None
+    jumps = 0
+    while value < 0:
+        cursor = (cursor + value * 2) & 0xffff
+        value = _sequence_value(descriptor, cursor)
+        jumps += 1
+        if value is None or jumps > 32:
+            return None
+    return cursor, value
+
+
+def compare_descriptors(samples: list[dict[str, Any]],
+                        issues: list[ComparisonIssue],
+                        config: dict[str, Any] | None = None) -> dict[str, int]:
+    config = config or {}
+    mode_is_probe_controlled = config.get("probe_descriptor_mode") is not None
+    checked = 0
+    resolved = 0
+    for sample in samples:
+        before = (sample.get("object_before") or {}).get("descriptor")
+        after = (sample.get("object_after") or {}).get("descriptor")
+        if not isinstance(before, dict) or not isinstance(after, dict):
+            continue
+        callback = sample.get("callback") or {}
+        helper_offsets = _related_offsets(sample)
+        # A type-0x34 hit reloads the descriptor through an additional 5D38
+        # call after 5D60; the single-step descriptor contract does not apply
+        # to that frame. Likewise, a gated 9C0C callback never reaches 5D60.
+        if 0x5d38 in helper_offsets:
+            continue
+        if callback.get("offset") == 0x9c0c and 0x5d60 not in helper_offsets:
+            continue
+        type33_before = (sample.get("object_before") or {}).get("type33")
+        type33_after = (sample.get("object_after") or {}).get("type33")
+        if (callback.get("offset") == 0x882f and
+                isinstance(type33_before, dict) and
+                isinstance(type33_after, dict) and
+                ((type33_before.get("state") == 1 and
+                  type33_after.get("state") == 2) or
+                 (type33_before.get("state") == 2 and
+                  type33_after.get("state") == 3))):
+            # 882F calls 5D38 directly on these state transitions. The
+            # descriptor mutation is checked by the type-33 state contract,
+            # not by the one-step 5D60 timer contract below.
+            continue
+        sequence = int(sample.get("sequence", 0))
+        if after.get("reload_delay", 0) == 0:
+            continue
+        checked += 1
+
+        initializing = (before.get("reload_delay", 0) == 0 and
+                        before.get("sequence_base", 0) == 0)
+        if initializing:
+            expected = after.get("reload_delay")
+            if after.get("timer") != expected:
+                _issue(issues, sequence, "descriptor", "timer",
+                       expected, after.get("timer"),
+                       "descriptor initializer did not copy its reload delay")
+            if after.get("sequence_cursor") != after.get("sequence_base"):
+                _issue(issues, sequence, "descriptor", "sequence_cursor",
+                       after.get("sequence_base"), after.get("sequence_cursor"),
+                       "descriptor initializer did not point at sequence base")
+            continue
+
+        for field in ("reload_delay", "sequence_base", "mode"):
+            if field == "mode" and mode_is_probe_controlled:
+                continue
+            if before.get(field) != after.get(field):
+                _issue(issues, sequence, "descriptor", field,
+                       before.get(field), after.get(field),
+                       "descriptor identity changed during 5D60")
+
+        if before.get("timer", 0) > 0:
+            expected_timer = before["timer"] - 1
+            if after.get("timer") != expected_timer:
+                _issue(issues, sequence, "descriptor", "timer",
+                       expected_timer, after.get("timer"),
+                       "non-expired descriptor timer must decrement by one")
+            if after.get("sequence_cursor") != before.get("sequence_cursor"):
+                _issue(issues, sequence, "descriptor", "sequence_cursor",
+                       before.get("sequence_cursor"), after.get("sequence_cursor"),
+                       "cursor moved while descriptor timer was nonzero")
+        else:
+            resolution = _resolve_descriptor(before)
+            if resolution is not None:
+                expected_cursor, value = resolution
+                resolved += 1
+                if after.get("sequence_cursor") != expected_cursor:
+                    _issue(issues, sequence, "descriptor", "sequence_cursor",
+                           expected_cursor, after.get("sequence_cursor"),
+                           "expired descriptor did not follow its sequence/jump word")
+                expected_timer = before.get("reload_delay", 0)
+                if after.get("timer") != expected_timer:
+                    _issue(issues, sequence, "descriptor", "timer",
+                           expected_timer, after.get("timer"),
+                           "expired descriptor did not reload its timer")
+                expected_action = value
+                if before.get("mode") == 0xff:
+                    expected_action += 0x32
+                actual_action = (sample.get("object_after") or {}).get("sprite_slot")
+                if actual_action is not None and actual_action != (expected_action & 0xffff):
+                    _issue(issues, sequence, "descriptor", "sprite_slot",
+                           expected_action & 0xffff, actual_action,
+                           "expired descriptor selected the wrong action")
+
+    return {"samples_checked": checked, "expiry_steps_resolved": resolved}
+
+
+def _related_offsets(sample: dict[str, Any]) -> set[int]:
+    callback = sample.get("callback") or {}
+    offsets = {
+        int(hit["offset"])
+        for hit in callback.get("related_hits", []) or []
+        if isinstance(hit, dict) and "offset" in hit
+    }
+    offsets.update(
+        int(hit["offset"])
+        for hit in callback.get("helper_calls", []) or []
+        if isinstance(hit, dict) and "offset" in hit
+    )
+    return offsets
+
+
+def _strict_proximity(object_position: dict[str, Any],
+                       player_position: dict[str, Any]) -> bool:
+    ox, oy = object_position["x"], object_position["y"]
+    px, py = player_position["x"], player_position["y"]
+    return (ox - 0x19 < px < ox + 0x19 and
+            oy - 8 < py < oy)
+
+
+def _signed32(value: int) -> int:
+    value &= 0xffffffff
+    return value - 0x100000000 if value & 0x80000000 else value
+
+
+def _clamp_type33_velocity(value: int, limit: int) -> int:
+    return max(-limit, min(limit, value))
+
+
+def _type33_map_sets_transition(sample: dict[str, Any]) -> bool | None:
+    """Return the observed 882F pre-state transition decision.
+
+    1C4D returns through 8858 and contributes CF; 5C27 returns through the
+    directional 8876/888A sites and contributes ZF. Both are captured only
+    when helper tracing is enabled, so None means the decision was not
+    observed rather than false.
+    """
+    observed = False
+    sets_transition = False
+    for helper in (sample.get("callback") or {}).get("helper_calls", []) or []:
+        if not isinstance(helper, dict) or "return_flags" not in helper:
+            continue
+        return_address = helper.get("return_address") or {}
+        return_offset = return_address.get("offset")
+        flags = int(helper.get("return_flags", 0))
+        offset = int(helper.get("offset", 0))
+        if offset == 0x1c4d and return_offset == 0x8858:
+            observed = True
+            sets_transition = sets_transition or bool(flags & 0x0001)
+        elif (offset == 0x5c27 and
+              return_offset in (0x8876, 0x888a)):
+            observed = True
+            sets_transition = sets_transition or bool(flags & 0x0040)
+    return sets_transition if observed else None
+
+
+def _compare_type33_motion(sample: dict[str, Any],
+                            issues: list[ComparisonIssue],
+                            map_sets_transition: bool) -> None:
+    before_object = sample.get("object_before") or {}
+    after_object = sample.get("object_after") or {}
+    before = before_object.get("type33") or {}
+    after = after_object.get("type33") or {}
+    before_position = before_object.get("position") or {}
+    after_position = after_object.get("position") or {}
+    required = {
+        "velocity_fixed", "direction", "phase", "phase_timer",
+        "transition", "state", "state_counter", "travel_counter",
+        "animation_counter",
+    }
+    if not required.issubset(before) or not required.issubset(after):
+        return
+    if "x_fixed" not in before_position or "x_fixed" not in after_position:
+        return
+
+    sequence = int(sample.get("sequence", 0))
+    state = int(before["state"])
+    transition = int(before["transition"])
+    if map_sets_transition:
+        transition = 1
+
+    expected_x = _signed32(int(before_position["x_fixed"]))
+    expected_velocity = int(before["velocity_fixed"])
+    expected_state = state
+    expected_transition = int(before["transition"])
+    if map_sets_transition:
+        expected_transition = 1
+    expected_state_counter = int(before["state_counter"])
+    expected_travel = int(before["travel_counter"])
+    expected_animation = int(before["animation_counter"])
+    expected_direction = int(before["direction"])
+    expected_phase = int(before["phase"])
+    expected_phase_timer = int(before["phase_timer"])
+
+    if state < 1:
+        if transition <= 0:
+            expected_x += expected_velocity
+            expected_animation = (expected_animation + 1) & 0xffff
+            if expected_animation <= 0x50:
+                expected_travel = (expected_travel + 1) & 0xffff
+            else:
+                expected_animation = 0
+                expected_transition = 1
+        elif expected_phase < 0:
+            expected_velocity = _clamp_type33_velocity(
+                expected_velocity - expected_direction * 0x400, 0x6000)
+            expected_x += expected_velocity
+            expected_phase_timer = (expected_phase_timer - 1) & 0xffff
+            if _signed16(expected_phase_timer) < 0:
+                expected_direction = -expected_direction
+                expected_phase = -expected_phase
+                expected_phase_timer = 0x14
+                expected_velocity = expected_direction << 5
+        else:
+            expected_velocity = _clamp_type33_velocity(
+                expected_velocity + expected_direction * 0x400, 0x6000)
+            expected_x += expected_velocity
+            expected_phase_timer = (expected_phase_timer - 1) & 0xffff
+            if _signed16(expected_phase_timer) < 0:
+                expected_phase = -expected_phase
+                expected_transition = -1
+                expected_phase_timer = 0x14
+    elif transition > 0:
+        expected_state = 0
+        expected_travel = 0x23
+    elif state == 2:
+        expected_state_counter = (expected_state_counter + 1) & 0xffff
+        if expected_state_counter > 0x2d:
+            expected_state_counter = 0
+            expected_state = 3
+            expected_velocity = _clamp_type33_velocity(
+                expected_velocity + expected_direction * 0x200, 0x5000)
+            expected_x += expected_velocity
+    elif state != 3:
+        expected_velocity = _clamp_type33_velocity(
+            expected_velocity - expected_direction * 0x100, 0x5000)
+        expected_x += expected_velocity
+        keep_moving = ((expected_direction <= 0 and expected_velocity < 0) or
+                       (expected_direction > 0 and expected_velocity > 0))
+        if not keep_moving:
+            expected_velocity = 0
+            expected_state = 2
+    else:
+        expected_velocity = _clamp_type33_velocity(
+            expected_velocity + expected_direction * 0x200, 0x5000)
+        expected_x += expected_velocity
+        if ((expected_direction <= 0 and expected_velocity <= -0x5000) or
+                (expected_direction > 0 and expected_velocity >= 0x5000)):
+            expected_state = 0
+
+    actual_x = _signed32(int(after_position["x_fixed"]))
+    checks = {
+        "x_fixed": (expected_x, actual_x),
+        "velocity_fixed": (expected_velocity, int(after["velocity_fixed"])),
+        "transition": (expected_transition, int(after["transition"])),
+        "state": (expected_state, int(after["state"])),
+        "state_counter": (expected_state_counter, int(after["state_counter"])),
+        "travel_counter": (expected_travel, int(after["travel_counter"])),
+        "animation_counter": (expected_animation, int(after["animation_counter"])),
+        "direction": (expected_direction, int(after["direction"])),
+        "phase": (expected_phase, int(after["phase"])),
+        "phase_timer": (expected_phase_timer, int(after["phase_timer"])),
+    }
+    for field, (expected, actual) in checks.items():
+        if expected != actual:
+            _issue(issues, sequence, "type33", field, expected, actual,
+                   "type-0x33 motion state diverged from the recovered 882F branch")
+
+
+def _target_entries(value: Any) -> list[dict[str, Any]]:
+    if isinstance(value, list):
+        return [entry for entry in value if isinstance(entry, dict)]
+    if isinstance(value, dict):
+        pairs = []
+        for key, entry in value.items():
+            try:
+                pairs.append((int(key), entry))
+            except (TypeError, ValueError):
+                continue
+        return [entry for _, entry in sorted(pairs)
+                if isinstance(entry, dict)]
+    return []
+
+
+def _compare_type33_target_tail(sample: dict[str, Any],
+                                issues: list[ComparisonIssue]) -> None:
+    before_globals = sample.get("globals_before") or {}
+    after_globals = sample.get("globals_after") or {}
+    before_object = sample.get("object_before") or {}
+    after_object = sample.get("object_after") or {}
+    before_type33 = before_object.get("type33") or {}
+    after_type33 = after_object.get("type33") or {}
+    required_globals = {"type33_target_active_count", "type33_target_capacity",
+                        "type33_targets"}
+    if not required_globals.issubset(before_globals) or not required_globals.issubset(after_globals):
+        return
+    if "target_cursor" not in before_type33 or "target_cursor" not in after_type33:
+        return
+    if not before_globals["type33_target_active_count"]:
+        return
+    targets_before = _target_entries(before_globals["type33_targets"])
+    targets_after = _target_entries(after_globals.get("type33_targets"))
+    if not targets_before or not targets_after:
+        return
+
+    count = int(before_globals["type33_target_capacity"])
+    cursor = int(before_type33["target_cursor"])
+    if cursor >= count:
+        cursor = 0
+    index = cursor
+    if index >= len(targets_before):
+        return
+    expected_cursor = (cursor + 1) & 0xffff
+    object_position = before_object.get("position") or {}
+    if "x" not in object_position or "y" not in object_position:
+        return
+    target = targets_before[index]
+    expected_x = int(target.get("x", 0))
+    expected_y = int(target.get("y", 0))
+    object_x = int(object_position["x"])
+    object_y = int(object_position["y"])
+    matched = (object_x - 10 < expected_x < object_x + 10 and
+               object_y - 0x23 < expected_y < object_y + 5)
+    expected_target_x = 0 if matched else expected_x
+    actual_target = targets_after[index]
+    sequence = int(sample.get("sequence", 0))
+    checks = {
+        "target_cursor": (expected_cursor, int(after_type33["target_cursor"])),
+        "target_x": (expected_target_x, int(actual_target.get("x", 0))),
+        "target_y": (expected_y, int(actual_target.get("y", 0))),
+    }
+    for field, (expected, actual) in checks.items():
+        if expected != actual:
+            _issue(issues, sequence, "type33-target-tail", field,
+                   expected, actual,
+                   "8AE5 target-list cursor or clearing rule diverged")
+
+
+def compare_type34(payload: dict[str, Any], samples: list[dict[str, Any]],
+                   issues: list[ComparisonIssue]) -> dict[str, int]:
+    config = _config(payload)
+    checked = 0
+    hit_frames = 0
+    gate_frames = 0
+    for sample in samples:
+        callback = sample.get("callback") or {}
+        if callback.get("offset") != 0x9c0c:
+            continue
+        before_globals = sample.get("globals_before") or {}
+        after_globals = sample.get("globals_after") or {}
+        before_object = sample.get("object_before") or {}
+        before_player = sample.get("bounds_object_before") or {}
+        if "proximity_gate" not in before_globals:
+            continue
+        checked += 1
+        sequence = int(sample.get("sequence", 0))
+        gate = int(before_globals["proximity_gate"])
+        active = gate < 0x32
+        offsets = _related_offsets(sample)
+        if active:
+            gate_frames += 1
+            if 0x9c29 not in offsets and not sample.get("termination", {}).get("visibility_gate_hit"):
+                _issue(issues, sequence, "type34", "proximity_helper",
+                       True, False,
+                       "active DS:85DA gate did not reach 9C29")
+
+        probe_class = config.get("probe_bounds_byte_37")
+        probe_position = config.get("probe_position_x") is not None
+        can_predict_hit = (probe_class is not None and probe_class > 0 and
+                           probe_class < 0x80 and probe_position and
+                           isinstance(before_object.get("position"), dict) and
+                           isinstance(before_player.get("position"), dict))
+        predicted_hit = False
+        if can_predict_hit and active:
+            predicted_hit = _strict_proximity(
+                before_object["position"], before_player["position"])
+        action_before = int(before_globals.get("action_word", 0))
+        action_after = int(after_globals.get("action_word", 0))
+        if predicted_hit:
+            hit_frames += 1
+            if action_after != 4:
+                _issue(issues, sequence, "type34", "action_word",
+                       4, action_after,
+                       "strict proximity hit did not publish action 4")
+            # The action chain is entered only on the 0 -> 4 transition;
+            # subsequent frames retain action 4 while only 5D60/39FE run.
+            if action_before != 4:
+                expected_helpers = {0x1b5d, 0x0fcf}
+                missing = sorted(expected_helpers - offsets)
+                if missing:
+                    _issue(issues, sequence, "type34", "action_chain",
+                           sorted(expected_helpers), sorted(offsets),
+                           f"proximity hit missed helpers {missing}")
+        elif not active and action_after != action_before:
+            _issue(issues, sequence, "type34", "action_word",
+                   action_before, action_after,
+                   "inactive DS:85DA gate changed the action word")
+
+    return {"samples_checked": checked, "active_gate_frames": gate_frames,
+            "predicted_hit_frames": hit_frames}
+
+
+def _high_effect_events(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    traces = payload.get("events")
+    trace = traces[0] if isinstance(traces, list) and traces else payload
+    if not isinstance(trace, dict):
+        return []
+    value = trace.get("spawned_effect_events", [])
+    if isinstance(value, dict):
+        pairs = []
+        for key, event in value.items():
+            try:
+                pairs.append((int(key), event))
+            except (TypeError, ValueError):
+                continue
+        value = [event for _, event in sorted(pairs)]
+    if not isinstance(value, list):
+        return []
+    return [event for event in value if isinstance(event, dict)]
+
+
+def _effect_field(object_record: dict[str, Any], *names: str) -> Any:
+    for name in names:
+        if name in object_record:
+            return object_record[name]
+    return None
+
+
+def _ordered_values(value: Any) -> list[Any]:
+    if isinstance(value, list):
+        return value
+    if isinstance(value, dict):
+        pairs: list[tuple[int, Any]] = []
+        for key, item in value.items():
+            try:
+                pairs.append((int(key), item))
+            except (TypeError, ValueError):
+                continue
+        return [item for _, item in sorted(pairs)]
+    return []
+
+
+def _compare_render_queue(event: dict[str, Any], sequence: int,
+                          issues: list[ComparisonIssue]) -> bool:
+    """Validate a captured 3587 queue without requiring older traces to have it."""
+    render_trace = _ordered_values(event.get("render_trace"))
+    if not render_trace:
+        return False
+    after = event.get("object_after") or {}
+    position = after.get("position") or {}
+    expected_x = position.get("x")
+    expected_y = position.get("y")
+    cursor = _effect_field(after, "target_cursor", "high_effect_cursor")
+    if expected_x is None or expected_y is None or cursor is None:
+        return False
+    expected_slot = 611 + min(2, int(cursor) // 10)
+    checked = False
+    for frame in render_trace:
+        if not isinstance(frame, dict):
+            continue
+        breakpoint = frame.get("breakpoint") or {}
+        try:
+            offset = int(breakpoint.get("offset"))
+        except (TypeError, ValueError):
+            continue
+        if offset != 0x3587:
+            continue
+        queue = frame.get("queue") or {}
+        records = _ordered_values(queue.get("records"))
+        matches = [record for record in records
+                   if isinstance(record, dict) and
+                   record.get("word4") == expected_slot]
+        checked = True
+        if len(matches) != 1:
+            _issue(issues, sequence, "high-effect-render", "sprite_record",
+                   1, len(matches),
+                   "3587 queue did not contain exactly one recovered effect record")
+            continue
+        record = matches[0]
+        if record.get("word0") != expected_x:
+            _issue(issues, sequence, "high-effect-render", "x",
+                   expected_x, record.get("word0"),
+                   "queued high-effect X diverged from the pooled object")
+        if record.get("word2") != expected_y:
+            _issue(issues, sequence, "high-effect-render", "y",
+                   expected_y, record.get("word2"),
+                   "queued high-effect Y diverged from the pooled object")
+    return checked
+
+
+def compare_high_effect(payload: dict[str, Any],
+                        issues: list[ComparisonIssue]) -> dict[str, int]:
+    """Check the source-less 4B70 -> 4C74 animation contract."""
+    checked = 0
+    factory_frames = 0
+    update_frames = 0
+    render_frames = 0
+    for sequence, event in enumerate(_high_effect_events(payload)):
+        entry = event.get("callback_entry") or event.get("callback") or {}
+        before = event.get("object_before") or {}
+        after = event.get("object_after") or {}
+        try:
+            callback = int(entry["offset"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if callback not in (0x4b70, 0x4c74):
+            continue
+        checked += 1
+        if _compare_render_queue(event, sequence, issues):
+            render_frames += 1
+        before_cursor = _effect_field(before, "target_cursor", "high_effect_cursor")
+        after_cursor = _effect_field(after, "target_cursor", "high_effect_cursor")
+        before_sprite = _effect_field(before, "sprite_slot", "sprite_or_action")
+        after_sprite = _effect_field(after, "sprite_slot", "sprite_or_action")
+        after_callback = _effect_field(after, "callback", "update_callback")
+        if callback == 0x4b70:
+            factory_frames += 1
+            checks = {
+                "callback": (0x4c74, after_callback),
+                "sprite_slot": (611, after_sprite),
+                "cursor": (0, after_cursor),
+            }
+        else:
+            update_frames += 1
+            if before_cursor is None or after_cursor is None:
+                continue
+            next_cursor = int(before_cursor) + 1
+            expected_callback = 0 if next_cursor >= 31 else 0x4c74
+            expected_sprite = (before_sprite if next_cursor >= 31 else
+                               611 + min(2, next_cursor // 10))
+            checks = {
+                "callback": (expected_callback, after_callback),
+                "sprite_slot": (expected_sprite, after_sprite),
+                "cursor": (next_cursor, after_cursor),
+            }
+        for field, (expected, actual) in checks.items():
+            if actual is not None and int(actual) != expected:
+                _issue(issues, sequence, "high-effect", field, expected,
+                       actual, "high-effect callback diverged from the recovered lifecycle")
+        for field, expected in (("source", 0xffff), ("phase", 2)):
+            actual = _effect_field(after, field,
+                                   "source_are_offset" if field == "source" else
+                                   "scheduler_phase")
+            if actual is not None and int(actual) != expected:
+                _issue(issues, sequence, "high-effect", field, expected,
+                       actual, "high-effect pooled-object identity changed")
+    return {"events_checked": checked, "factory_frames": factory_frames,
+            "update_frames": update_frames, "render_frames": render_frames}
+
+
+def compare_type33(samples: list[dict[str, Any]],
+                   issues: list[ComparisonIssue]) -> dict[str, int]:
+    """Check stable type-0x33 facts without pretending MAP state is solved."""
+    checked = 0
+    descriptor_frames = 0
+    movement_observations = 0
+    for sample in samples:
+        callback = sample.get("callback") or {}
+        if callback.get("offset") != 0x882f:
+            continue
+        before = sample.get("object_before") or {}
+        after = sample.get("object_after") or {}
+        if not before or not after:
+            continue
+        checked += 1
+        if before.get("descriptor") and after.get("descriptor"):
+            descriptor_frames += 1
+        before_position = before.get("position") or {}
+        after_position = after.get("position") or {}
+        if "x_fixed" in before_position and "x_fixed" in after_position:
+            movement_observations += 1
+        map_sets_transition = _type33_map_sets_transition(sample)
+        if map_sets_transition is not None:
+            _compare_type33_motion(sample, issues, map_sets_transition)
+        _compare_type33_target_tail(sample, issues)
+        if after.get("update_callback") == 0 and not sample.get("termination", {}).get("visibility_gate_hit"):
+            _issue(issues, int(sample.get("sequence", 0)), "type33",
+                   "update_callback", "nonzero or visibility cull",
+                   after.get("update_callback"),
+                   "type-0x33 callback cleared without a recorded camera cull")
+    return {"samples_checked": checked, "descriptor_frames": descriptor_frames,
+            "movement_observations": movement_observations}
+
+
+def compare_payload(payload: dict[str, Any], family: str = "auto") -> dict[str, Any]:
+    payload = json.loads(json.dumps(payload))
+    if "events" in payload and payload.get("events"):
+        payload["events"][0] = normalize_behavior_trace(payload["events"][0])
+    elif "samples" in payload:
+        payload = normalize_behavior_trace(payload)
+    samples = _samples(payload)
+    entity_type = int(_config(payload).get("entity_type", -1))
+    if family == "auto":
+        if payload.get("trace_kind") == "high-effect":
+            family = "high-effect"
+        else:
+            family = {0x33: "type33", 0x34: "type34"}.get(entity_type, "generic")
+
+    issues: list[ComparisonIssue] = []
+    descriptor_result = compare_descriptors(samples, issues, _config(payload))
+    family_result: dict[str, Any] = {}
+    if family == "type33":
+        family_result = compare_type33(samples, issues)
+    elif family == "type34":
+        family_result = compare_type34(payload, samples, issues)
+    elif family == "high-effect":
+        family_result = compare_high_effect(payload, issues)
+
+    return {
+        "schema": "quiky-object-behavior-comparison-v1",
+        "family": family,
+        "entity_type": entity_type,
+        "sample_count": len(samples),
+        "descriptor": descriptor_result,
+        "family_result": family_result,
+        "issue_count": len(issues),
+        "issues": [asdict(issue) for issue in issues],
+        "passed": not issues,
+    }
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("trace", type=Path)
+    parser.add_argument("--family", choices=("auto", "generic", "type33", "type34",
+                                             "high-effect"),
+                        default="auto")
+    parser.add_argument("--output", type=Path)
+    args = parser.parse_args(argv)
+    payload = json.loads(args.trace.read_text(encoding="utf-8"))
+    result = compare_payload(payload, args.family)
+    text = json.dumps(result, indent=2) + "\n"
+    if args.output:
+        args.output.write_text(text, encoding="utf-8")
+    else:
+        print(text, end="")
+    return 0 if result["passed"] else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

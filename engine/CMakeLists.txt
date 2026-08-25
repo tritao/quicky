@@ -51,6 +51,9 @@ target_link_libraries(quiky-compare-trace PRIVATE quiky_core)
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 
+add_executable(quiky-frame apps/quiky-frame.cpp)
+target_link_libraries(quiky-frame PRIVATE quiky_core)
+
 enable_testing()
 
 option(QUIKY_ENABLE_MUSIC "Build the TFMX music player" ON)

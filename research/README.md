@@ -4,6 +4,10 @@ This directory contains a reproducible inspection of Simon Laburda's 2011
 reverse-engineering work. The primary source is the [DKIA article][dkia]. It
 identifies the author as Simon Laburda and links the game and quiky-tools.zip.
 
+The object-lifecycle work uses the semantic names in
+[notes/object-behavior-glossary.md](notes/object-behavior-glossary.md). These
+are evidence-backed working labels, not asserted original source names.
+
 The game archive was retrieved from DKIA because the article explicitly says
 that its license permits private, non-commercial copying. A second copy was
 retrieved from [DOSGames.com][dosgames], which labels the game freeware and
@@ -652,6 +656,156 @@ to a 64-pixel-aligned streamed-region origin. The engine creates objects at
 `region_origin + record_coordinate`, represented internally as 16.16
 fixed-point positions. Simon changed the byte at 0x14e9 while testing object
 types. Individual type meanings still require visual correlation.
+
+The normal object lifecycle is recovered in a separate probe documented in
+[`notes/object-behavior.md`](notes/object-behavior.md). A 64-entry pool at
+`DS:755E` uses `+0x18 == 0` as its free test; the two scheduler banks at
+`DS:7566`/`DS:7766` are rebuilt by callback registration and dispatched in
+`+0x17` phase order. The visibility gate at `01F7:1DCA` clears the object
+callback and the source declaration's processed-marker byte through
+`01F7:1DEE`, leaving the rest of the pool record intact. A later `1CDA` region
+visit re-enters `1E04`, restores the marker, reuses the first free slot, and
+puts the object back into the scheduler banks. This is confirmed for W1L1
+types `0x01` and `0x2B`, including the exact source-marker and pool-slot
+transitions.
+
+For callback-internal evidence on the custom families, add `--helper-trace` to
+`research/tools/object_behavior_trace.py`. It captures selected far-helper
+entries and returns for types `0x2C`, `0x33`, and `0x34`; the register-level
+findings and remaining MAP-helper questions are recorded in
+[`notes/object-behavior.md`](notes/object-behavior.md).
+Controlled branch probes additionally use `--probe-position-x/y`,
+`--probe-proximity-state`, and `--probe-bounds-byte-37`. Descriptor-state
+probes use `--probe-descriptor-delay`, `--probe-descriptor-timer`,
+`--probe-descriptor-table`, `--probe-descriptor-cursor`, and
+`--probe-descriptor-mode`.
+
+Transient high-address effect callbacks are traced separately because they
+are spawned into the pool without an ARE source. The dedicated probe watches
+the five initializer/steady pairs and injects a target through their `+0x2A`
+cursor:
+
+~~~sh
+PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
+  --launch --headless --runtime-dir game --select-level W3L3 \
+  --frames 4 --frame-step 1 \
+  --output research/build/high-effect/w3l3-tail.json
+~~~
+
+For a visual isolation capture, force the source object onto a clear part of
+the scene and request the raw DOSBox frame:
+
+~~~sh
+DOSBOX_AUTOMATION_BIN=/path/to/dosbox_with_debugger \
+PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
+  --launch --headless --runtime-dir game --select-level W1L3 \
+  --frames 40 --frame-step 1 --force-object-x 300 --force-object-y 500 \
+  --stop-at-cursor 20 \
+  --screenshot-mode raw --screenshot research/build/high-effect/w1l3-puff.png \
+  --output research/build/high-effect/w1l3-puff.json
+~~~
+
+`--stop-at-cursor` leaves DOSBox paused on the selected `4C74` update before
+the host captures the frame, which makes later animation records reproducible.
+Use `--screenshot-format raw` when the uncompressed DOSBox frame container is
+more useful than PNG pixels.
+
+To inspect the scene draw queue around the first spawned high effect, add
+`--trace-render`. The trace records the `01F7:3529`/`01F7:3587` breakpoints and
+the shared eight-byte queue records before the flush:
+
+~~~sh
+DOSBOX_AUTOMATION_BIN=/path/to/dosbox_with_debugger \
+PYTHONPATH=research/tools python3 research/tools/high_effect_trace.py \
+  --launch --headless --runtime-dir game --select-level W1L3 \
+  --frames 20 --frame-step 1 --force-object-x 300 --force-object-y 500 \
+  --stop-at-cursor 0 --trace-render \
+  --output research/build/high-effect/w1l3-render-trace.json
+~~~
+
+The one-frame cadence is intentional: the first steady callback consumes the
+target before its state gate advances the transient object to the next phase.
+All five high tails now have live target-hit evidence. Their static
+`AX=4B70` handoff relocates to the pooled factory `01F7:0E06`; the resulting
+effect callback installs sprite slot `611` and callback `4C74`. The remaining
+`4C74` callback contract is three ten-update sprite groups (`611/612/613`)
+followed by a terminal callback clear at cursor `31`. The C++ model and frame
+comparator now encode this contract; resource-specific BOB selection remains
+level data rather than callback logic.
+
+The first standalone C++ behavior model is in
+[`model/`](model/), covering the proven pool/scheduler operations, descriptor
+sequence state, and type-0x34 proximity output. Build and run its focused test
+with:
+
+~~~sh
+cmake -S research/model -B research/build/object-behavior-model
+cmake --build research/build/object-behavior-model -j16
+ctest --test-dir research/build/object-behavior-model --output-on-failure
+~~~
+
+The frame-level contract comparator is
+[`tools/object_behavior_compare.py`](tools/object_behavior_compare.py), with
+coverage and current DOSBox results in
+[`notes/object-behavior-comparison.md`](notes/object-behavior-comparison.md).
+
+For real-input lifetime checks, use the isolated movement driver. It waits for
+the selected entity to initialize, injects a guest-key sequence, and captures
+the same pooled record at synchronized frame barriers:
+
+~~~sh
+PYTHONPATH=research/tools python3 research/tools/object_movement_trace.py \
+  --launch --headless --runtime-dir research/build/entity-2b-multiframe-final/baseline/game \
+  --entity-type 0x2b --record-offset 0x1792 \
+  --capture-frames 40 --frame-step 20 --movement-key KBD_right \
+  --movement-frames 350 --return-key KBD_left --return-frames 350 \
+  --output research/build/object-behavior/entity-2b-source-out-back.json
+~~~
+
+The driver uses guest-timed input and, when the return leg is enabled, records
+the source declaration marker, all 64 pool records, and target memberships in
+both scheduler banks. The compact 40-barrier layout keeps long traversals
+below dosbox-automation's Lua instruction budget. The resulting traces show
+both original-slot reuse and next-free-slot reactivation; details are in
+[`notes/object-behavior.md`](notes/object-behavior.md).
+
+To combine static writes with these runtime observations, use the lifecycle
+matrix tool:
+
+~~~sh
+PYTHONPATH=research/tools python3 research/tools/object_lifecycle_matrix.py \
+  --catalog research/entity-types.json \
+  --disassembly research/build/quiky-exe-i8086.asm \
+  --trace research/build/object-behavior/entity-01-source-out-back-direct.json \
+  --trace research/build/object-behavior/entity-2b-source-long-out-back-direct.json \
+  --trace research/build/object-behavior/entity-28-w1l1-v31.json \
+  --output research/build/object-behavior/lifecycle-matrix.json
+~~~
+
+The report is conservative: source-marker transitions classify visibility
+culling/reactivation; callback persistence or callback end is only classified
+when the source marker remains processed.
+
+The accepted-camera callback pass covers W1L1 fixtures for types `0x28`,
+`0x29`-`0x2C`, `0x33`, and `0x34`. Each keeps its processed source marker and
+nonzero callback through an eight-sample frame-synchronized window; the
+`0x29`-`0x2B` leaf family shows the expected `01F7:4727 -> 01F7:47E7`
+initialization transition and retains `01F7:47E7` thereafter. No accepted
+sample reaches the cleanup gate at `01F7:1DEE` or a known state-machine exit.
+This establishes short-window persistence; longer movement/traversal probes
+are still needed for eventual camera culling, object death, and reactivation.
+For long object-only traces, add `--no-pool-snapshots`; the tracer then stops
+cleanly on a callback clear and preserves the source-marker/gate evidence while
+avoiding the expensive full pool snapshots. A controlled `0x2B` run with
+camera `(500,0)` reaches `y=305` at sample 74 and records
+`01F7:1DCA -> 01F7:1DEE`, callback clear, and source marker
+`0x012B -> 0x002B`. The same object survives 192 samples at camera `(500,100)`.
+The other accepted families (`0x29`, `0x2A`, `0x2C`, `0x33`, and `0x34`) also
+complete 128-sample lightweight windows without callback clears or source
+marker changes. The complete accepted-camera set is therefore classified as
+`persistent_in_window`; the remaining lifecycle transition to characterize is
+what happens after an object-specific state change or real gameplay event,
+rather than ordinary visibility culling.
 
 Blanking an ARE experimentally removes enemies, pickups, exits, elevators,
 falling leaves, and other living objects while leaving some static geometry

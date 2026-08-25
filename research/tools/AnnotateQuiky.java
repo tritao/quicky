@@ -82,6 +82,8 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x0fcf, "dispatch_pending_sound_effect",
             "Dispatches the pending gameplay effect when the FX gate and audio system are ready.");
         relocationTarget(0x0caa, "seg2_target_0caa", "NE relocation target referenced by segment 1.");
+        relocationTarget(0x0fcf, "dispatch_pending_sound_effect",
+            "Dispatches a pending gameplay effect; type-0x34 action paths also reach this sink.");
         function(0x168d, "dispatch_audio_driver_command",
             "Dispatches an audio-driver command through the driver jump table.");
         function(0x1761, "set_sound_blaster_rate",
@@ -170,7 +172,8 @@ public class AnnotateQuiky extends GhidraScript {
     }
 
     private void annotateSegment3() throws Exception {
-        int[] targets = {0x05a0, 0x106a, 0x1ec4, 0x332c, 0x335e, 0x33bf, 0x342f,
+        int[] targets = {0x05a0, 0x1036, 0x106a, 0x1ec4, 0x332c, 0x335e, 0x33bf, 0x342f,
+            0x1b5d, 0x1b77, 0x1c4d, 0x1c6e, 0x39fe,
             0x5c27, 0x5cc3, 0x5d00, 0x5d38, 0x5d60, 0x6370};
         for (int target : targets) {
             relocationTarget(target, String.format("seg3_target_%04x", target),
@@ -184,10 +187,48 @@ public class AnnotateQuiky extends GhidraScript {
             "Counts non-free entries in the 64-entry pooled-object array and publishes DS:88C8.");
         function(0x0e96, "object_update_pass_by_phase",
             "Runs pooled-object callbacks in phase order using object byte +0x17 values 0, 1, and 2.");
+        function(0x1036, "register_object_scheduler_entry",
+            "Appends the live callback and object offset to the active scheduler bank and writes its terminator.");
         function(0x0f3c, "find_object_kind_0x64",
             "Scans the object list for an object whose +0x14 kind field equals 0x64; ownership semantics remain unresolved.");
         function(0x0fa2, "object_update_pass_nonzero_state",
             "Runs callbacks for list entries with a non-null callback pointer; list/object state semantics remain unresolved.");
+        function(0x0b142, "create_b33b_owner",
+            "Creates the B33B phased owner and its linked B226/B25D records; lifecycle contract under dynamic validation.");
+        function(0x0b1f0, "create_b226_linked_object",
+            "Initializes the B226 linked animation record through the shared sequence loader.");
+        function(0x0b20b, "create_b25d_linked_object",
+            "Initializes the B25D linked animation record through the shared sequence loader.");
+        function(0x0b226, "update_b226_animation",
+            "B226 linked animation callback with phase-dependent camera visibility gate.");
+        function(0x0b25d, "update_b25d_animation",
+            "B25D linked animation callback and target/effect tail dispatch.");
+        function(0x0b266, "b25d_tail_dispatch",
+            "B25D tail branch reached after the target/effect update; teardown behavior under validation.");
+        function(0x0b2b0, "b25d_animation_step",
+            "B25D animation-step helper reached from the linked callback.");
+        function(0x0b2b8, "b25d_animation_step_alt",
+            "B25D animation-step branch.");
+        function(0x0b2ba, "b25d_animation_step_alt2",
+            "B25D animation-step branch.");
+        function(0x0b2bf, "b25d_animation_step_alt3",
+            "B25D animation-step branch.");
+        function(0x0b2c4, "b25d_effect_action_call",
+            "B25D action/effect call site.");
+        function(0x0b303, "b25d_callback_tail",
+            "B25D callback tail and return path.");
+        function(0x0b33b, "update_b33b_owner",
+            "B33B phased owner callback; advances linked records and creates the B84D/B87B transition.");
+        function(0x0b84c, "prepare_b87b_transition",
+            "B84C transition helper associated with the B84D/B87B linked lifecycle.");
+        function(0x0b84d, "initialize_b87b_transition",
+            "B84D replaces the current callback with B87B and initializes its transition state.");
+        function(0x0b87b, "update_b87b_transition",
+            "B87B moving transition callback with strict camera gate and MAP descriptor probes.");
+        function(0x0487f, "initialize_late_owner",
+            "Late-phase owner initializer reached after the B33B phase-5 conversion.");
+        function(0x0489c, "update_late_owner",
+            "Steady late-phase owner callback reached after the 487F initializer.");
         function(0x08c9, "release_map_buffer",
             "Releases the current MAP buffer through the runtime helper and clears DS:657A/657C when it is present.");
         function(0x0a43, "initialize_game_state",
@@ -200,8 +241,10 @@ public class AnnotateQuiky extends GhidraScript {
             "Returns carry set when ES:DI+04/+08 falls outside the camera window derived from DS:81C0/81C4; uses a 0x80 margin and 0x240/0x1B0 extents.");
         function(0x1dee, "deactivate_object_outside_camera",
             "Clears ES:DI+18 and the byte at FS:[ES:DI+1A+1] after the camera gate rejects an object.");
-        function(0x393c, "compute_state_machine_bounds",
+        function(0x393c, "compute_player_collision_bounds",
             "Returns four bounds from the object pointed to by DS:881A: position fields plus +2C/+30/+2E/+32, or four zeroes when DS:89EA is nonzero.");
+        function(0x39fe, "query_player_collision_state",
+            "Returns the persistent-player X/Y and collision-class byte used by the type-0x34 proximity test.");
         function(0x3f27, "initialize_player_object",
             "Initializes the persistent player object: stores ES:DI into DS:881A, clears player globals, and installs callback 01F7:3FF8; runtime W1L1 pool offset 0 confirms this record.");
         function(0x3ff8, "update_player_object",
@@ -247,6 +290,22 @@ public class AnnotateQuiky extends GhidraScript {
         function(0x17a3, "create_are_type_67", "Dedicated ARE type 0x67 wrapper.");
         function(0x4727, "update_falling_leaves_types_29_2b",
             "Dispatch-table callback shared by ARE types 0x29, 0x2A, and confirmed falling-leaves type 0x2B.");
+        function(0x8c4e, "init_are_type_2c",
+            "Observed initializer callback for ARE type 0x2C; runtime changes its slot to 0x8D20 after the first update.");
+        function(0x8d20, "update_are_type_2c",
+            "Observed steady callback for ARE type 0x2C; input-trace samples show stable state fields and a persistent object callback.");
+        function(0x8d31, "update_are_type_2c_action_helper",
+            "Type 0x2C callback helper: consumes bounds from 0x393C, branches on object+0x2C, and has a terminal callback-clear path at 0x8E42.");
+        function(0x87d1, "init_are_type_33",
+            "Observed initializer callback for ARE type 0x33; runtime changes its slot to 0x882F after the first update.");
+        function(0x882f, "update_are_type_33",
+            "Observed steady callback for ARE type 0x33; runtime state transitions during initialization settle to state 0x0100.");
+        function(0x9bee, "init_are_type_34",
+            "Observed initializer callback for ARE type 0x34; runtime changes its slot to 0x9C0C after the first update.");
+        function(0x9c0c, "update_are_type_34",
+            "Observed steady callback for ARE type 0x34; input-trace samples show stable state fields and a persistent object callback.");
+        function(0x9c29, "test_type34_proximity",
+            "Type-0x34 helper: applies strict X/Y proximity bounds gated by the persistent player's collision-class byte.");
         function(0x9256, "update_are_type_28",
             "Dispatch-table callback for normal ARE type 0x28, whose object class is zero.");
         function(0x3376, "map_tile_id_lookup_16px",
@@ -257,18 +316,26 @@ public class AnnotateQuiky extends GhidraScript {
             "Coordinate-selected loaded-MAP writer: preserves upper property bits, then ORs unmasked CX; caller supplies the low-ID bits.");
         function(0x340a, "map_property_writer",
             "Coordinate-selected loaded-MAP writer: preserves the low nine-bit tile ID, then ORs unmasked CX; caller supplies the upper-property bits.");
+        function(0x1b5d, "apply_player_displacement",
+            "Type-0x34 action helper: updates player state and applies the observed fixed-point displacement before the effect sink.");
+        function(0x1b77, "save_collision_probe_context",
+            "Saves the four incoming collision registers before the type-0x33 MAP contact chain.");
+        function(0x1c4d, "check_object_map_contact",
+            "Forms the directional type-0x33 MAP probe and forwards it to the 16-pixel raw MAP-word helper.");
+        function(0x1c6e, "map_word_probe_16px",
+            "Computes a 16-pixel MAP address, returns the raw word, and tests bit 0x4000.");
         function(0x5c27, "map_tile_descriptor_query_5c27",
             "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and tests descriptor flags against coordinate bit 3.");
-        function(0x5cc3, "map_tile_descriptor_query_5cc3",
+        function(0x5cc3, "map_descriptor_read",
             "Masks a raw MAP cell to its low 9-bit tile ID, indexes DS:6582 by DS:30D4, and returns the descriptor word in DX.");
         function(0x5c9d, "map_cell_word_store",
             "Stores a complete CX word into one loaded MAP cell using the row stride and coordinate-derived byte offset.");
         function(0x5d00, "map_cell_descriptor_5d00",
             "Builds a nearby MAP-cell descriptor used by player movement; exact field meanings remain under analysis.");
-        function(0x5d38, "map_cell_descriptor_5d38",
-            "Builds an adjacent MAP-cell descriptor used by player movement; exact field meanings remain under analysis.");
-        function(0x5d60, "map_cell_state_decay_5d60",
-            "Updates a temporary MAP-cell state/counter used by player movement.");
+        function(0x5d38, "load_animation_descriptor",
+            "Loads a descriptor/table entry into object animation state and selects the current slot/action.");
+        function(0x5d60, "advance_animation_descriptor",
+            "Decrements the active descriptor timer or advances the descriptor cursor when it expires.");
         function(0x6370, "player_collision_helper_6370",
             "MAP tile-ID collision helper parallel to 648E; calls 3376 and applies tile IDs 5-10 to player state.");
         function(0x8d20, "update_collectible_effect",
@@ -295,6 +362,24 @@ public class AnnotateQuiky extends GhidraScript {
         label(0x81c4, "camera_y", "Current integer camera Y used by visibility, streaming, and renderer clipping.");
         label(0x81ce, "camera_subtile_x", "Derived camera sub-tile X value written by update_camera_scroll.");
         label(0x81d0, "camera_subtile_phase", "Derived camera phase byte written by update_camera_scroll.");
+        label(0x755e, "object_pool_base", "Base of the 64-entry pooled-object array.");
+        label(0x7566, "scheduler_bank_a", "First eight-byte object scheduler bank.");
+        label(0x7766, "scheduler_bank_b", "Second eight-byte object scheduler bank.");
+        label(0x7966, "scheduler_insert_cursor", "Scheduler bank selector and insertion cursor.");
+        label(0x7968, "stream_reference_grid_stride", "Reference-grid stride used by directional ARE streaming.");
+        label(0x796e, "are_source_segment_selector", "Segment value used to access the source ARE marker through object+0x1A.");
+        label(0x30ce, "object_stride_bytes", "Pooled-object record stride, 0x78 bytes.");
+        label(0x30d4, "tile_descriptor_stride", "Stride used to index a tile descriptor record.");
+        label(0x657a, "map_buffer_offset", "Offset of the currently loaded MAP buffer.");
+        label(0x657c, "map_buffer_segment", "Segment of the currently loaded MAP buffer.");
+        label(0x657e, "map_row_stride_bytes", "Byte stride between MAP rows.");
+        label(0x6582, "tile_descriptor_table_offset", "Offset of the tile descriptor table.");
+        label(0x6584, "tile_descriptor_table_segment", "Segment of the tile descriptor table.");
+        label(0x85da, "type34_activation_state", "State word checked by the type-0x34 callback against 0x32; broader role is provisional.");
+        label(0x881a, "player_object_offset", "Persistent player object offset; W1L1 uses pool record offset zero.");
+        label(0x89ea, "player_collision_mode", "Shared zero/nonzero mode consumed by the player-bounds helper; broader role is provisional.");
+        label(0x612e, "pending_action_word", "Action word changed from zero to four on the controlled type-0x34 proximity hit.");
+        label(0x504c, "pending_effect_code", "Effect code published by the type-0x34 action chain; observed value is 0x2A.");
         label(0x88bc, "keyboard_action_flags", "Normalized make/break action flags populated by poll_keyboard_ring_to_input_flags.");
         label(0x88ba, "last_keyboard_scan_code", "Most recently consumed keyboard scan code.");
     }

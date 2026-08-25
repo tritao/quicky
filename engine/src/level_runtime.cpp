@@ -34,7 +34,7 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
     const Map map = Map::parse(archive.read(mapName), mapName);
     const Area area = Area::parse(archive.read(areaName), areaName);
     const Palette palette = Palette::parsePcx(
-        archive.read(worldName + ".PCC"), worldName + ".PCC");
+        archive.read(worldName + ".PCC"), worldName + ".PCC").toVgaOutput();
     const Tileset tileset = Tileset::parseIco(
         archive.read(worldName + ".ICO"), worldName + ".ICO");
     const std::string loopName = "LOOP_" + worldName + ".ICO";
@@ -47,6 +47,7 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
         mapName, areaName, worldName, playerBobName, map, area, palette,
         tileset, loopTileset, playerBob, config));
     result->loadEntityBobs(archive);
+    result->loadEffectBobs(archive);
     return result;
 }
 
@@ -69,7 +70,8 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
       _loopTileset(loopTileset),
       _playerBob(playerBob),
       _session(mapName, _map, _area, config),
-      _entityBobs() {
+      _entityBobs(),
+      _effectBobs() {
 }
 
 void LevelRuntime::loadEntityBobs(const Archive &archive) {
@@ -83,6 +85,14 @@ void LevelRuntime::loadEntityBobs(const Archive &archive) {
             archive.read(entity.spriteResource), entity.spriteResource);
         _entityBobs.insert(std::make_pair(entity.spriteResource, bob));
     }
+}
+
+void LevelRuntime::loadEffectBobs(const Archive &archive) {
+    const std::string resource = _worldName == "W2"
+                                     ? "PUFFW2.BOB"
+                                     : "PUFF.BOB";
+    _effectBobs.insert(std::make_pair(
+        resource, Bob::parse(archive.read(resource), resource)));
 }
 
 void LevelRuntime::reset(PlayerState &player,

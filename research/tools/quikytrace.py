@@ -74,6 +74,13 @@ class EntityTraceConfig:
     screenshot_mode: str = "rendered"
     select_level: str | None = None
     selector_frames: int = 60
+    source_scan: bool = False
+    movement_key: str = ""
+    movement_frames: int = 0
+    return_key: str = ""
+    return_frames: int = 0
+    movement_camera_x: int | None = None
+    movement_camera_y: int | None = None
 
 
 @dataclass(frozen=True)
@@ -100,6 +107,8 @@ class PlayerTraceConfig:
     descriptor_count: int = 512
     map_width: int = 270
     map_height: int = 30
+    probe_spawn_emitter: bool = False
+    probe_release_emitter: bool = False
     input_key: str | None = None
     input_key_switch: str | None = None
     input_switch_sample: int = 0
@@ -180,6 +189,13 @@ def entity_trace_lua_config(config: EntityTraceConfig) -> dict[str, Any]:
         "frame_step": config.frame_step,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "source_scan": config.source_scan,
+        "movement_key": config.movement_key,
+        "movement_frames": config.movement_frames,
+        "return_key": config.return_key,
+        "return_frames": config.return_frames,
+        "movement_camera_x": config.movement_camera_x,
+        "movement_camera_y": config.movement_camera_y,
     }
 
 
@@ -205,6 +221,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "descriptor_count": config.descriptor_count,
         "map_width": config.map_width,
         "map_height": config.map_height,
+        "probe_spawn_emitter": config.probe_spawn_emitter,
+        "probe_release_emitter": config.probe_release_emitter,
         "input_key": config.input_key or "",
         "input_key_switch": config.input_key_switch or "",
         "input_switch_sample": config.input_switch_sample,
@@ -535,6 +553,24 @@ def normalize_entity_trace(entity: dict[str, Any]) -> dict[str, Any]:
         entity.get("update_candidates", [])
     )
     entity["frames"] = ordered_lua_array(entity.get("frames", []))
+    for frame in entity["frames"]:
+        lifecycle = frame.get("lifecycle")
+        if not isinstance(lifecycle, dict):
+            continue
+        pool = lifecycle.get("pool")
+        if isinstance(pool, dict):
+            pool["records"] = ordered_lua_array(pool.get("records", []))
+            pool["source_matches"] = ordered_lua_array(
+                pool.get("source_matches", [])
+            )
+        scheduler = lifecycle.get("scheduler")
+        if isinstance(scheduler, dict):
+            scheduler["banks"] = ordered_lua_array(scheduler.get("banks", []))
+            for bank in scheduler["banks"]:
+                if isinstance(bank, dict):
+                    bank["entries"] = ordered_lua_array(
+                        bank.get("entries", [])
+                    )
     return entity
 
 
@@ -727,6 +763,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="loaded MAP width for descriptor census (default 270)")
     parser.add_argument("--player-map-height", type=int, default=30,
                         help="loaded MAP height for descriptor census (default 30)")
+    parser.add_argument("--player-probe-spawn-emitter", action="store_true",
+                        help="debugger-only: force the player post-update target-emitter spawn path")
+    parser.add_argument("--player-probe-release-emitter", action="store_true",
+                        help="debugger-only: clear the first emitter target at 45AB and trace 470C teardown")
     parser.add_argument("--player-input-key",
                         help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
     parser.add_argument("--player-input-key-switch",
@@ -887,6 +927,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-property-helper requires --player-property-focus")
     if not 0 <= args.player_callback_offset <= 0xffff:
         raise TraceError("--player-callback-offset must be between 0 and 65535")
+    if args.player_probe_release_emitter and not args.player_focus_callback:
+        raise TraceError("--player-probe-release-emitter requires --player-focus-callback")
     if (args.player_focus_callback and args.player_callback_offset == 0x3f27
             and args.player_samples != 1):
         raise TraceError("--player-focus-callback 0x3f27 requires --player-samples 1; use 0x3ff8 for repeated updates")
@@ -1020,6 +1062,8 @@ def main(argv: list[str] | None = None) -> int:
                 descriptor_count=args.player_descriptor_count,
                 map_width=args.player_map_width,
                 map_height=args.player_map_height,
+                probe_spawn_emitter=args.player_probe_spawn_emitter,
+                probe_release_emitter=args.player_probe_release_emitter,
                 input_key=args.player_input_key,
                 input_key_switch=args.player_input_key_switch,
                 input_switch_sample=args.player_input_switch_sample,

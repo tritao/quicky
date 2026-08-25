@@ -176,6 +176,26 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(entity["trace_schema_version"], 7)
         self.assertEqual(entity["frames"], [])
 
+    def test_entity_source_scan_is_opt_in(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = EntityTraceConfig(
+            record_offset=0x1792, entity_type=0x2B,
+            startup_recording=recording, source_scan=True,
+        )
+        payload = entity_trace_lua_config(config)
+        self.assertTrue(payload["source_scan"])
+
+    def test_entity_movement_camera_lock_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = EntityTraceConfig(
+            record_offset=0x1792, entity_type=0x2B,
+            startup_recording=recording, movement_key="KBD_right",
+            movement_frames=30, movement_camera_x=500, movement_camera_y=100,
+        )
+        payload = entity_trace_lua_config(config)
+        self.assertEqual(payload["movement_camera_x"], 500)
+        self.assertEqual(payload["movement_camera_y"], 100)
+
     def test_player_trace_loader_uses_structured_config(self):
         class FakeApi:
             loaded_source = ""
@@ -422,6 +442,20 @@ class QuikyTraceTests(unittest.TestCase):
         callback = trace["samples"][0]["player_callback"]
         self.assertEqual([item["offset"] for item in callback["writes"]], [3, 7])
         self.assertEqual(callback["global_writes"][0]["field"], "camera_x")
+
+    def test_player_spawn_probe_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, probe_spawn_emitter=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["probe_spawn_emitter"])
+
+    def test_player_release_probe_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, probe_release_emitter=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["probe_release_emitter"])
 
 
 if __name__ == "__main__":

@@ -20,6 +20,9 @@ local descriptor_census = trace_config.descriptor_census or false
 local descriptor_count = trace_config.descriptor_count or 512
 local map_width = trace_config.map_width or 270
 local map_height = trace_config.map_height or 30
+local probe_spawn_emitter = trace_config.probe_spawn_emitter or false
+local probe_release_emitter = trace_config.probe_release_emitter or false
+local spawn_probe_done = false
 local input_key = trace_config.input_key or ""
 local input_key_switch = trace_config.input_key_switch or ""
 local input_switch_sample = trace_config.input_switch_sample or 0
@@ -93,7 +96,13 @@ local function selector_word(selector, offset)
     end
     return word(raw, 1)
 end
+local function little_word(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff)
+end
 
+local function signed_word(value)
+    return value >= 0x8000 and value - 0x10000 or value
+end
 local function hex(s)
     return (s:gsub(".", function(c)
         return string.format("%02x", string.byte(c))
@@ -231,12 +240,14 @@ local function object_snapshot(raw, selector, offset, index)
         phase = string.byte(raw, 0x17 + 1),
         callback = word(raw, 0x18 + 1),
         callback_data = word(raw, 0x1a + 1),
+        target_emitter_slot = word(raw, 0x2a + 1),
         sprite_slot = word(raw, 0x12 + 1),
         lifetime = word(raw, 0x2c + 1),
         state_field = word(raw, 0x2e + 1),
         state_field_signed = signed32(dword(raw, 0x2e + 1)),
         vertical_step = vertical_step,
         vertical_step_signed = vertical_step and signed16(vertical_step) or nil,
+        target_cursor = word(raw, 0x30 + 1),
         update_state = word(raw, 0x32 + 1),
         player_byte_0x36 = string.byte(raw, 0x36 + 1),
         player_byte_0x37 = string.byte(raw, 0x37 + 1),
@@ -422,6 +433,19 @@ local function branch_descriptor_snapshot(hit)
 end
 
 local function static_globals()
+    local target_capacity = dosbox.mem_read_word("ds", 0x8808)
+    local raw_targets = dosbox.mem_read("ds", 0x87de, 40) or ""
+    local target_entries = {}
+    for index = 0, 9 do
+        local base = index * 4 + 1
+        if #raw_targets >= base + 3 then
+            target_entries[#target_entries + 1] = {
+                index = index,
+                x = signed_word(word(raw_targets, base)),
+                y = signed_word(word(raw_targets, base + 2)),
+            }
+        end
+    end
     return {
         input_action_flags = dosbox.mem_read_word("ds", 0x8196),
         keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
@@ -448,6 +472,9 @@ local function static_globals()
         object_count = dosbox.mem_read_word("ds", 0x880a),
         transition_event = dosbox.mem_read_word("ds", 0x89e6),
         transition_error = dosbox.mem_read_word("ds", 0x89ec),
+        target_active_count = dosbox.mem_read_word("ds", 0x8806),
+        target_capacity = target_capacity,
+        target_entries = target_entries,
     }
 end
 
@@ -549,6 +576,9 @@ local function arm_callback_targets()
     for _, segment in ipairs({0x01d7, 0x01e7, 0x01f7, 0x0207, 0x0227, 0x0237,
                               0x1997}) do
         dosbox.breakpoint_set(segment, focus_callback_offset, {once = true})
+    end
+    if probe_release_emitter then
+        dosbox.breakpoint_set(0x01f7, 0x470c, {once = true})
     end
 end
 
@@ -702,6 +732,11 @@ local function arm_targets()
         dosbox.breakpoint_set(0x01f7, branch_entry_offset, {once = true})
         arm_branch_targets()
     end
+    if probe_spawn_emitter and not spawn_probe_done then
+        -- 38EC is the post-update producer call site. The player callback
+        -- rewrites object+0 before reaching it, so 3FF8 is too early.
+        dosbox.breakpoint_set(0x01f7, 0x38ec, {once = true})
+    end
     if focus_callback or map_focus or collision_focus or property_focus or branch_focus or
        (descriptor_census and not descriptor_census_done) then
         return
@@ -732,6 +767,76 @@ callback_object_snapshot = function(hit)
     local object = object_snapshot(raw_or_error, selector, offset, -1)
     object.state_size = read_size
     return object
+end
+
+local function apply_spawn_probe(hit)
+    if not probe_spawn_emitter or spawn_probe_done or hit.offset ~= 0x38ec then return nil end
+    spawn_probe_done = true
+    local object = callback_object_snapshot(hit)
+    if object == nil then return nil end
+    dosbox.mem_write_selector(object.selector, object.offset,
+                               little_word(object.action_word | 0x10))
+    dosbox.mem_write_selector(object.selector, object.offset + 0x3c, "\x00")
+    -- 4519 admits the emitter only while this gate is positive (or DS:880C
+    -- is positive). This is debugger-only setup of the observed call path.
+    dosbox.mem_write("ds", 0x88ae, little_word(1))
+    return {
+        player_action_word = object.action_word | 0x10,
+        player_byte_3c = 0,
+        spawn_gate_88ae = 1,
+    }
+end
+
+local function apply_release_probe(hit)
+    if not probe_release_emitter or hit.offset ~= 0x45ab then return nil end
+    local object = callback_object_snapshot(hit)
+    if object == nil then return nil end
+    local slot = object.target_emitter_slot
+    dosbox.mem_write("ds", 0x87de + slot, little_word(0))
+    dosbox.breakpoint_set(0x01f7, 0x470c, {once = true})
+    return {
+        target_slot = slot,
+        target_x = 0,
+    }
+end
+
+local function capture_release_callback(sample)
+    dosbox.debug_continue()
+    local hit = wait_hit("target-emitter release callback")
+    sample.related_breakpoints[#sample.related_breakpoints + 1] = {
+        segment = hit.segment, offset = hit.offset,
+    }
+    local object = callback_object_snapshot(hit)
+    local release = {
+        breakpoint = {segment = hit.segment, offset = hit.offset},
+        callback_offset = hit.offset,
+        registers = hit.registers,
+        object = object,
+    }
+    local stack = dosbox.mem_read(
+        "ss", (hit.registers.esp or 0) & 0xffff, 4
+    ) or ""
+    if #stack >= 4 and object ~= nil then
+        local return_offset = word(stack, 1)
+        release.return_expected = {segment = hit.segment, offset = return_offset}
+        dosbox.breakpoint_set(hit.segment, return_offset, {once = true})
+        dosbox.debug_continue()
+        local returned = wait_hit("target-emitter release return")
+        release.return_actual = {segment = returned.segment, offset = returned.offset}
+        local ok, raw_or_error = pcall(
+            dosbox.mem_read_selector, object.selector, object.offset, 0x40
+        )
+        if ok and raw_or_error and #raw_or_error >= 0x40 then
+            release.post_object = object_snapshot(
+                raw_or_error, object.selector, object.offset, -1
+            )
+            release.post_globals = static_globals()
+        else
+            release.post_object_read_error =
+                ok and "short object state" or tostring(raw_or_error)
+        end
+    end
+    sample.release_callback = release
 end
 
 local function record_map_lookup(sample, hit)
@@ -1351,6 +1456,8 @@ for sequence = 1, sample_count do
         sample.pool = pool_snapshot()
         sample.scheduler = scheduler_snapshot()
     end
+    sample.spawn_probe = apply_spawn_probe(hit)
+    sample.release_probe = apply_release_probe(hit)
     local initial_hit = hit
     local descriptor_census_result = nil
     if descriptor_census and initial_hit.offset == 0x5cc3 then
@@ -1388,7 +1495,8 @@ for sequence = 1, sample_count do
         hit = capture_branch_sequence(sample, initial_hit)
     end
     if focus_callback and initial_hit.offset ~= focus_callback_offset and
-       initial_hit.offset ~= 0x3f27 then
+       initial_hit.offset ~= 0x3f27 and
+       not (probe_release_emitter and initial_hit.offset == 0x470c) then
         arm_callback_targets()
         dosbox.debug_continue()
         hit = wait_hit("player callback after related breakpoint")
@@ -1402,8 +1510,11 @@ for sequence = 1, sample_count do
             sample.pool = pool_snapshot()
             sample.scheduler = scheduler_snapshot()
         end
+        sample.release_probe = apply_release_probe(hit)
     end
-    if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
+    if hit.offset == 0x3f27 or
+       (focus_callback and (hit.offset == focus_callback_offset or
+                            (probe_release_emitter and hit.offset == 0x470c))) then
         local callback_object = callback_object_snapshot(hit)
         local callback_globals = static_globals()
         sample.player_callback = {
@@ -1667,6 +1778,7 @@ for sequence = 1, sample_count do
                     callback_object.state_hex,
                     sample.player_callback.post_object.state_hex
                 )
+                sample.player_callback.post_globals = static_globals()
             else
                 sample.player_callback.post_object_read_error =
                     ok and "short object state" or tostring(raw_or_error)
@@ -1675,6 +1787,9 @@ for sequence = 1, sample_count do
             sample.player_callback.global_writes = numeric_differences(
                 callback_globals, sample.player_callback.post_globals
             )
+        end
+        if sample.release_probe ~= nil then
+            capture_release_callback(sample)
         end
         if map_focus and sample.map_lookup == nil then
             dosbox.breakpoint_set(0x01f7, 0x3376, {once = true})

@@ -109,6 +109,16 @@ void testMapPaletteTilesetAndRenderer() {
     assert(palette.colors[3].red == 3);
     assert(palette.colors[3].green == 4);
     assert(palette.colors[3].blue == 5);
+    const quiky::Palette vgaPalette = palette.toVgaOutput();
+    assert(vgaPalette.colors[3].red == 0);
+    assert(vgaPalette.colors[3].green == 0);
+    assert(vgaPalette.colors[3].blue == 0);
+    quiky::Palette knownPalette;
+    knownPalette.colors[0] = {151, 183, 227};
+    const quiky::Palette knownVga = knownPalette.toVgaOutput();
+    assert(knownVga.colors[0].red == 146);
+    assert(knownVga.colors[0].green == 178);
+    assert(knownVga.colors[0].blue == 223);
 
     quiky::Bytes icoData(512, 0);
     for (std::size_t index = 0; index < 256; ++index) {
@@ -429,6 +439,43 @@ void testLevelSession() {
     session.tick(player, simulation, jumpInput);
     event = session.consumeEvent();
     assert(event.type == quiky::LevelEventType::PlayerJumped);
+    event = session.consumeEvent();
+
+    quiky::LevelSession highW1Session("W1L3.MAP", map, area, config);
+    highW1Session.emitHighEffect(100, 200);
+    assert(highW1Session.effects().size() == 1);
+    assert(highW1Session.effects()[0].sourceEntityId == 0);
+    assert(highW1Session.effects()[0].x == 100);
+    assert(highW1Session.effects()[0].y == 210);
+    assert(highW1Session.effects()[0].spriteResource == "PUFF.BOB");
+    assert(highW1Session.effects()[0].spriteSlot == 611);
+    assert(highW1Session.effects()[0].animationFrame == 0);
+    for (int frame = 0; frame < 9; ++frame) {
+        highW1Session.tick(player, simulation, quiky::InputState());
+    }
+    assert(highW1Session.effects()[0].animationFrame == 9);
+    assert(highW1Session.effects()[0].spriteSlot == 611);
+    highW1Session.tick(player, simulation, quiky::InputState());
+    assert(highW1Session.effects()[0].animationFrame == 10);
+    assert(highW1Session.effects()[0].spriteSlot == 612);
+    for (int frame = 0; frame < 10; ++frame) {
+        highW1Session.tick(player, simulation, quiky::InputState());
+    }
+    assert(highW1Session.effects()[0].animationFrame == 20);
+    assert(highW1Session.effects()[0].spriteSlot == 613);
+    for (int frame = 0; frame < 10; ++frame) {
+        highW1Session.tick(player, simulation, quiky::InputState());
+    }
+    assert(highW1Session.effects()[0].animationFrame == 30);
+    assert(highW1Session.effects()[0].spriteSlot == 613);
+    highW1Session.tick(player, simulation, quiky::InputState());
+    assert(highW1Session.effects().empty());
+
+    quiky::LevelSession highW2Session("W2L3.MAP", map, area, config);
+    highW2Session.emitHighEffect(100, 200);
+    assert(highW2Session.effects()[0].spriteResource == "PUFFW2.BOB");
+
+    session.tick(player, simulation, quiky::InputState());
     event = session.consumeEvent();
     assert(event.type == quiky::LevelEventType::Collected);
     assert(session.consumeEvent().type == quiky::LevelEventType::None);
