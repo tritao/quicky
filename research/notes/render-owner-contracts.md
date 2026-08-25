@@ -112,6 +112,16 @@ of B33B and B25D is an external scheduler/streaming/action teardown edge, not
 an obvious direct clear in either callback; that edge needs one more runtime
 pass with the general deactivation and helper-call sites armed.
 
+The same static pass identifies one concrete candidate for that external edge:
+`01F7:106A` toggles the scheduler bank and walks its eight-byte entries. For
+each live entry whose object source `+0x1A` is `0xffff`, it writes zero to the
+object callback at `+0x18`; otherwise it calls the scheduler continuation.
+This is the first code path that can clear B33B/B25D without appearing in
+their callback bodies. The late-frame probe armed `106A` in both runtime code
+segments but did not hit it in the captured window, so the candidate's active
+bank and call-site timing are still unconfirmed; B33B and B25D were both seen
+to return normally before the probe window ended.
+
 The gate is conditional on the global phase byte. A controlled debugger probe
 with `DS:88AE=4` confirms the strict boundary at the live initial camera:
 

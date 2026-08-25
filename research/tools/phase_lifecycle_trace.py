@@ -33,6 +33,10 @@ class PhaseLifecycleConfig:
     force_transition: int | None = None
     force_x: int | None = None
     force_y: int | None = None
+    teardown_probe: bool = False
+    teardown_timeout_ms: int = 1000
+    teardown_rearm_callbacks: bool = False
+    teardown_max_hits: int = 48
 
 
 def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
@@ -49,6 +53,10 @@ def lua_config(config: PhaseLifecycleConfig) -> dict[str, Any]:
         "force_transition": config.force_transition,
         "force_x": config.force_x,
         "force_y": config.force_y,
+        "teardown_probe": config.teardown_probe,
+        "teardown_timeout_ms": config.teardown_timeout_ms,
+        "teardown_rearm_callbacks": config.teardown_rearm_callbacks,
+        "teardown_max_hits": config.teardown_max_hits,
     }
 
 
@@ -96,6 +104,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--force-transition", type=lambda value: int(value, 0))
     parser.add_argument("--force-x", type=int)
     parser.add_argument("--force-y", type=int)
+    parser.add_argument("--teardown-probe", action="store_true")
+    parser.add_argument("--teardown-timeout-ms", type=int, default=1000)
+    parser.add_argument("--teardown-rearm-callbacks", action="store_true")
+    parser.add_argument("--teardown-max-hits", type=int, default=48)
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument("--headless", action="store_true")
     return parser
@@ -113,6 +125,10 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--force-transition must be between 0 and 255")
     if (args.force_x is None) != (args.force_y is None):
         raise TraceError("--force-x and --force-y must be used together")
+    if args.teardown_timeout_ms < 1:
+        raise TraceError("--teardown-timeout-ms must be positive")
+    if args.teardown_max_hits < 1:
+        raise TraceError("--teardown-max-hits must be positive")
     for name in ("force_x", "force_y"):
         value = getattr(args, name)
         if value is not None and not -0x8000 <= value <= 0x7fff:
@@ -162,6 +178,10 @@ def main(argv: list[str] | None = None) -> int:
                 force_transition=args.force_transition,
                 force_x=args.force_x,
                 force_y=args.force_y,
+                teardown_probe=args.teardown_probe,
+                teardown_timeout_ms=args.teardown_timeout_ms,
+                teardown_rearm_callbacks=args.teardown_rearm_callbacks,
+                teardown_max_hits=args.teardown_max_hits,
             )
             result = trace_lifecycle(
                 api, repo_root / "research/automation/quiky_phase_lifecycle_trace.lua",

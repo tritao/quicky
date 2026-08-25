@@ -17,6 +17,10 @@ local force_phase = trace_config.force_phase
 local force_transition = trace_config.force_transition
 local force_x = trace_config.force_x
 local force_y = trace_config.force_y
+local teardown_probe = trace_config.teardown_probe or false
+local teardown_timeout_ms = trace_config.teardown_timeout_ms or 1000
+local teardown_rearm_callbacks = trace_config.teardown_rearm_callbacks or false
+local teardown_max_hits = trace_config.teardown_max_hits or 48
 
 local function word(s, index)
     local lo, hi = string.byte(s, index, index + 1)
@@ -193,6 +197,87 @@ local function globals_snapshot()
     }
 end
 
+local function teardown_probe_hits()
+    if not teardown_probe then return nil end
+    local targets = {
+        {segment = 0x01f7, offset = 0x0e06, name = "factory"},
+        {segment = 0x01f7, offset = 0x106a, name = "scheduler_cleanup"},
+        {segment = 0x1997, offset = 0x106a, name = "scheduler_cleanup"},
+        {segment = 0x01f7, offset = 0x1dee, name = "deactivate"},
+        {segment = 0x01f7, offset = 0x1b77, name = "context"},
+        {segment = 0x01f7, offset = 0x1c6e, name = "map_contact"},
+        {segment = 0x01f7, offset = 0x19e6, name = "action_bridge"},
+        {segment = 0x01e7, offset = 0x0fcf, name = "action_sink"},
+        {segment = 0x01f7, offset = 0xb25d, name = "b25d"},
+        {segment = 0x1997, offset = 0xb25d, name = "b25d"},
+        {segment = 0x01f7, offset = 0xb33b, name = "b33b"},
+        {segment = 0x1997, offset = 0xb33b, name = "b33b"},
+    }
+    for _, target in ipairs(targets) do
+        dosbox.breakpoint_set(target.segment, target.offset, {once = true})
+    end
+    dosbox.debug_continue()
+    local hits = {}
+    local pending_return = nil
+    for _ = 1, teardown_max_hits do
+        local hit = dosbox.wait_for_breakpoint(teardown_timeout_ms)
+        if not hit then break end
+        if pending_return ~= nil and
+           pending_return.segment == hit.segment and
+           pending_return.offset == hit.offset then
+            local record = hits[pending_return.index]
+            record.return_actual = {
+                segment = hit.segment,
+                offset = hit.offset,
+                registers = hit.registers,
+            }
+            record.pool_after = pool_snapshot()
+            pending_return = nil
+            if teardown_rearm_callbacks then
+                dosbox.breakpoint_set(record.callback_segment,
+                                      record.callback_offset, {once = true})
+            end
+        else
+            local name = string.format("%04x:%04x", hit.segment, hit.offset)
+            for _, target in ipairs(targets) do
+                if target.segment == hit.segment and target.offset == hit.offset then
+                    name = target.name
+                    break
+                end
+            end
+            local record = {
+                name = name,
+                segment = hit.segment,
+                offset = hit.offset,
+                registers = hit.registers,
+                pool = pool_snapshot(),
+                globals = globals_snapshot(),
+            }
+            hits[#hits + 1] = record
+            if (hit.offset == 0xb33b or hit.offset == 0xb25d) then
+                local stack = dosbox.mem_read("ss",
+                                              (hit.registers.esp or 0) & 0xffff,
+                                              2) or ""
+                if #stack >= 2 then
+                    local return_offset = word(stack, 1)
+                    record.callback_segment = hit.segment
+                    record.callback_offset = hit.offset
+                    pending_return = {
+                        index = #hits,
+                        segment = hit.segment,
+                        offset = return_offset,
+                    }
+                    dosbox.breakpoint_set(hit.segment, return_offset,
+                                          {once = true})
+                end
+            end
+        end
+        dosbox.debug_continue()
+    end
+    dosbox.breakpoint_clear()
+    return hits
+end
+
 local function force_owner_phase(hit)
     local selector = hit.registers.es or 0
     local offset = (hit.registers.edi or 0) & 0xffff
@@ -237,6 +322,7 @@ dosbox.debug_continue()
 if warmup_frames > 0 then dosbox.wait_frames(warmup_frames) end
 
 local samples = {}
+local teardown = teardown_probe_hits()
 for sequence = 1, sample_count do
     dosbox.wait_frames(sample_interval)
     samples[#samples + 1] = {
@@ -257,6 +343,7 @@ dosbox.output.phase_lifecycle_trace = {
     },
     owner_before = owner_before,
     owner_forced = owner_forced,
+    teardown_probe = teardown,
     samples = samples,
 }
 dosbox.debug_continue()
