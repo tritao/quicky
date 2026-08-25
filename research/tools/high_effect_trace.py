@@ -43,6 +43,10 @@ class HighEffectConfig:
     stop_at_cursor: int | None = None
     trace_render: bool = False
     render_trace_hits: int = 64
+    owner_probe_callback: int | None = None
+    owner_probe_x: int | None = None
+    owner_probe_y: int | None = None
+    owner_probe_phase: int | None = None
 
 
 def lua_config(config: HighEffectConfig) -> dict[str, Any]:
@@ -64,6 +68,10 @@ def lua_config(config: HighEffectConfig) -> dict[str, Any]:
         "stop_at_cursor": config.stop_at_cursor,
         "trace_render": config.trace_render,
         "render_trace_hits": config.render_trace_hits,
+        "owner_probe_callback": config.owner_probe_callback,
+        "owner_probe_x": config.owner_probe_x,
+        "owner_probe_y": config.owner_probe_y,
+        "owner_probe_phase": config.owner_probe_phase,
     }
 
 
@@ -196,6 +204,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="trace the first spawned effect through 3529/3587")
     parser.add_argument("--render-trace-hits", type=int, default=64,
                         help="maximum render breakpoints to record")
+    parser.add_argument("--probe-render-owner", type=lambda value: int(value, 0),
+                        help="force one ordinary render-owner callback's position")
+    parser.add_argument("--probe-render-owner-x", type=int,
+                        help="forced X for --probe-render-owner")
+    parser.add_argument("--probe-render-owner-y", type=int,
+                        help="forced Y for --probe-render-owner")
+    parser.add_argument("--probe-render-owner-phase", type=lambda value: int(value, 0),
+                        help="force DS:88AE before --probe-render-owner")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -231,6 +247,16 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--stop-at-cursor must be between 0 and 65535")
     if args.render_trace_hits < 1 or args.render_trace_hits > 1024:
         raise TraceError("--render-trace-hits must be between 1 and 1024")
+    if args.probe_render_owner is not None and not 0 <= args.probe_render_owner <= 0xffff:
+        raise TraceError("--probe-render-owner must be between 0 and 0xffff")
+    if (args.probe_render_owner_x is None) != (args.probe_render_owner_y is None):
+        raise TraceError("--probe-render-owner-x and --probe-render-owner-y must be used together")
+    for name in ("probe_render_owner_x", "probe_render_owner_y"):
+        value = getattr(args, name)
+        if value is not None and not -0x8000 <= value <= 0x7fff:
+            raise TraceError(f"--{name.replace('_', '-')} must be signed 16-bit")
+    if args.probe_render_owner_phase is not None and not 0 <= args.probe_render_owner_phase <= 0xff:
+        raise TraceError("--probe-render-owner-phase must be between 0 and 255")
 
     repo_root = Path(__file__).resolve().parents[2]
     startup_recording = args.startup_recording
@@ -305,6 +331,10 @@ def main(argv: list[str] | None = None) -> int:
             stop_at_cursor=args.stop_at_cursor,
             trace_render=args.trace_render,
             render_trace_hits=args.render_trace_hits,
+            owner_probe_callback=args.probe_render_owner,
+            owner_probe_x=args.probe_render_owner_x,
+            owner_probe_y=args.probe_render_owner_y,
+            owner_probe_phase=args.probe_render_owner_phase,
         )
         trace = trace_high_effect(api, script_path, config)
         envelope = {

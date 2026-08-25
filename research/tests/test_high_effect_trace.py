@@ -29,6 +29,10 @@ class HighEffectTraceTests(unittest.TestCase):
             stop_at_cursor=0x14,
             trace_render=True,
             render_trace_hits=12,
+            owner_probe_callback=0xb226,
+            owner_probe_x=353,
+            owner_probe_y=530,
+            owner_probe_phase=4,
         )
         payload = lua_config(config)
         self.assertEqual(payload["frames"], 8)
@@ -41,6 +45,10 @@ class HighEffectTraceTests(unittest.TestCase):
         self.assertEqual(payload["stop_at_cursor"], 0x14)
         self.assertTrue(payload["trace_render"])
         self.assertEqual(payload["render_trace_hits"], 12)
+        self.assertEqual(payload["owner_probe_callback"], 0xb226)
+        self.assertEqual(payload["owner_probe_x"], 353)
+        self.assertEqual(payload["owner_probe_y"], 530)
+        self.assertEqual(payload["owner_probe_phase"], 4)
         self.assertNotIn("focus_callback_offset", payload)
         self.assertNotIn("screenshot", payload)
 

@@ -74,3 +74,10 @@ breakpoints and snapshots the shared eight-byte draw records before the flush.
 When render data is present, `object_behavior_compare.py` checks that the
 expected high-effect slot and `(x,y)` occur exactly once in the `3587` queue;
 older traces without render data retain their callback-only coverage.
+
+The same tracer supports controlled ordinary-owner probes. For example,
+`--probe-render-owner 0xb226 --probe-render-owner-x X
+--probe-render-owner-y Y --probe-render-owner-phase 4` forces `B226`'s object
+position and phase byte, then records the post-callback callback word and
+queue presence. Adjacent X/Y runs distinguish a strict visibility boundary
+from the callback's early phase bypass.

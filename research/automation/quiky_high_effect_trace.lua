@@ -20,6 +20,10 @@ local force_object_y = trace_config.force_object_y
 local stop_at_cursor = trace_config.stop_at_cursor
 local trace_render = trace_config.trace_render or false
 local render_trace_hits = trace_config.render_trace_hits or 64
+local owner_probe_callback = trace_config.owner_probe_callback
+local owner_probe_x = trace_config.owner_probe_x
+local owner_probe_y = trace_config.owner_probe_y
+local owner_probe_phase = trace_config.owner_probe_phase
 local callback_segments = {0x01f7, 0x1997}
 local pre_render_callback_offsets = {0xb226, 0xb33b, 0x3ff8}
 local watched_effect_callbacks = {}
@@ -370,6 +374,22 @@ end
 
 local function trace_simple_callback(hit)
     local result = callback_entry_snapshot(hit)
+    if owner_probe_callback ~= nil and hit.offset == owner_probe_callback and
+       owner_probe_x ~= nil and owner_probe_y ~= nil then
+        local selector = hit.registers.es or 0
+        local object_offset = (hit.registers.edi or 0) & 0xffff
+        if owner_probe_phase ~= nil then
+            dosbox.mem_write("ds", 0x88ae, string.char(owner_probe_phase))
+            result.phase_probe = owner_probe_phase
+        end
+        dosbox.mem_write_selector(selector, object_offset + 0x02,
+                                   little_dword(owner_probe_x << 16))
+        dosbox.mem_write_selector(selector, object_offset + 0x06,
+                                   little_dword(owner_probe_y << 16))
+        result.position_probe = {x = owner_probe_x, y = owner_probe_y}
+        local ok, object = pcall(object_snapshot, selector, object_offset, -1)
+        if ok then result.object = object end
+    end
     local returned = near_return(hit)
     if returned == nil then return result end
     result.return_expected = returned

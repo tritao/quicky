@@ -33,6 +33,14 @@ currently supported is “ordinary scheduler owners, transient effect, DOKTOR,
 player, then additional queued owners,” while the exact ordinary prefix is
 level/pool dependent.
 
+The W1L3 camera-motion run reaches camera `(103,490)` after controlled right
+input and captures `[951, 906, 613, 994, 0]`. The effect remains queue record 2
+while `B226` has advanced to slot `906`; the owner order and effect position
+are unchanged as screen coordinates move. This confirms that the W1L3 order
+is scheduler insertion order, not a fixed screen-space sort. It also shows
+that the ordinary prefix is emitted before the transient effect on a moving
+camera, while the player remains the final record in this five-owner scene.
+
 ## `B226`: visibility gate plus animation state
 
 Static code at `01F7:B226` is complete enough to model exactly:
@@ -71,6 +79,18 @@ record; the integer samples show roughly one pixel per callback. The slot
 change is an animation boundary, not a visibility transition. The exact
 slot-duration table and the initial fixed-point values still need a shorter
 cadence trace from object creation.
+
+The gate is conditional on the global phase byte. A controlled debugger probe
+with `DS:88AE=4` confirms the strict boundary at the live initial camera:
+
+| forced object X | result | queue effect index |
+| ---: | --- | ---: |
+| `camera_x + 0x160` (`352`) | `B226` remains installed; slot `904` is queued | 2 |
+| `camera_x + 0x161` (`353`) | `B226` writes callback `0`; slot `904` is omitted | 1 |
+
+The effect's own record is unchanged; only the culled ordinary record drops
+out of the shared queue. The same probe without forcing `DS:88AE=4` leaves
+both positions active, confirming the early phase bypass at `B226:B22B`.
 
 ## `B33B`: phased animated owner
 
