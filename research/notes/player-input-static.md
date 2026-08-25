@@ -113,21 +113,21 @@ what these helpers use.
 
 The `01F7:3D02` caller makes the next-level use explicit. It calls `5CC3`,
 and, when `DX & 0x30` is clear, retries after shifting the player eight pixels
-in X. It then applies the following exact response logic:
+in Y. It then applies the following exact response logic:
 
 ```c
 if (descriptor & 0x20) {
-    vertical_response = vertical_input >> 1;
+    vertical_response = arithmetic_shift_right(object->x_velocity_fixed, 1);
     object->vertical_state = 0xff;
     phase = (x & 0x0f) >> 1;
 } else {
-    vertical_response = (-vertical_input) >> 1;
+    vertical_response = arithmetic_shift_right(-object->x_velocity_fixed, 1);
     object->vertical_state = 1;
     phase = (0x0f - (x & 0x0f)) >> 1;
 }
 target_y = (y & 0xfff0) + phase;
 if (!(descriptor & 0x40))
-    target_y -= 8;
+    target_y += 8;
 ```
 
 Therefore `0x20` is a vertical-response polarity/state selector, while

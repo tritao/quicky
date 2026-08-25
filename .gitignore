@@ -19,6 +19,8 @@ research/notes/*
 !research/notes/descriptor-construction-evidence.json
 !research/notes/cheat-trace.md
 !research/notes/ghidra-analysis.md
+!research/notes/player-static-closure.md
+!research/notes/player-static-decomp.cpp
 !research/notes/rendering-behavior.md
 !research/notes/fidelity-audit.md
 !research/notes/type-2b-falling-leaf-slot-700.png

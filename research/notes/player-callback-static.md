@@ -48,7 +48,7 @@ The three calls at `4006`, `400F`, and `4018` are the runtime-observed
 16.16 Y/X at `+0x44/+0x48`, and enters the input/motion block.
 
 At `4037`, a nonzero `DS:8812` sets `+0x38 = 0xFF`, adds
-`DS:8812 - 1` to the 16.16 Y at `+0x06`, and clears `DS:8812`. The callback
+`DS:8812 + 1` to the 16.16 Y at `+0x06`, and clears `DS:8812`. The callback
 then reads `DS:656C` and conditionally calls the helper at `0x316A`; its low
 byte is stored at `DS:4FF0`.
 
@@ -119,9 +119,10 @@ writes the death/reset state: `+0x3E = 0x03E8`, `+0x3B = 0`, `+0x3A = 0`,
 
 The negative path `4323` calls `3986`; a nonzero result returns to `41C1`.
 Otherwise it adds `+0x58` to `+0x0E`, clamps the result at `-0x20000`,
-rejects positive values, integrates Y at `4363`, and calls `3986` again.
-Failure returns to `41C1`; success reaches `436B`, which zeros `+0x0E`, sets
-`+0x37 = 1`, calls `0x3186`, and exits through `4384`.
+rejects positive values, integrates Y at `435E`, and calls `3986` again.
+The second clear result exits through `4384`; the occupied result returns to
+`41C1`. The raw `436B..437F` mode/contact fragment is not reached by this
+branch.
 
 ## Common tail and transition path
 
@@ -135,7 +136,7 @@ bound it calls the camera/transition helper. If `+0x37 == 0` and `+0 == 0`,
 The callback then emits the `DS:89E6 == 0xFFFF` transition helper when `+0x37`
 is zero and returns at `4415`.
 
-The nonzero-`DS:89EA` block `4416` distinguishes `DS:89E6 == 0xFFFF`: it
+The nonzero-`DS:89EA` block `4416` distinguishes `DS:89EA == 0xFFFF`: it
 sets `+0x0E = -0x20000`, clears `DS:8822`, emits helper `0x31A4`, then calls
 the transition routine, accelerates `+0x0E` by `0x1800` per callback, and
 caps it at `0x20000` before continuing at `4467`. The latter block tests
@@ -147,7 +148,8 @@ then falls into the common transition/update logic.
 * `3A1F`: checks `+0x38`; probes `(x-5,y)` and then `(x+5,y)` through `5C27`;
   on the second zero result writes `+0x3B = 0xFF` and returns the byte test.
 * `3DF2`: requires `+0x3B != 0` and `+0x3A == 0`; probes the same two X
-  positions and snaps `+0x08 &= 0xFFF8` when either probe is nonzero.
+  positions and snaps the integer Y word `+0x08 &= 0xFFF8` when either probe
+  is nonzero.
 * `3D02`: clears `+0x3A`, calls `5CC3`, retries at `y-8` only when
   `DX&0x30 == 0`, and uses `DX&0x20`/`DX&0x40` for the exact response and
   alignment branches documented in `ghidra-analysis.md`.
