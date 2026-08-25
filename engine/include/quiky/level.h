@@ -27,6 +27,7 @@ enum class LevelEventType {
     None,
     Collected,
     PlayerDied,
+    PlayerRecovered,
     LevelExit,
 };
 
@@ -50,6 +51,9 @@ struct LevelSessionConfig {
     bool hasSpawn;
     std::int32_t spawnX;
     std::int32_t spawnY;
+    // Native player control decrements from -1 and requests recovery once it
+    // passes -349. This is measured in player-callback updates, not wall time.
+    std::uint32_t deathRecoveryFrames;
 
     LevelSessionConfig();
 };
@@ -121,9 +125,18 @@ public:
     LevelEvent consumeEvent();
     std::uint32_t score() const { return _score; }
     std::uint32_t deaths() const { return _deaths; }
+    std::uint16_t goalMask() const { return _goalMask; }
+    bool playerDying() const { return _playerLife == PlayerLife::Dying; }
+    std::uint32_t deathFrames() const { return _deathFrames; }
+    SpawnPoint checkpoint() const { return SpawnPoint(_checkpointX, _checkpointY); }
     const std::string &mapName() const { return _mapName; }
 
 private:
+    enum class PlayerLife {
+        Alive,
+        Dying,
+    };
+
     static EntityKind classify(std::uint16_t type);
     static std::uint16_t spriteSlotFor(std::uint16_t type);
     std::uint16_t effectSlotFor(std::uint16_t type) const;
@@ -132,8 +145,12 @@ private:
     std::string spriteResourceFor(std::uint16_t type) const;
     std::string effectResourceFor(std::uint16_t type) const;
     static std::uint32_t collectibleValue(std::uint16_t type);
-    static std::string nextLevelName(const std::string &mapName);
+    static std::string nextLevelName(const std::string &mapName,
+                                     std::uint16_t goalMask);
     void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;
+    void resetPlayerAt(PlayerState &player, const PlayerSimulation &simulation,
+                       std::int32_t x, std::int32_t y) const;
+    void publishCheckpoint(const LevelEntity &entity);
     void advanceActiveEntities();
     void advanceActiveEffects();
     void emitWorldEffectsForActiveEntities();
@@ -155,6 +172,11 @@ private:
     LevelEvent _event;
     std::uint32_t _score;
     std::uint32_t _deaths;
+    std::uint16_t _goalMask;
+    PlayerLife _playerLife;
+    std::uint32_t _deathFrames;
+    std::int32_t _checkpointX;
+    std::int32_t _checkpointY;
 };
 
 } // namespace quiky

@@ -140,7 +140,8 @@ LevelSessionConfig::LevelSessionConfig()
       enableEdgeExit(true),
       hasSpawn(false),
       spawnX(100),
-      spawnY(100) {
+      spawnY(100),
+      deathRecoveryFrames(349) {
 }
 
 LevelSession::LevelSession(const std::string &mapName, const Map &map,
@@ -153,7 +154,12 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _effects(),
       _event(),
       _score(0),
-      _deaths(0) {
+      _deaths(0),
+      _goalMask(0),
+      _playerLife(PlayerLife::Alive),
+      _deathFrames(0),
+      _checkpointX(0),
+      _checkpointY(0) {
     const std::vector<AreaPlacement> placements = _area.placements();
     _entities.reserve(placements.size());
     for (std::size_t index = 0; index < placements.size(); ++index) {
@@ -196,6 +202,12 @@ void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation
     _event = LevelEvent();
     _score = 0;
     _deaths = 0;
+    _goalMask = 0;
+    _playerLife = PlayerLife::Alive;
+    _deathFrames = 0;
+    const SpawnPoint spawn = spawnPoint();
+    _checkpointX = spawn.x;
+    _checkpointY = spawn.y;
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         entity.phase = EntityPhase::Dormant;
@@ -211,7 +223,13 @@ void LevelSession::reset(PlayerState &player, const PlayerSimulation &simulation
 void LevelSession::resetPlayer(PlayerState &player,
                                 const PlayerSimulation &simulation) const {
     const SpawnPoint spawn = spawnPoint();
-    simulation.reset(player, spawn.x, spawn.y);
+    resetPlayerAt(player, simulation, spawn.x, spawn.y);
+}
+
+void LevelSession::resetPlayerAt(PlayerState &player,
+                                 const PlayerSimulation &simulation,
+                                 std::int32_t x, std::int32_t y) const {
+    simulation.reset(player, x, y);
 }
 
 EntityKind LevelSession::classify(std::uint16_t type) {
@@ -405,7 +423,8 @@ std::uint32_t LevelSession::collectibleValue(std::uint16_t type) {
     return 1;
 }
 
-std::string LevelSession::nextLevelName(const std::string &mapName) {
+std::string LevelSession::nextLevelName(const std::string &mapName,
+                                        std::uint16_t goalMask) {
     const std::string upper = upperAscii(mapName);
     const std::size_t levelMarker = upper.find('L', 2);
     if (levelMarker == std::string::npos || levelMarker + 1 >= upper.size()) {
@@ -417,6 +436,13 @@ std::string LevelSession::nextLevelName(const std::string &mapName) {
     }
     if (end == levelMarker + 1) {
         return std::string();
+    }
+    // The native completion dispatcher sends a fully completed seven-letter
+    // goal mask to the bonus level (WnL4), rather than incrementing the
+    // ordinary level number.  This is measured for W1L1: mask 0 -> W1L2 and
+    // mask 0x7f -> W1L4; retain the same world-relative contract here.
+    if ((goalMask & 0x007f) == 0x007f) {
+        return upper.substr(0, levelMarker + 1) + "4" + upper.substr(end);
     }
     const int level = std::atoi(upper.substr(levelMarker + 1, end - levelMarker - 1).c_str());
     if (level >= 9) {
@@ -492,11 +518,11 @@ void LevelSession::spawnTransientEffect(const LevelEntity &entity) {
     effect.effectSlot = entity.effectSlot;
     effect.effectResource = entity.effectResource;
     effect.animationFrame = 0;
-    // The original event object is short-lived and advances its animation
-    // byte modulo eight. Its exact removal timing is not yet fully mapped;
-    // eight ticks preserves the observed event animation without turning the
-    // ARE seed into a permanent sprite.
-    effect.lifetime = 8;
+    // Native 10B5 samples for dedicated LOOP events show the lifetime word
+    // stepping 3 -> 2 -> 1 -> 0 before the object is returned to the pool.
+    // The animation cursor is still modulo eight, but only three updates are
+    // drawable for one streamed ARE event.
+    effect.lifetime = 3;
     effect.active = true;
     _effects.push_back(effect);
 }
@@ -532,10 +558,23 @@ void LevelSession::emitWorldEffectsForActiveEntities() {
         }
         if (entity.activeFrames == 4 || entity.activeFrames == 6 ||
             entity.activeFrames == 8 || entity.activeFrames == 10) {
+            if (entity.activeFrames == 10) {
+                // Native state 10 publishes the next respawn point as
+                // object position + (0x19, 0x46) before ending the effect.
+                publishCheckpoint(entity);
+            }
             emitWorldEffects(entity,
                              static_cast<std::uint16_t>(entity.activeFrames));
         }
     }
+}
+
+void LevelSession::publishCheckpoint(const LevelEntity &entity) {
+    if (!isWorldEffectType(entity.type)) {
+        return;
+    }
+    _checkpointX = entity.x + 0x19;
+    _checkpointY = entity.y + 0x46;
 }
 
 void LevelSession::emitWorldEffects(const LevelEntity &entity,
@@ -590,6 +629,28 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
                         const CollisionQuery &collision, const InputState &input) {
     _event = LevelEvent();
     updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+
+    if (_playerLife == PlayerLife::Dying) {
+        // Native death keeps the player fixed at the hazard position and
+        // continues object/effect updates while the death table runs. The
+        // control word decrements once per player callback and requests the
+        // reset after the measured -349 threshold.
+        player.velocityX = Fixed16();
+        player.velocityY = Fixed16();
+        ++_deathFrames;
+        advanceActiveEntities();
+        advanceActiveEffects();
+        emitWorldEffectsForActiveEntities();
+        if (_deathFrames >= _config.deathRecoveryFrames) {
+            resetPlayerAt(player, simulation, _checkpointX, _checkpointY);
+            _playerLife = PlayerLife::Alive;
+            _deathFrames = 0;
+            _event.type = LevelEventType::PlayerRecovered;
+            updateStreaming(player.x.floorPixels(), player.y.floorPixels());
+        }
+        return;
+    }
+
     const EntityCollisionQuery entityCollision(collision, _entities);
     simulation.tick(player, entityCollision, input);
     updateStreaming(player.x.floorPixels(), player.y.floorPixels());
@@ -608,24 +669,30 @@ void LevelSession::tick(PlayerState &player, const PlayerSimulation &simulation,
             entity.active = false;
             entity.phase = EntityPhase::Collected;
             _score += collectibleValue(entity.type);
+            if (entity.type >= 0x79 && entity.type <= 0x7f) {
+                _goalMask = static_cast<std::uint16_t>(
+                    _goalMask | (1u << (entity.type - 0x79)));
+            }
             _event.type = LevelEventType::Collected;
             _event.entityId = entity.id;
             _event.entityType = entity.type;
         } else if (entity.kind == EntityKind::Hazard &&
                    overlaps(player, simulation.config(), entity, _config.hazardRadius)) {
-            resetPlayer(player, simulation);
+            _playerLife = PlayerLife::Dying;
+            _deathFrames = 0;
+            player.velocityX = Fixed16();
+            player.velocityY = Fixed16();
             ++_deaths;
             _event.type = LevelEventType::PlayerDied;
             _event.entityId = entity.id;
             _event.entityType = entity.type;
-            updateStreaming(player.x.floorPixels(), player.y.floorPixels());
             return;
         }
     }
 
     if (atRightExit(player)) {
         _event.type = LevelEventType::LevelExit;
-        _event.targetLevel = nextLevelName(_mapName);
+        _event.targetLevel = nextLevelName(_mapName, _goalMask);
     }
 }
 

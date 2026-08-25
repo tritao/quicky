@@ -1,6 +1,7 @@
 #include "quiky/archive.h"
 #include "quiky/bob.h"
 #include "quiky/level_runtime.h"
+#include "quiky/player_animation.h"
 #ifdef QUIKY_WITH_MUSIC
 #include "quiky/music.h"
 #endif
@@ -23,8 +24,9 @@
 
 namespace {
 
-const int kViewportWidth = 640;
-const int kViewportHeight = 360;
+const int kLogicalWidth = 320;
+const int kLogicalHeight = 200;
+const int kWorldViewportHeight = 176;
 const std::uint64_t kTickNanoseconds = 1000000000ULL / 60ULL;
 
 void usage() {
@@ -86,7 +88,7 @@ void drawTransientEffects(quiky::IndexedSurface &surface,
                                             ? runtime.tileset()
                                             : runtime.loopTileset();
         quiky::drawIcoTile(surface, tileset, slot,
-                           effect.x, effect.y);
+                           effect.x, effect.y, false);
     }
 }
 
@@ -117,32 +119,6 @@ void drawEntitySprites(quiky::IndexedSurface &surface,
         }
 
     }
-}
-
-const quiky::BobRecord &choosePlayerFrame(const quiky::Bob &bob,
-                                          const quiky::PlayerState &player,
-                                          std::uint64_t frame) {
-    // QUIKYW1.BOB currently has two 40-frame ranges, 0..39 and 50..89. The
-    // direction assignment and exact animation cadence remain provisional;
-    // keeping the policy here makes it easy to replace with trace evidence.
-    const std::uint16_t base = player.facingRight ? 0 : 50;
-    const std::int32_t speed = player.velocityX.raw < 0
-                                   ? -player.velocityX.raw
-                                   : player.velocityX.raw;
-    std::uint16_t slot = base;
-    if (!player.grounded) {
-        slot = static_cast<std::uint16_t>(base + 20);
-    } else if (speed > quiky::Fixed16::kOne / 4) {
-        slot = static_cast<std::uint16_t>(base + ((frame / 6) % 10));
-    }
-    const quiky::BobRecord *record = findSlot(bob, slot);
-    if (record == nullptr) {
-        record = findSlot(bob, base);
-    }
-    if (record == nullptr) {
-        throw quiky::FormatError("player BOB resource is missing the selected frame");
-    }
-    return *record;
 }
 
 void checkSdl(bool success, const char *operation) {
@@ -257,6 +233,30 @@ void uploadSurface(SDL_Texture *texture, const quiky::IndexedSurface &surface,
 int clampCamera(int camera, int mapPixels, int viewportPixels) {
     const int maximum = std::max(0, mapPixels - viewportPixels);
     return std::max(0, std::min(maximum, camera));
+}
+
+quiky::IndexedSurface composeGameplayFrame(
+    const quiky::IndexedSurface &worldSurface,
+    const quiky::PcxImage &gamebar,
+    int cameraX, int cameraY) {
+    quiky::IndexedSurface screen(kLogicalWidth, kLogicalHeight);
+    for (int y = 0; y < kWorldViewportHeight; ++y) {
+        const int sourceY = cameraY + y;
+        if (sourceY < 0 || static_cast<std::uint32_t>(sourceY) >= worldSurface.height) {
+            continue;
+        }
+        for (int x = 0; x < kLogicalWidth; ++x) {
+            const int sourceX = cameraX + x;
+            if (sourceX < 0 || static_cast<std::uint32_t>(sourceX) >= worldSurface.width) {
+                continue;
+            }
+            screen.at(static_cast<std::uint32_t>(x), static_cast<std::uint32_t>(y)) =
+                worldSurface.at(static_cast<std::uint32_t>(sourceX),
+                                static_cast<std::uint32_t>(sourceY));
+        }
+    }
+    quiky::compositeGamebar(screen, gamebar.surface());
+    return screen;
 }
 
 void drawEntityMarkers(quiky::IndexedSurface &surface, quiky::Palette &palette,
@@ -386,6 +386,7 @@ int main(int argc, char **argv) {
             quiky::LevelRuntime::load(archive, mapName, bobName, levelConfig);
         quiky::PlayerState player;
         runtime->reset(player, simulation);
+        quiky::PlayerAnimation playerAnimation;
 
         checkSdl(SDL_Init(SDL_INIT_VIDEO), "SDL_Init");
         SdlState sdl;
@@ -401,16 +402,24 @@ int main(int argc, char **argv) {
         (void)musicEnabled;
 #endif
         checkSdl(SDL_CreateWindowAndRenderer(
-                     "Quiky", kViewportWidth * 2, kViewportHeight * 2,
+                     "Quiky", kLogicalWidth * 2, kLogicalHeight * 2,
                      SDL_WINDOW_RESIZABLE, &sdl.window, &sdl.renderer),
                  "SDL_CreateWindowAndRenderer");
         checkSdl(SDL_SetRenderLogicalPresentation(
-                     sdl.renderer, kViewportWidth, kViewportHeight,
+                     sdl.renderer, kLogicalWidth, kLogicalHeight,
                      SDL_LOGICAL_PRESENTATION_INTEGER_SCALE),
                  "SDL_SetRenderLogicalPresentation");
 
-        const quiky::IndexedSurface initialSurface =
+        const quiky::IndexedSurface initialWorld =
             quiky::renderMap(runtime->map(), runtime->tileset());
+        const int initialCameraX = clampCamera(
+            player.x.floorPixels() - kLogicalWidth / 2,
+            static_cast<int>(initialWorld.width), kLogicalWidth);
+        const int initialCameraY = clampCamera(
+            player.y.floorPixels() - kWorldViewportHeight / 2,
+            static_cast<int>(initialWorld.height), kWorldViewportHeight);
+        const quiky::IndexedSurface initialSurface = composeGameplayFrame(
+            initialWorld, runtime->gamebar(), initialCameraX, initialCameraY);
         sdl.texture = createSurfaceTexture(sdl.renderer, initialSurface);
 
         bool running = true;
@@ -459,6 +468,7 @@ int main(int argc, char **argv) {
                         stepRequested = true;
                     } else if (key == SDL_SCANCODE_R && down && !event.key.repeat) {
                         runtime->reset(player, simulation);
+                        playerAnimation.reset();
                         frame = 0;
                         accumulator = 0;
                         jumpPressed = false;
@@ -487,6 +497,10 @@ int main(int argc, char **argv) {
                     } else if (event.type == quiky::LevelEventType::PlayerDied) {
                         eventText = "player-died";
                         eventUntil = now + 1000000000ULL;
+                    } else if (event.type == quiky::LevelEventType::PlayerRecovered) {
+                        playerAnimation.reset();
+                        eventText = "player-recovered";
+                        eventUntil = now + 1000000000ULL;
                     } else if (event.type == quiky::LevelEventType::LevelExit) {
                         eventText = event.targetLevel.empty()
                                         ? "exit"
@@ -496,13 +510,16 @@ int main(int argc, char **argv) {
                             std::unique_ptr<quiky::LevelRuntime> next =
                                 quiky::LevelRuntime::load(
                                     archive, event.targetLevel, bobName);
-                            const quiky::IndexedSurface nextSurface =
+                            const quiky::IndexedSurface nextWorld =
                                 quiky::renderMap(next->map(), next->tileset());
+                            const quiky::IndexedSurface nextSurface =
+                                composeGameplayFrame(nextWorld, next->gamebar(), 0, 0);
                             replaceSurfaceTexture(sdl, nextSurface);
                             carriedScore += runtime->session().score();
                             carriedDeaths += runtime->session().deaths();
                             runtime.swap(next);
                             runtime->reset(player, simulation);
+                            playerAnimation.reset();
                             frame = 0;
                             accumulator = 0;
                             jumpPressed = false;
@@ -511,6 +528,10 @@ int main(int argc, char **argv) {
                             eventUntil = now + 2000000000ULL;
                             break;
                         }
+                    }
+                    if (event.type != quiky::LevelEventType::PlayerRecovered) {
+                        playerAnimation.setDeath(runtime->session().playerDying());
+                        playerAnimation.advance(player);
                     }
                 }
                 accumulator -= kTickNanoseconds;
@@ -524,36 +545,56 @@ int main(int argc, char **argv) {
                 ++frame;
                 jumpPressed = false;
                 stepRequested = false;
-                runtime->session().consumeEvent();
+                const quiky::LevelEvent event = runtime->session().consumeEvent();
+                if (event.type == quiky::LevelEventType::PlayerRecovered) {
+                    playerAnimation.reset();
+                } else {
+                    playerAnimation.setDeath(runtime->session().playerDying());
+                    playerAnimation.advance(player);
+                }
             }
 
             quiky::Palette framePalette = runtime->palette();
-            quiky::IndexedSurface surface =
+            quiky::IndexedSurface worldSurface =
                 quiky::renderMap(runtime->map(), runtime->tileset());
             if (showArea) {
-                quiky::overlayArea(surface, framePalette, runtime->area());
+                quiky::overlayArea(worldSurface, framePalette, runtime->area());
             }
             if (showEntities) {
-                drawEntityMarkers(surface, framePalette, runtime->session());
+                drawEntityMarkers(worldSurface, framePalette, runtime->session());
             }
-            drawEntitySprites(surface, *runtime);
-            drawTransientEffects(surface, *runtime);
-            const quiky::BobRecord &record =
-                choosePlayerFrame(runtime->playerBob(), player, frame);
-            quiky::drawBobRecord(surface, record,
+            // The native renderer's stepped object-list trace places the
+            // player BOB in the same BOB pass as ordinary entities, before
+            // the later four-call ICO batch. Keep the player in that pass so
+            // an opaque ICO pixel has the measured final precedence.
+            drawEntitySprites(worldSurface, *runtime);
+            const quiky::BobRecord *record =
+                findSlot(runtime->playerBob(), playerAnimation.slot());
+            if (record == nullptr) {
+                const std::uint16_t fallback = player.facingRight ? 0 : 50;
+                record = findSlot(runtime->playerBob(), fallback);
+            }
+            if (record == nullptr) {
+                throw quiky::FormatError("player BOB resource is missing the selected frame");
+            }
+            quiky::drawBobRecord(worldSurface, *record,
                                  player.x.floorPixels(), player.y.floorPixels());
-            uploadSurface(sdl.texture, surface, framePalette);
+            drawTransientEffects(worldSurface, *runtime);
 
-            int cameraX = player.x.floorPixels() - kViewportWidth / 2;
-            int cameraY = player.y.floorPixels() - kViewportHeight / 2;
-            cameraX = clampCamera(cameraX, static_cast<int>(surface.width), kViewportWidth);
-            cameraY = clampCamera(cameraY, static_cast<int>(surface.height), kViewportHeight);
+            int cameraX = player.x.floorPixels() - kLogicalWidth / 2;
+            int cameraY = player.y.floorPixels() - kWorldViewportHeight / 2;
+            cameraX = clampCamera(cameraX, static_cast<int>(worldSurface.width), kLogicalWidth);
+            cameraY = clampCamera(cameraY, static_cast<int>(worldSurface.height),
+                                  kWorldViewportHeight);
+            quiky::IndexedSurface surface = composeGameplayFrame(
+                worldSurface, runtime->gamebar(), cameraX, cameraY);
+            uploadSurface(sdl.texture, surface, framePalette);
             const SDL_FRect source = {
-                static_cast<float>(cameraX), static_cast<float>(cameraY),
-                static_cast<float>(kViewportWidth), static_cast<float>(kViewportHeight)};
+                0.0f, 0.0f, static_cast<float>(kLogicalWidth),
+                static_cast<float>(kLogicalHeight)};
             const SDL_FRect destination = {
-                0.0f, 0.0f, static_cast<float>(kViewportWidth),
-                static_cast<float>(kViewportHeight)};
+                0.0f, 0.0f, static_cast<float>(kLogicalWidth),
+                static_cast<float>(kLogicalHeight)};
             checkSdl(SDL_RenderClear(sdl.renderer), "SDL_RenderClear");
             checkSdl(SDL_RenderTexture(sdl.renderer, sdl.texture, &source, &destination),
                      "SDL_RenderTexture");
@@ -564,7 +605,7 @@ int main(int argc, char **argv) {
                     eventText.clear();
                 }
                 updateTitle(sdl.window, runtime->mapName(), player, frame,
-                            record.slot, paused, runtime->session(), carriedScore,
+                            record->slot, paused, runtime->session(), carriedScore,
                             carriedDeaths, eventText);
                 titleTime = now;
             }

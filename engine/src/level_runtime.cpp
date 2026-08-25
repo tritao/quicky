@@ -33,8 +33,10 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
     const std::string areaName = areaNameFor(mapName);
     const Map map = Map::parse(archive.read(mapName), mapName);
     const Area area = Area::parse(archive.read(areaName), areaName);
-    const Palette palette = Palette::parsePcx(
+    const Palette palette = Palette::parsePcxDac(
         archive.read(worldName + ".PCC"), worldName + ".PCC");
+    const PcxImage gamebar = PcxImage::parse(
+        archive.read("GAMEBAR.PCC"), "GAMEBAR.PCC");
     const Tileset tileset = Tileset::parseIco(
         archive.read(worldName + ".ICO"), worldName + ".ICO");
     const std::string loopName = "LOOP_" + worldName + ".ICO";
@@ -45,7 +47,7 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
 
     std::unique_ptr<LevelRuntime> result(new LevelRuntime(
         mapName, areaName, worldName, playerBobName, map, area, palette,
-        tileset, loopTileset, playerBob, config));
+        gamebar, tileset, loopTileset, playerBob, config));
     result->loadEntityBobs(archive);
     return result;
 }
@@ -55,7 +57,8 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
                            const std::string &worldName,
                            const std::string &playerBobName,
                            const Map &map, const Area &area,
-                           const Palette &palette, const Tileset &tileset,
+                           const Palette &palette, const PcxImage &gamebar,
+                           const Tileset &tileset,
                            const Tileset &loopTileset, const Bob &playerBob,
                            const LevelSessionConfig &config)
     : _mapName(mapName),
@@ -65,6 +68,7 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
       _map(map),
       _area(area),
       _palette(palette),
+      _gamebar(gamebar),
       _tileset(tileset),
       _loopTileset(loopTileset),
       _playerBob(playerBob),

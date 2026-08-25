@@ -13,6 +13,8 @@ add_library(quiky_core
     src/binary_reader.cpp
     src/map.cpp
     src/palette.cpp
+    src/pcx.cpp
+    src/player_animation.cpp
     src/renderer.cpp
     src/runtime.cpp
     src/level.cpp
