@@ -164,7 +164,26 @@ def global_writes(sample: dict[str, Any]) -> list[Any] | None:
     value = cb.get("global_writes") if cb else None
     if value is None:
         value = sample.get("global_writes")
-    return value if isinstance(value, list) else None
+    if not isinstance(value, list):
+        return None
+    # DOS traces publish the recovered global name while native traces retain
+    # the address-qualified write. Normalize only already-closed fields; an
+    # unknown address remains address-named and therefore cannot disappear
+    # from parity reports.
+    names = {0x4FEE: "horizontal_timer"}
+    result = []
+    for item in value:
+        if not isinstance(item, dict):
+            result.append(item)
+            continue
+        address = item.get("offset")
+        if isinstance(address, int) and address in names:
+            result.append({"after": item.get("after"),
+                           "before": item.get("before"),
+                           "field": names[address]})
+        else:
+            result.append(item)
+    return result
 
 
 def effects(sample: dict[str, Any]) -> list[Any] | None:
@@ -229,8 +248,15 @@ def active_objects(sample: dict[str, Any]) -> list[tuple[Any, ...]] | None:
             offset = cb.get("offset") if isinstance(cb, dict) else cb
             if offset in (None, 0, 16376, 0xffff):
                 continue
-            result.append((offset, item.get("x"), item.get("y"),
-                           item.get("sprite_slot")))
+            values = [offset, item.get("x"), item.get("y"),
+                      item.get("sprite_slot")]
+            if offset == 0x47E7:
+                values.extend([
+                    item.get("ambient_velocity_y_fixed"),
+                    item.get("ambient_animation_delay"),
+                    item.get("ambient_animation_cursor"),
+                ])
+            result.append(tuple(values))
         return sorted(result, key=repr)
     pool = sample.get("pool")
     if not isinstance(pool, dict) or not isinstance(pool.get("objects"), list):
@@ -246,10 +272,17 @@ def active_objects(sample: dict[str, Any]) -> list[tuple[Any, ...]] | None:
         if callback_value == 16376:
             continue
         position = item.get("position")
-        result.append((callback_value,
-                       position.get("x") if isinstance(position, dict) else None,
-                       position.get("y") if isinstance(position, dict) else None,
-                       item.get("sprite_slot")))
+        values = [callback_value,
+                  position.get("x") if isinstance(position, dict) else None,
+                  position.get("y") if isinstance(position, dict) else None,
+                  item.get("sprite_slot")]
+        if callback_value == 0x47E7:
+            values.extend([
+                item.get("velocity_y_fixed"),
+                item.get("animation_delay"),
+                item.get("animation_cursor"),
+            ])
+        result.append(tuple(values))
     return sorted(result, key=repr)
 
 

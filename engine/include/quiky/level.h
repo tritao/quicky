@@ -5,6 +5,7 @@
 #include "quiky/scheduler.h"
 #include "quiky/simulation.h"
 
+#include <array>
 #include <cstdint>
 #include <deque>
 #include <string>
@@ -110,6 +111,13 @@ struct LevelSessionConfig {
     std::int32_t spawnX;
     std::int32_t spawnY;
 
+    // 01F7:4727/47E7 consume the process-global DS:6468/646C ring while
+    // constructing and recycling falling leaves. A replay can publish the
+    // captured ring and cursor here; ordinary tests use the zeroed default.
+    bool hasLeafPrngState;
+    std::uint16_t leafPrngIndex;
+    std::array<std::uint8_t, 0x100> leafPrngRing;
+
     LevelSessionConfig();
 };
 
@@ -196,6 +204,7 @@ struct LevelEntity {
     std::uint16_t ambientAnimationDelay;
     std::uint16_t ambientAnimationCursor;
     std::uint8_t ambientTable;
+    bool ambientRuntimeInitialized;
     // 01F7:9DC7/A0B2 platform object state.
     std::int32_t platformPreviousX;
     std::int32_t platformPreviousY;
@@ -225,7 +234,8 @@ struct LevelEntity {
           enemyAnimationDelay(0), environmentSelector(0),
           environmentState(0), ambientVelocityY(), ambientOriginX(0),
           ambientOriginY(0), ambientTimer(0), ambientAnimationDelay(0),
-          ambientAnimationCursor(0), ambientTable(0), platformPreviousX(0),
+          ambientAnimationCursor(0), ambientTable(0),
+          ambientRuntimeInitialized(false), platformPreviousX(0),
           platformPreviousY(0), platformWait52(0), platformWait54(0),
           platformCooldown58(0), platformCarryActive(false),
           streamSuppressed(false),
@@ -312,6 +322,8 @@ private:
     void initializeCollectible(LevelEntity &entity);
     void initializeWorldEffect(LevelEntity &entity);
     void initializeAmbientVisual(LevelEntity &entity);
+    void initializeAmbientVisualRuntime(LevelEntity &entity);
+    std::uint8_t nextLeafPrngByte();
     void initializeMovingPlatform(LevelEntity &entity);
     bool updateWorldEffect(Simulation *simulation, LevelEntity &entity);
     void updateWurm2(LevelEntity &entity, const WorldCollisionView &world);
@@ -360,6 +372,8 @@ private:
     bool _streamAnchorActive;
     std::int32_t _streamAnchorX;
     std::int32_t _streamAnchorY;
+    std::uint16_t _leafPrngIndex;
+    std::array<std::uint8_t, 0x100> _leafPrngRing;
 };
 
 } // namespace quiky

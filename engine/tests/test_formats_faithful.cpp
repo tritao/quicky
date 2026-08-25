@@ -585,6 +585,25 @@ void testRecoveredW1L1AmbientAndDedicatedContracts() {
     assert(leaves.entities()[0].ambientAnimationDelay == 10);
     assert(leaves.entities()[0].ambientAnimationCursor == 0x3328);
 
+    quiky::LevelSessionConfig seededConfig = config;
+    seededConfig.hasLeafPrngState = true;
+    seededConfig.leafPrngRing.fill(0);
+    seededConfig.leafPrngRing[0] = 1; // 4727 selects DS:3312.
+    seededConfig.leafPrngRing[1] = 2; // 4727 subtracts 0x100 from 0x13000.
+    quiky::LevelSession seededLeaves("W1L1.MAP", map,
+                                    makeSingleArea(0x2b), seededConfig);
+    seededLeaves.reset(simulation);
+    seededLeaves.updateStreaming(simulation, 16, 16);
+    assert(seededLeaves.entities()[0].spriteSlot == 700);
+    assert(seededLeaves.entities()[0].ambientVelocityY.raw == 0x12f00);
+    assert(seededLeaves.entities()[0].ambientAnimationDelay == 8);
+    assert(seededLeaves.entities()[0].ambientAnimationCursor == 0x3314);
+    seededLeaves.tick(simulation, world, quiky::InputState(), output);
+    assert(seededLeaves.entities()[0].y == 17);
+    assert(seededLeaves.entities()[0].ambientVelocityY.raw == 0x12dd4);
+    assert(seededLeaves.entities()[0].ambientAnimationDelay == 7);
+    assert(seededLeaves.entities()[0].spriteSlot == 700);
+
     quiky::LevelSession dedicated("W1L1.MAP", map, makeSingleArea(0x65), config);
     dedicated.reset(simulation);
     dedicated.updateStreaming(simulation, 16, 16);

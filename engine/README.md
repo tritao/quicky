@@ -187,8 +187,11 @@ effect types intentionally remain callback-free parent declarations with their
 `LOOP_W1.ICO` child path. The test also verifies that the callback-bearing
 subset at the native player start is published through the scheduler. This is
 an inventory gate, not a claim that every family has complete gameplay parity:
-leaf PRNG emission, dedicated-event seed/lifetime, exact collectible overlap,
-and the transition consumer remain explicit boundaries above.
+dedicated-event seed/lifetime, exact collectible overlap, and the transition
+consumer remain explicit boundaries above. The falling-leaf
+`01F7:4727/47E7` closure is now implemented: a replay may inject the captured
+`DS:6468/646C` ring, and the native session publishes the exact signed table
+choice, fixed-point fall, animation delay/cursor, and sprite slot.
 
 Camera streaming is now an explicit runtime input. In camera mode the ARE
 gate uses the recovered pixel window `X: camera-0x80..camera+0x1c0` and
@@ -215,9 +218,11 @@ state/global/effect writes, camera anchor, scheduler/dependency order, active
 entities/effects, gameplay globals, and queued events. The comparator is
 fail-closed for player records and reports DOS capture coverage gaps instead
 of treating an unrecorded probe or effect list as an empty equal list. The
-current four-frame startup comparison is exact for the player callback; its
-remaining object differences identify scheduler ordering and the unresolved
-BLATT PRNG/animation cadence boundary.
+unseeded archived fixture remains diagnostic for leaf bytes because its DOS
+capture does not contain `DS:646C`. A fresh seeded four-frame comparison is
+exact for player records, scheduler order, WERBE, and active leaf position,
+velocity, animation cursor/delay, and sprite slot; the focused DOS capture's
+missing later pool/probe/effect arrays are reported as coverage gaps.
 
 ## Unified player callback status
 

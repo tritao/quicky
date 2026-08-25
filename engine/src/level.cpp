@@ -130,7 +130,10 @@ LevelSessionConfig::LevelSessionConfig()
       enableEdgeExit(true),
       hasSpawn(false),
       spawnX(100),
-      spawnY(100) {
+      spawnY(100),
+      hasLeafPrngState(false),
+      leafPrngIndex(0),
+      leafPrngRing() {
 }
 
 LevelSession::LevelSession(const std::string &mapName, const Map &map,
@@ -148,7 +151,13 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _alternateActionActive(false),
       _streamAnchorActive(false),
       _streamAnchorX(0),
-      _streamAnchorY(0) {
+      _streamAnchorY(0),
+      _leafPrngIndex(config.leafPrngIndex),
+      _leafPrngRing(config.leafPrngRing) {
+    if (!config.hasLeafPrngState) {
+        _leafPrngIndex = 0;
+        _leafPrngRing.fill(0);
+    }
     const std::vector<AreaPlacement> placements = _area.placements();
     _entities.reserve(placements.size());
     for (std::size_t index = 0; index < placements.size(); ++index) {
@@ -215,6 +224,13 @@ void LevelSession::reset(Simulation &simulation) {
     _deaths = 0;
     _gameplayState = LevelGameplayState();
     _alternateActionActive = false;
+    if (_config.hasLeafPrngState) {
+        _leafPrngIndex = _config.leafPrngIndex;
+        _leafPrngRing = _config.leafPrngRing;
+    } else {
+        _leafPrngIndex = 0;
+        _leafPrngRing.fill(0);
+    }
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
         entity.phase = EntityPhase::Dormant;
@@ -391,23 +407,56 @@ void LevelSession::initializeAmbientVisual(LevelEntity &entity) {
     entity.ambientAnimationDelay = 0;
     entity.ambientAnimationCursor = 0;
     entity.ambientTable = 0;
+    entity.ambientRuntimeInitialized = false;
 
     if (!isLeafType(entity.type)) {
         return;
     }
 
-    // 01F7:474D stores 0x13000 minus a signed PRNG-byte perturbation in
-    // object+0x0E. The random byte is not part of the ARE contract, so the
-    // source declaration records the confirmed base until a replay supplies
-    // the exact PRNG state.
+    // 01F7:4727 is invoked when the pooled object is published, not while the
+    // ARE declarations are merely parsed. Keep the declaration-side fields
+    // at the confirmed zero-seed baseline until that publication edge.
     entity.ambientVelocityY = Fixed16(0x13000);
     entity.ambientOriginX = entity.x;
     entity.ambientOriginY = entity.y;
     entity.ambientTimer = 0x000c;
-    entity.ambientTable = entity.type == 0x2a ? 1 : 0;
+    entity.ambientTable = 1;
+    entity.ambientAnimationDelay = 10;
+    entity.ambientAnimationCursor = 0x3328;
+}
+
+std::uint8_t LevelSession::nextLeafPrngByte() {
+    const std::uint8_t value = _leafPrngRing[_leafPrngIndex & 0x00ff];
+    _leafPrngIndex = static_cast<std::uint16_t>((_leafPrngIndex + 1) & 0x00ff);
+    return value;
+}
+
+void LevelSession::initializeAmbientVisualRuntime(LevelEntity &entity) {
+    if (!isLeafType(entity.type)) {
+        return;
+    }
+
+    // 01F7:4727:
+    //   signed ring byte > 0 -> DS:3312 (delay 8, slots 700..707)
+    //   signed ring byte <=0 -> DS:3326 (delay 10, slots 703..707,700..702)
+    // The second ring byte is consumed by the fixed-point velocity seed.
+    const std::int8_t tableSeed = static_cast<std::int8_t>(nextLeafPrngByte());
+    entity.ambientTable = tableSeed > 0 ? 0 : 1;
     entity.ambientAnimationDelay = entity.ambientTable == 0 ? 8 : 10;
     entity.ambientAnimationCursor = entity.ambientTable == 0
         ? 0x3314 : 0x3328;
+    entity.spriteSlot = entity.ambientTable == 0 ? 700 : 703;
+
+    const std::int8_t velocitySeed =
+        static_cast<std::int8_t>(nextLeafPrngByte());
+    const std::int32_t perturbation =
+        static_cast<std::int32_t>(velocitySeed) * 0x80;
+    entity.ambientVelocityY = Fixed16::fromRaw(
+        Fixed16::wrapSubRaw(0x13000, perturbation));
+    entity.ambientOriginX = entity.x;
+    entity.ambientOriginY = entity.y;
+    entity.ambientTimer = 0x000c;
+    entity.ambientRuntimeInitialized = true;
 }
 
 void LevelSession::initializeMovingPlatform(LevelEntity &entity) {
@@ -829,6 +878,16 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
         entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
         entity.active = visible;
         if (visible && !wasActive) {
+            if (isLeafType(entity.type)) {
+                // 01F7:1CDA publishes the callback through the pooled object
+                // initializer. Re-entry therefore restores the ARE anchor
+                // before 01F7:4727 consumes the shared PRNG ring.
+                entity.x = entity.initialX;
+                entity.y = entity.initialY;
+                entity.positionX = Fixed16::fromPixels(entity.x);
+                entity.positionY = Fixed16::fromPixels(entity.y);
+                initializeAmbientVisualRuntime(entity);
+            }
             if (entity.kind == EntityKind::MovingPlatform) {
                 // 01F7:1DEE clears the pooled callback and leaves the ARE
                 // declaration eligible for reconstruction. Re-entry therefore
@@ -1367,8 +1426,57 @@ void LevelSession::advanceActiveEntities() {
             continue;
         }
         ++entity.activeFrames;
+        if (isLeafType(entity.type)) {
+            if (!entity.ambientRuntimeInitialized) {
+                initializeAmbientVisualRuntime(entity);
+            }
+
+            // 01F7:47E7 normal path: the opaque visibility/contact helpers
+            // leave carry clear for ordinary W1L1 leaf frames, then the
+            // callback applies the bounded fixed-point fall before 01F7:5D60
+            // advances the animation descriptor.
+            std::int32_t velocity = entity.ambientVelocityY.raw;
+            if (velocity > 0x4000) {
+                velocity = Fixed16::wrapSubRaw(velocity, 300);
+            }
+            entity.positionY.raw = Fixed16::wrapAddRaw(
+                entity.positionY.raw, velocity);
+            entity.ambientVelocityY.raw = velocity;
+            entity.y = entity.positionY.floorPixels();
+
+            // 01F7:5D60 decrements +0x20 while nonzero. When it reaches zero
+            // it advances the +0x24 cursor through the table's signed -8
+            // loop marker, publishes the selected slot at +0x12, and reloads
+            // +0x20 from +0x1E.
+            if (entity.ambientAnimationDelay != 0) {
+                --entity.ambientAnimationDelay;
+            } else {
+                const std::uint16_t firstCursor =
+                    entity.ambientTable == 0 ? 0x3314 : 0x3328;
+                const std::uint16_t loopCursor =
+                    entity.ambientTable == 0 ? 0x3324 : 0x3338;
+                std::uint16_t cursor = static_cast<std::uint16_t>(
+                    entity.ambientAnimationCursor + 2);
+                if (cursor == loopCursor) {
+                    cursor = firstCursor;
+                }
+                entity.ambientAnimationCursor = cursor;
+                const std::uint16_t frame = static_cast<std::uint16_t>(
+                    (cursor - firstCursor) / 2);
+                static const std::uint16_t table0[8] =
+                    {700, 701, 702, 703, 704, 705, 706, 707};
+                static const std::uint16_t table1[8] =
+                    {703, 704, 705, 706, 707, 700, 701, 702};
+                entity.spriteSlot = entity.ambientTable == 0
+                    ? table0[frame]
+                    : table1[frame];
+                entity.ambientAnimationDelay =
+                    entity.ambientTable == 0 ? 8 : 10;
+            }
+            continue;
+        }
         if (!isNormalEnemyType(entity.type) && !isWorldEffectType(entity.type) &&
-            !isCloudType(entity.type) && !isLeafType(entity.type) &&
+            !isCloudType(entity.type) &&
             !isDedicatedEventType(entity.type)) {
             entity.animationFrame = static_cast<std::uint16_t>(
                 (entity.animationFrame + 1) & 0x00ff);

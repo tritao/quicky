@@ -4,6 +4,7 @@
 #include "quiky/runtime.h"
 #include "quiky/simulation.h"
 
+#include <array>
 #include <cstdlib>
 #include <exception>
 #include <fstream>
@@ -31,7 +32,8 @@ struct InputFrame {
 void usage() {
     std::cerr << "usage: quiky-w1l1-trace ARCHIVE MAP-RESOURCE OUTPUT.JSON "
                  "[--frames N] [--action-flags N] [--input-tsv PATH] "
-                 "[--camera-x N --camera-y N]\n";
+                 "[--camera-x N --camera-y N] "
+                 "[--leaf-prng-index N --leaf-prng-ring-hex HEX]\n";
 }
 
 long parseNumber(const std::string &value, const char *name) {
@@ -39,6 +41,32 @@ long parseNumber(const std::string &value, const char *name) {
     const long result = std::strtol(value.c_str(), &end, 0);
     if (end == value.c_str() || *end != '\0') {
         throw quiky::FormatError(std::string("invalid ") + name + ": " + value);
+    }
+    return result;
+}
+
+unsigned hexDigit(char value) {
+    if (value >= '0' && value <= '9') return static_cast<unsigned>(value - '0');
+    if (value >= 'a' && value <= 'f') {
+        return static_cast<unsigned>(value - 'a' + 10);
+    }
+    if (value >= 'A' && value <= 'F') {
+        return static_cast<unsigned>(value - 'A' + 10);
+    }
+    throw quiky::FormatError("leaf PRNG ring contains a non-hex digit");
+}
+
+std::array<std::uint8_t, 0x100> parseLeafPrngRing(
+    const std::string &value) {
+    if (value.size() != 0x200) {
+        throw quiky::FormatError(
+            "leaf PRNG ring must contain exactly 256 bytes of hex");
+    }
+    std::array<std::uint8_t, 0x100> result;
+    for (std::size_t index = 0; index < result.size(); ++index) {
+        result[index] = static_cast<std::uint8_t>(
+            (hexDigit(value[index * 2]) << 4) |
+            hexDigit(value[index * 2 + 1]));
     }
     return result;
 }
@@ -188,6 +216,17 @@ void writeEntity(std::ostream &output, const quiky::LevelEntity &entity) {
            << ",\"sprite_slot\":" << entity.spriteSlot
            << ",\"effect_slot\":" << entity.effectSlot
            << ",\"animation_frame\":" << entity.animationFrame
+           << ",\"ambient_velocity_y_fixed\":"
+           << entity.ambientVelocityY.raw
+           << ",\"ambient_origin_x\":" << entity.ambientOriginX
+           << ",\"ambient_origin_y\":" << entity.ambientOriginY
+           << ",\"ambient_timer\":" << entity.ambientTimer
+           << ",\"ambient_animation_delay\":"
+           << entity.ambientAnimationDelay
+           << ",\"ambient_animation_cursor\":"
+           << entity.ambientAnimationCursor
+           << ",\"ambient_table\":"
+           << static_cast<unsigned>(entity.ambientTable)
            << ",\"active_frames\":" << entity.activeFrames
            << ",\"platform_carry_active\":"
            << (entity.platformCarryActive ? "true" : "false")
@@ -390,6 +429,10 @@ int main(int argc, char **argv) {
         bool hasCamera = false;
         std::int32_t cameraX = 0;
         std::int32_t cameraY = 262;
+        bool hasLeafPrngIndex = false;
+        bool hasLeafPrngRing = false;
+        std::uint16_t leafPrngIndex = 0;
+        std::array<std::uint8_t, 0x100> leafPrngRing;
         for (int index = 4; index < argc; ++index) {
             const std::string option(argv[index]);
             if (option == "--frames" && index + 1 < argc) {
@@ -410,6 +453,18 @@ int main(int argc, char **argv) {
                 cameraY = static_cast<std::int32_t>(
                     parseNumber(argv[++index], "camera Y"));
                 hasCamera = true;
+            } else if (option == "--leaf-prng-index" && index + 1 < argc) {
+                const long parsed = parseNumber(
+                    argv[++index], "leaf PRNG index");
+                if (parsed < 0 || parsed > 0xff) {
+                    throw quiky::FormatError(
+                        "leaf PRNG index outside uint8 range");
+                }
+                leafPrngIndex = static_cast<std::uint16_t>(parsed);
+                hasLeafPrngIndex = true;
+            } else if (option == "--leaf-prng-ring-hex" && index + 1 < argc) {
+                leafPrngRing = parseLeafPrngRing(argv[++index]);
+                hasLeafPrngRing = true;
             } else {
                 usage();
                 return EXIT_FAILURE;
@@ -417,6 +472,10 @@ int main(int argc, char **argv) {
         }
         if (frameCount < 0) {
             throw quiky::FormatError("frame count must be non-negative");
+        }
+        if (hasLeafPrngIndex != hasLeafPrngRing) {
+            throw quiky::FormatError(
+                "leaf PRNG index and ring must be supplied together");
         }
 
         std::vector<InputFrame> inputs;
@@ -434,7 +493,12 @@ int main(int argc, char **argv) {
         }
 
         const quiky::Archive archive = quiky::Archive::load(archivePath);
-        const quiky::LevelSessionConfig config;
+        quiky::LevelSessionConfig config;
+        if (hasLeafPrngIndex) {
+            config.hasLeafPrngState = true;
+            config.leafPrngIndex = leafPrngIndex;
+            config.leafPrngRing = leafPrngRing;
+        }
         std::unique_ptr<quiky::LevelRuntime> runtime =
             quiky::LevelRuntime::load(archive, mapName, "QUIKYW1.BOB", config);
         quiky::Simulation simulation;
