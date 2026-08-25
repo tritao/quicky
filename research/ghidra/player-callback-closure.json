@@ -1,0 +1,334 @@
+{
+  "schema": "quiky.player-callback-closure.v2",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment_image": "research/build/ghidra-segments/QUIKY_SEG03.bin",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "runtime_selectors": {"2": "01E7", "3": "01F7"}
+  },
+  "root": {
+    "address": "01F7:3FF8",
+    "name": "update_player",
+    "entry_registers": "ES:DI = player/object record; DS = game globals",
+    "record_size": "0x78"
+  },
+  "classification": {
+    "inline": "Body is required in the authoritative C-like source.",
+    "contract": "Body may remain external; arguments, returns, and side effects are closed.",
+    "irrelevant": "Reachable presentation-only body proven unable to affect simulation.",
+    "unresolved": "A gameplay-relevant ambiguity remains explicitly address-named."
+  },
+  "typed_model": {
+    "player_record": [
+      {"offset":"00","name":"action_word","type":"uint16_t","reads":"input/action gates; animation selection","writes":"normalized/suppressed action"},
+      {"offset":"02","name":"x_fixed_16_16","type":"int32_t","reads":"horizontal integration/contact","writes":"horizontal integration/contact"},
+      {"offset":"04","name":"x_pixel","type":"int16_t","reads":"MAP probes/camera","writes":"none; high word view"},
+      {"offset":"06","name":"y_fixed_16_16","type":"int32_t","reads":"vertical integration/contact","writes":"vertical integration/contact"},
+      {"offset":"08","name":"y_pixel","type":"int16_t","reads":"MAP probes/correction","writes":"snap/correction/contact"},
+      {"offset":"0a","name":"x_velocity_fixed","type":"int32_t","reads":"horizontal integration; descriptor response source","writes":"acceleration/friction/contact"},
+      {"offset":"0c","name":"x_velocity_integer_word","type":"int16_t","reads":"idle/animation gate","writes":"overlap of x_velocity_fixed"},
+      {"offset":"0e","name":"y_velocity_fixed","type":"int32_t","reads":"vertical integration","writes":"jump/fall/landing/transition"},
+      {"offset":"12","name":"status_word","type":"uint16_t","reads":"mask/timer","writes":"mask/timer/animation descriptor"},
+      {"offset":"13","name":"status_high_byte","type":"uint8_t","reads":"speed-animation state","writes":"speed-animation state"},
+      {"offset":"17","name":"object_phase","type":"uint8_t","reads":"none in player path","writes":"spawned effect child"},
+      {"offset":"18","name":"callback_offset","type":"uint16_t","reads":"scheduler","writes":"initializer/effect factory"},
+      {"offset":"1e","name":"animation_frame_delay","type":"uint16_t","reads":"animation advancement","writes":"animation loader"},
+      {"offset":"20","name":"animation_delay","type":"uint16_t","reads":"animation advancement","writes":"animation loader/advance"},
+      {"offset":"22","name":"animation_cursor","type":"uint16_t","reads":"animation advancement","writes":"animation loader"},
+      {"offset":"24","name":"animation_cursor_copy","type":"uint16_t","reads":"animation advancement","writes":"animation loader"},
+      {"offset":"28","name":"direction_byte","type":"uint8_t","reads":"animation sequence selection","writes":"left/right input"},
+      {"offset":"29","name":"motion_direction_byte","type":"uint8_t","reads":"probe direction/transition","writes":"velocity/displacement direction"},
+      {"offset":"2a","name":"action_effect_code","type":"uint16_t","reads":"effect gate","writes":"contact/effect selection"},
+      {"offset":"2b","name":"contact_scratch","type":"uint8_t","reads":"negative-mode clamp gate","writes":"reset/collision helper"},
+      {"offset":"2c","name":"state_2c","type":"int16_t","reads":"external object code","writes":"initializer"},
+      {"offset":"2e","name":"vertical_step_state","type":"int16_t","reads":"external object code","writes":"input/contact/factory"},
+      {"offset":"30","name":"state_30","type":"int16_t","reads":"external object code","writes":"initializer"},
+      {"offset":"32","name":"callback_state_word","type":"uint16_t","reads":"external object code","writes":"contact/factory"},
+      {"offset":"34","name":"timer_word","type":"uint16_t","reads":"common tail","writes":"common tail"},
+      {"offset":"36","name":"animation_state","type":"uint8_t","reads":"animation selection","writes":"animation selection"},
+      {"offset":"37","name":"signed_callback_mode","type":"int8_t","reads":"ordinary/ascent/descent/transition branches","writes":"landing/jump/reset/contact"},
+      {"offset":"38","name":"collision_gate","type":"uint8_t","reads":"probe gates","writes":"contact/deferred Y/common tail"},
+      {"offset":"39","name":"transition_pending","type":"uint8_t","reads":"callback entry","writes":"callback entry"},
+      {"offset":"3a","name":"vertical_response_latch","type":"int8_t","reads":"correction/animation","writes":"descriptor correction"},
+      {"offset":"3b","name":"side_response_latch","type":"uint8_t","reads":"side/correction gates","writes":"side/reset/contact"},
+      {"offset":"3c","name":"secondary_effect_active","type":"uint8_t","reads":"action-effect helper","writes":"action-effect helper"},
+      {"offset":"3e","name":"reset_or_death_timer","type":"uint16_t","reads":"transition gates","writes":"contact/reset/positive path"},
+      {"offset":"40","name":"action_frame_counter","type":"uint16_t","reads":"jump/reset gates","writes":"callback entry"},
+      {"offset":"44","name":"saved_y_fixed","type":"int32_t","reads":"reversal correction","writes":"callback entry"},
+      {"offset":"48","name":"saved_x_fixed","type":"int32_t","reads":"reversal correction","writes":"callback entry"},
+      {"offset":"4a","name":"view_anchor_x","type":"int16_t","reads":"camera delta","writes":"external setup"},
+      {"offset":"4c","name":"acceleration_fixed","type":"int32_t","reads":"horizontal acceleration","writes":"initializer"},
+      {"offset":"50","name":"positive_y_acceleration_fixed","type":"int32_t","reads":"positive-mode acceleration","writes":"initializer"},
+      {"offset":"54","name":"friction_fixed","type":"int32_t","reads":"horizontal release","writes":"initializer"},
+      {"offset":"58","name":"negative_y_acceleration_fixed","type":"int32_t","reads":"negative-mode acceleration","writes":"initializer"},
+      {"offset":"5c","name":"horizontal_speed_cap_fixed","type":"int32_t","reads":"horizontal cap","writes":"initializer/38CA"},
+      {"offset":"60","name":"positive_y_speed_cap_fixed","type":"int32_t","reads":"positive-mode cap","writes":"initializer"},
+      {"offset":"64","name":"negative_y_speed_fixed","type":"int32_t","reads":"reset/death response","writes":"initializer"},
+      {"offset":"72","name":"vertical_step_pixels","type":"uint16_t","reads":"vertical/contact probes","writes":"initializer"}
+    ],
+    "globals": [
+      {"address":"DS:4FE2","name":"horizontal_accumulator","type":"int32_t","role":"input counter accumulator"},
+      {"address":"DS:4FE4","name":"view_state_a","type":"int16_t","role":"camera phase input"},
+      {"address":"DS:4FE6","name":"view_state_b","type":"int16_t","role":"camera phase state"},
+      {"address":"DS:4FE8","name":"horizontal_accel","type":"int32_t","role":"input acceleration accumulator"},
+      {"address":"DS:4FEC","name":"input_run_counter","type":"uint16_t","role":"action counter"},
+      {"address":"DS:4FEE","name":"idle_counter","type":"uint16_t","role":"idle/animation threshold"},
+      {"address":"DS:4FF0","name":"action_low_copy","type":"uint8_t","role":"normalized input copy"},
+      {"address":"DS:4FFE","name":"contact_y_scratch","type":"int16_t","role":"contact factory Y"},
+      {"address":"DS:5000","name":"contact_subtype","type":"uint8_t","role":"contact factory subtype"},
+      {"address":"DS:5001","name":"contact_code","type":"uint16_t","role":"contact animation/effect code"},
+      {"address":"DS:5003","name":"contact_x_offset","type":"uint16_t","role":"contact probe X offset"},
+      {"address":"DS:612E","name":"pending_event","type":"uint16_t","role":"pending sound/effect event"},
+      {"address":"DS:657A","name":"map_buffer_offset","type":"uint16_t","role":"MAP buffer offset"},
+      {"address":"DS:657C","name":"map_buffer_selector","type":"uint16_t","role":"MAP selector"},
+      {"address":"DS:657E","name":"map_row_stride_bytes","type":"uint16_t","role":"MAP row stride"},
+      {"address":"DS:6582","name":"descriptor_table_offset","type":"uint16_t","role":"descriptor table offset"},
+      {"address":"DS:6584","name":"descriptor_table_selector","type":"uint16_t","role":"descriptor table selector"},
+      {"address":"DS:30D4","name":"descriptor_record_stride","type":"uint16_t","role":"descriptor record stride"},
+      {"address":"DS:60DC","name":"published_view_x","type":"int32_t","role":"view delta output"},
+      {"address":"DS:60E0","name":"published_view_y","type":"int32_t","role":"view delta output"},
+      {"address":"DS:8196","name":"secondary_actions","type":"uint16_t","role":"normalized action source"},
+      {"address":"DS:81C0","name":"camera_x","type":"uint16_t","role":"camera integer X"},
+      {"address":"DS:81C4","name":"camera_y","type":"uint16_t","role":"camera integer Y"},
+      {"address":"DS:81CC","name":"camera_y_limit","type":"uint16_t","role":"camera transition threshold"},
+      {"address":"DS:85DA","name":"activation_state","type":"int8_t","role":"input/animation gate"},
+      {"address":"DS:88B6","name":"special_speed_cap_mode","type":"uint16_t","role":"38CA speed-cap selector"},
+      {"address":"DS:88BA","name":"last_scan_code","type":"uint8_t","role":"keyboard state"},
+      {"address":"DS:88BC","name":"keyboard_actions","type":"uint16_t","role":"keyboard action bits"},
+      {"address":"DS:89E6","name":"action_suppressor","type":"int16_t","role":"action suppression/transition sentinel"},
+      {"address":"DS:89EA","name":"collision_transition_mode","type":"int16_t","role":"ordinary/transition callback gate"},
+      {"address":"DS:89EC","name":"transition_state","type":"int16_t","role":"deep transition state"},
+      {"address":"DS:8810","name":"timer_clear","type":"uint16_t","role":"shared timer clear"},
+      {"address":"DS:8812","name":"deferred_y","type":"int32_t","role":"moving-platform Y delta"},
+      {"address":"DS:8816","name":"external_x_delta","type":"int32_t","role":"moving-platform X delta"},
+      {"address":"DS:881A","name":"player_offset","type":"uint16_t","role":"persistent player record offset"},
+      {"address":"DS:8822","name":"transition_scratch","type":"uint16_t","role":"transition scratch"},
+      {"address":"DS:880A","name":"transition_object_counter","type":"int32_t","role":"transition object/effect counter"},
+      {"address":"DS:8950","name":"transition_effect_bits","type":"uint16_t","role":"transition effect/reset bitfield"}
+    ]
+  },
+  "functions": [
+    {
+      "address":"01F7:3FF8","range":["3FF8","44FF"],"name":"update_player","old_symbol":"FUN_3FF8","classification":"inline","convention":"near","signature":"void update_player(PlayerRecord* es_di)",
+      "inputs":["ES:DI player record","DS:5937 auxiliary state","DS:89EA transition gate","DS:656C action source","DS:8812 deferred Y"],"outputs":["near return 4415 or transition return 44FE","x86 flags consumed at each helper call"],
+      "player_reads":["00","02","04","06","08","0A","0E","12","13","28","29","2A","2B","34","36","37","38","39","3A","3B","3E","40","44","48","50","58","60","64","72"],
+      "player_writes":["00","02","06","08","0E","12","13","28","29","2A","2B","34","36","37","38","39","3A","3B","3E","40","44","48"],
+      "global_reads":["DS:4FEE","DS:4FE2","DS:4FE8","DS:656C","DS:81C4","DS:81CC","DS:85DA","DS:89E6","DS:89EA","DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],
+      "global_writes":["DS:4FE2","DS:4FE8","DS:4FEC","DS:4FEE","DS:4FF0","DS:5003","DS:612E","DS:8810","DS:8812","DS:8822","DS:89EC"],
+      "callees":[
+        {"site":"3FF8","address":"01F7:5937","name":"player_helper_5937","flags":"unknown","classification":"unresolved"},
+        {"site":"4006","address":"01F7:648E","name":"probe_contact_right","flags":"CF=1 enters 41C1","classification":"inline"},
+        {"site":"400F","address":"01F7:6484","name":"probe_contact_plus5","flags":"CF forwarded from 6370","classification":"inline"},
+        {"site":"4018","address":"01F7:3A8A","name":"dispatch_special_tile_contact","flags":"none","classification":"inline"},
+        {"site":"4065","address":"01F7:F21C","name":"input_dispatch_f21C","flags":"AX action bits","classification":"inline"},
+        {"site":"41E0,42A6,431C,437F,43FA,4410,442F","address":"01F7:5D38","name":"load_animation_descriptor","flags":"none","classification":"inline"},
+        {"site":"41F7,4209,447B,448C,44A0,44B1","address":"01F7:5C27","name":"probe_descriptor_quadrant","flags":"ZF occupancy","classification":"inline"},
+        {"site":"4218","address":"01F7:1C6E","name":"probe_map_word_bit_4000","flags":"ZF from TEST AX,4000","classification":"inline"},
+        {"site":"42E8","address":"01F7:3971","name":"probe_vertical_10px","flags":"ZF clear","classification":"inline"},
+        {"site":"42F5","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},
+        {"site":"4323,4363","address":"01F7:3986","name":"probe_vertical_step","flags":"ZF clear","classification":"inline"},
+        {"site":"4384","address":"01F7:38CA","name":"apply_special_speed_cap_38CA","flags":"none","classification":"inline"},
+        {"site":"4387","address":"01F7:38EC","name":"player_action_effect_38EC","flags":"none","classification":"inline"},
+        {"site":"438A","address":"01F7:3AB9","name":"integrate_horizontal_motion","flags":"none","classification":"inline"},
+        {"site":"438D,4434","address":"01F7:5D60","name":"advance_animation_descriptor","flags":"none","classification":"inline"},
+        {"site":"4395","address":"01F7:3E41","name":"compute_view_delta","flags":"EAX/EBX view deltas","classification":"inline"},
+        {"site":"4398,4445","address":"01F7:20AF","name":"publish_view_delta","flags":"none","classification":"inline"},
+        {"site":"43D0","address":"01F7:199D","name":"write_transition_gate_199D","flags":"none","classification":"inline"},
+        {"site":"44C5","address":"01F7:1BD1","name":"probe_transition_descriptor","flags":"CF transition contact","classification":"contract"}
+      ],
+      "confidence":"confirmed","evidence":["raw:3FF8-44FE instruction decode","reloc:segment-3 callback callsites","trace:callback-barrier","trace:branch-focus"]
+    },
+    {
+      "address":"01F7:3F27","range":["3F27","3FF8"],"name":"initialize_player","old_symbol":"FUN_3F27","classification":"inline","convention":"near","signature":"void initialize_player(PlayerRecord* es_di)",
+      "inputs":["ES:DI player record","DS:85DA activation state"],"outputs":["DS:881A player identity","player callback +18=3FF8"],
+      "player_reads":["06","72"],"player_writes":["00","06","0A","0E","18","28","29","2C","2E","30","32","34","36","37","38","3A","3B","4C","50","54","58","5C","60","64","72"],
+      "global_reads":["DS:85DA"],"global_writes":["DS:4FE2","DS:4FE6","DS:4FEC","DS:4FEE","DS:8810","DS:8812","DS:881A"],
+      "callees":[{"site":"3FF2","address":"01F7:5D38","name":"load_animation_descriptor","flags":"none","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3F27-3FF7","static:callback-pointer-write","trace:player-pool-offset-zero"]
+    },
+    {
+      "address":"01F7:3AB9","range":["3AB9","3D02"],"name":"integrate_horizontal_motion","old_symbol":"FUN_3AB9","classification":"inline","convention":"near","signature":"void integrate_horizontal_motion(PlayerRecord* es_di)",
+      "inputs":["action bits +00","x/y/vx fields","DS:8816 platform X delta"],"outputs":["x/vx/direction/animation fields","saved-position reversal correction"],
+      "player_reads":["00","02","04","06","08","0A","0C","13","28","29","36","37","3A","44","48","4C","54","5C"],"player_writes":["02","06","08","0A","13","28","29","36"],
+      "global_reads":["DS:4FEE","DS:8816"],"global_writes":["DS:8816"],
+      "callees":[{"site":"3B10","address":"01F7:3998","name":"probe_forward_surface","flags":"ZF clear","classification":"inline"},{"site":"3A82","address":"01F7:3986","name":"probe_vertical_step","flags":"ZF clear","classification":"inline"},{"site":"3B3A,3BB6,3C00,3C22,3CAC,3CE6,3CFC","address":"01F7:5D38","name":"load_animation_descriptor","flags":"none","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3AB9-3D01","reloc:3AB9 animation calls","trace:horizontal-fixtures"]
+    },
+    {
+      "address":"01F7:3D02","range":["3D02","3DF2"],"name":"apply_descriptor_vertical_correction","old_symbol":"FUN_3D02","classification":"inline","convention":"near","signature":"Flags apply_descriptor_vertical_correction(PlayerRecord* es_di)",
+      "inputs":["+3B side latch","x/y integer words","descriptor word from 5CC3"],"outputs":["+3A latch 0/1/FF","Y integer correction","ZF early/clear versus response return"],
+      "player_reads":["04","08","0A","37","3B"],"player_writes":["08","0E","3A"],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],
+      "callees":[{"site":"3D19,3D31","address":"01F7:5CC3","name":"read_descriptor_word","flags":"DX descriptor","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3D02-3DF1","static:DX-20-40-branch-decode","trace:descriptor-branch-matrix"]
+    },
+    {
+      "address":"01F7:3DF2","range":["3DF2","3E30"],"name":"snap_player_y_on_side_contact","old_symbol":"FUN_3DF2","classification":"inline","convention":"near","signature":"void snap_player_y_on_side_contact(PlayerRecord* es_di)",
+      "inputs":["+3B and +3A gates","x/y integer words"],"outputs":["+08 masked to FFF8 when either side is occupied"],"player_reads":["04","08","3A","3B"],"player_writes":["08"],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],
+      "callees":[{"site":"3E0B,3E1D","address":"01F7:5C27","name":"probe_descriptor_quadrant","flags":"ZF occupancy","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3DF2-3E2F","trace:ordered-side-probe"]
+    },
+    {
+      "address":"01F7:3A1F","range":["3A1F","3A62"],"name":"probe_player_side_clear","old_symbol":"FUN_3A1F","classification":"inline","convention":"near","signature":"Flags probe_player_side_clear(PlayerRecord* es_di)",
+      "inputs":["+38 gate","+37 mode","x/y integer words"],"outputs":["ZF clear/occupied; +3B=FF after two clear probes"],"player_reads":["04","08","37","38","3B"],"player_writes":["3B"],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],
+      "callees":[{"site":"3A3A,3A4C","address":"01F7:5C27","name":"probe_descriptor_quadrant","flags":"ZF occupancy","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3A1F-3A61","trace:ordered-side-probe"]
+    },
+    {
+      "address":"01F7:3998","range":["3998","39FE"],"name":"probe_forward_surface","old_symbol":"FUN_3998","classification":"inline","convention":"near","signature":"Flags probe_forward_surface(PlayerRecord* es_di)",
+      "inputs":["+29 direction","+3A latch","+04/+08 coordinates","+72 step"],"outputs":["last descriptor occupancy flags"],"player_reads":["04","08","29","3A","72"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],
+      "callees":[{"site":"39C2,39D7,39F3","address":"01F7:5C27","name":"probe_descriptor_quadrant","flags":"ZF occupancy","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3998-39FD","static:probe-order-and-step-gate"]
+    },
+    {
+      "address":"01F7:3971","range":["3971","3986"],"name":"probe_vertical_10px","old_symbol":"FUN_3971","classification":"inline","convention":"near","signature":"Flags probe_vertical_10px(PlayerRecord* es_di)",
+      "inputs":["+04/+08 coordinates","+72 step"],"outputs":["flags from 1C92 at y-0x0A-+72"],"player_reads":["04","08","72"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":[],
+      "callees":[{"site":"3980","address":"01F7:1C92","name":"probe_map_word_bit_1000","flags":"ZF from TEST AH,10","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3971-3985","static:coordinate-formula"]
+    },
+    {
+      "address":"01F7:3986","range":["3986","3998"],"name":"probe_vertical_step","old_symbol":"FUN_3986","classification":"inline","convention":"near","signature":"Flags probe_vertical_step(PlayerRecord* es_di)",
+      "inputs":["+04/+08 coordinates","+72 step"],"outputs":["flags from 1C92 at y-+72"],"player_reads":["04","08","72"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":[],
+      "callees":[{"site":"3992","address":"01F7:1C92","name":"probe_map_word_bit_1000","flags":"ZF from TEST AH,10","classification":"inline"}],
+      "confidence":"confirmed","evidence":["raw:3986-3997","static:coordinate-formula"]
+    },
+    {
+      "address":"01F7:3376","range":["3376","339A"],"name":"map_tile_id_at_pixel","old_symbol":"FUN_3376","classification":"inline","convention":"far","signature":"uint16_t map_tile_id_at_pixel(uint16_t y_ax, uint16_t x_bx)",
+      "inputs":["AX=y pixels","BX=x pixels","MAP globals"],"outputs":["AX = MAP word & 0x01FF"],"player_reads":[],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:3376-3399","trace:tile-id-probes"]
+    },
+    {
+      "address":"01F7:5C27","range":["5C27","5C9D"],"name":"probe_descriptor_quadrant","old_symbol":"FUN_5C27","classification":"inline","convention":"far","signature":"Flags probe_descriptor_quadrant(uint16_t y_ax, uint16_t x_bx)",
+      "inputs":["AX=y pixels","BX=x pixels","MAP/descriptor globals"],"outputs":["ZF=1 when selected low-nibble descriptor bit is clear"],"player_reads":[],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:5C27-5C9C","trace:selector-safe-property-matrix"]
+    },
+    {
+      "address":"01F7:5CC3","range":["5CC3","5D00"],"name":"read_descriptor_word","old_symbol":"FUN_5CC3","classification":"inline","convention":"far","signature":"uint16_t read_descriptor_word(uint16_t y_ax, uint16_t x_bx)",
+      "inputs":["AX=y pixels","BX=x pixels","MAP/descriptor globals"],"outputs":["DX = full descriptor word"],"player_reads":[],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:5CC3-5CFF","trace:descriptor-census"]
+    },
+    {
+      "address":"01F7:1C6E","range":["1C6E","1C92"],"name":"probe_map_word_bit_4000","old_symbol":"FUN_1C6E","classification":"inline","convention":"far","signature":"Flags probe_map_word_bit_4000(uint16_t y_ax, uint16_t x_bx)",
+      "inputs":["AX=y pixels","BX=x pixels"],"outputs":["ZF from TEST raw MAP word,0x4000"],"player_reads":[],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:1C6E-1C91","callsite:4218"]
+    },
+    {
+      "address":"01F7:1C92","range":["1C92","1CB6"],"name":"probe_map_word_bit_1000","old_symbol":"FUN_1C92","classification":"inline","convention":"far","signature":"Flags probe_map_word_bit_1000(uint16_t y_ax, uint16_t x_bx)",
+      "inputs":["AX=y pixels","BX=x pixels"],"outputs":["ZF from TEST raw MAP word,0x1000"],"player_reads":[],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:1C92-1CB5","callsite:3971/3986"]
+    },
+    {
+      "address":"01F7:6370","range":["6370","6484"],"name":"probe_contact_tile_offset","old_symbol":"FUN_6370","classification":"inline","convention":"near","signature":"Flags probe_contact_tile_offset(PlayerRecord* es_di)",
+      "inputs":["+37 mode","+04/+08 coordinates","DS:5003 offset","+72 step"],"outputs":["CF=1 only for matching negative-mode contact; contact record/object writes"],"player_reads":["02","04","06","08","2E","32","36","37","38","72"],"player_writes":["02","06","2E","32","36","38"],"global_reads":["DS:5003","DS:657A","DS:657C","DS:657E"],"global_writes":["DS:4FFE","DS:5000","DS:5001","DS:612E"],
+      "callees":[{"site":"638A,63CD","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6426","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"6431","address":"01F7:0E06","name":"initialize_contact_object","flags":"ES:DI child/object","classification":"contract"}],
+      "confidence":"confirmed","evidence":["raw:6370-6483","trace:contact-tile-matrix"]
+    },
+    {
+      "address":"01F7:6484","range":["6484","648E"],"name":"probe_contact_plus5","old_symbol":"FUN_6484","classification":"inline","convention":"far","signature":"Flags probe_contact_plus5(PlayerRecord* es_di)",
+      "inputs":["ES:DI player record"],"outputs":["CF forwarded from 6370"],"player_reads":[],"player_writes":[],"global_reads":[],"global_writes":["DS:5003"],"callees":[{"site":"648A","address":"01F7:6370","name":"probe_contact_tile_offset","flags":"CF forwarded","classification":"inline"}],"confidence":"confirmed","evidence":["raw:6484-648D","callsite:400F"]
+    },
+    {
+      "address":"01F7:648E","range":["648E","659C"],"name":"probe_contact_right","old_symbol":"FUN_648E","classification":"inline","convention":"far","signature":"Flags probe_contact_right(PlayerRecord* es_di)",
+      "inputs":["+37 mode","+04/+08 coordinates","+72 step"],"outputs":["CF=1 only for matching negative-mode contact; contact record/object writes"],"player_reads":["02","06","08","2E","32","36","37","38","72"],"player_writes":["02","06","08","2E","32","36","38"],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":["DS:4FFE","DS:5000","DS:5001","DS:5003","DS:612E"],
+      "callees":[{"site":"64A7,64E9","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"6542","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"},{"site":"654D","address":"01F7:0E06","name":"initialize_contact_object","flags":"ES:DI child/object","classification":"contract"}],
+      "confidence":"confirmed","evidence":["raw:648E-659B","trace:contact-tile-matrix"]
+    },
+    {
+      "address":"01F7:3A8A","range":["3A8A","3AB9"],"name":"dispatch_special_tile_contact","old_symbol":"FUN_3A8A","classification":"inline","convention":"far","signature":"void dispatch_special_tile_contact(PlayerRecord* es_di)",
+      "inputs":["positive mode","x/y integer words"],"outputs":["transition/effect global and player-state writes in callees"],"player_reads":["04","08","37"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E"],"global_writes":[],
+      "callees":[{"site":"3A99","address":"01F7:3376","name":"map_tile_id_at_pixel","flags":"AX tile ID","classification":"inline"},{"site":"3AAE","address":"01F7:1B07","name":"apply_tile_transition_1B07","flags":"none","classification":"contract"},{"site":"3AB3","address":"01F7:19E6","name":"apply_transition_reset_19E6","flags":"none","classification":"contract"}],
+      "confidence":"confirmed","evidence":["raw:3A8A-3AB8","reloc:tile-transition-targets"]
+    },
+    {
+      "address":"01F7:38CA","range":["38CA","38EC"],"name":"apply_special_speed_cap_38CA","old_symbol":"FUN_38CA","classification":"inline","convention":"near","signature":"void apply_special_speed_cap_38CA(PlayerRecord* es_di)",
+      "inputs":["+37 mode","DS:88B6 selector"],"outputs":["+5C set to 0x30000 when mode=0 and DS:88B6=1"],"player_reads":["37"],"player_writes":["5C"],"global_reads":["DS:88B6"],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:38CA-38EB"]
+    },
+    {
+      "address":"01F7:38EC","range":["38EC","393C"],"name":"player_action_effect_38EC","old_symbol":"FUN_38EC","classification":"inline","convention":"near","signature":"void player_action_effect_38EC(PlayerRecord* es_di)",
+      "inputs":["action bit 0x10","+3C effect-active gate","player position/direction"],"outputs":["effect child initialized; player +3C updated; child +17/+29/+02/+06 copied"],"player_reads":["00","02","06","28","3C"],"player_writes":["3C"],"child_writes":["02","06","17","29"],"global_reads":[],"global_writes":[],"callees":[{"site":"390E","address":"01F7:4519","name":"spawn_contact_effect_entry","flags":"ES:DI child returned during call","classification":"contract"}],"confidence":"confirmed","evidence":["raw:38EC-393B","static:action-bit-10-child-copy"]
+    },
+    {
+      "address":"01F7:4519","range":["4519","45AB"],"name":"spawn_contact_effect_entry","old_symbol":"FUN_4519","classification":"contract","convention":"near","signature":"PlayerRecord* spawn_contact_effect_entry(PlayerRecord* owner)",
+      "inputs":["ES:DI effect record","DS:8806/8808/880C pool state"],"outputs":["effect callback +18=45AB or zero; effect fields initialized"],"player_reads":[],"player_writes":[],"object_writes":["0A","0E","18","2A","2C","2E"],"global_reads":["DS:8806","DS:8808","DS:880C","DS:88AE"],"global_writes":["DS:8806","DS:880C","DS:612E"],
+      "callees":[{"site":"4550","address":"01F7:5D38","name":"load_animation_descriptor","flags":"none","classification":"inline"},{"site":"4582","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"}],
+      "confidence":"mechanical","evidence":["raw:4519-45AA","callsite:38EC"]
+    },
+    {
+      "address":"01F7:5D38","range":["5D38","5D60"],"name":"load_animation_descriptor","old_symbol":"FUN_5D38","classification":"inline","convention":"far","signature":"void load_animation_descriptor(PlayerRecord* es_di, uint16_t sequence_si)",
+      "inputs":["SI sequence/table address","ES:DI object record"],"outputs":["+12 frame, +1E/+20 delay, +22/+24 cursor"],"player_reads":["28"],"player_writes":["12","1E","20","22","24"],"global_reads":[],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:5D38-5D5F","trace:animation-frame-table"]
+    },
+    {
+      "address":"01F7:5D60","range":["5D60","5DA0"],"name":"advance_animation_descriptor","old_symbol":"FUN_5D60","classification":"inline","convention":"far","signature":"void advance_animation_descriptor(PlayerRecord* es_di)",
+      "inputs":["ES:DI object animation state"],"outputs":["delay decrement or cursor advance; +12 frame and +20 reload"],"player_reads":["1E","20","22","24","28"],"player_writes":["12","20","24"],"global_reads":[],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:5D60-5D9F","trace:animation-frame-table"]
+    },
+    {
+      "address":"01F7:3E41","range":["3E41","3F27"],"name":"compute_view_delta","old_symbol":"FUN_3E41","classification":"inline","convention":"near","signature":"ViewDelta compute_view_delta(PlayerRecord* es_di)",
+      "inputs":["player integer position/anchor","camera globals","view phase globals"],"outputs":["EAX/EBX signed fixed-point deltas","DS:4FE6 updated"],"player_reads":["04","08","4A"],"player_writes":[],"global_reads":["DS:4FE4","DS:4FE6","DS:81C0","DS:81C4"],"global_writes":["DS:4FE6"],"callees":[],"confidence":"confirmed","evidence":["raw:3E41-3F26","trace:camera-delta-fixtures"]
+    },
+    {
+      "address":"01F7:20AF","range":["20AF","20C8"],"name":"publish_view_delta","old_symbol":"FUN_20AF","classification":"inline","convention":"far","signature":"void publish_view_delta(int32_t eax, int32_t ebx)",
+      "inputs":["EAX x delta","EBX y delta"],"outputs":["clamped DS:60DC/DS:60E0 view state"],"player_reads":[],"player_writes":[],"global_reads":[],"global_writes":["DS:60DC","DS:60E0"],"callees":[],"confidence":"confirmed","evidence":["raw:20AF-20C7","callsite:4398/4445"]
+    },
+    {
+      "address":"01F7:199D","range":["199D","19E6"],"name":"write_transition_gate_199D","old_symbol":"FUN_199D","classification":"inline","convention":"far","signature":"void write_transition_gate_199D(PlayerRecord* es_di)",
+      "inputs":["ES:DI player record"],"outputs":["DS:89EA=-1; reset motion constants/state"],"player_reads":["0E","4C","50","5C","60"],"player_writes":["0E","4C","50","5C","60"],"global_reads":[],"global_writes":["DS:8950","DS:89EA","DS:880A","DS:8822"],"callees":[{"site":"19AA","address":"01E7:0CE3","name":"dispatch_transition_effect_0CE3","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:199D-19E5","callsite:43D0"]
+    },
+    {
+      "address":"01F7:1BD1","range":["1BD1","1C4D"],"name":"probe_transition_descriptor","old_symbol":"FUN_1BD1","classification":"contract","convention":"far","signature":"Flags probe_transition_descriptor(PlayerRecord* es_di, int16_t dx, int16_t cx)",
+      "inputs":["ES:DI player record","DX/CX coordinate offsets"],"outputs":["CF=1 when descriptor quadrant is occupied"],"player_reads":["04","08"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],"callees":[],"confidence":"mechanical","evidence":["raw:1BD1-1C4C","callsite:44C5"]
+    },
+    {
+      "address":"01F7:1B07","range":["1B07","1B43"],"name":"apply_tile_transition_1B07","old_symbol":"FUN_1B07","classification":"contract","convention":"far","signature":"void apply_tile_transition_1B07(void)",
+      "inputs":["persistent player through DS:881A","DS:8950 transition bits"],"outputs":["player reset/death mode and transition gate writes"],"player_reads":["0E","37","3A","3B","3E","64"],"player_writes":["0E","37","3A","3B","3E"],"global_reads":["DS:881A","DS:8950"],"global_writes":["DS:8950"],"callees":[{"site":"1B3C","address":"01F7:5D38","name":"load_animation_descriptor","flags":"none","classification":"inline"}],"confidence":"mechanical","evidence":["raw:1B07-1B42","callsite:3AAE"]
+    },
+    {
+      "address":"01F7:19E6","range":["19E6","1A95"],"name":"apply_transition_reset_19E6","old_symbol":"FUN_19E6","classification":"contract","convention":"far","signature":"void apply_transition_reset_19E6(void)",
+      "inputs":["persistent player through DS:881A","DS:8822 transition counter"],"outputs":["DS:89EA transition gate and player motion reset"],"player_reads":["0E","34","37","3B","3E","4C","50","5C","60"],"player_writes":["0E","37","3B","3E","4C","50","5C","60"],"global_reads":["DS:881A","DS:8822","DS:89EA"],"global_writes":["DS:612E","DS:880A","DS:8950","DS:89EA"],"callees":[{"site":"19FC","address":"01E7:0FCF","name":"dispatch_pending_sound_effect","flags":"none","classification":"contract"}],"confidence":"mechanical","evidence":["raw:19E6-1A94","callsite:3AB3"]
+    },
+    {
+      "address":"01F7:0E06","range":null,"name":"initialize_contact_object","old_symbol":"FUN_0E06","classification":"contract","convention":"far","signature":"ObjectRecord* initialize_contact_object(uint16_t ax, uint16_t dx)",
+      "inputs":["AX=0x6328 contact descriptor","DX=0"],"outputs":["ES:DI effect/contact object or pool-side result"],"player_reads":[],"player_writes":[],"global_reads":["DS:... object pool"],"global_writes":["object pool"],"callees":[],"confidence":"mechanical","evidence":["reloc:6370/648E factory calls","trace:contact-object-creation"]
+    },
+    {
+      "address":"01E7:0FCF","range":null,"name":"dispatch_pending_sound_effect","old_symbol":"FUN_0FCF","classification":"contract","convention":"far","signature":"void dispatch_pending_sound_effect(void)",
+      "inputs":["DS:612E pending event","audio/effect globals"],"outputs":["audio/effect dispatch side effects; simulation event may be consumed"],"player_reads":[],"player_writes":[],"global_reads":["DS:612E"],"global_writes":[],"callees":[],"confidence":"mechanical","evidence":["reloc:segment-2 target","trace:sfx-dispatch"]
+    },
+    {
+      "address":"01E7:0CE3","range":null,"name":"dispatch_transition_effect_0CE3","old_symbol":"FUN_0CE3","classification":"contract","convention":"far","signature":"void dispatch_transition_effect_0CE3(void)",
+      "inputs":["transition/effect globals"],"outputs":["external effect dispatch"],"player_reads":[],"player_writes":[],"global_reads":[],"global_writes":[],"callees":[],"confidence":"unresolved","evidence":["reloc:199D call target"]
+    },
+    {
+      "address":"01F7:5937","range":null,"name":"player_helper_5937","old_symbol":"FUN_5937","classification":"unresolved","convention":"far","signature":"void player_helper_5937(void)",
+      "inputs":["external input/auxiliary state"],"outputs":["unknown local/global updates; callback proceeds with DS:89EA test"],"player_reads":[],"player_writes":[],"global_reads":["unknown"],"global_writes":["unknown"],"callees":[],"confidence":"unresolved","evidence":["reloc:3FF8 call target","dynamic:callback-entry barrier only"]
+    },
+    {
+      "address":"01F7:F17F","range":["F17F","F1A8"],"name":"keyboard_irq1_ring_producer","old_symbol":"FUN_F17F","classification":"contract","convention":"near","signature":"void keyboard_irq1_ring_producer(void)",
+      "inputs":["keyboard port 0x60"],"outputs":["scan-code ring at FFFF:501E; DS:503E head"],"player_reads":[],"player_writes":[],"global_reads":[],"global_writes":["FFFF:501E","DS:503E"],"callees":[],"confidence":"confirmed","evidence":["raw:F17F-F1A7","input:scan-code-ring"]
+    },
+    {
+      "address":"01F7:F1A8","range":["F1A8","F21B"],"name":"poll_keyboard_ring_to_action_bits","old_symbol":"FUN_F1A8","classification":"inline","convention":"far","signature":"void poll_keyboard_ring_to_action_bits(uint8_t raw_scan)",
+      "inputs":["scan-code ring"],"outputs":["DS:88BC make/break action bits; DS:88BA last scan"],"player_reads":[],"player_writes":[],"global_reads":["DS:503E","DS:5040"],"global_writes":["DS:503E","DS:5040","DS:88BA","DS:88BC"],"callees":[],"confidence":"confirmed","evidence":["raw:F1A8-F21A","input:scan-code-mapping"]
+    },
+    {
+      "address":"01F7:F21B","range":["F21B","F232"],"name":"read_normalized_action_bits","old_symbol":"FUN_F21B","classification":"inline","convention":"far","signature":"uint16_t read_normalized_action_bits(void)",
+      "inputs":["DS:88BC and DS:8196"],"outputs":["AX = DS:88BC | DS:8196; F21C is the direct dispatch entry"],"player_reads":[],"player_writes":[],"global_reads":["DS:88BC","DS:8196"],"global_writes":[],"callees":[],"confidence":"confirmed","evidence":["raw:F21B-F231","reloc:callback direct target F21C"]
+    },
+    {
+      "address":"01F7:F21C","range":null,"name":"input_dispatch_f21C","old_symbol":"ENTRY_F21C","classification":"inline","convention":"far","signature":"uint16_t input_dispatch_f21C(void)",
+      "inputs":["DS:88BC and DS:8196"],"outputs":["AX action bits; computed jump enters normalized-input body"],"player_reads":[],"player_writes":[],"global_reads":["DS:88BC","DS:8196"],"global_writes":[],"callees":[],"confidence":"mechanical","evidence":["reloc:callback direct target F21C","raw:F21B-F231"]
+    }
+  ],
+  "address_labels": [
+    {"address":"01F7:3142","name":"animation_sequence_3142","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38 calls"]},
+    {"address":"01F7:3156","name":"animation_sequence_3156","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38 calls"]},
+    {"address":"01F7:3160","name":"animation_sequence_3160","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38 calls"]},
+    {"address":"01F7:316A","name":"animation_sequence_316A","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38 calls"]},
+    {"address":"01F7:3186","name":"animation_sequence_3186","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38 calls"]},
+    {"address":"01F7:3190","name":"animation_sequence_3190","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38 calls"]},
+    {"address":"01F7:31A4","name":"animation_sequence_31A4","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38/5D60 calls"]},
+    {"address":"01F7:31BA","name":"animation_sequence_31BA","kind":"data","confidence":"mechanical","evidence":["SI immediate before 5D38 call"]}
+  ],
+  "dynamic_checks": [
+    {"question":"Does the side probe short-circuit its +5 retry when x-5 is occupied?","evidence":"research/notes/player-collision-semantics.md:selector-safe ordered-side-probe","status":"answered"},
+    {"question":"Does descriptor DX&0x30 suppress the y-8 retry and do DX&0x20/0x40 select response/latch paths?","evidence":"research/notes/descriptor-collision-evidence.json","status":"answered"},
+    {"question":"Do the recovered horizontal and vertical formulas match controlled fixtures?","evidence":"research/evidence/player-horizontal/validation.json; research/evidence/player-vertical/validation.json; research/notes/player-horizontal.md; research/notes/player-vertical.md","status":"answered"},
+    {"question":"What does 01F7:5937 write before the callback gate?","evidence":"none; retain address-qualified unresolved contract","status":"open"},
+    {"question":"Which runtime object does 01F7:0E06 allocate for contact tiles?","evidence":"research/entity-targeted-decompile-evidence.json; contact traces","status":"partially answered"}
+  ]
+}

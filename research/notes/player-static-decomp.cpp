@@ -31,6 +31,7 @@ struct Globals {
     int16_t view_state_b;                // DS:4fe6
     uint16_t idle_counter;               // DS:4fee
     uint8_t action_low_copy;             // DS:4ff0
+    uint16_t special_speed_cap_mode;     // DS:88b6
 
     uint16_t map_offset;                 // DS:657a
     uint16_t map_selector;               // DS:657c
@@ -53,6 +54,10 @@ struct Globals {
     int16_t action_suppressor;           // DS:89e6
     int16_t transition_state;             // DS:89ec
     uint16_t transition_scratch;         // DS:8822
+    int32_t transition_object_counter;   // DS:880a
+    uint16_t transition_effect_bits;     // DS:8950
+    Fixed16 published_view_x;             // DS:60dc
+    Fixed16 published_view_y;             // DS:60e0
     uint16_t pending_event;              // DS:612e
 
     int16_t contact_y_scratch;           // DS:4ffe
@@ -101,36 +106,25 @@ extern uint16_t far_read_word(uint16_t selector, uint16_t offset);
 extern void far_write_word(uint16_t selector, uint16_t offset, uint16_t value);
 
 // Relocated targets outside the primary closure.  The names are mechanical;
-// their exact offsets are in player-static-closure.json.
-extern void far_poll_auxiliary_input_state();       // 5937
-extern void far_load_activation_animation();        // 316a
-extern void far_enter_reset_motion();               // 3160
-extern void far_enter_contact_response();            // 3186
-extern void far_set_idle_animation();               // 3156
-extern void far_set_left_animation();               // 3142
-extern void far_set_running_animation();            // 3190
-extern void far_load_animation_descriptor();        // 5d38
-extern void far_advance_animation_descriptor();     // 5d60
-extern void far_publish_view_delta(int32_t eax, int32_t ebx); // 20af
-extern void far_camera_transition_check();          // 199d
-extern Flags far_transition_collision_query(uint16_t cx, uint16_t dx); // 1bd1
-extern Flags far_vertical_position_query(int16_t y, int16_t x); // 1c6e
-extern Flags far_vertical_probe_backend(int16_t y, int16_t x); // 1c92
-extern void far_emit_contact_effect();              // 0fcf
-extern void far_initialize_contact_object();        // 0e06
-extern void far_enter_transition_motion();           // 31a4
-extern void far_emit_idle_timeout();                // 31ba
-extern void far_special_tile_effect_a();            // 1b07
-extern void far_special_tile_effect_b();            // 19e6
-extern void near_38ca(PlayerRecord*);               // 38ca
-extern void near_38ec(PlayerRecord*);               // 38ec
+// their exact offsets are in player-callback-closure.json.
+extern void player_helper_5937();                   // 5937; unresolved input-side helper
+extern int16_t animation_sequence_word(uint16_t sequence_offset); // raw DS:SI word
+extern void dispatch_transition_effect_0CE3();       // 01e7:0ce3 contract
+extern Flags probe_transition_descriptor(uint16_t cx, uint16_t dx); // 1bd1
+extern Flags probe_map_word_bit_4000(int16_t y, int16_t x); // 1c6e
+extern Flags probe_map_word_bit_1000(int16_t y, int16_t x); // 1c92
+extern void dispatch_pending_sound_effect();        // 01e7:0fcf
+extern PlayerRecord* initialize_contact_object(uint16_t ax, uint16_t dx); // 0e06
+extern void apply_tile_transition_1B07();            // 1b07
+extern void apply_transition_reset_19E6();          // 19e6
+extern PlayerRecord* spawn_contact_effect_entry(PlayerRecord* owner); // 4519 contract
 extern uint16_t player_pool_offset(PlayerRecord*);  // representation of DI
 extern PlayerRecord* player_from_pool_offset(uint16_t); // DS:881a -> ES:DI
 
 // --------------------------- MAP / descriptors --------------------------
 
 // Far entry 01f7:3376.  The raw helper takes AX=y and BX=x.
-uint16_t map_tile_id_lookup_16px(uint16_t y, uint16_t x) {
+uint16_t map_tile_id_at_pixel(uint16_t y, uint16_t x) {
     uint16_t address = static_cast<uint16_t>(
         DS.map_offset + (static_cast<uint16_t>(y) >> 4) * DS.map_row_stride
         + (static_cast<uint16_t>(x) >> 4) * 2);
@@ -144,18 +138,36 @@ uint16_t descriptor_word_at(uint16_t tile_id) {
     return far_read_word(DS.descriptor_selector, address);
 }
 
-// Far entry 01f7:5cc3.  The descriptor is returned in DX by the original.
-uint16_t read_map_descriptor_word(int16_t y, int16_t x) {
-    uint16_t map_address = static_cast<uint16_t>(
+static uint16_t map_word_at_pixel(int16_t y, int16_t x) {
+    uint16_t address = static_cast<uint16_t>(
         DS.map_offset + (static_cast<uint16_t>(y) >> 4) * DS.map_row_stride
         + ((static_cast<uint16_t>(x) >> 3) & 0xfffe));
-    uint16_t cell = far_read_word(DS.map_selector, map_address);
+    return far_read_word(DS.map_selector, address);
+}
+
+// Far entry 01f7:1c6e.  The raw MAP word is tested directly; the helper's
+// meaningful ABI is ZF, not a C boolean return value.
+Flags probe_map_word_bit_4000(int16_t y, int16_t x) {
+    uint16_t word = map_word_at_pixel(y, x);
+    return {(word & 0x4000) == 0, false};
+}
+
+// Far entry 01f7:1c92.  This is the corresponding 0x1000 test used by the
+// vertical probes; it does not read the descriptor table.
+Flags probe_map_word_bit_1000(int16_t y, int16_t x) {
+    uint16_t word = map_word_at_pixel(y, x);
+    return {(word & 0x1000) == 0, false};
+}
+
+// Far entry 01f7:5cc3.  The descriptor is returned in DX by the original.
+uint16_t read_descriptor_word(int16_t y, int16_t x) {
+    uint16_t cell = map_word_at_pixel(y, x);
     return descriptor_word_at(cell & 0x01ff);
 }
 
 // Far entry 01f7:5c27.  The low descriptor nibble is selected by coordinate
 // quadrant.  `zf=true` is the nonblocking/clear result.
-Flags map_descriptor_quadrant_occupancy(int16_t y, int16_t x) {
+Flags probe_descriptor_quadrant(int16_t y, int16_t x) {
     uint16_t map_address = static_cast<uint16_t>(
         DS.map_offset + (static_cast<uint16_t>(y) >> 4) * DS.map_row_stride
         + ((static_cast<uint16_t>(x) >> 3) & 0xfffe));
@@ -176,7 +188,7 @@ Flags map_descriptor_quadrant_occupancy(int16_t y, int16_t x) {
 }
 
 static bool occupied(int16_t y, int16_t x) {
-    return !map_descriptor_quadrant_occupancy(y, x).zf;
+    return !probe_descriptor_quadrant(y, x).zf;
 }
 
 // --------------------------- Input helpers -------------------------------
@@ -198,7 +210,7 @@ static uint16_t action_bit_for_scan_code(uint8_t scan) {
 // break operation to DS:88bc.  The ring-head mechanics are intentionally
 // left as the observed producer/consumer boundary rather than inventing a
 // C representation for the FFFF:501e real-mode ring.
-void apply_keyboard_scan_code(uint8_t raw_scan) {
+void poll_keyboard_ring_to_action_bits(uint8_t raw_scan) {
     uint16_t bit = action_bit_for_scan_code(raw_scan);
     if (bit == 0)
         return;
@@ -214,40 +226,47 @@ uint16_t read_normalized_action_bits() {
     return DS.keyboard_actions | DS.secondary_actions;
 }
 
+// Direct callback entry at 01f7:f21c.  The raw body is the normalized-input
+// expression above; the computed-jump tail remains address-qualified in the
+// Ghidra export because the segment image ends before its speculative flows.
+uint16_t input_dispatch_f21C() {
+    return read_normalized_action_bits();
+}
+
 // --------------------------- Collision helpers ---------------------------
 
 // Near entry 01f7:3971.
-Flags probe_vertical_10px_clear(PlayerRecord* p) {
-    return far_vertical_probe_backend(
+Flags probe_vertical_10px(PlayerRecord* p) {
+    return probe_map_word_bit_1000(
         static_cast<int16_t>(p->y_pixel() - 0x0a - p->u16(0x72)),
         p->x_pixel());
 }
 
 // Near entry 01f7:3986.
-Flags probe_vertical_step_clear(PlayerRecord* p) {
-    return far_vertical_probe_backend(
+Flags probe_vertical_step(PlayerRecord* p) {
+    return probe_map_word_bit_1000(
         static_cast<int16_t>(p->y_pixel() - p->u16(0x72)),
         p->x_pixel());
 }
 
 // Near entry 01f7:3998.  The last probe's flags are returned.  When the
 // configured step is <= 0x20 the third probe is replaced by CMP AL,AL.
-Flags probe_forward_surface_clear(PlayerRecord* p) {
+Flags probe_forward_surface(PlayerRecord* p) {
     int16_t dx = (static_cast<int8_t>(p->u8(0x29)) < 0) ? -10 : 10;
     int16_t x = static_cast<int16_t>(p->x_pixel() + dx);
 
     if (p->u8(0x3a) == 0) {
-        Flags first = map_descriptor_quadrant_occupancy(
+        Flags first = probe_descriptor_quadrant(
             static_cast<int16_t>(p->y_pixel() - 1), x);
         if (!first.zf)
             return first;
-        Flags second = map_descriptor_quadrant_occupancy(
+        Flags second = probe_descriptor_quadrant(
             static_cast<int16_t>(p->y_pixel() - 0x11), x);
         if (!second.zf)
             return second;
         if (p->u16(0x72) <= 0x20)
             return {true, false};
-        return map_descriptor_quadrant_occupancy(
+        return probe_descriptor_quadrant(
             static_cast<int16_t>(p->y_pixel() - 0x21), x);
     }
     return {true, false};
@@ -255,7 +274,9 @@ Flags probe_forward_surface_clear(PlayerRecord* p) {
 
 // Near entry 01f7:3a1f.  This reproduces the flag result, including the
 // side-latch fallback used when either side is occupied.
-Flags test_player_side_contact(PlayerRecord* p) {
+Flags probe_player_side_clear(PlayerRecord* p) {
+    // 3a1f: the first quadrant probe is at 3a39/3a3e and the +5 retry is
+    // at 3a47/3a50.  The second clear result writes +3b at 3a52.
     if (p->gate() == 0 && p->mode() != static_cast<int8_t>(-1)) {
         if (!occupied(p->y_pixel(), static_cast<int16_t>(p->x_pixel() - 5))) {
             if (!occupied(p->y_pixel(), static_cast<int16_t>(p->x_pixel() + 5))) {
@@ -268,7 +289,7 @@ Flags test_player_side_contact(PlayerRecord* p) {
 }
 
 // Near entry 01f7:3df2.  The write is to +08 (the integer Y word), not +04.
-void snap_player_y_on_side_response(PlayerRecord* p) {
+void snap_player_y_on_side_contact(PlayerRecord* p) {
     if (p->u8(0x3b) == 0 || p->u8(0x3a) != 0)
         return;
     if (occupied(p->y_pixel(), static_cast<int16_t>(p->x_pixel() - 5)) ||
@@ -288,12 +309,13 @@ Flags apply_descriptor_vertical_correction(PlayerRecord* p) {
     if (p->u8(0x3b) == 0)
         return {true, false};
     int16_t original_y = p->y_pixel();
+    // 3d0c clears the transient latch before either descriptor read.
     p->u8(0x3a, 0);
-    uint16_t descriptor = read_map_descriptor_word(p->y_pixel(), p->x_pixel());
+    uint16_t descriptor = read_descriptor_word(p->y_pixel(), p->x_pixel());
 
     if ((descriptor & 0x0030) == 0) {
         p->y_pixel(static_cast<int16_t>(p->y_pixel() - 8));
-        descriptor = read_map_descriptor_word(p->y_pixel(), p->x_pixel());
+        descriptor = read_descriptor_word(p->y_pixel(), p->x_pixel());
         if ((descriptor & 0x0030) == 0) {
             p->y_pixel(static_cast<int16_t>(p->y_pixel() + 8));
             return {(descriptor & 0x0030) == 0, false};
@@ -318,6 +340,8 @@ Flags apply_descriptor_vertical_correction(PlayerRecord* p) {
         target_y = static_cast<int16_t>(target_y + 8); // SUB BX,0xfff8
 
     if (original_y < target_y) {
+        // 3de0 cancels an otherwise selected response when the target is
+        // beyond the original Y.  The clear return is 3de4.
         p->u8(0x3a, 0);
         return {true, false};
     }
@@ -337,18 +361,59 @@ void apply_action_contact_side_effect(PlayerRecord* p) {
 // Far entry 01f7:3a8a.
 void dispatch_special_tile_contact(PlayerRecord* p) {
     if (p->mode() > 0) {
-        uint16_t tile = map_tile_id_lookup_16px(p->y_pixel(), p->x_pixel());
+        uint16_t tile = map_tile_id_at_pixel(p->y_pixel(), p->x_pixel());
         if (tile == 0x0b || tile == 0x0c || tile == 0x0d) {
-            far_special_tile_effect_a();
-            far_special_tile_effect_b();
+            apply_tile_transition_1B07();
+            apply_transition_reset_19E6();
         }
     }
+}
+
+// Far entry 01f7:5d38.  SI is an offset into the resident animation table;
+// animation_sequence_word is a raw segment-word read, not an engine API.
+void load_animation_descriptor(PlayerRecord* p, uint16_t sequence_si) {
+    uint16_t delay = static_cast<uint16_t>(animation_sequence_word(sequence_si));
+    p->u16(0x1e, delay);
+    p->u16(0x20, delay);
+    p->u16(0x22, static_cast<uint16_t>(sequence_si + 2));
+    p->u16(0x24, static_cast<uint16_t>(sequence_si + 2));
+
+    int16_t frame = animation_sequence_word(static_cast<uint16_t>(sequence_si + 2));
+    if (p->u8(0x28) == 0xff)
+        frame = static_cast<int16_t>(frame + 0x32);
+    p->u16(0x12, static_cast<uint16_t>(frame));
+}
+
+// Far entry 01f7:5d60.  Negative table words are signed cursor-relative
+// jumps.  The signed loop is deliberately retained instead of being reduced
+// to a modulo operation because the native tables contain a -3 terminal loop.
+void advance_animation_descriptor(PlayerRecord* p) {
+    if (p->u16(0x20) != 0) {
+        p->u16(0x20, static_cast<uint16_t>(p->u16(0x20) - 1));
+        return;
+    }
+
+    p->u16(0x24, static_cast<uint16_t>(p->u16(0x24) + 2));
+    uint16_t cursor = p->u16(0x24);
+    int16_t frame;
+    do {
+        frame = animation_sequence_word(cursor);
+        if (frame < 0) {
+            cursor = static_cast<uint16_t>(cursor + frame * 2);
+            p->u16(0x24, cursor);
+        }
+    } while (frame < 0);
+
+    if (p->u8(0x28) == 0xff)
+        frame = static_cast<int16_t>(frame + 0x32);
+    p->u16(0x12, static_cast<uint16_t>(frame));
+    p->u16(0x20, p->u16(0x1e));
 }
 
 // --------------------------- Horizontal motion ---------------------------
 
 // Near entry 01f7:3ab9.
-void integrate_horizontal_player_motion(PlayerRecord* p) {
+void integrate_horizontal_motion(PlayerRecord* p) {
     if ((p->action() & 0x0004) != 0)
         p->u8(0x28, 1);
     else if ((p->action() & 0x0008) != 0)
@@ -361,13 +426,13 @@ void integrate_horizontal_player_motion(PlayerRecord* p) {
     else
         p->u8(0x29, motion_sign < 0 ? 0xff : 1);
 
-    Flags surface = probe_forward_surface_clear(p);
+    Flags surface = probe_forward_surface(p);
     if (!surface.zf) {
         p->vx(0);
         if (p->u8(0x36) == 0 && p->mode() == 0) {
             p->u8(0x36, 1);
             p->u8(0x13, 0);
-            far_set_idle_animation();
+            load_animation_descriptor(p, 0x3156); // animation_sequence_3156
         }
         goto animation_tail;
     }
@@ -385,18 +450,18 @@ void integrate_horizontal_player_motion(PlayerRecord* p) {
         p->vx(next > p->i32(0x5c) ? p->i32(0x5c) : next);
         if (p->u8(0x36) != 0 && p->mode() == 0) {
             p->u8(0x36, 0);
-            far_set_left_animation();       // raw target 3142
+            load_animation_descriptor(p, 0x3142); // animation_sequence_3142
         }
     } else if ((p->action() & 0x0008) != 0) {
         Fixed16 next = p->vx() - p->i32(0x4c);
         p->vx(next < -p->i32(0x5c) ? -p->i32(0x5c) : next);
         if (p->u8(0x36) != 0 && p->mode() == 0) {
             p->u8(0x36, 0);
-            far_set_left_animation();
+            load_animation_descriptor(p, 0x3142); // animation_sequence_3142
         }
     } else {
         if (p->mode() == 0 && p->i16(0x0c) == 0 && DS.idle_counter < 0x00d2)
-            far_set_idle_animation();
+            load_animation_descriptor(p, 0x3156); // animation_sequence_3156
         if (p->u8(0x36) == 0)
             p->u8(0x36, 1);
         if (p->vx() > 0)
@@ -407,13 +472,13 @@ void integrate_horizontal_player_motion(PlayerRecord* p) {
 
     if (static_cast<int8_t>(p->u8(0x3a)) > 0 &&
         p->y() - p->i32(0x44) < 0) {
-        Flags below = probe_vertical_step_clear(p);
+        Flags below = probe_vertical_step(p);
         if (!below.zf) {
             p->vx(0);
             p->y(p->i32(0x44));
             p->x(p->i32(0x48));
             if (DS.idle_counter < 0x00d2)
-                far_set_idle_animation();
+                load_animation_descriptor(p, 0x3156); // animation_sequence_3156
         }
     }
 
@@ -425,11 +490,11 @@ animation_tail:
     Fixed16 speed = p->vx() < 0 ? -p->vx() : p->vx();
     if (speed < 0x28000 && p->u8(0x13) != 0) {
         p->u8(0x13, 0);
-        far_set_left_animation();
+        load_animation_descriptor(p, 0x3142); // animation_sequence_3142
     }
     if (speed >= 0x28000 && p->u8(0x13) != 0xff) {
         p->u8(0x13, 0xff);
-        far_set_running_animation();
+        load_animation_descriptor(p, 0x3190); // animation_sequence_3190
     }
 }
 
@@ -449,7 +514,7 @@ static Fixed16 clamp_view_delta(Fixed16 value) {
     return value;
 }
 
-ViewDelta compute_view_delta_after_player_motion(PlayerRecord* p) {
+ViewDelta compute_view_delta(PlayerRecord* p) {
     Fixed16 x_delta = 0;
     int16_t camera_relative_x = static_cast<int16_t>(
         p->x_pixel() - static_cast<int16_t>(DS.camera_x));
@@ -489,6 +554,30 @@ ViewDelta compute_view_delta_after_player_motion(PlayerRecord* p) {
     return {clamp_view_delta(x_delta), clamp_view_delta(y_fixed)};
 }
 
+// Far entry 01f7:20af.  The caller already supplies the fixed-point pair;
+// this leaf only applies the native lower Y bound before publishing it.
+void publish_view_delta(Fixed16 eax, Fixed16 ebx) {
+    if (ebx < static_cast<Fixed16>(-0x40000))
+        ebx = static_cast<Fixed16>(-0x40000);
+    DS.published_view_y = ebx;
+    DS.published_view_x = eax;
+}
+
+// Far entry 01f7:199d.  The relocated 0ce3 call is retained as an external
+// contract because it dispatches transition effects outside this closure.
+void write_transition_gate_199D(PlayerRecord* p) {
+    DS.transition_effect_bits = 0;
+    DS.collision_transition_mode = -1;
+    dispatch_transition_effect_0CE3();
+    p->vy(-0x20000);
+    p->i32(0x4c, 0x2000);
+    p->i32(0x50, 0x2000);
+    p->i32(0x5c, 0x18000);
+    p->i32(0x60, 0x40000);
+    --DS.transition_object_counter;
+    DS.transition_scratch = 0;
+}
+
 // Far entry 01f7:3e30.  This adjacent setter is not called by the ordinary
 // callback body, but it is part of the same player state-write closure.
 void commit_external_player_y_and_gate(Fixed16 eax) {
@@ -511,8 +600,8 @@ static bool is_contact_tile_5_to_7(uint16_t tile) {
 // the two entry points can retain their different probe coordinates and CF.
 static void commit_contact(PlayerRecord* p, bool negative_mode) {
     DS.pending_event = 7;
-    far_emit_contact_effect();
-    far_initialize_contact_object();
+    dispatch_pending_sound_effect();
+    initialize_contact_object(0x6328, 0);
     p->u8(0x38, DS.contact_subtype);
     p->u8(0x2a, DS.contact_code);
     p->x(p->x() + (static_cast<Fixed16>(DS.contact_x_offset) << 16));
@@ -525,18 +614,18 @@ static void commit_contact(PlayerRecord* p, bool negative_mode) {
 }
 
 // Near entry 01f7:6370.  6484 sets DS:5003=5 and forwards here.
-Flags resolve_left_contact_tile(PlayerRecord* p) {
+Flags probe_contact_tile_offset(PlayerRecord* p) {
     bool negative_mode = p->mode() < 0;
     uint16_t tile;
 
     if (negative_mode) {
-        tile = map_tile_id_lookup_16px(
+        tile = map_tile_id_at_pixel(
             static_cast<uint16_t>(p->y_pixel() - p->u16(0x72)),
             static_cast<uint16_t>(p->x_pixel() + DS.contact_x_offset));
         if (!is_contact_tile_8_to_10(tile))
             return {false, false};
     } else {
-        tile = map_tile_id_lookup_16px(
+        tile = map_tile_id_at_pixel(
             p->y_pixel(), static_cast<uint16_t>(p->x_pixel() + DS.contact_x_offset));
         if (!is_contact_tile_8_to_10(tile)) {
             DS.contact_subtype = 0xff;
@@ -550,25 +639,25 @@ Flags resolve_left_contact_tile(PlayerRecord* p) {
 }
 
 // Far entry 01f7:6484.
-Flags resolve_left_contact_wrapper(PlayerRecord* p) {
+Flags probe_contact_plus5(PlayerRecord* p) {
     DS.contact_x_offset = 5;
-    return resolve_left_contact_tile(p);
+    return probe_contact_tile_offset(p);
 }
 
 // Far entry 01f7:648e.  Its ordinary path uses literal x+5; its negative path
 // uses the same x+5 and y-step arrangement before the ordinary fallback.
-Flags resolve_right_contact_tile(PlayerRecord* p) {
+Flags probe_contact_right(PlayerRecord* p) {
     bool negative_mode = p->mode() < 0;
     uint16_t tile;
 
     if (negative_mode) {
-        tile = map_tile_id_lookup_16px(
+        tile = map_tile_id_at_pixel(
             static_cast<uint16_t>(p->y_pixel() - p->u16(0x72)),
             static_cast<uint16_t>(p->x_pixel() + 5));
         if (!is_contact_tile_8_to_10(tile))
             return {false, false};
     } else {
-        tile = map_tile_id_lookup_16px(
+        tile = map_tile_id_at_pixel(
             p->y_pixel(), static_cast<uint16_t>(p->x_pixel() + 5));
         if (!is_contact_tile_8_to_10(tile)) {
             DS.contact_subtype = 0xff;
@@ -585,7 +674,7 @@ Flags resolve_right_contact_tile(PlayerRecord* p) {
 // --------------------------- Initialization -------------------------------
 
 // Near entry 01f7:3f27.
-void initialize_player_record(PlayerRecord* p) {
+void initialize_player(PlayerRecord* p) {
     DS.player_offset = player_pool_offset(p); // raw code writes DI
     DS.input_run_counter = 0;
     DS.deferred_y = 0;
@@ -623,7 +712,7 @@ void initialize_player_record(PlayerRecord* p) {
     p->u16(0x18, 0x3ff8);
 
     if (DS.activation_state <= 0)
-        far_load_activation_animation();
+        load_animation_descriptor(p, 0x316a); // animation_sequence_316A
 }
 
 // --------------------------- Callback ------------------------------------
@@ -683,17 +772,48 @@ common_accel_tail_4159:
     }
 }
 
+// Near entry 01f7:38ca.  The callback reaches this helper in the common
+// tail.  The branch at 38e2 is an alternate entry in the surrounding raw
+// code; it is not reached from 38ca and is not folded into this contract.
+void apply_special_speed_cap_38CA(PlayerRecord* p) {
+    if (p->mode() == 0 && DS.special_speed_cap_mode == 1)
+        p->i32(0x5c, 0x30000);
+}
+
+// Near entry 01f7:38ec.  4519 leaves ES:DI pointing at the new child when a
+// slot is allocated and leaves DI unchanged when allocation is rejected.
+// That ABI detail is retained as an explicit pointer result rather than
+// being represented as an engine-level effect abstraction.
+void player_action_effect_38EC(PlayerRecord* p) {
+    if ((p->action() & 0x0010) == 0) {
+        p->u8(0x3c, 0);
+        return;
+    }
+    if (p->u8(0x3c) != 0)
+        return;
+
+    p->u8(0x3c, 0xff);
+    PlayerRecord* child = spawn_contact_effect_entry(p); // 4519
+    if (child == p)
+        return; // static fact: failed allocation preserves the owner DI
+
+    child->u8(0x29, p->u8(0x28));
+    child->u8(0x17, 1);
+    child->y(p->y());
+    child->x(p->x());
+}
+
 static void common_player_tail(PlayerRecord* p) {
     // 38ca and 38ec are local state helpers whose internal fields are outside
     // this primary closure; their calls and ordering are retained.
-    near_38ca(p);                         // original near call
-    near_38ec(p);                         // original near call
-    integrate_horizontal_player_motion(p); // 3ab9
-    far_advance_animation_descriptor();   // relocated 5d60
+    apply_special_speed_cap_38CA(p);      // 38ca
+    player_action_effect_38EC(p);        // 38ec
+    integrate_horizontal_motion(p); // 3ab9
+    advance_animation_descriptor(p);       // 5d60
     apply_action_contact_side_effect(p);  // 3a62
 
-    ViewDelta delta = compute_view_delta_after_player_motion(p);
-    far_publish_view_delta(delta.eax, delta.ebx);
+    ViewDelta delta = compute_view_delta(p);
+    publish_view_delta(delta.eax, delta.ebx);
     p->u8(0x38, 0);
 
     if (p->u16(0x34) != 0) {
@@ -706,32 +826,32 @@ static void common_player_tail(PlayerRecord* p) {
 
     if (static_cast<int16_t>(p->y_pixel() - DS.camera_y) >=
         static_cast<int16_t>(DS.camera_y_limit))
-        far_camera_transition_check();
+        write_transition_gate_199D(p);     // 199d
 
     if (p->mode() == 0 && p->action() == 0) {
         if (DS.idle_counter < 0x00d2)
             ++DS.idle_counter;
         else
-            far_emit_idle_timeout();
+            load_animation_descriptor(p, 0x31ba); // animation_sequence_31BA
     } else {
         DS.idle_counter = 0;
     }
 
     if (p->mode() == 0 && DS.action_suppressor == -1)
-        far_load_activation_animation();
+        load_animation_descriptor(p, 0x316a); // animation_sequence_316A
 }
 
 // Near entry 01f7:3ff8.  This is the complete recovered branch ordering.
-void update_player_record(PlayerRecord* p) {
+void update_player(PlayerRecord* p) {
     uint16_t action = 0;
-    far_poll_auxiliary_input_state();       // 5937
+    player_helper_5937();                   // 5937; unresolved
 
     if (DS.collision_transition_mode != 0)
         goto transition_block_4416;
 
-    if (resolve_right_contact_tile(p).cf)
+    if (probe_contact_right(p).cf)
         goto early_contact_41c1;
-    if (resolve_left_contact_wrapper(p).cf)
+    if (probe_contact_plus5(p).cf)
         goto early_contact_41c1;
     dispatch_special_tile_contact(p);       // 3a8a
 
@@ -747,7 +867,7 @@ void update_player_record(PlayerRecord* p) {
 
     action = DS.action_source;
     if (DS.activation_state <= 0) {
-        action = read_normalized_action_bits();
+        action = input_dispatch_f21C();
         DS.action_low_copy = static_cast<uint8_t>(action);
     }
     if (p->u8(0x39) != 0) {
@@ -760,6 +880,9 @@ void update_player_record(PlayerRecord* p) {
         action = 0;
     p->action(action);
 
+    // 406d..40a1: +39 is consumed before the action suppressor; +40 is
+    // cleared at 409b only for an action without 0x22 and incremented at
+    // 40a1 on every ordinary callback.
     if ((action & 0x0022) == 0)
         p->u16(0x40, 0);
     p->u16(0x40, static_cast<uint16_t>(p->u16(0x40) + 1));
@@ -786,14 +909,14 @@ early_contact_41c9:
 contact_response_41cf:
     p->u8(0x37, 1);
     p->vy(0);
-    far_enter_contact_response();          // 3186
+    load_animation_descriptor(p, 0x3186);   // animation_sequence_3186 via 5d38
     goto common_tail_4384;
 
 positive_mode_41e8:
     p->u16(0x3e, static_cast<uint16_t>(p->u16(0x3e) + 1));
     if (!occupied(p->y_pixel(), static_cast<int16_t>(p->x_pixel() - 5)) &&
         !occupied(p->y_pixel(), static_cast<int16_t>(p->x_pixel() + 5))) {
-        Flags vertical = far_vertical_position_query(p->y_pixel(), p->x_pixel());
+        Flags vertical = probe_map_word_bit_4000(p->y_pixel(), p->x_pixel());
         if (!vertical.zf)
             p->y_pixel(static_cast<int16_t>(p->y_pixel() & 0xfff0));
     }
@@ -803,7 +926,6 @@ positive_mode_41e8:
     p->u8(0x2b, 0);
     if (p->gate() == 0) {
         apply_descriptor_vertical_correction(p); // 3d02
-        snap_player_y_on_side_response(p);       // 3df2
     }
     if (p->u8(0x3a) != 0)
         goto grounded_contact_427f;
@@ -811,24 +933,24 @@ positive_mode_41e8:
     if (p->vy() > p->i32(0x60))
         p->vy(p->i32(0x60));
     p->y(p->y() + p->vy());
-    if (test_player_side_contact(p).zf)
+    if (probe_player_side_clear(p).zf)
         goto common_tail_4384;
     goto grounded_contact_427f;
 
 grounded_contact_427f:
     if (p->gate() == 0) {
         apply_descriptor_vertical_correction(p); // 3d02
-        snap_player_y_on_side_response(p);       // 3df2
+        snap_player_y_on_side_contact(p);        // 3df2
     }
     p->vy(0);
     p->u8(0x37, 0);
     if (DS.idle_counter < 0x00d2)
-        far_set_idle_animation();
+        load_animation_descriptor(p, 0x3156); // animation_sequence_3156
     p->u8(0x36, 1);
     goto common_tail_4384;
 
 ordinary_mode_42b4:
-    if (!test_player_side_contact(p).zf)
+    if (!probe_player_side_clear(p).zf)
         goto ordinary_correction_42c9;
     if (p->gate() != 0)
         goto ordinary_correction_42c9;
@@ -836,27 +958,27 @@ ordinary_mode_42b4:
         goto early_contact_41c9;
 
 ordinary_correction_42c9:
-    snap_player_y_on_side_response(p);       // 3df2
+    snap_player_y_on_side_contact(p);        // 3df2
     apply_descriptor_vertical_correction(p); // 3d02
     if ((action & 0x0022) == 0)
         goto common_tail_4384;
     if (p->gate() != 0 || p->u16(0x40) > 0x0d)
         goto common_tail_4384;
-    if (!probe_vertical_10px_clear(p).zf)
+    if (!probe_vertical_10px(p).zf)
         goto common_tail_4384;
 
     DS.pending_event = 0;
-    far_emit_contact_effect();             // 0fcf
+    dispatch_pending_sound_effect();       // 01e7:0fcf
     p->u16(0x3e, 0x03e8);
     p->u8(0x3b, 0);
     p->u8(0x3a, 0);
     p->u8(0x37, 0xff);
     p->vy(p->i32(0x64));
-    far_enter_reset_motion();
+    load_animation_descriptor(p, 0x3160);  // animation_sequence_3160
     goto common_tail_4384;
 
 negative_mode_4323:
-    if (!probe_vertical_step_clear(p).zf)
+    if (!probe_vertical_step(p).zf)
         goto early_contact_41c1;
     {
         Fixed16 next = p->vy() + p->i32(0x58);
@@ -870,7 +992,7 @@ negative_mode_4323:
             goto early_contact_41c1;
         p->vy(next);
         p->y(p->y() + p->vy());
-        if (probe_vertical_step_clear(p).zf)
+        if (probe_vertical_step(p).zf)
             goto common_tail_4384;
         goto early_contact_41c1;
     }
@@ -885,20 +1007,20 @@ transition_block_4416:
     if (DS.collision_transition_mode == -1) {
         p->vy(-0x20000);
         DS.transition_scratch = 0;
-        far_enter_transition_motion();     // 31a4
+        load_animation_descriptor(p, 0x31a4); // animation_sequence_31A4 via 5d38
     }
-    far_advance_animation_descriptor();     // 5d60
-    far_publish_view_delta(0, 0);           // 20af, EAX=EBX=0 at 4439
+    advance_animation_descriptor(p);       // 5d60
+    publish_view_delta(0, 0);               // 20af, EAX=EBX=0 at 4439
     p->vy(p->vy() + 0x1800);
     if (p->vy() > 0x20000)
         p->vy(0x20000);
 
     if (static_cast<int8_t>(p->u8(0x29)) <= 0) {
-        uint16_t d0 = read_map_descriptor_word(p->y_pixel(), p->x_pixel());
-        uint16_t d1 = read_map_descriptor_word(
+        uint16_t d0 = read_descriptor_word(p->y_pixel(), p->x_pixel());
+        uint16_t d1 = read_descriptor_word(
             static_cast<int16_t>(p->y_pixel() - 16), p->x_pixel());
         if ((d0 & 0x0070) == 0 && (d1 & 0x0070) == 0) {
-            Flags transition = far_transition_collision_query(0, 0);
+            Flags transition = probe_transition_descriptor(0, 0);
             if (transition.cf)
                 goto transition_hit_44dc;
             p->y(p->y() + p->vy());
@@ -909,12 +1031,12 @@ transition_block_4416:
     } else {
         // The +0x29-positive branch performs the same current/Y-16 descriptor
         // pair before the transition query; only the signed input differs.
-        uint16_t d0 = read_map_descriptor_word(p->y_pixel(), p->x_pixel());
-        uint16_t d1 = read_map_descriptor_word(
+        uint16_t d0 = read_descriptor_word(p->y_pixel(), p->x_pixel());
+        uint16_t d1 = read_descriptor_word(
             static_cast<int16_t>(p->y_pixel() - 16), p->x_pixel());
         if ((d0 & 0x0070) != 0 || (d1 & 0x0070) != 0)
             goto transition_hit_44dc;
-        Flags transition = far_transition_collision_query(0, 0);
+        Flags transition = probe_transition_descriptor(0, 0);
         if (transition.cf)
             goto transition_hit_44dc;
         p->y(p->y() + p->vy());

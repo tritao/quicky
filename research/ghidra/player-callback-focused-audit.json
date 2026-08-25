@@ -1,0 +1,138 @@
+{
+  "schema": "quiky.player-callback-focused-audit.v1",
+  "source": {
+    "closure_ledger": "research/ghidra/player-callback-closure.json",
+    "c_like_decompilation": "research/notes/player-static-decomp.cpp",
+    "raw_segment": "research/build/ghidra-segments/QUIKY_SEG03.bin",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "raw_disassembly": "objdump -D -b binary -m i8086"
+  },
+  "scope": {
+    "root": "01F7:3FF8",
+    "focused_range": "01F7:3FF8-44FE",
+    "purpose": "Exact branch order and writes for input/contact/vertical response before runtime implementation.",
+    "implementation_status": "research_only",
+    "unknowns_remain_address_named": true
+  },
+  "branch_order": [
+    {"order":1,"address":"01F7:3FF8","label":"callback_entry","condition":"always","next":"3FFD","callees":["01F7:5937 player_helper_5937"],"evidence":["raw:3FF8"]},
+    {"order":2,"address":"01F7:3FFD","label":"transition_gate","condition":"DS:89EA != 0","next_true":"4416","next_false":"4006","evidence":["raw:3FFD-4002"]},
+    {"order":3,"address":"01F7:4006","label":"early_contact_right","condition":"call 648E returns CF=1","next_true":"41C1","next_false":"400F","callees":["01F7:648E probe_contact_right"],"evidence":["raw:4006-400B","ledger:callback-callsite"]},
+    {"order":4,"address":"01F7:400F","label":"early_contact_plus5","condition":"call 6484 returns CF=1","next_true":"41C1","next_false":"4018","callees":["01F7:6484 probe_contact_plus5"],"evidence":["raw:400F-4014","ledger:callback-callsite"]},
+    {"order":5,"address":"01F7:4018","label":"special_tile_contact","condition":"always after both early probes clear","next":"401D","callees":["01F7:3A8A dispatch_special_tile_contact"],"evidence":["raw:4018-401D"]},
+    {"order":6,"address":"01F7:401D","label":"state_snapshot","condition":"always","next":"4037","writes":["+0x12 &= 0x0fff","+0x44 = +0x06","+0x48 = +0x02"],"evidence":["raw:401D-4032"]},
+    {"order":7,"address":"01F7:4037","label":"deferred_y_gate","condition":"DS:8812 != 0","next_true":"403F","next_false":"405B","writes_true":["+0x38 = 0xff","+0x06 += DS:8812 + 1","DS:8812 = 0"],"evidence":["raw:4037-4059"]},
+    {"order":8,"address":"01F7:4065","label":"input_acquisition","condition":"signed DS:85DA <= 0","next_true":"4065 call F21C","next_false":"406A","callees":["01F7:F21C input_dispatch_f21C"],"evidence":["raw:405B-406A","ledger:F21C"]},
+    {"order":9,"address":"01F7:406A","label":"transition_pending_gate","condition":"+0x39 != 0","next_true":"4074","next_false":"4087","writes_true":["+0x39 = 0","+0x37 = 1","+0x3E = 0","AX |= 0x22"],"evidence":["raw:406A-4087"]},
+    {"order":10,"address":"01F7:4090","label":"action_suppressor","condition":"DS:89E6 != 0","next_true":"AX = 0","next_false":"store action","writes":["+0x00 = AX"],"evidence":["raw:4087-4093"]},
+    {"order":11,"address":"01F7:4096","label":"action_frame_counter_reset","condition":"(action & 0x22) == 0","next_true":"409B","next_false":"40A1","writes_true":["+0x40 = 0"],"evidence":["raw:4096-40A1"]},
+    {"order":12,"address":"01F7:40A1","label":"action_frame_counter_increment","condition":"always after reset decision","next":"40A5","writes":["+0x40 += 1 (u16 wrap)"],"evidence":["raw:40A1"]},
+    {"order":13,"address":"01F7:40A5","label":"pre_mode_contact_gate","condition":"+0x38 != 0 && signed +0x37 != 0","next_true":"427F","next_false":"40B5","evidence":["raw:40A5-40B5"]},
+    {"order":14,"address":"01F7:40B5","label":"horizontal_action_gate","condition":"action bit 0x01 and mode == 0","next_true":"40C1","next_false":"4132","evidence":["raw:40B5-40BF"]},
+    {"order":15,"address":"01F7:41AF","label":"mode_dispatch","condition":"signed +0x37","next_zero":"42B4","next_negative":"4323","next_positive":"41E8","writes":["+0x00 = final action"],"evidence":["raw:41AF-41BF"]},
+    {"order":16,"address":"01F7:41C1","label":"early_contact_timer","condition":"early contact CF or negative probe failure","next":"41CF","writes":["+0x3E = 0x03e7"],"evidence":["raw:41C1-41C7"]},
+    {"order":17,"address":"01F7:41C9","label":"ordinary_no_response","condition":"ordinary branch has no accepted descriptor response","next":"41CF","writes":["+0x3E = 0"],"evidence":["raw:41C9-41CF"]},
+    {"order":18,"address":"01F7:41CF","label":"contact_response","condition":"early contact or ordinary no-response join","next":"4384","callees":["01F7:5D38 load_animation_descriptor(0x3186)"],"writes":["+0x37 = 1","+0x0E = 0"],"evidence":["raw:41CF-41E5"]},
+    {"order":19,"address":"01F7:41E8","label":"positive_mode_entry","condition":"signed +0x37 > 0","next":"41EC","writes":["+0x3E += 1 (u16 wrap)"],"evidence":["raw:41E8-41EC"]},
+    {"order":20,"address":"01F7:41F7","label":"positive_side_probe_left","condition":"first quadrant probe","next":"41FC","callees":["01F7:5C27 probe_descriptor_quadrant"],"evidence":["raw:41EC-41FC"]},
+    {"order":21,"address":"01F7:4209","label":"positive_side_probe_right","condition":"left probe ZF=1","next":"420E","callees":["01F7:5C27 probe_descriptor_quadrant"],"evidence":["raw:41FC-420E"]},
+    {"order":22,"address":"01F7:4218","label":"positive_map_alignment","condition":"both side probes ZF=1","next":"4225","callees":["01F7:1C6E probe_map_word_bit_4000"],"writes_true":["+0x08 &= 0xfff0 when ZF=0"],"evidence":["raw:420E-4225"]},
+    {"order":23,"address":"01F7:4225","label":"positive_action_window","condition":"action & 0x22 and +0x40 <= 0x13 and +0x3E < 0x0a","next_true":"42E8","next_false":"423C","evidence":["raw:4225-423C"]},
+    {"order":24,"address":"01F7:4248","label":"positive_descriptor_correction","condition":"+0x38 == 0","next_true":"3D02","next_false":"4250","callees":["01F7:3D02 apply_descriptor_vertical_correction"],"evidence":["raw:423C-4250"]},
+    {"order":25,"address":"01F7:4250","label":"positive_response_gate","condition":"+0x3A != 0","next_true":"427F","next_false":"4252","evidence":["raw:4250-4252"]},
+    {"order":26,"address":"01F7:4278","label":"positive_post_step_side_test","condition":"after +Y integration","next_true":"4384","next_false":"427F","callees":["01F7:3A1F probe_player_side_clear"],"evidence":["raw:4273-427B"]},
+    {"order":27,"address":"01F7:427F","label":"grounded_contact","condition":"pre-mode gate, positive response, or post-step side contact","next":"428C","callees":["01F7:3D02 apply_descriptor_vertical_correction","01F7:3DF2 snap_player_y_on_side_contact","01F7:5D38 load_animation_descriptor(0x3156)"],"writes":["+0x0E = 0","+0x37 = 0","+0x36 = 1 when idle counter < 0xd2"],"evidence":["raw:427F-42B1"]},
+    {"order":28,"address":"01F7:42B4","label":"ordinary_mode_entry","condition":"signed +0x37 == 0","next":"42B7","callees":["01F7:3A1F probe_player_side_clear"],"evidence":["raw:42B4-42B7"]},
+    {"order":29,"address":"01F7:42C9","label":"ordinary_correction","condition":"side occupied, gate nonzero, or vertical response latch nonzero","next":"42CC","callees":["01F7:3DF2 snap_player_y_on_side_contact","01F7:3D02 apply_descriptor_vertical_correction"],"evidence":["raw:42B7-42CC"]},
+    {"order":30,"address":"01F7:42E8","label":"jump_probe","condition":"ordinary jump gate passed","next":"42EF","callees":["01F7:3971 probe_vertical_10px"],"evidence":["raw:42D8-42EB"]},
+    {"order":31,"address":"01F7:42F5","label":"jump_sound_dispatch","condition":"3971 returns ZF=1","next":"42FA","callees":["01E7:0FCF dispatch_pending_sound_effect"],"writes":["DS:612E = 0 before call"],"evidence":["raw:42EF-42F5","ledger:0FCF"]},
+    {"order":32,"address":"01F7:42FA","label":"jump_initiation","condition":"jump probe clear","next":"4384","callees":["01F7:5D38 load_animation_descriptor(0x3160)"],"writes":["+0x3E = 0x03e8","+0x3B = 0","+0x3A = 0","+0x37 = 0xff","+0x0E = +0x64"],"evidence":["raw:42FA-4321","dynamic:jump_press_release"]},
+    {"order":33,"address":"01F7:4323","label":"negative_mode_entry","condition":"signed +0x37 < 0","next":"4326","callees":["01F7:3986 probe_vertical_step"],"evidence":["raw:4323-4326","dynamic:jump_press_release"]},
+    {"order":34,"address":"01F7:4334","label":"negative_velocity_clamp","condition":"+0x2B == 0 and (action & 0x22) == 0 and next < -0x20000","next":"4350","writes":["temporary next = -0x20000"],"evidence":["raw:4334-4350"]},
+    {"order":35,"address":"01F7:4350","label":"negative_velocity_sign_gate","condition":"next >= 0","next_true":"41C1","next_false":"4359","evidence":["raw:4350-4359"]},
+    {"order":36,"address":"01F7:4359","label":"negative_integrate","condition":"next < 0","next":"4363","writes":["+0x0E = next","+0x06 += +0x0E"],"evidence":["raw:4359-4363"]},
+    {"order":37,"address":"01F7:4363","label":"negative_post_probe","condition":"second 3986 returns ZF=1","next_true":"4384","next_false":"41C1","callees":["01F7:3986 probe_vertical_step"],"evidence":["raw:4363-4368"]},
+    {"order":38,"address":"01F7:436B","label":"unreachable_contact_fragment","condition":"no reachable predecessor in callback closure","next":"4384","callees":["01F7:5D38 load_animation_descriptor(0x3186)"],"writes":["+0x0E = 0","+0x37 = 1"],"status":"statically present but unreachable from 4323 path","evidence":["raw:436B-437F","control-flow:dead-fragment"]},
+    {"order":39,"address":"01F7:4384","label":"common_tail","condition":"all ordinary response paths","next":"4387","callees":["01F7:38CA apply_special_speed_cap_38CA","01F7:38EC player_action_effect_38EC","01F7:3AB9 integrate_horizontal_motion","01F7:5D60 advance_animation_descriptor","01F7:3A62 apply_action_contact_side_effect","01F7:3E41 compute_view_delta","01F7:20AF publish_view_delta"],"writes":["+0x38 = 0","+0x34 -= 1; DS:8810 = 0 when it reaches 0","+0x12 |= 0x8000 when decremented timer has bit 1"],"evidence":["raw:4384-43BC"]},
+    {"order":40,"address":"01F7:43D0","label":"camera_transition_call","condition":"+0x08 - DS:81C4 >= DS:81CC","next":"4416 or return through helper","callees":["01F7:199D write_transition_gate_199D"],"evidence":["raw:43C0-43D5"]},
+    {"order":41,"address":"01F7:43FF","label":"idle_animation_gate","condition":"signed +0x37 == 0 and action == 0","next":"4415","callees":["01F7:5D38 load_animation_descriptor(0x31BA)","01F7:5D38 load_animation_descriptor(0x316A)"],"evidence":["raw:43D5-4415"]},
+    {"order":42,"address":"01F7:4416","label":"transition_block","condition":"DS:89EA != 0","next":"441D","callees":["01F7:5D38 load_animation_descriptor(0x31A4)","01F7:5D60 advance_animation_descriptor","01F7:20AF publish_view_delta","01F7:5CC3 read_descriptor_word","01F7:1BD1 probe_transition_descriptor"],"evidence":["raw:4416-44FE"]},
+    {"order":43,"address":"01F7:447B","label":"transition_descriptor_pair_negative","condition":"signed +0x29 <= 0","next":"44BF or 44DC","callees":["01F7:5CC3 read_descriptor_word at y and y-16"],"evidence":["raw:4467-4496"]},
+    {"order":44,"address":"01F7:44A0","label":"transition_descriptor_pair_positive","condition":"signed +0x29 > 0","next":"44BF or 44DC","callees":["01F7:5CC3 read_descriptor_word at y and y-16"],"evidence":["raw:4498-44BB"]},
+    {"order":45,"address":"01F7:44C5","label":"transition_contact_probe","condition":"both descriptor words have no 0x70 bits","next_true":"44DC","next_false":"44CE","callees":["01F7:1BD1 probe_transition_descriptor"],"evidence":["raw:44BF-44CE"]},
+    {"order":46,"address":"01F7:44DC","label":"transition_gate_decrement","condition":"transition motion/contact pass","next":"44FE or return","writes":["DS:89EA -= 1","DS:89EC = -1 when DS:89EA < -0x15d"],"evidence":["raw:44DC-44FE"]}
+  ],
+  "field_writes": {
+    "+0x37": [
+      {"address":"01F7:3F27","value":"0","condition":"player initialization","confidence":"confirmed","evidence":["raw:3F27-3FF7","decomp:initialize_player"]},
+      {"address":"01F7:4079","value":"1","condition":"+0x39 was pending; transition/action gate consumed","confidence":"confirmed","evidence":["raw:406D-4087"]},
+      {"address":"01F7:41CF","value":"1","condition":"early contact or ordinary no-response join","confidence":"confirmed","evidence":["raw:41CF"]},
+      {"address":"01F7:4297","value":"0","condition":"grounded/contact response","confidence":"confirmed","evidence":["raw:427F-429B"]},
+      {"address":"01F7:430A","value":"0xff","condition":"jump initiation","confidence":"confirmed","evidence":["raw:42FA-4319","dynamic:jump_press_release"]},
+      {"address":"01F7:4378","value":"1","condition":"unreachable raw fragment","status":"dead","confidence":"confirmed-static","evidence":["raw:436B-437F","control-flow:unreachable"]},
+      {"address":"01F7:1B07","value":"0xff","condition":"tile transition contract","confidence":"confirmed","evidence":["raw:1B07-1B42"]},
+      {"address":"01F7:19E6","value":"0xff","condition":"transition reset scratch reaches zero","confidence":"confirmed","evidence":["raw:19E6-1A94"]}
+    ],
+    "+0x3A": [
+      {"address":"01F7:3F27","value":"0","condition":"player initialization","confidence":"confirmed","evidence":["raw:3F27-3FF7"]},
+      {"address":"01F7:3D0C","value":"0","condition":"descriptor correction entry after +0x3B gate","confidence":"confirmed","evidence":["raw:3D02-3D1E"]},
+      {"address":"01F7:3D74","value":"0xff","condition":"descriptor bit 0x20 set","confidence":"confirmed","evidence":["raw:3D45-3D86","trace:descriptor-branch-matrix"]},
+      {"address":"01F7:3DAF","value":"1","condition":"descriptor bit 0x20 clear","confidence":"confirmed","evidence":["raw:3D88-3DC7","trace:descriptor-branch-matrix"]},
+      {"address":"01F7:3DE0","value":"0","condition":"computed target Y is below original comparison threshold","confidence":"confirmed","evidence":["raw:3DD9-3DE4"]},
+      {"address":"01F7:42FA","value":"0","condition":"jump initiation reset","confidence":"confirmed","evidence":["raw:4300-4305","dynamic:jump_press_release"]},
+      {"address":"01F7:1B07","value":"0","condition":"tile transition contract","confidence":"confirmed","evidence":["raw:1B07-1B42"]},
+      {"address":"01F7:19E6","value":"0","condition":"transition reset scratch reaches zero","confidence":"confirmed","evidence":["raw:19E6-1A94"]}
+    ],
+    "+0x3B": [
+      {"address":"01F7:3F27","value":"1","condition":"player initialization","confidence":"confirmed","evidence":["raw:3F27-3FF7"]},
+      {"address":"01F7:3A52","value":"0xff","condition":"both ordered side probes are clear","confidence":"confirmed","evidence":["raw:3A1F-3A57","trace:ordered-side-probe"]},
+      {"address":"01F7:4300","value":"0","condition":"jump initiation","confidence":"confirmed","evidence":["raw:42FA-4305","dynamic:jump_press_release"]},
+      {"address":"01F7:1B07","value":"0","condition":"tile transition contract","confidence":"confirmed","evidence":["raw:1B07-1B42"]},
+      {"address":"01F7:19E6","value":"0","condition":"transition reset scratch reaches zero","confidence":"confirmed","evidence":["raw:19E6-1A94"]}
+    ],
+    "+0x3E": [
+      {"address":"01F7:407E","value":"0","condition":"+0x39 pending path","confidence":"confirmed","evidence":["raw:4074-4087"]},
+      {"address":"01F7:41C1","value":"0x03e7","condition":"early contact","confidence":"confirmed","evidence":["raw:41C1-41C7"]},
+      {"address":"01F7:41C9","value":"0","condition":"ordinary branch without accepted vertical response","confidence":"confirmed","evidence":["raw:41C9-41CF"]},
+      {"address":"01F7:41E8","value":"old + 1 (u16 wrap)","condition":"positive mode entry","confidence":"confirmed","evidence":["raw:41E8"]},
+      {"address":"01F7:42FA","value":"0x03e8","condition":"jump initiation","confidence":"confirmed","evidence":["raw:42FA-4300","dynamic:jump_press_release"]},
+      {"address":"01F7:1B07","value":"0x03e8","condition":"tile transition contract","confidence":"confirmed","evidence":["raw:1B07-1B42"]},
+      {"address":"01F7:19E6","value":"0x03e8","condition":"transition reset scratch reaches zero","confidence":"confirmed","evidence":["raw:19E6-1A94"]}
+    ],
+    "+0x40": [
+      {"address":"01F7:409B","value":"0","condition":"action & 0x22 == 0","confidence":"confirmed","evidence":["raw:4096-409F"]},
+      {"address":"01F7:40A1","value":"old + 1 (u16 wrap)","condition":"every ordinary callback after the reset decision","confidence":"confirmed","evidence":["raw:40A1"]}
+    ]
+  },
+  "caller_order": [
+    {"path":"positive_mode_41E8","order":["41F7 probe_descriptor_quadrant","4209 probe_descriptor_quadrant","4218 probe_map_word_bit_4000","4248 apply_descriptor_vertical_correction","4278 probe_player_side_clear"],"not_called":"3DF2 on the no-contact positive integration path","confidence":"confirmed","evidence":["raw:41E8-427B"]},
+    {"path":"grounded_contact_427F","order":["4286 apply_descriptor_vertical_correction","4289 snap_player_y_on_side_contact","4292 clear vertical velocity","4297 clear mode"],"confidence":"confirmed","evidence":["raw:427F-42B1"]},
+    {"path":"ordinary_correction_42C9","order":["42C9 snap_player_y_on_side_contact","42CC apply_descriptor_vertical_correction","42E8 probe_vertical_10px","42F5 dispatch_pending_sound_effect"],"confidence":"confirmed","evidence":["raw:42C9-431C"]},
+    {"path":"negative_mode_4323","order":["4323 probe_vertical_step","4359 integrate Y","4363 probe_vertical_step","41C1 or 4384"],"not_called":"3D02 and 3DF2 in the reachable negative path","confidence":"confirmed","evidence":["raw:4323-4368"]},
+    {"path":"transition_block_4416","order":["442F load_animation_descriptor","4434 advance_animation_descriptor","4445 publish_view_delta(0,0)","447B/448C or 44A0/44B1 read_descriptor_word","44C5 probe_transition_descriptor","44DC decrement gate"],"confidence":"confirmed","evidence":["raw:4416-44FE"]}
+  ],
+  "helper_contracts": [
+    {"address":"01F7:3986","name":"probe_vertical_step","inputs":"AX=y - +0x72, BX=x","outputs":"ZF from MAP bit 0x1000","player_writes":[],"global_writes":[],"callers":["4323","4363","3AB9"],"confidence":"confirmed","evidence":["raw:3986-3997","ledger"]},
+    {"address":"01F7:3971","name":"probe_vertical_10px","inputs":"AX=y - 0x0a - +0x72, BX=x","outputs":"ZF from MAP bit 0x1000","player_writes":[],"global_writes":[],"callers":["42E8"],"confidence":"confirmed","evidence":["raw:3971-3985"]},
+    {"address":"01F7:3D02","name":"apply_descriptor_vertical_correction","inputs":"+0x3B; AX/BX from +0x08/+0x04; descriptor DX","outputs":"+0x3A; optional +0x08 and mode-zero +0x0E write; ZF/AL response contract","player_writes":["+0x08","+0x0E","+0x3A"],"global_writes":[],"callers":["4248","4286","42CC"],"confidence":"confirmed","evidence":["raw:3D02-3DF1","trace:descriptor-branch-matrix"]},
+    {"address":"01F7:3DF2","name":"snap_player_y_on_side_contact","inputs":"+0x3B/+0x3A and AX/BX=(+0x08,+0x04) side probes","outputs":"+0x08 &= 0xfff8 if either side is occupied","player_writes":["+0x08"],"global_writes":[],"callers":["4289","42C9"],"confidence":"confirmed","evidence":["raw:3DF2-3E2F","trace:ordered-side-probe"]},
+    {"address":"01F7:5C27","name":"probe_descriptor_quadrant","inputs":"AX=y pixels, BX=x pixels","outputs":"ZF=1 clear / ZF=0 occupied; flags preserved to caller","player_writes":[],"global_writes":[],"callers":["3A1F","3DF2","positive path","3AB9"],"confidence":"confirmed","evidence":["raw:5C27-5C9C","trace:selector-safe-property-matrix"]},
+    {"address":"01F7:5CC3","name":"read_descriptor_word","inputs":"AX=y pixels, BX=x pixels","outputs":"DX full descriptor word","player_writes":[],"global_writes":[],"callers":["3D02","4416 transition pair"],"confidence":"confirmed","evidence":["raw:5CC3-5CFF","trace:descriptor-census"]},
+    {"address":"01F7:648E","name":"probe_contact_right","inputs":"record +0x37/+0x04/+0x08/+0x72","outputs":"CF=1 only for matching negative contact; may initialize contact child and write player/global contact fields","player_writes":["+0x02","+0x06","+0x08","+0x2E","+0x32","+0x36","+0x38"],"global_writes":["DS:4FFE","DS:5000","DS:5001","DS:5003","DS:612E"],"callers":["4006"],"confidence":"confirmed","evidence":["raw:648E-659B","trace:contact-tile-matrix"]},
+    {"address":"01F7:6484","name":"probe_contact_plus5","inputs":"record","outputs":"CF forwarded from 6370","player_writes":[],"global_writes":["DS:5003"],"callers":["400F"],"confidence":"confirmed","evidence":["raw:6484-648D"]},
+    {"address":"01F7:5937","name":"player_helper_5937","inputs":"unknown auxiliary state","outputs":"unknown flags/global writes before DS:89EA test","player_writes":"unknown","global_writes":"unknown","callers":["3FF8"],"confidence":"unresolved","evidence":["raw:3FF8 relocation","no static contract"]}
+  ],
+  "dynamic_checks": [
+    {"id":"jump_press_release","question":"Does one jump press enter the negative mode with the expected reset/timer writes, then transition to positive/falling contact?","trace":"research/build/player-closure-jump-press-release-v1.json","sha256":"f232357870e901c1a35954247e1460b38fb97b7bde121310831223a27ccd4f9c","status":"answered_for_natural_jump","observations":["sample 2 post-state: +0x37=0xff, +0x3e=0x03e8, +0x3B=0, y-velocity=-0x20000","sample 10 post-state: +0x37=1, +0x3E=0x03e7 at the ascent-to-fall transition; this is not a natural landing","callback path includes 4323 and later 41C1/4384"],"evidence":["dynamic:callback-record-diff","static:42FA","static:4323"]},
+    {"id":"landing","question":"Does the extended natural jump trace reach the grounded/contact response and clear mode/vertical velocity?","trace":"research/build/player-closure-jump-press-release-v2.json","sha256":"ee328c425a75dac689844603f71f8d0920aeca9c15e8b9cafce2917ce6865cc5","status":"answered_for_w1l1_fixture","observations":["sample 33 post-state reaches y=400 with +0x37=0 and +0x0e=0 after the falling phase","the same landing callback resets +0x3b from 0xff to 0 and leaves the player in grounded mode","static grounded path is 427F: 3D02 -> 3DF2 -> zero velocity -> clear mode"],"evidence":["dynamic:jump_press_release-v2","dynamic:callback-record-diff","static:427F"]},
+    {"id":"ceiling_boundary","question":"Does a controlled low-Y callback reach the negative-mode probe failure and contact response?","trace":"research/build/player-closure-ceiling-controlled-v1.json","sha256":"04f0accc33b7eb4fb827207e5ef00ca61c0b8c698102c003dae761e5443ca909","status":"partial_controlled_only","observations":["forced +0x08=0x0030 produces related execute hits at 4323 and 41C1","the per-callback patch prevents this from being a natural ceiling trajectory","do not use this trace to assign floor/ceiling polarity"],"evidence":["dynamic:controlled-y-boundary","static:4323->41C1"]},
+    {"id":"ledge_side_probe_order","question":"Does ordinary horizontal motion preserve the ordered side/contact probe sequence needed for a ledge or side-contact model?","trace":"research/build/player-closure-ledge-side-probes-v1.json","sha256":"4b754ad30d388b9db92605cbfb7f3b28d0779c3e59a15687a1d80b10a68d085f","status":"answered_for_order_not_occupancy","observations":["eight callback barriers preserve 648E -> 6484 -> 3A8A -> 3A1F -> 3DF2","the run moves from x=128 to x=231 without an occupied wall, so it validates order only","controlled occupied/clear polarity remains in player-collision-w1l1-matrix.json"],"evidence":["dynamic:collision-report","static:4006/400F/4018/4278/4289/42C9"]},
+    {"id":"moving_platform","question":"Which player/global values are written when a moving platform carries or overlaps the player?","trace":"research/build/entity-platform-native-overlap-v1.json","sha256":"b527c69fcb7d36684c7fa176db97baeb0ba3b7c7714a362a59289c3541d86a0a","status":"archival_correlated_not_current_script","observations":["trace records DS:5006 platform overlap latch and DS:881C/DS:8822 carry values","the artifact used a same-executable trace script from the entity-behavior research worktree, not the current main-repository script","a current-main capture was attempted but failed before declaration with an ARE declaration timeout; keep platform orchestration outside this implementation gate"],"evidence":["dynamic:archival-platform-trace","provenance:external-script-hash"]}
+  ],
+  "implementation_gate": {
+    "allowed_now": ["use exact static formulas and call ordering in research fixtures", "close helper contracts and rename ledger entries"],
+    "blocked_until": ["natural ceiling trajectory captured without a per-callback position patch", "occupied ledge/side-contact trace on the current main tracer", "moving-platform capture using the current main-repository script"],
+    "runtime_code_changed_by_this_audit": false
+  }
+}
