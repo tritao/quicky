@@ -281,6 +281,25 @@
     },
     "interpretation": "Repeated native action pulses create pooled rows, but this bounded route fills the four-row table while only the first row reaches the strict W1 damage band. The result rules out input cadence alone as a repeated-hit solution; authored spatial positioning/camera timing remains the missing condition."
   },
+  "runtime_spatial_lock_boundary_probe": {
+    "trace": "research/build/player-w1l3-spatial-lock-340-540-interval30-pulse30-256.json",
+    "trace_sha256": "53e5dd57e77a731e111aa8c7ae95667d3d63270544b06e54fe79c92bc41a98f1",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "50ab97b9776fd6774622819c424056299e10e6a71e667f2d1cda0d0642d7f084",
+    "host_tool_sha256": "518939ea10f89731cbaf994f74134bd24cd6456e2cceef3d0d80329f86df9e3d",
+    "fixture": "Native W1L3 selector with 550-frame left warmup; left-alt is released/re-pressed every 30 boss events; debugger locks only the live player position to X=340, Y=540 every 30 events.",
+    "mutation_scope": "Only the live player fixed-point position is written; boss callbacks, effect-table factory/scheduler/update/remove, and damage callbacks remain native.",
+    "observed": {
+      "boss_events": 256,
+      "damage_match_clear": 1,
+      "damage_hit_increment": 1,
+      "stage_writer_hits": 0,
+      "final_effect_active_count": 0,
+      "final_stage_gate": 1,
+      "position_lock_events": 8
+    },
+    "interpretation": "A fixed spatial point preserves the native row-to-boss path but still yields only one hit. Repeated authored progression therefore requires a moving platform/vertical route and timing relation, not a static player coordinate or action cadence alone."
+  },
   "runtime_cross_world_reachability_probe": {
     "script": "research/automation/quiky_player_trace.lua",
     "script_sha256": "6e7b03cf6c8f97fac4b2326f19700fca82be4e91348d5f18924aded56a61a0bc",

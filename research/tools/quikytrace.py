@@ -120,6 +120,9 @@ class PlayerTraceConfig:
     boss_damage_hits: int = 5
     boss_damage_target_callback: int = 0xA234
     boss_damage_callback_offset: int = 0xB25D
+    boss_player_lock_x: int | None = None
+    boss_player_lock_y: int | None = None
+    boss_player_lock_interval: int = 1
 
 
 def lua_literal(value: Any) -> str:
@@ -219,6 +222,9 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "boss_damage_hits": config.boss_damage_hits,
         "boss_damage_target_callback": config.boss_damage_target_callback,
         "boss_damage_callback_offset": config.boss_damage_callback_offset,
+        "boss_player_lock_x": config.boss_player_lock_x,
+        "boss_player_lock_y": config.boss_player_lock_y,
+        "boss_player_lock_interval": config.boss_player_lock_interval,
     }
 
 
@@ -711,6 +717,28 @@ def build_parser() -> argparse.ArgumentParser:
         "--boss-damage-hits", type=int, default=5,
         help="number of controlled native damage cycles to attempt (default 5)",
     )
+    parser.add_argument(
+        "--boss-damage-target-callback", type=lambda value: int(value, 0),
+        default=0xA234,
+        help="callback offset to rewrite for the controlled damage fixture",
+    )
+    parser.add_argument(
+        "--boss-damage-callback-offset", type=lambda value: int(value, 0),
+        default=0xB25D,
+        help="native damage callback offset for the controlled damage fixture",
+    )
+    parser.add_argument(
+        "--boss-player-lock-x", type=lambda value: int(value, 0),
+        help="debugger-only: hold the live player's integer X during boss callbacks",
+    )
+    parser.add_argument(
+        "--boss-player-lock-y", type=lambda value: int(value, 0),
+        help="debugger-only: hold the live player's integer Y during boss callbacks",
+    )
+    parser.add_argument(
+        "--boss-player-lock-interval", type=int, default=1,
+        help="debugger-only: re-center the player every N boss events (default 1)",
+    )
     parser.add_argument("--player-samples", type=int, default=8,
                         help="number of player/object-pool samples")
     parser.add_argument("--player-frames-between", type=int, default=30,
@@ -820,6 +848,16 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--boss-input-secondary-pulse-events requires --player-input-secondary-key")
     if args.boss_damage_hits < 1:
         raise TraceError("--boss-damage-hits must be positive")
+    for name in ("boss_damage_target_callback", "boss_damage_callback_offset"):
+        value = getattr(args, name)
+        if not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    for name in ("boss_player_lock_x", "boss_player_lock_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
+    if args.boss_player_lock_interval < 1:
+        raise TraceError("--boss-player-lock-interval must be positive")
     if (args.boss_stage_focus or args.boss_damage_focus) and not args.player_trace:
         raise TraceError("boss-stage focus requires --player-trace")
     if args.player_frames_between < 0:
@@ -1009,6 +1047,11 @@ def main(argv: list[str] | None = None) -> int:
                 boss_stage_compact=args.boss_stage_compact,
                 boss_damage_focus=args.boss_damage_focus,
                 boss_damage_hits=args.boss_damage_hits,
+                boss_damage_target_callback=args.boss_damage_target_callback,
+                boss_damage_callback_offset=args.boss_damage_callback_offset,
+                boss_player_lock_x=args.boss_player_lock_x,
+                boss_player_lock_y=args.boss_player_lock_y,
+                boss_player_lock_interval=args.boss_player_lock_interval,
             )
             player_trace, player_screenshots = trace_player_lua(
                 api, player_script_path, player_config,
