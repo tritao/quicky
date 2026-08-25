@@ -163,12 +163,15 @@ not the helper identity or its raw behavior.
 
 A one-shot phase probe at owner offset `0x0078` forcing `DS:0x88AE = 2`
 confirms the first linked-record boundary. B33B advances the global phase to
-`3`; its `+0x36` record (pool offset `0x0168`, callback B25D) runs once in
-the same scheduler window and then stops receiving callback entries. The
-`+0x2A` record (pool offset `0x00F0`, callback B226) remains independently
-installed and continues its animation/render callbacks through at least the
-first 27 phase-3 passes. The trace now records `DS:0x88AE` in every frame so later
-phase transitions can be separated from renderer queue effects.
+`3`; its `+0x36` record (pool offset `0x0168`) is initially observed as the
+B20B initializer and then as B25D. Direct pool samples show that B25D remains
+active after the phase transition, so the earlier callback-only trace that
+appeared to stop at this boundary was an ordering/breakpoint artifact. The
+evidence is consistent with the already-queued B20B initializer completing
+after B33B's linked-record clear and reinstalling B25D. The `+0x2A` record
+(pool offset `0x00F0`, callback B226) remains independently installed through
+phase 3. The lightweight trace records `DS:0x88AE` and the first pool records
+between frame waits, avoiding debugger-stop artifacts in this lifecycle pass.
 
 The movement branches are already exact at the instruction level:
 
@@ -232,6 +235,30 @@ This proves the B33B→B84D→B87B allocation and camera-gated deactivation
 edge. It is a controlled transition, so it does not yet identify the
 natural B33B trigger or prove whether a later pool pass reclaims/reactivates
 the inactive record.
+
+### Controlled late-phase boundary
+
+The same lightweight sampler, forcing only the initial global phase to `2` and
+then running ordinary frames, reaches the later phases without callback
+breakpoints:
+
+- global phase `3` begins within the first five sampled game frames;
+- phase `3` reaches phase `4` at approximately game frame `420`, when the
+  owner emission counter `+0x44` becomes `0x10`;
+- phase `4` increments `+0x38` and moves the owner upward. At game frame
+  `509`, the linked B226 record is still active at `y=330`, but B33B's strict
+  gate (`y-camera+0x10`) rejects it because the unsigned result is above
+  `0xD0`; its callback is cleared and the record is reused by `10B5` on the
+  next frame;
+- global phase `5` is reached at approximately frame `512`. The owner passes
+  through initializer callback `487F`, then steady callback `489C` with slot
+  `0x02C7`. The old B25D record at `+0x36` remains active through the sampled
+  frame `650`, so final-phase owner conversion does not itself reclaim that
+  linked record.
+
+This closes the natural timing and deactivation edge for the controlled phase
+sequence, while the unforced gameplay trigger and the eventual B25D reclaim
+remain open.
 
 ## Linked callback `B84D -> B87B`
 
