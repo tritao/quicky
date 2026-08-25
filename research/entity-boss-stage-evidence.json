@@ -264,6 +264,23 @@
     },
     "interpretation": "This is the first unmodified authored row-to-boss delivery proof: a player-produced row passes the native W1 damage overlap band and increments the live boss hit counter. It does not yet prove repeated authored firing, the five-hit stage transition, or downstream completion/reload timing."
   },
+  "runtime_authored_pulse_boundary_probe": {
+    "trace": "research/build/player-w1l3-left-alt-pulse60-boss-256.json",
+    "trace_sha256": "5047f5835dadc0a896f1b0ba9c1c166f6745b293ac4cd8e2f84a7b8c74d34b24",
+    "script": "research/automation/quiky_player_trace.lua",
+    "script_sha256": "d4b7a81063a15e2d21282c7dc98ee11e087c0967503e9fffdab6a0aff71143c3",
+    "fixture": "Native W1L3 selector with 550-frame left warmup, left movement held, and left-alt action released/re-pressed every 60 boss breakpoint events",
+    "observed": {
+      "boss_events": 256,
+      "damage_match_clear": 1,
+      "damage_hit_increment": 1,
+      "stage_writer_hits": 0,
+      "final_effect_active_count": 4,
+      "effect_capacity": 4,
+      "final_stage_gate": 1
+    },
+    "interpretation": "Repeated native action pulses create pooled rows, but this bounded route fills the four-row table while only the first row reaches the strict W1 damage band. The result rules out input cadence alone as a repeated-hit solution; authored spatial positioning/camera timing remains the missing condition."
+  },
   "runtime_cross_world_reachability_probe": {
     "script": "research/automation/quiky_player_trace.lua",
     "script_sha256": "6e7b03cf6c8f97fac4b2326f19700fca82be4e91348d5f18924aded56a61a0bc",
