@@ -53,14 +53,14 @@ def load(path: Path) -> dict[str, Any]:
     return payload
 
 
-def check_hashes(payload: dict[str, Any], root: Path) -> None:
+def check_hashes(payload: dict[str, Any], root: Path,
+                 segment_path: Path) -> None:
     source = payload["source"]
     executable = root / source["executable"]
-    segment = root / source["segment_image"]
     if sha256(executable) != source["sha256"]:
         raise ClosureError(f"executable hash mismatch: {executable}")
-    if sha256(segment) != source["segment_sha256"]:
-        raise ClosureError(f"segment hash mismatch: {segment}")
+    if sha256(segment_path) != source["segment_sha256"]:
+        raise ClosureError(f"segment hash mismatch: {segment_path}")
 
 
 def check_model(payload: dict[str, Any]) -> set[str]:
@@ -301,7 +301,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         payload = load(args.manifest)
-        check_hashes(payload, ROOT)
+        check_hashes(payload, ROOT, args.segment)
         fields = check_model(payload)
         functions = check_functions(payload, args.segment.stat().st_size, fields)
         check_edges(payload, functions)

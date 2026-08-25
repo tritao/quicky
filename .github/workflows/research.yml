@@ -1,0 +1,51 @@
+name: research verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run research tests
+        run: python3 -m unittest discover -s research/tests
+      - name: Check Python sources and generated manifests
+        run: |
+          python3 -m py_compile research/tools/*.py
+          python3 research/tools/generate_player_closure_ghidra.py \
+            --output research/ghidra/ApplyPlayerCallbackClosure.java --check
+          python3 research/tools/generate_quiky_analysis.py \
+            --output research/ghidra/quiky-analysis.json --check
+          python3 research/tools/quiky_ghidra.py validate
+
+  ghidra-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+      - name: Download pinned Ghidra
+        env:
+          GHIDRA_URL: https://github.com/NationalSecurityAgency/ghidra/releases/download/Ghidra_12.1.3_build/ghidra_12.1.3_PUBLIC_20260817.zip
+          GHIDRA_SHA256: 93a5d11a9ad510622acaaf908c556a7b9b764d338e78a7567f3689bf5081fd54
+        run: |
+          archive="$RUNNER_TEMP/ghidra.zip"
+          curl --fail --location --retry 3 "$GHIDRA_URL" --output "$archive"
+          echo "$GHIDRA_SHA256  $archive" | sha256sum --check
+          unzip -q "$archive" -d "$RUNNER_TEMP"
+      - name: Run clean Ghidra A/B baseline
+        run: |
+          python3 research/tools/run_player_callback_baseline.py \
+            --ghidra "$RUNNER_TEMP/ghidra_12.1.3_PUBLIC/support/analyzeHeadless" \
+            --output "$RUNNER_TEMP/player-callback-baseline"

@@ -119,12 +119,13 @@ implementation.
 
 The first follow-up is now in place:
 
-- `research/ghidra/quiky-analysis.json` is the initial versioned
-  symbol/evidence manifest for the player closure.
+- `research/ghidra/quiky-analysis.json` is the generated symbol/evidence
+  projection of `player-callback-closure.json`; the baseline checks it for
+  generator drift so the two manifests cannot silently diverge.
 - `research/tools/quiky_ghidra.py validate` checks the manifest and executable
   hash without requiring Ghidra.
-- `research/tools/quiky_ghidra.py audit-project` is a read-only PyGhidra proof
-  of concept that verifies and decompiles the canonical symbols in an existing
-  annotated raw-segment project.
+- `research/tools/quiky_ghidra.py audit-project` is a read-only PyGhidra audit
+  that verifies exact bodies/comments and decompiles the generated canonical
+  symbol set in an existing annotated raw-segment project.
 - Trace configuration and ledgers use centralized schema constants; schema
   version 1 remains compatible with existing captures.

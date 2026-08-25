@@ -12,6 +12,8 @@ from generate_player_closure_ghidra import generate  # noqa: E402
 from ghidra_ne_segments import read_segments  # noqa: E402
 from verify_player_callback_closure import (  # noqa: E402
     classify_expected_call,
+    check_hashes,
+    ClosureError,
     expected_call_edges,
     check_independent_callgraph,
 )
@@ -93,6 +95,23 @@ class GhidraToolTests(unittest.TestCase):
             check_independent_callgraph(
                 manifest, ROOT / "game/QUIKY.EXE", path
             )
+
+    def test_verifier_hashes_the_supplied_segment(self):
+        manifest = json.loads(
+            (ROOT / "research/ghidra/player-callback-closure.json").read_text()
+        )
+        executable = ROOT / "game/QUIKY.EXE"
+        segment = read_segments(executable)[2]
+        blob = executable.read_bytes()
+        start = int(segment["file_offset"])
+        length = int(segment["file_length"])
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "fresh-segment.bin"
+            path.write_bytes(blob[start:start + length])
+            check_hashes(manifest, ROOT, path)
+            path.write_bytes(b"stale")
+            with self.assertRaises(ClosureError):
+                check_hashes(manifest, ROOT, path)
 
 
 if __name__ == "__main__":

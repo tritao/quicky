@@ -24,9 +24,11 @@ ROOT = Path(__file__).resolve().parents[2]
 MANIFEST = ROOT / "research/ghidra/player-callback-closure.json"
 SEGMENT_TOOL = ROOT / "research/tools/ghidra_ne_segments.py"
 GENERATOR = ROOT / "research/tools/generate_player_closure_ghidra.py"
+AUDIT_GENERATOR = ROOT / "research/tools/generate_quiky_analysis.py"
 GRAPH_EXPORTER = ROOT / "research/tools/export_player_callback_graph.py"
 VERIFIER = ROOT / "research/tools/verify_player_callback_closure.py"
 GENERATED_REFERENCE = ROOT / "research/ghidra/ApplyPlayerCallbackClosure.java"
+AUDIT_REFERENCE = ROOT / "research/ghidra/quiky-analysis.json"
 TOOLS = ROOT / "research/tools"
 
 
@@ -105,6 +107,10 @@ def main() -> int:
     # the just-created temporary file.
     run(["python3", str(GENERATOR), "--output", str(GENERATED_REFERENCE), "--check"])
     compare_files(generated, GENERATED_REFERENCE)
+    audit_generated = output / "quiky-analysis.json"
+    run(["python3", str(AUDIT_GENERATOR), "--output", str(audit_generated)])
+    run(["python3", str(AUDIT_GENERATOR), "--output", str(AUDIT_REFERENCE), "--check"])
+    compare_files(audit_generated, AUDIT_REFERENCE)
 
     segment_paths = [segments / f"QUIKY_SEG0{i}.bin" for i in range(1, 7)]
     ranges = load_ranges()
@@ -160,7 +166,7 @@ def main() -> int:
             ghidra_graph,
         ))
 
-    for index in range(1, 4):
+    for index in range(0, 4):
         compare_files(exports[0][index], exports[1][index])
     run([
         "python3", str(VERIFIER), "--manifest", str(MANIFEST),

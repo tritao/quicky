@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "research" / "tools"))
 
 from quiky_ghidra import AnalysisError, load_manifest
+from generate_quiky_analysis import generate
 
 
 class QuikyGhidraManifestTests(unittest.TestCase):
@@ -16,8 +17,25 @@ class QuikyGhidraManifestTests(unittest.TestCase):
             ROOT / "research" / "ghidra" / "quiky-analysis.json", ROOT
         )
         symbols = {(item["segment"], item["offset"]): item for item in manifest["symbols"]}
-        self.assertEqual(symbols[(3, "3FF8")]["name"], "update_player_record")
-        self.assertEqual(symbols[(6, "881A")]["name"], "player_object_offset")
+        self.assertEqual(symbols[(3, "3FF8")]["name"], "update_player")
+        self.assertEqual(symbols[(6, "881A")]["name"], "player_offset")
+        self.assertEqual(
+            manifest["source_ledger"],
+            "research/ghidra/player-callback-closure.json",
+        )
+
+    def test_audit_manifest_is_generated_from_callback_closure(self):
+        closure = json.loads(
+            (ROOT / "research/ghidra/player-callback-closure.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        actual = json.loads(
+            (ROOT / "research/ghidra/quiky-analysis.json").read_text(
+                encoding="utf-8"
+            )
+        )
+        self.assertEqual(generate(closure), actual)
 
     def test_duplicate_symbol_is_rejected(self):
         source = ROOT / "research" / "ghidra" / "quiky-analysis.json"

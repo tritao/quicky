@@ -29,6 +29,8 @@ def load_manifest(path: Path, repository: Path) -> dict[str, Any]:
         raise AnalysisError(f"{path}: cannot read manifest: {exc}") from exc
     if manifest.get("schema") != "quiky-ghidra-analysis-v1":
         raise AnalysisError("unsupported Ghidra manifest schema")
+    if manifest.get("source_ledger") != "research/ghidra/player-callback-closure.json":
+        raise AnalysisError("manifest is not derived from the player callback ledger")
     executable = manifest.get("executable")
     if not isinstance(executable, dict):
         raise AnalysisError("manifest has no executable object")
@@ -79,7 +81,9 @@ def load_manifest(path: Path, repository: Path) -> dict[str, Any]:
         if name in names:
             raise AnalysisError(f"duplicate symbol name {name}")
         names.add(name)
-        if symbol.get("confidence") not in {"confirmed", "mechanical", "provisional"}:
+        if symbol.get("confidence") not in {
+            "confirmed", "mechanical", "provisional", "unresolved"
+        }:
             raise AnalysisError(f"symbol {name} has invalid confidence")
         if not symbol.get("evidence"):
             raise AnalysisError(f"symbol {name} has no evidence")

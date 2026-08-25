@@ -1,5 +1,6 @@
 {
   "schema": "quiky-ghidra-analysis-v1",
+  "source_ledger": "research/ghidra/player-callback-closure.json",
   "executable": {
     "path": "game/QUIKY.EXE",
     "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1"
@@ -10,7 +11,16 @@
     "project_layout": "separate-raw-ne-segments"
   },
   "segments": {
-    "3": {"program": "/QUIKY_SEG03.bin", "runtime_selector": "01F7"},
+    "2": {
+      "program": "/QUIKY_SEG02.bin",
+      "runtime_selector": "01E7",
+      "required_in_raw_project": true
+    },
+    "3": {
+      "program": "/QUIKY_SEG03.bin",
+      "runtime_selector": "01F7",
+      "required_in_raw_project": true
+    },
     "6": {
       "program": "/QUIKY_SEG06.bin",
       "runtime_selector": "0237",
@@ -18,67 +28,414 @@
     }
   },
   "function_ranges": {
-    "3:3F27": ["3F27", "3FF8"],
-    "3:3FF8": ["3FF8", "44DC"],
-    "3:44DC": ["44DC", "44FF"],
-    "3:3D02": ["3D02", "3DF2"],
-    "3:5C27": ["5C27", "5C9D"],
-    "3:5CC3": ["5CC3", "5D00"],
-    "3:3376": ["3376", "339A"],
-    "3:3A1F": ["3A1F", "3A62"],
-    "3:3DF2": ["3DF2", "3E30"],
-    "3:3A8A": ["3A8A", "3AB9"],
-    "3:648E": ["648E", "659C"],
-    "3:6484": ["6484", "648E"],
-    "3:6370": ["6370", "6484"],
-    "3:1B07": ["1B07", "1B43"],
-    "3:19E6": ["19E6", "1A95"]
+    "3:3FF8": [
+      "3FF8",
+      "44DC"
+    ],
+    "3:44DC": [
+      "44DC",
+      "44FF"
+    ],
+    "3:3F27": [
+      "3F27",
+      "3FF8"
+    ],
+    "3:3AB9": [
+      "3AB9",
+      "3D02"
+    ],
+    "3:3D02": [
+      "3D02",
+      "3DF2"
+    ],
+    "3:3DF2": [
+      "3DF2",
+      "3E30"
+    ],
+    "3:3A1F": [
+      "3A1F",
+      "3A62"
+    ],
+    "3:3A62": [
+      "3A62",
+      "3A8A"
+    ],
+    "3:3998": [
+      "3998",
+      "39FE"
+    ],
+    "3:3971": [
+      "3971",
+      "3986"
+    ],
+    "3:3986": [
+      "3986",
+      "3998"
+    ],
+    "3:3376": [
+      "3376",
+      "339A"
+    ],
+    "3:5C27": [
+      "5C27",
+      "5C9D"
+    ],
+    "3:5CC3": [
+      "5CC3",
+      "5D00"
+    ],
+    "3:1C6E": [
+      "1C6E",
+      "1C92"
+    ],
+    "3:1C92": [
+      "1C92",
+      "1CB6"
+    ],
+    "3:6370": [
+      "6370",
+      "6484"
+    ],
+    "3:6484": [
+      "6484",
+      "648E"
+    ],
+    "3:648E": [
+      "648E",
+      "659C"
+    ],
+    "3:3A8A": [
+      "3A8A",
+      "3AB9"
+    ],
+    "3:38CA": [
+      "38CA",
+      "38EC"
+    ],
+    "3:38EC": [
+      "38EC",
+      "393C"
+    ],
+    "3:4519": [
+      "4519",
+      "45AB"
+    ],
+    "3:5D38": [
+      "5D38",
+      "5D60"
+    ],
+    "3:5D60": [
+      "5D60",
+      "5DA0"
+    ],
+    "3:3E41": [
+      "3E41",
+      "3F27"
+    ],
+    "3:20AF": [
+      "20AF",
+      "20C8"
+    ],
+    "3:199D": [
+      "199D",
+      "19E6"
+    ],
+    "3:1BD1": [
+      "1BD1",
+      "1C4D"
+    ],
+    "3:1B07": [
+      "1B07",
+      "1B43"
+    ],
+    "3:19E6": [
+      "19E6",
+      "1A95"
+    ],
+    "3:F17F": [
+      "F17F",
+      "F1A8"
+    ],
+    "3:F1A8": [
+      "F1A8",
+      "F21B"
+    ],
+    "3:F21B": [
+      "F21B",
+      "F232"
+    ]
   },
   "symbols": [
     {
-      "segment": 3,
-      "offset": "3F27",
-      "kind": "function",
-      "name": "initialize_player_record",
-      "confidence": "confirmed",
-      "closures": ["player"],
-      "evidence": ["static:initializer-callback-write", "runtime:player-pool-offset-zero"]
+      "segment": 2,
+      "offset": "0CE3",
+      "kind": "label",
+      "name": "dispatch_transition_effect_0CE3",
+      "confidence": "unresolved",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "reloc:199D call target"
+      ]
     },
     {
-      "segment": 3,
-      "offset": "3FF8",
-      "kind": "function",
-      "name": "update_player_record",
-      "confidence": "confirmed",
-      "closures": ["player"],
-      "evidence": ["static:initializer-callback-write", "runtime:callback-barrier"]
-    },
-    {
-      "segment": 3,
-      "offset": "3D02",
-      "kind": "function",
-      "name": "player_resolve_descriptor_response",
+      "segment": 2,
+      "offset": "0FCF",
+      "kind": "label",
+      "name": "dispatch_pending_sound_effect",
       "confidence": "mechanical",
-      "closures": ["player", "collision"],
-      "evidence": ["static:descriptor-response-decode", "runtime:controlled-branch-matrix"]
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "reloc:segment-2 target",
+        "trace:sfx-dispatch"
+      ]
     },
     {
       "segment": 3,
-      "offset": "5C27",
-      "kind": "function",
-      "name": "map_descriptor_quadrant_test",
-      "confidence": "confirmed",
-      "closures": ["player", "collision", "descriptor"],
-      "evidence": ["static:quadrant-mask-decode", "runtime:selector-safe-property-matrix"]
+      "offset": "0E06",
+      "kind": "label",
+      "name": "object_pool_factory_0E06",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "reloc:6370/648E factory calls",
+        "trace:contact-object-creation"
+      ]
     },
     {
       "segment": 3,
-      "offset": "5CC3",
+      "offset": "199D",
       "kind": "function",
-      "name": "map_descriptor_word_at_pixel",
+      "name": "write_transition_gate_199D",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:199D-19E5",
+        "callsite:43D0"
+      ],
+      "range": [
+        "199D",
+        "19E6"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "19E6",
+      "kind": "function",
+      "name": "apply_transition_reset_19E6",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:19E6-1A94",
+        "callsite:3AB3"
+      ],
+      "range": [
+        "19E6",
+        "1A95"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "1B07",
+      "kind": "function",
+      "name": "apply_tile_transition_1B07",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:1B07-1B42",
+        "callsite:3AAE"
+      ],
+      "range": [
+        "1B07",
+        "1B43"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "1BD1",
+      "kind": "function",
+      "name": "probe_transition_descriptor",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:1BD1-1C4C",
+        "callsite:44C5"
+      ],
+      "range": [
+        "1BD1",
+        "1C4D"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "1C6E",
+      "kind": "function",
+      "name": "probe_map_word_bit_4000",
       "confidence": "confirmed",
-      "closures": ["player", "collision", "descriptor"],
-      "evidence": ["static:descriptor-table-read", "runtime:selector-safe-property-matrix"]
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:1C6E-1C91",
+        "callsite:4218"
+      ],
+      "range": [
+        "1C6E",
+        "1C92"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "1C92",
+      "kind": "function",
+      "name": "probe_map_word_bit_1000",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:1C92-1CB5",
+        "callsite:3971/3986"
+      ],
+      "range": [
+        "1C92",
+        "1CB6"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "20AF",
+      "kind": "function",
+      "name": "publish_view_delta",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:20AF-20C7",
+        "callsite:4398/4445"
+      ],
+      "range": [
+        "20AF",
+        "20C8"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3142",
+      "kind": "label",
+      "name": "animation_sequence_3142",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38 calls"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3156",
+      "kind": "label",
+      "name": "animation_sequence_3156",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38 calls"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3160",
+      "kind": "label",
+      "name": "animation_sequence_3160",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38 calls"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "316A",
+      "kind": "label",
+      "name": "animation_sequence_316A",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38 calls"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3186",
+      "kind": "label",
+      "name": "animation_sequence_3186",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38 calls"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3190",
+      "kind": "label",
+      "name": "animation_sequence_3190",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38 calls"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "31A4",
+      "kind": "label",
+      "name": "animation_sequence_31A4",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38/5D60 calls"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "31BA",
+      "kind": "label",
+      "name": "animation_sequence_31BA",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "SI immediate before 5D38 call"
+      ]
     },
     {
       "segment": 3,
@@ -86,98 +443,1049 @@
       "kind": "function",
       "name": "map_tile_id_at_pixel",
       "confidence": "confirmed",
-      "closures": ["player", "map"],
-      "evidence": ["static:map-cell-address-formula", "runtime:tile-id-probes"]
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3376-3399",
+        "trace:tile-id-probes"
+      ],
+      "range": [
+        "3376",
+        "339A"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "38CA",
+      "kind": "function",
+      "name": "apply_special_speed_cap_38CA",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:38CA-38EB"
+      ],
+      "range": [
+        "38CA",
+        "38EC"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "38EC",
+      "kind": "function",
+      "name": "player_action_effect_38EC",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:38EC-393B",
+        "static:action-bit-10-child-copy"
+      ],
+      "range": [
+        "38EC",
+        "393C"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3971",
+      "kind": "function",
+      "name": "probe_vertical_10px",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3971-3985",
+        "static:coordinate-formula"
+      ],
+      "range": [
+        "3971",
+        "3986"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3986",
+      "kind": "function",
+      "name": "probe_vertical_step",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3986-3997",
+        "static:coordinate-formula"
+      ],
+      "range": [
+        "3986",
+        "3998"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3998",
+      "kind": "function",
+      "name": "probe_forward_surface",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3998-39FD",
+        "static:probe-order-and-step-gate"
+      ],
+      "range": [
+        "3998",
+        "39FE"
+      ]
     },
     {
       "segment": 3,
       "offset": "3A1F",
       "kind": "function",
-      "name": "player_probe_side_clear",
-      "confidence": "mechanical",
-      "closures": ["player", "collision"],
-      "evidence": ["static:x-minus-plus-five-probes", "runtime:ordered-property-trace"]
+      "name": "probe_player_side_clear",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3A1F-3A61",
+        "trace:ordered-side-probe"
+      ],
+      "range": [
+        "3A1F",
+        "3A62"
+      ]
     },
     {
       "segment": 3,
-      "offset": "3DF2",
+      "offset": "3A62",
       "kind": "function",
-      "name": "player_snap_y_on_side_contact",
+      "name": "apply_action_contact_side_effect",
       "confidence": "mechanical",
-      "closures": ["player", "collision"],
-      "evidence": ["static:y-high-word-fff8-write", "runtime:side-probe-trace"]
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3A62-3A89",
+        "near-call:4392"
+      ],
+      "range": [
+        "3A62",
+        "3A8A"
+      ]
     },
     {
       "segment": 3,
       "offset": "3A8A",
       "kind": "function",
-      "name": "player_probe_transition_tiles",
-      "confidence": "mechanical",
-      "closures": ["player", "map", "transition"],
-      "evidence": ["static:tile-0b-0d-dispatch"]
+      "name": "dispatch_special_tile_contact",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3A8A-3AB8",
+        "reloc:tile-transition-targets"
+      ],
+      "range": [
+        "3A8A",
+        "3AB9"
+      ]
     },
     {
       "segment": 3,
-      "offset": "648E",
+      "offset": "3AB9",
       "kind": "function",
-      "name": "player_probe_hazard_right",
-      "confidence": "mechanical",
-      "closures": ["player", "map", "hazard"],
-      "evidence": ["static:tile-5-0a-hazard-probe"]
+      "name": "integrate_horizontal_motion",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3AB9-3D01",
+        "reloc:3AB9 animation calls",
+        "trace:horizontal-fixtures"
+      ],
+      "range": [
+        "3AB9",
+        "3D02"
+      ]
     },
     {
       "segment": 3,
-      "offset": "6484",
+      "offset": "3D02",
       "kind": "function",
-      "name": "player_probe_hazard_plus5",
-      "confidence": "mechanical",
-      "closures": ["player", "map", "hazard"],
-      "evidence": ["static:stores-hazard-probe-offset-5"]
+      "name": "apply_descriptor_vertical_correction",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3D02-3DF1",
+        "static:DX-20-40-branch-decode",
+        "trace:descriptor-branch-matrix"
+      ],
+      "range": [
+        "3D02",
+        "3DF2"
+      ]
     },
     {
       "segment": 3,
-      "offset": "6370",
+      "offset": "3DF2",
       "kind": "function",
-      "name": "player_probe_hazard_offset",
-      "confidence": "mechanical",
-      "closures": ["player", "map", "hazard"],
-      "evidence": ["static:offset-tile-id-probe"]
+      "name": "snap_player_y_on_side_contact",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3DF2-3E2F",
+        "trace:ordered-side-probe"
+      ],
+      "range": [
+        "3DF2",
+        "3E30"
+      ]
     },
     {
       "segment": 3,
-      "offset": "1B07",
+      "offset": "3E41",
       "kind": "function",
-      "name": "player_begin_tile_transition",
-      "confidence": "mechanical",
-      "closures": ["player", "transition"],
-      "evidence": ["static:transition-state-writes"]
+      "name": "compute_view_delta",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3E41-3F26",
+        "trace:camera-delta-fixtures"
+      ],
+      "range": [
+        "3E41",
+        "3F27"
+      ]
     },
     {
       "segment": 3,
-      "offset": "19E6",
+      "offset": "3F27",
       "kind": "function",
-      "name": "player_apply_transition_reset",
-      "confidence": "mechanical",
-      "closures": ["player", "transition"],
-      "evidence": ["static:transition-reset-writes"]
+      "name": "initialize_player",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3F27-3FF7",
+        "static:callback-pointer-write",
+        "trace:player-pool-offset-zero"
+      ],
+      "range": [
+        "3F27",
+        "3FF8"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "3FF8",
+      "kind": "function",
+      "name": "update_player",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:3FF8-44DB instruction decode",
+        "reloc:segment-3 callback callsites",
+        "trace:callback-barrier",
+        "trace:branch-focus"
+      ],
+      "range": [
+        "3FF8",
+        "44DC"
+      ]
     },
     {
       "segment": 3,
       "offset": "44DC",
       "kind": "function",
       "name": "player_update_transition_motion",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:44DC-44FE",
+        "focused-audit:transition-gate-decrement"
+      ],
+      "range": [
+        "44DC",
+        "44FF"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "4519",
+      "kind": "function",
+      "name": "spawn_contact_effect_entry",
       "confidence": "mechanical",
-      "closures": ["player", "transition"],
-      "evidence": ["static:transition-callback-call"]
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:4519-45AA",
+        "callsite:38EC"
+      ],
+      "range": [
+        "4519",
+        "45AB"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "5937",
+      "kind": "label",
+      "name": "player_helper_5937",
+      "confidence": "unresolved",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "reloc:3FF8 call target",
+        "dynamic:callback-entry barrier only"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "5C27",
+      "kind": "function",
+      "name": "probe_descriptor_quadrant",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:5C27-5C9C",
+        "trace:selector-safe-property-matrix"
+      ],
+      "range": [
+        "5C27",
+        "5C9D"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "5CC3",
+      "kind": "function",
+      "name": "read_descriptor_word",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:5CC3-5CFF",
+        "trace:descriptor-census"
+      ],
+      "range": [
+        "5CC3",
+        "5D00"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "5D38",
+      "kind": "function",
+      "name": "load_animation_descriptor",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:5D38-5D5F",
+        "trace:animation-frame-table"
+      ],
+      "range": [
+        "5D38",
+        "5D60"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "5D60",
+      "kind": "function",
+      "name": "advance_animation_descriptor",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:5D60-5D9F",
+        "trace:animation-frame-table"
+      ],
+      "range": [
+        "5D60",
+        "5DA0"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "6370",
+      "kind": "function",
+      "name": "probe_contact_tile_offset",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:6370-6483",
+        "trace:contact-tile-matrix"
+      ],
+      "range": [
+        "6370",
+        "6484"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "6484",
+      "kind": "function",
+      "name": "probe_contact_plus5",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:6484-648D",
+        "callsite:400F"
+      ],
+      "range": [
+        "6484",
+        "648E"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "648E",
+      "kind": "function",
+      "name": "probe_contact_right",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:648E-659B",
+        "trace:contact-tile-matrix"
+      ],
+      "range": [
+        "648E",
+        "659C"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "F17F",
+      "kind": "function",
+      "name": "keyboard_irq1_ring_producer",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:F17F-F1A7",
+        "input:scan-code-ring"
+      ],
+      "range": [
+        "F17F",
+        "F1A8"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "F1A8",
+      "kind": "function",
+      "name": "poll_keyboard_ring_to_action_bits",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:F1A8-F21A",
+        "input:scan-code-mapping"
+      ],
+      "range": [
+        "F1A8",
+        "F21B"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "F21B",
+      "kind": "function",
+      "name": "read_normalized_action_bits",
+      "confidence": "confirmed",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "raw:F21B-F231",
+        "reloc:callback direct target F21C"
+      ],
+      "range": [
+        "F21B",
+        "F232"
+      ]
+    },
+    {
+      "segment": 3,
+      "offset": "F21C",
+      "kind": "label",
+      "name": "input_dispatch_f21C",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "reloc:callback direct target F21C",
+        "raw:F21B-F231"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "30D4",
+      "kind": "label",
+      "name": "descriptor_record_stride",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:30D4",
+        "descriptor record stride"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FE2",
+      "kind": "label",
+      "name": "horizontal_accumulator",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FE2",
+        "input counter accumulator"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FE4",
+      "kind": "label",
+      "name": "view_state_a",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FE4",
+        "camera phase input"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FE6",
+      "kind": "label",
+      "name": "view_state_b",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FE6",
+        "camera phase state"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FE8",
+      "kind": "label",
+      "name": "horizontal_accel",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FE8",
+        "input acceleration accumulator"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FEC",
+      "kind": "label",
+      "name": "input_run_counter",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FEC",
+        "action counter"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FEE",
+      "kind": "label",
+      "name": "idle_counter",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FEE",
+        "idle/animation threshold"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FF0",
+      "kind": "label",
+      "name": "action_low_copy",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FF0",
+        "normalized input copy"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "4FFE",
+      "kind": "label",
+      "name": "contact_y_scratch",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:4FFE",
+        "contact factory Y"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "5000",
+      "kind": "label",
+      "name": "contact_subtype",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:5000",
+        "contact factory subtype"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "5001",
+      "kind": "label",
+      "name": "contact_code",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:5001",
+        "contact animation/effect code"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "5003",
+      "kind": "label",
+      "name": "contact_x_offset",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:5003",
+        "contact probe X offset"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "60DC",
+      "kind": "label",
+      "name": "published_view_x",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:60DC",
+        "view delta output"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "60E0",
+      "kind": "label",
+      "name": "published_view_y",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:60E0",
+        "view delta output"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "612E",
+      "kind": "label",
+      "name": "pending_event",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:612E",
+        "pending sound/effect event"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "657A",
+      "kind": "label",
+      "name": "map_buffer_offset",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:657A",
+        "MAP buffer offset"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "657C",
+      "kind": "label",
+      "name": "map_buffer_selector",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:657C",
+        "MAP selector"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "657E",
+      "kind": "label",
+      "name": "map_row_stride_bytes",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:657E",
+        "MAP row stride"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "6582",
+      "kind": "label",
+      "name": "descriptor_table_offset",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:6582",
+        "descriptor table offset"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "6584",
+      "kind": "label",
+      "name": "descriptor_table_selector",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:6584",
+        "descriptor table selector"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "8196",
+      "kind": "label",
+      "name": "secondary_actions",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:8196",
+        "normalized action source"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "81C0",
+      "kind": "label",
+      "name": "camera_x",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:81C0",
+        "camera integer X"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "81C4",
+      "kind": "label",
+      "name": "camera_y",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:81C4",
+        "camera integer Y"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "81CC",
+      "kind": "label",
+      "name": "camera_y_limit",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:81CC",
+        "camera transition threshold"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "85DA",
+      "kind": "label",
+      "name": "activation_state",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:85DA",
+        "input/animation gate"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "880A",
+      "kind": "label",
+      "name": "transition_object_counter",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:880A",
+        "transition object/effect counter"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "8810",
+      "kind": "label",
+      "name": "timer_clear",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:8810",
+        "shared timer clear"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "8812",
+      "kind": "label",
+      "name": "deferred_y",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:8812",
+        "moving-platform Y delta"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "8816",
+      "kind": "label",
+      "name": "external_x_delta",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:8816",
+        "moving-platform X delta"
+      ]
     },
     {
       "segment": 6,
       "offset": "881A",
       "kind": "label",
-      "name": "player_object_offset",
-      "confidence": "confirmed",
-      "closures": ["player"],
-      "evidence": ["static:initializer-store", "runtime:player-pool-offset-zero"]
+      "name": "player_offset",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:881A",
+        "persistent player record offset"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "8822",
+      "kind": "label",
+      "name": "transition_scratch",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:8822",
+        "transition scratch"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "88B6",
+      "kind": "label",
+      "name": "special_speed_cap_mode",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:88B6",
+        "38CA speed-cap selector"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "88BA",
+      "kind": "label",
+      "name": "last_scan_code",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:88BA",
+        "keyboard state"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "88BC",
+      "kind": "label",
+      "name": "keyboard_actions",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:88BC",
+        "keyboard action bits"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "8950",
+      "kind": "label",
+      "name": "transition_effect_bits",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:8950",
+        "transition effect/reset bitfield"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "89E6",
+      "kind": "label",
+      "name": "action_suppressor",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:89E6",
+        "action suppression/transition sentinel"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "89EA",
+      "kind": "label",
+      "name": "collision_transition_mode",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:89EA",
+        "ordinary/transition callback gate"
+      ]
+    },
+    {
+      "segment": 6,
+      "offset": "89EC",
+      "kind": "label",
+      "name": "transition_state",
+      "confidence": "mechanical",
+      "closures": [
+        "player-callback"
+      ],
+      "evidence": [
+        "typed_model:DS:89EC",
+        "deep transition state"
+      ]
     }
   ]
 }

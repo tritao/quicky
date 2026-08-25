@@ -40,55 +40,55 @@ public class AnnotatePlayerCollision extends GhidraScript {
     }
 
     private void annotateFunctions() throws Exception {
-        function(0x3f27, "initialize_player_record",
+        function(0x3f27, "initialize_player",
             "Initializes the persistent ES:DI player record and installs callback 3FF8.");
-        function(0x3ff8, "update_player_record",
+        function(0x3ff8, "update_player",
             "Player callback. Ordinary path calls hazard_right, hazard_plus5, transition_tile_probe, then state-dependent descriptor leaves.");
         function(0x3376, "map_tile_id_at_pixel",
             "Far leaf: AX=y pixels, BX=x pixels; reads MAP[(y>>4)*row_stride+(x>>4)*2] and returns raw_cell & 0x01ff.");
-        function(0x5c27, "map_descriptor_quadrant_test",
+        function(0x5c27, "probe_descriptor_quadrant",
             "Far leaf: AX=y, BX=x; reads descriptor record +2 and tests the low-nibble bit selected by AX/BX bit 3. Returns the test in flags.");
-        function(0x5cc3, "map_descriptor_word_at_pixel",
+        function(0x5cc3, "read_descriptor_word",
             "Far leaf: AX=y, BX=x; returns descriptor record +2 in DX. Directly consumed by descriptor_response_resolver.");
         function(0x3a1f, "player_probe_side_clear",
             "Near leaf: if gate +0x38 is clear and mode +0x37 is not FF, probes x-5 then x+5 at current y through 5C27; writes +0x3B=FF only when both clear.");
-        function(0x3df2, "player_snap_y_on_side_contact",
+        function(0x3df2, "snap_player_y_on_side_contact",
             "Near leaf: requires +0x3B!=0 and +0x3A==0, probes x-5/x+5 through 5C27, and writes object y high word &= FFF8 when either probe reports occupancy. It does not snap X.");
-        function(0x3d02, "player_resolve_descriptor_response",
+        function(0x3d02, "apply_descriptor_vertical_correction",
             "Near leaf: gates on +0x3B, reads descriptor at (x,y), retries at y-8 when DX&30 is clear, halves velocity Y, computes target Y, and returns at 3D44/3DE4/3DF1.");
-        function(0x3a8a, "player_probe_transition_tiles",
+        function(0x3a8a, "dispatch_special_tile_contact",
             "Far leaf: when mode +0x37 is positive, reads the tile ID at (x,y) and dispatches IDs 0B/0C/0D to transition handlers.");
-        function(0x648e, "player_probe_hazard_right",
+        function(0x648e, "probe_contact_right",
             "Far hazard/effect probe at x+5. Uses tile IDs 5..A and spawns a transient object; this is separate from descriptor geometry.");
-        function(0x6484, "player_probe_hazard_plus5",
+        function(0x6484, "probe_contact_plus5",
             "Far wrapper: stores hazard probe offset +5 at DS:5003 and calls hazard_offset_probe.");
-        function(0x6370, "player_probe_hazard_offset",
+        function(0x6370, "probe_contact_tile_offset",
             "Hazard/effect probe using x+DS:5003 and y or y-+0x72; recognizes tile IDs 5..A and spawns a transient object.");
-        function(0x1b07, "player_begin_tile_transition",
+        function(0x1b07, "apply_tile_transition_1B07",
             "Transition-state helper: clears response bits, zeroes timer, sets mode FF, copies +0x64 into velocity Y, and clears +0x3B/+0x3A.");
-        function(0x19e6, "player_apply_transition_reset",
+        function(0x19e6, "apply_transition_reset_19E6",
             "Transition/reset helper reached from the 0B/0C/0D tile path; resets player motion and shared transition globals.");
         function(0x44dc, "player_update_transition_motion",
             "Transition motion helper reached from the callback's nonzero DS:89EA path.");
     }
 
     private void annotateGlobals() throws Exception {
-        global(0x30d4, "tile_descriptor_record_stride", "Descriptor table record stride; initialized/runtime-confirmed as 4 bytes.");
+        global(0x30d4, "descriptor_record_stride", "Descriptor table record stride; initialized/runtime-confirmed as 4 bytes.");
         global(0x657a, "map_buffer_offset", "Offset of the currently loaded MAP buffer.");
         global(0x657c, "map_buffer_selector", "Selector of the currently loaded MAP buffer.");
         global(0x657e, "map_row_stride_bytes", "Byte stride between loaded MAP rows.");
-        global(0x6582, "tile_descriptor_table_offset", "Offset of the active 512-entry tile descriptor table.");
-        global(0x6584, "tile_descriptor_table_selector", "Selector of the active tile descriptor table.");
-        global(0x4ffe, "hazard_probe_y_word", "Temporary integer Y used by the tile hazard/effect probes.");
-        global(0x5000, "hazard_spawn_gate", "Temporary spawned-object gate byte: 0 for tile IDs 8..A, FF for IDs 5..7.");
-        global(0x5001, "hazard_spawn_callback", "Temporary spawned-object callback selector/offset selected by tile ID.");
-        global(0x5003, "hazard_probe_x_offset", "Temporary X offset consumed by hazard_offset_probe; hazard_plus5 writes 5.");
-        global(0x612e, "pending_player_effect_code", "Shared pending action/effect word written as 7 by the hazard/effect path.");
-        global(0x8810, "player_timer_shared", "Shared player timer cleared by the callback when +0x34 reaches zero.");
-        global(0x8812, "platform_player_y_delta", "Fixed-point Y delta published by moving-platform carry and consumed at callback entry.");
-        global(0x8816, "platform_player_x_delta", "Fixed-point X delta published by moving-platform carry and consumed by the player movement path.");
-        global(0x881a, "player_record_offset", "Persistent ES:DI player record offset.");
-        global(0x89ea, "player_transition_mode", "Shared zero/nonzero mode selecting ordinary callback versus transition block.");
+        global(0x6582, "descriptor_table_offset", "Offset of the active 512-entry tile descriptor table.");
+        global(0x6584, "descriptor_table_selector", "Selector of the active tile descriptor table.");
+        global(0x4ffe, "contact_y_scratch", "Temporary integer Y used by the tile hazard/effect probes.");
+        global(0x5000, "contact_subtype", "Temporary spawned-object gate byte: 0 for tile IDs 8..A, FF for IDs 5..7.");
+        global(0x5001, "contact_code", "Temporary spawned-object callback selector/offset selected by tile ID.");
+        global(0x5003, "contact_x_offset", "Temporary X offset consumed by hazard_offset_probe; hazard_plus5 writes 5.");
+        global(0x612e, "pending_event", "Shared pending action/effect word written as 7 by the hazard/effect path.");
+        global(0x8810, "timer_clear", "Shared player timer cleared by the callback when +0x34 reaches zero.");
+        global(0x8812, "deferred_y", "Fixed-point Y delta published by moving-platform carry and consumed at callback entry.");
+        global(0x8816, "external_x_delta", "Fixed-point X delta published by moving-platform carry and consumed by the player movement path.");
+        global(0x881a, "player_offset", "Persistent ES:DI player record offset.");
+        global(0x89ea, "collision_transition_mode", "Shared zero/nonzero mode selecting ordinary callback versus transition block.");
     }
 
     private Structure createPlayerRecordType() throws Exception {
