@@ -340,6 +340,12 @@ std::string LevelSession::effectResourceFor(std::uint16_t type) const {
     return std::string();
 }
 
+std::string LevelSession::highEffectSpriteResource() const {
+    // The callback contract is shared by all worlds, but slot 611 resolves to
+    // the world-2 dimensions only in PUFFW2.BOB. Other worlds use PUFF.BOB.
+    return worldForMap(_mapName) == "W2" ? "PUFFW2.BOB" : "PUFF.BOB";
+}
+
 bool LevelSession::isTransientEffectType(std::uint16_t type) {
     return type >= 0x65 && type <= 0x67;
 }
@@ -423,6 +429,21 @@ void LevelSession::updateStreaming(std::int32_t playerX, std::int32_t playerY) {
     }
 }
 
+void LevelSession::emitHighEffect(std::int32_t sourceX, std::int32_t sourceY) {
+    LevelEffect effect;
+    // The DOS object has +0x1A=FFFF and is not tied to an ARE declaration.
+    effect.sourceEntityId = 0;
+    effect.sourceType = 0;
+    effect.x = sourceX;
+    effect.y = sourceY + 10;
+    effect.spriteSlot = 611;
+    effect.spriteResource = highEffectSpriteResource();
+    effect.animationFrame = 0; // callback-specific +0x2A cursor
+    effect.lifetime = 31; // terminal 30 -> 31 clears object+0x18
+    effect.active = true;
+    _effects.push_back(effect);
+}
+
 void LevelSession::advanceActiveEntities() {
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
@@ -469,7 +490,28 @@ void LevelSession::removeTransientEffectsFor(std::uint32_t entityId) {
 void LevelSession::advanceActiveEffects() {
     for (std::size_t index = 0; index < _effects.size();) {
         LevelEffect &effect = _effects[index];
-        if (!effect.active || effect.animationFrame + 1 >= effect.lifetime) {
+        if (!effect.active) {
+            _effects.erase(_effects.begin() + static_cast<std::ptrdiff_t>(index));
+            continue;
+        }
+
+        if (!effect.spriteResource.empty()) {
+            // 4C74 increments +0x2A before selecting the next frame. Slots
+            // 611, 612, and 613 cover cursors 0..9, 10..19, and 20..30;
+            // cursor 30 -> 31 is the terminal clear and is not rendered.
+            if (effect.animationFrame >= 30) {
+                _effects.erase(_effects.begin() + static_cast<std::ptrdiff_t>(index));
+                continue;
+            }
+            ++effect.animationFrame;
+            const std::uint16_t spriteGroup = std::min<std::uint16_t>(
+                2, static_cast<std::uint16_t>(effect.animationFrame / 10));
+            effect.spriteSlot = static_cast<std::uint16_t>(611 + spriteGroup);
+            ++index;
+            continue;
+        }
+
+        if (effect.animationFrame + 1 >= effect.lifetime) {
             _effects.erase(_effects.begin() + static_cast<std::ptrdiff_t>(index));
             continue;
         }

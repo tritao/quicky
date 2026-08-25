@@ -47,6 +47,7 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
         mapName, areaName, worldName, playerBobName, map, area, palette,
         tileset, loopTileset, playerBob, config));
     result->loadEntityBobs(archive);
+    result->loadEffectBobs(archive);
     return result;
 }
 
@@ -69,7 +70,8 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
       _loopTileset(loopTileset),
       _playerBob(playerBob),
       _session(mapName, _map, _area, config),
-      _entityBobs() {
+      _entityBobs(),
+      _effectBobs() {
 }
 
 void LevelRuntime::loadEntityBobs(const Archive &archive) {
@@ -83,6 +85,14 @@ void LevelRuntime::loadEntityBobs(const Archive &archive) {
             archive.read(entity.spriteResource), entity.spriteResource);
         _entityBobs.insert(std::make_pair(entity.spriteResource, bob));
     }
+}
+
+void LevelRuntime::loadEffectBobs(const Archive &archive) {
+    const std::string resource = _worldName == "W2"
+                                     ? "PUFFW2.BOB"
+                                     : "PUFF.BOB";
+    _effectBobs.insert(std::make_pair(
+        resource, Bob::parse(archive.read(resource), resource)));
 }
 
 void LevelRuntime::reset(PlayerState &player,

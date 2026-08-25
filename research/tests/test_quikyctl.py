@@ -406,6 +406,22 @@ class QuikyCtlTests(unittest.TestCase):
         self.assertEqual({item["asset"] for item in cloud}, {"WOLKE.BOB"})
         self.assertEqual({(item["width"], item["height"]) for item in cloud}, {(32, 16)})
 
+        for asset, expected_origin, expected_size in (
+            ("PUFF.BOB", (16, 32), (32, 32)),
+            ("PUFFW2.BOB", (17, 26), (34, 26)),
+        ):
+            matches = [item for item in find_archive_bob_slots(archive, {611, 612, 613})
+                       if item["asset"] == asset]
+            self.assertEqual(len(matches), 3)
+            self.assertEqual(
+                {(item["origin_x"], item["origin_y"]) for item in matches},
+                {expected_origin},
+            )
+            self.assertEqual(
+                {(item["width"], item["height"]) for item in matches},
+                {expected_size},
+            )
+
         with tempfile.TemporaryDirectory() as temp_dir:
             manifest = create_entity_variant(
                 archive,

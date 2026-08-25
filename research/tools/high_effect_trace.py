@@ -35,6 +35,8 @@ class HighEffectConfig:
     target_x_delta: int = 0
     target_y_delta: int = -10
     target_cursor_offset: int = 0x2A
+    screenshot: Path | None = None
+    screenshot_mode: str = "rendered"
 
 
 def lua_config(config: HighEffectConfig) -> dict[str, Any]:
@@ -136,7 +138,15 @@ def trace_high_effect(
             replayed = True
         result = status.get("output", {}).get("high_effect_trace")
         if isinstance(result, dict):
-            return normalize_high_effect_trace(result)
+            normalized = normalize_high_effect_trace(result)
+            if config.screenshot is not None:
+                api.post("/api/v1/debug/continue")
+                time.sleep(0.05)
+                config.screenshot.parent.mkdir(parents=True, exist_ok=True)
+                config.screenshot.write_bytes(api.get_binary(
+                    "/api/v1/video/frame?format=png&mode=" + config.screenshot_mode
+                ))
+            return normalized
         if status.get("state") == "completed":
             raise TraceError("Lua high-effect trace completed without output")
         time.sleep(config.poll_interval)
@@ -159,6 +169,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--target-y-delta", type=int, default=-10)
     parser.add_argument("--target-cursor-offset", type=lambda value: int(value, 0),
                         default=0x2A)
+    parser.add_argument("--screenshot", type=Path,
+                        help="capture the final DOSBox frame after the trace")
+    parser.add_argument("--screenshot-mode", choices=("rendered", "raw"),
+                        default="rendered")
     parser.add_argument("--startup-recording", type=Path,
                         default=Path("research/automation/startup-to-input.json"))
     parser.add_argument("--url", default="http://127.0.0.1:8386")
@@ -194,6 +208,9 @@ def main(argv: list[str] | None = None) -> int:
     script_path = repo_root / "research/automation/quiky_high_effect_trace.lua"
     output = args.output if args.output.is_absolute() else repo_root / args.output
     output.parent.mkdir(parents=True, exist_ok=True)
+    screenshot = args.screenshot
+    if screenshot is not None and not screenshot.is_absolute():
+        screenshot = repo_root / screenshot
     process = None
     log_stream = None
     if args.launch:
@@ -249,6 +266,8 @@ def main(argv: list[str] | None = None) -> int:
             target_x_delta=args.target_x_delta,
             target_y_delta=args.target_y_delta,
             target_cursor_offset=args.target_cursor_offset,
+            screenshot=screenshot,
+            screenshot_mode=args.screenshot_mode,
         )
         trace = trace_high_effect(api, script_path, config)
         envelope = {

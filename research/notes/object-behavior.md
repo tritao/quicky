@@ -602,6 +602,18 @@ clears `object+0x18`; the pool object is then no longer scheduled. W1 uses
 `PUFF.BOB` and W2 uses `PUFFW2.BOB`, but the callback/timing contract is
 identical.
 
+The renderer-side asset pass confirms that slots `611`, `612`, and `613` are
+records `0`, `1`, and `2` in both BOB resources. `PUFF.BOB` records are
+`32x32` with origin `(16,32)`; `PUFFW2.BOB` records are `34x26` with origin
+`(17,26)`. The C++ `quiky-bob-sheet` output was compared with the Python
+`decode_bob_record` output for every opaque pixel in slots `611..614` of both
+resources, with zero mismatches. The recreation now carries the source-less
+effect through its BOB renderer path, applies the recovered `sourceY+10`
+position, and selects the W2 resource separately. Short DOSBox video captures
+are stored with the ignored high-effect build artifacts; a full scene-level
+pixel comparison is still open because the effect must be isolated from the
+other active cloud/object layers.
+
 The player-side routine at `01F7:69FF` reaches the `6D01` tail after its
 player-position gate; the target scan itself begins at `6D01`. This distinction
 matters for breakpoints and callback reconstruction. The shared list is a

@@ -41,6 +41,7 @@ public:
     const Tileset &loopTileset() const { return _loopTileset; }
     const Bob &playerBob() const { return _playerBob; }
     const std::map<std::string, Bob> &entityBobs() const { return _entityBobs; }
+    const std::map<std::string, Bob> &effectBobs() const { return _effectBobs; }
 
     LevelSession &session() { return _session; }
     const LevelSession &session() const { return _session; }
@@ -58,6 +59,7 @@ private:
                  const LevelSessionConfig &config);
 
     void loadEntityBobs(const Archive &archive);
+    void loadEffectBobs(const Archive &archive);
 
     std::string _mapName;
     std::string _areaName;
@@ -71,6 +73,7 @@ private:
     Bob _playerBob;
     LevelSession _session;
     std::map<std::string, Bob> _entityBobs;
+    std::map<std::string, Bob> _effectBobs;
 };
 
 } // namespace quiky

@@ -39,6 +39,8 @@ The current DOSBox evidence passes the recovered contracts:
 | `type33-y400-state1-helper` | helper-derived state `1→2`, velocity, and descriptor transition | pass |
 | `type33-tail-target-hit` | active `8AE5` target clear and cursor advance | pass |
 | `type33-tail-target-miss` | active `8AE5` nonmatching target and cursor advance | pass |
+| `w1l3-effect-60` | 1 factory + 31 `4C74` updates, slots `611/612/613`, terminal clear | pass |
+| `w2l3-effect-60` | 1 factory + 31 `4C74` updates, W2 resource context | pass |
 
 Traces without helper tracing remain conservative: they still check lifecycle,
 descriptor, and type-specific observations, but do not infer an unrecorded MAP
@@ -54,4 +56,7 @@ PYTHONPATH=research/tools python3 research/tools/object_behavior_compare.py \
 
 The comparator is intentionally callback-level. It does not yet compare the
 renderer bitmap output or choose between `PUFF.BOB` and `PUFFW2.BOB`; those are
-the next engine-integration inputs.
+the scene-comparison inputs. The BOB decoder itself has now been cross-checked
+between the C++ and Python renderers for every opaque pixel in both resources;
+scene-level comparison remains open because the DOSBox captures contain other
+active sprites and cloud layers.

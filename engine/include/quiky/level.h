@@ -54,9 +54,11 @@ struct LevelSessionConfig {
     LevelSessionConfig();
 };
 
-// A short-lived ICO-only object emitted by an ARE effect/event record. These
-// objects are deliberately separate from gameplay entities: they do not
-// participate in collision, collection, or hazard handling.
+// A short-lived visual object emitted by an ARE effect/event record or by a
+// source-less high-address callback chain. These objects are deliberately
+// separate from gameplay entities: they do not participate in collision,
+// collection, or hazard handling. ICO effects use effectResource/effectSlot;
+// BOB effects use spriteResource/spriteSlot.
 struct LevelEffect {
     std::uint32_t sourceEntityId;
     std::uint16_t sourceType;
@@ -64,13 +66,16 @@ struct LevelEffect {
     std::int32_t y;
     std::uint16_t effectSlot;
     std::string effectResource;
+    std::uint16_t spriteSlot;
+    std::string spriteResource;
     std::uint16_t animationFrame;
     std::uint16_t lifetime;
     bool active;
 
     LevelEffect()
         : sourceEntityId(0), sourceType(0), x(0), y(0), effectSlot(0xffff),
-          effectResource(), animationFrame(0), lifetime(0), active(false) {}
+          effectResource(), spriteSlot(0xffff), spriteResource(),
+          animationFrame(0), lifetime(0), active(false) {}
 };
 
 struct LevelEntity {
@@ -116,6 +121,10 @@ public:
               const CollisionQuery &collision, const InputState &input);
 
     void updateStreaming(std::int32_t playerX, std::int32_t playerY);
+    // Emit the source-less high-address effect recovered from the 4B70/4C74
+    // callback chain. sourceX/sourceY are the hit object's coordinates; the
+    // pooled effect is positioned at sourceY + 10 pixels.
+    void emitHighEffect(std::int32_t sourceX, std::int32_t sourceY);
     const std::vector<LevelEntity> &entities() const { return _entities; }
     const std::vector<LevelEffect> &effects() const { return _effects; }
     LevelEvent consumeEvent();
@@ -131,6 +140,7 @@ private:
     static std::uint16_t collisionHeightFor(std::uint16_t type);
     std::string spriteResourceFor(std::uint16_t type) const;
     std::string effectResourceFor(std::uint16_t type) const;
+    std::string highEffectSpriteResource() const;
     static std::uint32_t collectibleValue(std::uint16_t type);
     static std::string nextLevelName(const std::string &mapName);
     void resetPlayer(PlayerState &player, const PlayerSimulation &simulation) const;

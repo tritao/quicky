@@ -32,6 +32,7 @@ class HighEffectTraceTests(unittest.TestCase):
         self.assertEqual(payload["input_key"], "KBD_right")
         self.assertEqual(payload["target_cursor_offset"], 0x2A)
         self.assertNotIn("focus_callback_offset", payload)
+        self.assertNotIn("screenshot", payload)
 
     def test_normalizes_lua_arrays(self):
         trace = normalize_high_effect_trace({

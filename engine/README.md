@@ -17,6 +17,9 @@ The current iteration supports:
 - deterministic player simulation with provisional MAP collision masks;
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - ARE-backed level streaming with provisional collectible, hazard, and exit events;
+- source-less high-effect rendering from the recovered `4B70 -> 4C74` chain:
+  world-specific `PUFF.BOB`/`PUFFW2.BOB`, slots `611/612/613`, and the
+  31-update terminal lifecycle;
 - synthetic unit tests for the format readers.
 
 Music playback is an optional subsystem because the bundled `.TFX`/`.SAM`
