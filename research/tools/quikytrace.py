@@ -84,6 +84,8 @@ class PlayerTraceConfig:
     frames_between: int = 30
     focus_callback: bool = False
     focus_callback_offset: int = 0x3FF8
+    object_callback_offset: int | None = None
+    object_callback_slot: int | None = None
     map_focus: bool = False
     collision_focus: bool = False
     property_focus: bool = False
@@ -97,10 +99,16 @@ class PlayerTraceConfig:
     input_key: str | None = None
     input_frames: int = 0
     input_samples: int = 0
+    force_position_x: int | None = None
+    force_position_y: int | None = None
+    force_word_3e: int | None = None
+    force_camera_x: int | None = None
+    force_camera_y: int | None = None
     select_level: str | None = None
     selector_frames: int = 60
     screenshot: Path | None = None
     screenshot_mode: str = "rendered"
+    lightweight: bool = False
 
 
 def lua_literal(value: Any) -> str:
@@ -166,6 +174,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "frames_between": config.frames_between,
         "focus_callback": config.focus_callback,
         "focus_callback_offset": config.focus_callback_offset,
+        "object_callback_offset": config.object_callback_offset,
+        "object_callback_slot": config.object_callback_slot,
         "map_focus": config.map_focus,
         "collision_focus": config.collision_focus,
         "property_focus": config.property_focus,
@@ -179,8 +189,14 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_key": config.input_key or "",
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
+        "force_position_x": config.force_position_x,
+        "force_position_y": config.force_position_y,
+        "force_word_3e": config.force_word_3e,
+        "force_camera_x": config.force_camera_x,
+        "force_camera_y": config.force_camera_y,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "lightweight": config.lightweight,
     }
 
 
@@ -645,6 +661,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-callback-offset", type=lambda value: int(value, 0),
                         default=0x3FF8,
                         help="player callback offset for --player-focus-callback (default 0x3ff8)")
+    parser.add_argument("--player-object-callback-offset", type=lambda value: int(value, 0),
+                        help="break on an arbitrary object update callback, e.g. 0x8d20")
+    parser.add_argument("--player-object-callback-slot", type=lambda value: int(value, 0),
+                        help="limit --player-object-callback-offset to one BOB slot")
     parser.add_argument("--player-map-focus", action="store_true",
                         help="break on the 01F7:3376 MAP helper used by player collision probes")
     parser.add_argument("--player-collision-focus", action="store_true",
@@ -672,6 +692,18 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-force-position-x", type=int,
+                        help="debugger-only: set the player integer X after the first callback")
+    parser.add_argument("--player-force-position-y", type=int,
+                        help="debugger-only: set the player integer Y after the first callback")
+    parser.add_argument("--player-force-word-3e", type=int,
+                        help="debugger-only: set player state word +0x3e after the first callback")
+    parser.add_argument("--player-force-camera-x", type=int,
+                        help="debugger-only: set DS:81c0 after level launch")
+    parser.add_argument("--player-force-camera-y", type=int,
+                        help="debugger-only: set DS:81c4 after level launch")
+    parser.add_argument("--player-lightweight", action="store_true",
+                        help="skip full pool/scheduler snapshots for high-rate player timing traces")
     parser.add_argument("--dispatch-table", action="store_true",
                         help="capture dispatch entries for every normal ARE type")
     parser.add_argument("--screenshot", type=Path,
@@ -721,6 +753,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-samples cannot be negative")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
+    if (args.player_force_camera_x is None) != (args.player_force_camera_y is None):
+        raise TraceError("--player-force-camera-x and --player-force-camera-y must be used together")
+    for name in ("player_force_camera_x", "player_force_camera_y"):
+        value = getattr(args, name)
+        if value is not None and not 0 <= value <= 0xffff:
+            raise TraceError(f"--{name.replace('_', '-')} must be between 0 and 65535")
     if args.player_map_focus and args.player_collision_focus:
         raise TraceError("--player-map-focus and --player-collision-focus are mutually exclusive")
     if args.player_property_focus and (args.player_map_focus or args.player_collision_focus):
@@ -740,6 +778,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-property-helper requires --player-property-focus")
     if not 0 <= args.player_callback_offset <= 0xffff:
         raise TraceError("--player-callback-offset must be between 0 and 65535")
+    if args.player_object_callback_offset is not None and not 0 <= args.player_object_callback_offset <= 0xffff:
+        raise TraceError("--player-object-callback-offset must be between 0 and 65535")
+    if args.player_object_callback_slot is not None and not 0 <= args.player_object_callback_slot <= 0xffff:
+        raise TraceError("--player-object-callback-slot must be between 0 and 65535")
+    if args.player_object_callback_slot is not None and args.player_object_callback_offset is None:
+        raise TraceError("--player-object-callback-slot requires --player-object-callback-offset")
     if (args.player_focus_callback and args.player_callback_offset == 0x3f27
             and args.player_samples != 1):
         raise TraceError("--player-focus-callback 0x3f27 requires --player-samples 1; use 0x3ff8 for repeated updates")
@@ -854,6 +898,8 @@ def main(argv: list[str] | None = None) -> int:
                 frames_between=args.player_frames_between,
                 focus_callback=args.player_focus_callback,
                 focus_callback_offset=args.player_callback_offset,
+                object_callback_offset=args.player_object_callback_offset,
+                object_callback_slot=args.player_object_callback_slot,
                 map_focus=args.player_map_focus,
                 collision_focus=args.player_collision_focus,
                 property_focus=args.player_property_focus,
@@ -867,10 +913,16 @@ def main(argv: list[str] | None = None) -> int:
                 input_key=args.player_input_key,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
+                force_position_x=args.player_force_position_x,
+                force_position_y=args.player_force_position_y,
+                force_word_3e=args.player_force_word_3e,
+                force_camera_x=args.player_force_camera_x,
+                force_camera_y=args.player_force_camera_y,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
                 screenshot=args.screenshot,
                 screenshot_mode=args.screenshot_mode,
+                lightweight=args.player_lightweight,
             )
             player_trace, player_screenshots = trace_player_lua(
                 api, player_script_path, player_config,

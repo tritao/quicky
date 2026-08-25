@@ -90,6 +90,16 @@ uses width/height for clipping. The safe decoder reconstructs pixels from
 immediate planar writes without executing archive code. The ICO routine
 iterates records/data ranges and copies resource bytes into an existing buffer.
 
+The renderer-side ICO helper is a separate contract from the PCC writer. The
+targeted segment-3 decompile of `01F7:11B4` shows four unconditionally copied
+plane groups (`FS:[EBX+0xF0]` through `FS:[EBX]`) under VGA map masks
+`0x11`, `0x22`, `0x44`, and `0x88`; there is no indexed-zero branch. Thus an
+ICO byte value of zero is written as zero to all four planes and clears the
+earlier pixel. By contrast, the segment-4 PCC loop at `0207:099C` tests each
+indexed byte and calls `0207:0944` only for nonzero values. This distinction is
+now reflected in the indexed renderer: ICO draws default to opaque writes,
+while explicit `TransparentZero` remains available for utility composition.
+
 ### SAM and TFX loading
 
 Segment 2 function `0x085E` (`load_sam_tfx_resource`) uses the Pascal fragments

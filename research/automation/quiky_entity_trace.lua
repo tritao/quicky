@@ -522,6 +522,7 @@ for attempt = 1, 4096 do
             local event_update_candidates = {}
             local event_update_lookup = nil
             local event_effect_call = nil
+            local event_lifetime_samples = {}
             dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
             dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
             dosbox.breakpoint_set(0x01f7, 0x1693, {once = true})
@@ -573,6 +574,62 @@ for attempt = 1, 4096 do
                                       offset = candidate.offset},
                         registers = candidate.registers,
                     }
+                end
+                if candidate.segment == 0x01f7 and candidate.offset == 0x10b5 and
+                        matches_event_object and
+                        #event_lifetime_samples < lifetime_sample_count then
+                    local state = dosbox.mem_read_selector(
+                        event_object_selector, event_object_offset, 64)
+                    event_lifetime_samples[#event_lifetime_samples + 1] = {
+                        sequence = #event_lifetime_samples + 1,
+                        frame = dosbox.frame(),
+                        phase = "pre-update",
+                        object = {selector = event_object_selector,
+                                  offset = event_object_offset},
+                        active = word(state, 0x18 + 1) ~= 0,
+                        update_callback = word(state, 0x18 + 1),
+                        sprite_slot = word(state, 0x12 + 1),
+                        lifetime = word(state, 0x2c + 1),
+                        animation_delay = word(state, 0x20 + 1),
+                        animation_cursor = word(state, 0x24 + 1),
+                        state_field = word(state, 0x2e + 1),
+                        position = {x = dword(state, 3) >> 16,
+                                    y = dword(state, 7) >> 16},
+                    }
+                    -- A lifetime of one is the last callback tick.  Stop at
+                    -- 10C1 after the decrement so the trace records the
+                    -- callback pointer being cleared before the pool slot is
+                    -- reused by a later transient event.
+                    if word(state, 0x2c + 1) == 1 and
+                            #event_lifetime_samples < lifetime_sample_count then
+                        dosbox.breakpoint_set(0x01f7, 0x10c1, {once = true})
+                        dosbox.debug_continue()
+                        local expired = dosbox.wait_for_breakpoint(1000)
+                        if expired and expired.segment == 0x01f7 and
+                                expired.offset == 0x10c1 then
+                            local after_expiry = dosbox.mem_read_selector(
+                                event_object_selector, event_object_offset, 64)
+                            event_lifetime_samples[#event_lifetime_samples + 1] = {
+                                sequence = #event_lifetime_samples + 1,
+                                frame = dosbox.frame(),
+                                phase = "post-expiry",
+                                object = {selector = event_object_selector,
+                                          offset = event_object_offset},
+                                active = word(after_expiry, 0x18 + 1) ~= 0,
+                                update_callback = word(after_expiry, 0x18 + 1),
+                                sprite_slot = word(after_expiry, 0x12 + 1),
+                                lifetime = word(after_expiry, 0x2c + 1),
+                                animation_delay = word(after_expiry, 0x20 + 1),
+                                animation_cursor = word(after_expiry, 0x24 + 1),
+                                state_field = word(after_expiry, 0x2e + 1),
+                                position = {x = dword(after_expiry, 3) >> 16,
+                                            y = dword(after_expiry, 7) >> 16},
+                                state_hex = hex(after_expiry),
+                            }
+                        end
+                        dosbox.breakpoint_remove(0x01f7, 0x10c1)
+                        dosbox.breakpoint_set(0x01f7, 0x10b5, {once = true})
+                    end
                 end
                 if candidate.segment == 0x01f7 and candidate.offset == 0x10b5 then
                     dosbox.breakpoint_set(0x01f7, 0x1186, {once = true})
@@ -641,6 +698,8 @@ for attempt = 1, 4096 do
                 update_lookup = event_update_lookup,
                 update_candidates = event_update_candidates,
                 effect_call = event_effect_call,
+                lifetime_sample_request = lifetime_sample_count,
+                lifetime_samples = event_lifetime_samples,
                 camera_override = {
                     before = {x = saved_event_camera_x, y = saved_event_camera_y},
                     applied = {x = event_object_x, y = event_object_y},

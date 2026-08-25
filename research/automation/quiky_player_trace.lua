@@ -5,8 +5,11 @@ assert(type(trace_config) == "table", "TRACE_CONFIG must be a table")
 local timeout_ms = trace_config.timeout_ms or 30000
 local sample_count = trace_config.samples or 8
 local frames_between = trace_config.frames_between or 30
+local lightweight = trace_config.lightweight or false
 local focus_callback = trace_config.focus_callback or false
 local focus_callback_offset = trace_config.focus_callback_offset or 0x3ff8
+local object_callback_offset = trace_config.object_callback_offset or -1
+local object_callback_slot = trace_config.object_callback_slot or -1
 local map_focus = trace_config.map_focus or false
 local collision_focus = trace_config.collision_focus or false
 local property_focus = trace_config.property_focus or false
@@ -20,10 +23,16 @@ local map_height = trace_config.map_height or 30
 local input_key = trace_config.input_key or ""
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
+local force_position_x = trace_config.force_position_x or -1
+local force_position_y = trace_config.force_position_y or -1
+local force_word_3e = trace_config.force_word_3e or -1
+local force_camera_x = trace_config.force_camera_x or -1
+local force_camera_y = trace_config.force_camera_y or -1
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local trace_event_counter = 0
 local descriptor_census_done = false
+local force_applied = false
 
 local collision_offsets = {0x6484, 0x648e, 0x3a8a, 0x3a1f, 0x3df2}
 
@@ -33,6 +42,15 @@ local function is_collision_target(offset)
         if target == offset then return true end
     end
     return false
+end
+
+local function is_object_callback_target(offset)
+    return object_callback_offset >= 0 and offset == object_callback_offset
+end
+
+local function object_callback_matches(object)
+    return object_callback_slot < 0 or
+           (object ~= nil and object.sprite_slot == object_callback_slot)
 end
 
 local function next_trace_event()
@@ -47,6 +65,11 @@ end
 
 local function dword(s, index)
     return word(s, index) | (word(s, index + 2) << 16)
+end
+
+local function little_dword(value)
+    return string.char(value & 0xff, (value >> 8) & 0xff,
+                       (value >> 16) & 0xff, (value >> 24) & 0xff)
 end
 
 local function selector_word(selector, offset)
@@ -73,6 +96,14 @@ end
 local function object_snapshot(raw, selector, offset, index)
     local x_fixed = dword(raw, 3)
     local y_fixed = dword(raw, 7)
+    local function maybe_word(at)
+        if #raw < at + 2 then return nil end
+        return word(raw, at + 1)
+    end
+    local function maybe_byte(at)
+        if #raw < at + 1 then return nil end
+        return string.byte(raw, at + 1)
+    end
     return {
         index = index,
         selector = selector,
@@ -102,7 +133,29 @@ local function object_snapshot(raw, selector, offset, index)
         player_byte_0x3a = string.byte(raw, 0x3a + 1),
         player_byte_0x3b = string.byte(raw, 0x3b + 1),
         player_word_0x3e = word(raw, 0x3e + 1),
+        anim_delay = maybe_word(0x1e),
+        anim_delay_reload = maybe_word(0x20),
+        anim_table = maybe_word(0x22),
+        anim_table_cursor = maybe_word(0x24),
+        facing_byte = maybe_byte(0x28),
+        anim_state_byte = maybe_byte(0x2a),
+        anim_tick = maybe_word(0x40),
+        anim_aux_word = maybe_word(0x42),
+        sprite_height = maybe_word(0x72),
     }
+end
+
+local function animation_tables_snapshot()
+    local tables = {}
+    for _, offset in ipairs({0x3130, 0x3140, 0x3156, 0x3160, 0x316a, 0x3186, 0x31a4, 0x31ba}) do
+        local raw = dosbox.mem_read("ds", offset, 0x30) or ""
+        tables[string.format("0x%04x", offset)] = {
+            offset = offset,
+            size = #raw,
+            hex = hex(raw),
+        }
+    end
+    return tables
 end
 
 local function pool_snapshot()
@@ -129,7 +182,7 @@ local function pool_snapshot()
     for index = 0, 63 do
         local offset = pool_offset + index * stride
         local ok, raw_or_error = pcall(
-            dosbox.mem_read_selector, pool_selector, offset, 0x40
+            dosbox.mem_read_selector, pool_selector, offset, 0x78
         )
         if ok and raw_or_error and #raw_or_error >= 0x40 then
             local object = object_snapshot(raw_or_error, pool_selector, offset, index)
@@ -248,6 +301,17 @@ local function map_property_snapshot(hit)
 end
 
 local function static_globals()
+    local checkpoint_raw = dosbox.mem_read("ds", 0x8828, 0x20) or ""
+    local checkpoints = {}
+    for index = 0, 7 do
+        local base = index * 4 + 1
+        if base + 3 <= #checkpoint_raw then
+            checkpoints[#checkpoints + 1] = {
+                x = word(checkpoint_raw, base),
+                y = word(checkpoint_raw, base + 2),
+            }
+        end
+    end
     return {
         input_action_flags = dosbox.mem_read_word("ds", 0x8196),
         keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
@@ -258,7 +322,29 @@ local function static_globals()
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
+        level_state_index = dosbox.mem_read_word("ds", 0x85d2),
+        player_reset_counter = dosbox.mem_read_word("ds", 0x8822),
+        death_or_transition_state = dosbox.mem_read_word("ds", 0x89f0),
+        cereal_counter = dosbox.mem_read_word("ds", 0x880c),
+        reset_checkpoints = checkpoints,
+        puzzle_mask = dosbox.mem_read_word("ds", 0x60d8),
+        exit_flag = dosbox.mem_read_word("ds", 0x89e6),
+        transition_pending = dosbox.mem_read_word("ds", 0x89ec),
+        transition_done = dosbox.mem_read_word("ds", 0x89e0),
     }
+end
+
+local function apply_camera_override()
+    if force_camera_x >= 0 then
+        dosbox.mem_write("ds", 0x81c0,
+                         string.char(force_camera_x & 0xff,
+                                     (force_camera_x >> 8) & 0xff))
+    end
+    if force_camera_y >= 0 then
+        dosbox.mem_write("ds", 0x81c4,
+                         string.char(force_camera_y & 0xff,
+                                     (force_camera_y >> 8) & 0xff))
+    end
 end
 
 -- Read the table used by 5CC3 and the currently loaded MAP.  This is kept
@@ -451,6 +537,9 @@ local function is_property_target(offset)
 end
 
 local function arm_targets()
+    if object_callback_offset >= 0 then
+        dosbox.breakpoint_set(0x01f7, object_callback_offset, {once = true})
+    end
     if focus_callback then
         arm_callback_targets()
     end
@@ -472,7 +561,7 @@ local function arm_targets()
         dosbox.breakpoint_set(0x01f7, branch_entry_offset, {once = true})
         arm_branch_targets()
     end
-    if focus_callback or map_focus or collision_focus or property_focus or branch_focus or
+    if object_callback_offset >= 0 or focus_callback or map_focus or collision_focus or property_focus or branch_focus or
        (descriptor_census and not descriptor_census_done) then
         return
     end
@@ -488,7 +577,7 @@ callback_object_snapshot = function(hit)
     local offset = (registers.edi or 0) & 0xffff
     if selector == nil then return nil end
     local ok, raw_or_error = pcall(
-        dosbox.mem_read_selector, selector, offset, 0x40
+        dosbox.mem_read_selector, selector, offset, 0x78
     )
     if not ok or not raw_or_error or #raw_or_error < 0x40 then
         return {
@@ -655,6 +744,16 @@ local function scheduler_snapshot()
     return {base = 0x7566, stride = 8, entries = entries}
 end
 
+local function sampled_pool()
+    if lightweight then return nil end
+    return pool_snapshot()
+end
+
+local function sampled_scheduler()
+    if lightweight then return nil end
+    return scheduler_snapshot()
+end
+
 dosbox.output.awaiting_startup_replay = true
 dosbox.wait_frames(350)
 if select_level ~= "" then
@@ -663,6 +762,17 @@ else
     dosbox.key("KBD_space", true)
     dosbox.wait_frames(4)
     dosbox.key("KBD_space", false)
+end
+
+if force_camera_x >= 0 then
+    dosbox.mem_write("ds", 0x81c0,
+                     string.char(force_camera_x & 0xff,
+                                 (force_camera_x >> 8) & 0xff))
+end
+if force_camera_y >= 0 then
+    dosbox.mem_write("ds", 0x81c4,
+                     string.char(force_camera_y & 0xff,
+                                 (force_camera_y >> 8) & 0xff))
 end
 
 local samples = {}
@@ -679,6 +789,7 @@ for sequence = 1, sample_count do
         dosbox.wait_frames(frames_between)
         experiment_frame = experiment_frame + frames_between
     end
+    apply_camera_override()
     arm_targets()
     dosbox.debug_continue()
     local hit = wait_hit("player/object update breakpoint")
@@ -688,8 +799,8 @@ for sequence = 1, sample_count do
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
         globals = static_globals(),
-        pool = pool_snapshot(),
-        scheduler = scheduler_snapshot(),
+        pool = sampled_pool(),
+        scheduler = sampled_scheduler(),
         related_breakpoints = {},
     }
     local initial_hit = hit
@@ -722,6 +833,63 @@ for sequence = 1, sample_count do
         }
         record_collision(sample, initial_hit)
     end
+    if is_object_callback_target(initial_hit.offset) then
+        -- The common 8D20 callback also services pickups (for example slot
+        -- 607).  Walk callback returns until the requested slot is reached so
+        -- a puzzle-letter probe cannot be satisfied by the first unrelated
+        -- object in scheduler order.
+        local callback_hit = initial_hit
+        local callback_object = callback_object_snapshot(callback_hit)
+        local skipped_callbacks = 0
+        while not object_callback_matches(callback_object) and skipped_callbacks < 128 do
+            local stack = dosbox.mem_read(
+                "ss", (callback_hit.registers.esp or 0) & 0xffff, 4) or ""
+            if #stack < 4 then break end
+            local return_offset = word(stack, 1)
+            dosbox.breakpoint_set(callback_hit.segment, return_offset, {once = true})
+            dosbox.debug_continue()
+            wait_hit("unmatched object callback return")
+            dosbox.breakpoint_set(0x01f7, object_callback_offset, {once = true})
+            dosbox.debug_continue()
+            callback_hit = wait_hit("next object callback")
+            callback_object = callback_object_snapshot(callback_hit)
+            skipped_callbacks = skipped_callbacks + 1
+        end
+        sample.object_callback = {
+            breakpoint = {segment = callback_hit.segment, offset = callback_hit.offset},
+            callback_offset = callback_hit.offset,
+            registers = callback_hit.registers,
+            object = callback_object,
+            skipped_callbacks = skipped_callbacks,
+            code_hex = hex(dosbox.mem_read_selector(
+                callback_hit.registers.cs, callback_hit.registers.eip, 16) or ""),
+        }
+        local stack = dosbox.mem_read(
+            "ss", (callback_hit.registers.esp or 0) & 0xffff, 4) or ""
+        if #stack >= 4 and callback_object ~= nil then
+            local return_offset = word(stack, 1)
+            sample.object_callback.return_expected = {
+                segment = callback_hit.segment, offset = return_offset,
+            }
+            dosbox.breakpoint_set(callback_hit.segment, return_offset, {once = true})
+            dosbox.debug_continue()
+            local returned = wait_hit("object callback return")
+            sample.object_callback.return_actual = {
+                segment = returned.segment, offset = returned.offset,
+            }
+            local ok, raw_or_error = pcall(
+                dosbox.mem_read_selector, callback_object.selector,
+                callback_object.offset, 0x78)
+            if ok and raw_or_error and #raw_or_error >= 0x40 then
+                sample.object_callback.post_object = object_snapshot(
+                    raw_or_error, callback_object.selector, callback_object.offset, -1)
+            else
+                sample.object_callback.post_object_read_error =
+                    ok and "short object state" or tostring(raw_or_error)
+            end
+            sample.object_callback.post_globals = static_globals()
+        end
+    end
     if branch_focus and is_branch_target(initial_hit.offset) then
         hit = capture_branch_sequence(sample, initial_hit)
     end
@@ -736,8 +904,8 @@ for sequence = 1, sample_count do
         sample.breakpoint = {segment = hit.segment, offset = hit.offset}
         sample.registers = hit.registers
         sample.globals = static_globals()
-        sample.pool = pool_snapshot()
-        sample.scheduler = scheduler_snapshot()
+        sample.pool = sampled_pool()
+        sample.scheduler = sampled_scheduler()
     end
     if hit.offset == 0x3f27 or (focus_callback and hit.offset == focus_callback_offset) then
         local callback_object = callback_object_snapshot(hit)
@@ -748,6 +916,7 @@ for sequence = 1, sample_count do
             stack_hex = hex(dosbox.mem_read(
                 "ss", (hit.registers.esp or 0) & 0xffff, 12) or ""),
             object = callback_object,
+            animation_tables = animation_tables_snapshot(),
         }
         local stack = dosbox.mem_read(
             "ss", (hit.registers.esp or 0) & 0xffff, 4) or ""
@@ -810,7 +979,7 @@ for sequence = 1, sample_count do
             }
             local ok, raw_or_error = pcall(
                 dosbox.mem_read_selector,
-                callback_object.selector, callback_object.offset, 0x40
+                callback_object.selector, callback_object.offset, 0x78
             )
             if ok and raw_or_error and #raw_or_error >= 0x40 then
                 sample.player_callback.post_object = object_snapshot(
@@ -846,16 +1015,52 @@ for sequence = 1, sample_count do
             target_kind = 0x64,
         }
     end
+    if not force_applied and sample.player_callback ~= nil and
+       (force_position_x >= 0 or force_position_y >= 0 or force_word_3e >= 0) then
+        local object = sample.player_callback.object
+        local before = object.position
+        if force_position_x >= 0 then
+            dosbox.mem_write_selector(object.selector, object.offset + 0x02,
+                                      little_dword(force_position_x << 16))
+        end
+        if force_position_y >= 0 then
+            dosbox.mem_write_selector(object.selector, object.offset + 0x06,
+                                      little_dword(force_position_y << 16))
+        end
+        if force_word_3e >= 0 then
+            dosbox.mem_write_selector(object.selector, object.offset + 0x3e,
+                                      string.char(force_word_3e & 0xff,
+                                                  (force_word_3e >> 8) & 0xff))
+        end
+        sample.forced_position = {
+            before = before,
+            after = {x = force_position_x >= 0 and force_position_x or before.x,
+                     y = force_position_y >= 0 and force_position_y or before.y},
+            object = {selector = object.selector, offset = object.offset},
+            word_0x3e = force_word_3e >= 0 and force_word_3e or nil,
+        }
+        force_applied = true
+    end
     samples[#samples + 1] = sample
 end
 
 local capture = stop_for_capture()
 local result = {
     trace_schema_version = trace_config.schema_version or 1,
+    controls = {
+        force_position_x = force_position_x,
+        force_position_y = force_position_y,
+        force_applied = force_applied,
+        force_camera_x = force_camera_x,
+        force_camera_y = force_camera_y,
+        focus_callback = focus_callback,
+        object_callback_offset = object_callback_offset,
+        object_callback_slot = object_callback_slot,
+    },
     samples = samples,
     final_capture_registers = capture.registers,
     final_globals = static_globals(),
-    final_pool = pool_snapshot(),
+    final_pool = sampled_pool(),
 }
 for _, sample in ipairs(samples) do
     if sample.descriptor_census ~= nil then
