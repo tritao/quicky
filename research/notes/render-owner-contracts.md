@@ -141,6 +141,15 @@ and row stride `DS:657E`, reads the raw word, and tests bit `0x4000`. The
 remaining open question is the game-level name/coverage of bit `0x4000`,
 not the helper identity or its raw behavior.
 
+A one-shot phase probe at owner offset `0x0078` forcing `DS:0x88AE = 2`
+confirms the first linked-record boundary. B33B advances the global phase to
+`3`; its `+0x36` record (pool offset `0x0168`, callback B25D) runs once in
+the same scheduler window and then stops receiving callback entries. The
+`+0x2A` record (pool offset `0x00F0`, callback B226) remains independently
+installed and continues its animation/render callbacks through at least the
+first 27 phase-3 passes. The trace now records `DS:0x88AE` in every frame so later
+phase transitions can be separated from renderer queue effects.
+
 The movement branches are already exact at the instruction level:
 
 - `+0x34 >= 1` enters the transition helper at `B84D`.

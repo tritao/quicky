@@ -164,6 +164,7 @@ end
 
 local function globals_snapshot()
     return {
+        game_phase = dosbox.mem_read_byte("ds", 0x88ae),
         camera_x = dosbox.mem_read_word("ds", 0x81c0),
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
         target_active_count = dosbox.mem_read_word("ds", 0x8806),
