@@ -269,6 +269,8 @@ class PlayerTraceConfig:
     input_hold_key: str | None = None
     input_hold_frames: int = 0
     input_phase_through_callback: bool = False
+    input_phase_hold_callbacks: int = 1
+    minimal_callback_capture: bool = False
     map_patch_cell: tuple[int, int, int] | None = None
     map_patch_descriptor: int | None = None
     map_patch_word: int | None = None
@@ -401,6 +403,8 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_hold_key": config.input_hold_key or "",
         "input_hold_frames": config.input_hold_frames,
         "input_phase_through_callback": config.input_phase_through_callback,
+        "input_phase_hold_callbacks": config.input_phase_hold_callbacks,
+        "minimal_callback_capture": config.minimal_callback_capture,
         "map_patch_cell": list(config.map_patch_cell) if config.map_patch_cell else None,
         "map_patch_descriptor": config.map_patch_descriptor,
         "map_patch_word": config.map_patch_word,
@@ -1080,6 +1084,14 @@ def build_parser() -> argparse.ArgumentParser:
         "--player-input-phase-through-callback", action="store_true",
         help="hold each input phase through its sampled callback barrier",
     )
+    parser.add_argument(
+        "--player-input-phase-hold-callbacks", type=int, default=1,
+        help="callback barriers to hold a through-callback phase (default 1)",
+    )
+    parser.add_argument(
+        "--player-minimal-callback-capture", action="store_true",
+        help="omit diagnostic global/pool snapshots while retaining full callback records",
+    )
     parser.add_argument("--player-capture-record", action="store_true",
                         help="capture the complete 0x78-byte player record before/after each callback")
     parser.add_argument("--player-patch", action="append", type=parse_memory_patch,
@@ -1234,6 +1246,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError(
             "--player-input-phase-through-callback requires :0 phases"
         )
+    if args.player_input_phase_hold_callbacks < 1:
+        raise TraceError("--player-input-phase-hold-callbacks must be positive")
     if args.player_capture_record and not (
             args.player_focus_callback or args.player_object_focus):
         raise TraceError("--player-capture-record requires player callback or object focus")
@@ -1435,6 +1449,8 @@ def main(argv: list[str] | None = None) -> int:
                 input_hold_key=args.player_input_hold_key,
                 input_hold_frames=args.player_input_hold_frames,
                 input_phase_through_callback=args.player_input_phase_through_callback,
+                input_phase_hold_callbacks=args.player_input_phase_hold_callbacks,
+                minimal_callback_capture=args.player_minimal_callback_capture,
                 map_patch_cell=args.player_map_patch_cell,
                 map_patch_descriptor=args.player_map_patch_descriptor,
                 map_patch_word=args.player_map_patch_word,

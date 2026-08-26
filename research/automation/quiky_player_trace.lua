@@ -53,7 +53,9 @@ local map_patch_descriptor = trace_config.map_patch_descriptor
 local map_patch_word = trace_config.map_patch_word
 local input_phases = trace_config.input_phases or {}
 local input_phase_through_callback = trace_config.input_phase_through_callback or false
+local input_phase_hold_callbacks = trace_config.input_phase_hold_callbacks or 1
 local capture_player_record = trace_config.capture_player_record or false
+local minimal_callback_capture = trace_config.minimal_callback_capture or false
 -- Full pool snapshots are useful for discovery, but they are expensive: each
 -- sample walks 64 records and decodes every field.  Once the callback has
 -- been focused and the 0x78-byte player record is requested, the callback
@@ -231,7 +233,7 @@ local function object_snapshot(raw, selector, offset, index)
         index = index,
         selector = selector,
         offset = offset,
-        state_hex = hex(raw),
+        state_hex = minimal_callback_capture and nil or hex(raw),
         position = {
             x_fixed = x_fixed,
             y_fixed = y_fixed,
@@ -1461,7 +1463,7 @@ if transition_focus then
             warmup_frames = transition_warmup_frames,
             events = events,
         },
-        final_globals = static_globals(),
+        final_globals = minimal_callback_capture and nil or static_globals(),
     }
     return
 end
@@ -1472,6 +1474,7 @@ local continuous_input_active = false
 local continuous_input_released = false
 local continuous_input_callbacks = 0
 local active_phase_keys = nil
+local active_phase_callbacks_remaining = 0
 
 local function key_is_continuously_held(key)
     if input_hold_key == "" then return false end
@@ -1489,6 +1492,7 @@ local function release_phase_through_callback()
         end
     end
     active_phase_keys = nil
+    active_phase_callbacks_remaining = 0
 end
 
 for sequence = 1, sample_count do
@@ -1584,10 +1588,14 @@ for sequence = 1, sample_count do
         experiment_frame = experiment_frame + sample_frames_between
         end
         if phase_through_callback_keys ~= nil then
+            if active_phase_keys ~= nil then
+                release_phase_through_callback()
+            end
             for _, key in ipairs(phase_through_callback_keys) do
                 dosbox.key(key, true)
             end
             active_phase_keys = phase_through_callback_keys
+            active_phase_callbacks_remaining = input_phase_hold_callbacks
         end
         local map_patch = apply_player_map_patch()
         arm_targets()
@@ -1615,7 +1623,7 @@ for sequence = 1, sample_count do
         breakpoint = {segment = hit.segment, offset = hit.offset},
         breakpoint_owners = hit.breakpoint_owners,
         registers = hit.registers,
-        globals = static_globals(),
+        globals = minimal_callback_capture and nil or static_globals(),
         related_breakpoints = {},
     }
     if object_focus ~= nil then
@@ -1708,7 +1716,9 @@ for sequence = 1, sample_count do
         }
         sample.breakpoint = {segment = hit.segment, offset = hit.offset}
         sample.registers = hit.registers
-        sample.globals = static_globals()
+        if not minimal_callback_capture then
+            sample.globals = static_globals()
+        end
         if not lean_player_capture then
             sample.pool = pool_snapshot()
             sample.scheduler = scheduler_snapshot()
@@ -1719,7 +1729,7 @@ for sequence = 1, sample_count do
        (focus_callback and (hit.offset == focus_callback_offset or
                             (probe_release_emitter and hit.offset == 0x470c))) then
         local callback_object = callback_object_snapshot(hit)
-        local callback_globals = static_globals()
+        local callback_globals = minimal_callback_capture and {} or static_globals()
         sample.player_callback = {
             breakpoint = {segment = hit.segment, offset = hit.offset},
             callback_offset = hit.offset,
@@ -1985,16 +1995,18 @@ for sequence = 1, sample_count do
                     raw_or_error, callback_object.selector, callback_object.offset, -1
                 )
                 sample.player_callback.post_object.state_size = read_size
-                sample.player_callback.writes = hex_differences(
-                    callback_object.state_hex,
-                    sample.player_callback.post_object.state_hex
-                )
-                sample.player_callback.post_globals = static_globals()
+                if not minimal_callback_capture then
+                    sample.player_callback.writes = hex_differences(
+                        callback_object.state_hex,
+                        sample.player_callback.post_object.state_hex
+                    )
+                end
+                sample.player_callback.post_globals = minimal_callback_capture and {} or static_globals()
             else
                 sample.player_callback.post_object_read_error =
                     ok and "short object state" or tostring(raw_or_error)
             end
-            sample.player_callback.post_globals = static_globals()
+            sample.player_callback.post_globals = minimal_callback_capture and {} or static_globals()
             sample.player_callback.global_writes = numeric_differences(
                 callback_globals, sample.player_callback.post_globals
             )
@@ -2044,8 +2056,14 @@ for sequence = 1, sample_count do
     if phase_through_callback_keys ~= nil then
         sample.input_phase_through_callback = {
             keys = phase_through_callback_keys,
+            hold_callbacks = input_phase_hold_callbacks,
         }
-        release_phase_through_callback()
+    end
+    if active_phase_keys ~= nil then
+        active_phase_callbacks_remaining = active_phase_callbacks_remaining - 1
+        if active_phase_callbacks_remaining <= 0 then
+            release_phase_through_callback()
+        end
     end
     samples[#samples + 1] = sample
 end
@@ -2061,8 +2079,8 @@ local result = {
     trace_schema_version = trace_config.schema_version or 1,
     samples = samples,
     final_capture_registers = capture.registers,
-    final_globals = static_globals(),
-    final_pool = pool_snapshot(),
+    final_globals = minimal_callback_capture and nil or static_globals(),
+    final_pool = minimal_callback_capture and nil or pool_snapshot(),
 }
 for _, sample in ipairs(samples) do
     if sample.descriptor_census ~= nil then

@@ -121,8 +121,12 @@ class QuikyTraceTests(unittest.TestCase):
             startup_recording=recording,
             input_phases=(InputPhase(("KBD_space", "KBD_up"), 0),),
             input_phase_through_callback=True,
+            input_phase_hold_callbacks=8,
+            minimal_callback_capture=True,
         ))
         self.assertTrue(payload["input_phase_through_callback"])
+        self.assertEqual(payload["input_phase_hold_callbacks"], 8)
+        self.assertTrue(payload["minimal_callback_capture"])
         self.assertEqual(payload["input_phases"][0]["keys"], ["KBD_space", "KBD_up"])
 
     def test_input_phase_parser_rejects_invalid_specs(self):
