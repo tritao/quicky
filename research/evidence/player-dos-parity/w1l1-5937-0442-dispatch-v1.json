@@ -7,7 +7,9 @@
     "callback": "01F7:3FF8",
     "trace": "/tmp/player-w1l1-5937-0442-v3.json",
     "trace_sha256": "520cff586dd9408088c17e71d616c50d1a0d5e242e29f6bb162339e4890832c1",
-    "trace_script_sha256": "eaa36684050f2012f242f2a484792677bdd5ddbbedfe055989142e1dce5682b7"
+    "trace_script_sha256": "eaa36684050f2012f242f2a484792677bdd5ddbbedfe055989142e1dce5682b7",
+    "target_watch_trace": "/tmp/player-w1l1-5937-targets-v3.json",
+    "target_watch_trace_sha256": "5a5cab06c567a0f36c61765a73fd796c48251f8e80052f0a9616c92d0dd0971b"
   },
   "method": {
     "samples": 4,
@@ -51,6 +53,11 @@
     }
   ],
   "status": "selector_and_record_capture_only",
+  "target_watch_observation": {
+    "executed": ["01F7:0517 at frames 0 and 8"],
+    "not_observed": ["01F7:04DF in the two-sample W1L1 run"],
+    "scope": "The target trace confirms execution at 0517 but does not establish that its indirect callback is simulation-affecting."
+  },
   "does_not_prove": [
     "the indirect callback body",
     "whether the callback writes player simulation state",
