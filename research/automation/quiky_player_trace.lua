@@ -1045,7 +1045,7 @@ local function record_branch(sample, hit)
         dx_mask_0x20 = dx & 0x20,
         dx_mask_0x40 = dx & 0x40,
         object = callback_object_snapshot(hit),
-        globals = static_globals(),
+        globals = minimal_callback_capture and nil or static_globals(),
     }
     sample.branch_events = sample.branch_events or {}
     if hit.offset == branch_entry_offset then
@@ -1157,7 +1157,7 @@ local function record_collision(sample, hit)
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
         object = callback_object_snapshot(hit),
-        globals = static_globals(),
+        globals = minimal_callback_capture and nil or static_globals(),
     }
     if hit.offset == 0x3986 then
         local code = dosbox.mem_read_selector(hit.segment, hit.offset, 0x18)
@@ -1224,12 +1224,55 @@ local function record_collision(sample, hit)
     return collision
 end
 
+local function external_dispatch_snapshot(hit)
+    if hit.offset ~= 0x0442 then return nil end
+    local registers = hit.registers or {}
+    local selector_raw = dosbox.mem_read("ds", 0x6d8a, 4) or ""
+    local table_offset = #selector_raw >= 4 and word(selector_raw, 1) or nil
+    local table_selector = #selector_raw >= 4 and word(selector_raw, 3) or nil
+    local selector_index = (registers.ebx or 0) & 0xffff
+    local index_offset = 0x6d8e + selector_index * 2
+    local ok_index, table_index = pcall(dosbox.mem_read_word, "ds", index_offset)
+    if not ok_index then table_index = nil end
+    local ok_stride, stride = pcall(dosbox.mem_read_word, "ds", 0x30d2)
+    if not ok_stride then stride = nil end
+    local record_offset = nil
+    local record_raw = nil
+    if table_offset ~= nil and table_selector ~= nil and table_index ~= nil and stride ~= nil then
+        record_offset = table_offset + table_index * stride
+        local ok_record, raw = pcall(
+            dosbox.mem_read_selector, table_selector, record_offset, 0x2c
+        )
+        if ok_record then record_raw = raw end
+    end
+    local callback_offset = nil
+    local callback_selector = nil
+    local callback_data = nil
+    if record_raw ~= nil and #record_raw >= 0x1c then
+        callback_offset = word(record_raw, 0x18 + 1)
+        callback_selector = word(record_raw, 0x1a + 1)
+        callback_data = dword(record_raw, 0x18 + 1)
+    end
+    return {
+        selector_index = selector_index,
+        index_address = {segment = registers.ds,
+                         offset = index_offset},
+        table_index = table_index,
+        table_pointer = {selector = table_selector, offset = table_offset},
+        table_stride = stride,
+        record = {selector = table_selector, offset = record_offset},
+        callback = {word_0x18 = callback_offset, word_0x1a = callback_selector,
+                    dword_0x18 = callback_data},
+        record_hex = record_raw ~= nil and hex(record_raw) or nil,
+    }
+end
+
 local function record_execute_watch(sample, hit)
     local index = patch_watch.is_execute_watch(
         execute_watches, hit.segment, hit.offset)
     if index == nil then return false end
     sample.execute_watches = sample.execute_watches or {}
-    sample.execute_watches[#sample.execute_watches + 1] = {
+    local event = {
         event_index = next_trace_event(),
         frame_index = sample.frame_index,
         index = index,
@@ -1238,10 +1281,11 @@ local function record_execute_watch(sample, hit)
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
         object = callback_object_snapshot(hit),
-        globals = static_globals(),
+        globals = minimal_callback_capture and nil or static_globals(),
     }
-    sample.execute_watch = sample.execute_watches[
-        #sample.execute_watches]
+    event.external_dispatch = external_dispatch_snapshot(hit)
+    sample.execute_watches[#sample.execute_watches + 1] = event
+    sample.execute_watch = event
     return true
 end
 

@@ -569,6 +569,14 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("--player-collision-event-limit", host_source)
         self.assertIn("--player-collision-repeat-limit", host_source)
 
+    def test_player_external_dispatch_watch_captures_raw_selected_record(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("local function external_dispatch_snapshot", source)
+        self.assertIn("0x6d8e + selector_index * 2", source)
+        self.assertIn("record_hex = record_raw ~= nil and hex(record_raw)", source)
+        self.assertIn("event.external_dispatch = external_dispatch_snapshot(hit)", source)
+
     def test_player_record_capture_has_full_state_delta_path(self):
         script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
         source = script.read_text(encoding="utf-8")

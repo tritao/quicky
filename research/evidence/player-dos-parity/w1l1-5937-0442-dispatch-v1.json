@@ -1,0 +1,60 @@
+{
+  "schema": "quiky.player-5937-0442-dispatch.v1",
+  "purpose": "Record the table-selected dispatch record observed at 5937 before the player callback gate; do not assign semantic names to the indirect callback words.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "callback": "01F7:3FF8",
+    "trace": "/tmp/player-w1l1-5937-0442-v3.json",
+    "trace_sha256": "520cff586dd9408088c17e71d616c50d1a0d5e242e29f6bb162339e4890832c1",
+    "trace_script_sha256": "eaa36684050f2012f242f2a484792677bdd5ddbbedfe055989142e1dce5682b7"
+  },
+  "method": {
+    "samples": 4,
+    "level": "W1L1",
+    "minimal_callback_capture": true,
+    "execute_watches": ["01F7:5937", "01F7:0442"],
+    "interpretation": "At 0442 entry, capture DS:6D8E[register EBX], DS:6D8A table pointer, DS:30D2 stride, the selected 0x2C-byte record, and raw words at record +0x18/+0x1A. The raw callback words remain address-qualified."
+  },
+  "observations": [
+    {
+      "frame": 0,
+      "selector_index": "0x0006",
+      "table_index": "0x000c",
+      "record": "028F:0210",
+      "record_words_0x18_0x1a": ["0x0000", "0x0517"],
+      "record_dword_0x18": "0x05170000"
+    },
+    {
+      "frame": 8,
+      "selector_index": "0x0005",
+      "table_index": "0x000a",
+      "record": "028F:01B8",
+      "record_words_0x18_0x1a": ["0x0000", "0x04DF"],
+      "record_dword_0x18": "0x04DF0000"
+    },
+    {
+      "frame": 16,
+      "selector_index": "0x0005",
+      "table_index": "0x000a",
+      "record": "028F:01B8",
+      "record_words_0x18_0x1a": ["0x0000", "0x04DF"],
+      "record_dword_0x18": "0x04DF0000"
+    },
+    {
+      "frame": 24,
+      "selector_index": "0x0005",
+      "table_index": "0x000a",
+      "record": "028F:01B8",
+      "record_words_0x18_0x1a": ["0x0000", "0x04DF"],
+      "record_dword_0x18": "0x04DF0000"
+    }
+  ],
+  "status": "selector_and_record_capture_only",
+  "does_not_prove": [
+    "the indirect callback body",
+    "whether the callback writes player simulation state",
+    "coverage of all DS:60D8 dispatch bits"
+  ],
+  "next": "Trace each changed DS:60D8 bit with the callback target kept address-qualified and compare player/global state before and after 5937."
+}
