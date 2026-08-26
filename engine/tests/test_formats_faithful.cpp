@@ -621,10 +621,25 @@ void testRecoveredW1L1AmbientAndDedicatedContracts() {
     bonusCloud.reset(simulation);
     bonusCloud.updateStreaming(simulation, 16, 16);
     bonusCloud.gameplayStateForSetup().puzzleMask60d8 = 0x007f;
+    bonusCloud.gameplayStateForSetup().score881c = 750;
+    bonusCloud.gameplayStateForSetup().ammo880c = 10;
     bonusCloud.tick(simulation, world, quiky::InputState(), output);
     const quiky::LevelEvent bonusGoal = bonusCloud.consumeEvent();
     assert(bonusGoal.type == quiky::LevelEventType::LevelExit);
     assert(bonusGoal.targetLevel == "W1L4.MAP");
+    assert(bonusCloud.score() == 2950);
+    assert(bonusCloud.gameplayState().score881c == 2950);
+    assert(bonusCloud.gameplayState().ammo880c == 0);
+    assert(bonusCloud.gameplayState().pendingEvent612e == 12);
+    assert(bonusGoal.stateWrites.size() == 3);
+    assert(bonusGoal.stateWrites[0].address == 0x881c);
+    assert(bonusGoal.stateWrites[0].before == 750);
+    assert(bonusGoal.stateWrites[0].after == 2950);
+    assert(bonusGoal.stateWrites[1].address == 0x880c);
+    assert(bonusGoal.stateWrites[1].before == 10);
+    assert(bonusGoal.stateWrites[1].after == 0);
+    assert(bonusGoal.stateWrites[2].address == 0x612e);
+    assert(bonusGoal.stateWrites[2].after == 12);
 
     quiky::LevelSession leaves("W1L1.MAP", map, makeSingleArea(0x2a), config);
     leaves.reset(simulation);

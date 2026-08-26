@@ -343,8 +343,8 @@ void drawEntityMarkers(quiky::IndexedSurface &surface, quiky::Palette &palette,
 
 void updateTitle(SDL_Window *window, const std::string &mapName,
                  const quiky::PlayerRecord &player, std::uint64_t frame,
-                 std::uint16_t slot, bool paused, const quiky::LevelSession &level,
-                 std::uint32_t carriedScore, std::uint32_t carriedDeaths,
+                 std::uint16_t slot, bool paused,
+                 const quiky::LevelSession &level,
                  const std::string &eventText) {
     std::ostringstream title;
     title << "Quiky | " << mapName << " | " << (paused ? "PAUSED | " : "")
@@ -354,8 +354,8 @@ void updateTitle(SDL_Window *window, const std::string &mapName,
           << " vx=" << player.velocityX.floorPixels()
           << " vy=" << player.velocityY.floorPixels()
           << " mode=" << static_cast<int>(player.mode37)
-          << " score=" << carriedScore + level.score()
-          << " deaths=" << carriedDeaths + level.deaths();
+          << " score=" << level.score()
+          << " deaths=" << level.deaths();
     if (!eventText.empty()) {
         title << " " << eventText;
     }
@@ -492,8 +492,6 @@ int main(int argc, char **argv) {
         std::uint64_t accumulator = 0;
         std::uint64_t titleTime = 0;
         std::uint64_t eventUntil = 0;
-        std::uint32_t carriedScore = 0;
-        std::uint32_t carriedDeaths = 0;
         std::string eventText;
 
         while (running) {
@@ -607,8 +605,6 @@ int main(int argc, char **argv) {
                                 quiky::composeGameplayFrame(
                                     nextWorld, next->gamebar().surface(), 0, 0);
                             replaceSurfaceTexture(sdl, nextSurface);
-                            carriedScore += runtime->session().score();
-                            carriedDeaths += runtime->session().deaths();
                             runtime.swap(next);
                             output.player = simulation.state().player;
                             playerAnimation.reset();
@@ -690,8 +686,7 @@ int main(int argc, char **argv) {
                     eventText.clear();
                 }
                 updateTitle(sdl.window, runtime->mapName(), player, frame,
-                            record.slot, paused, runtime->session(), carriedScore,
-                            carriedDeaths, eventText);
+                            record.slot, paused, runtime->session(), eventText);
                 titleTime = now;
             }
             if (accumulator < kTickNanoseconds) {

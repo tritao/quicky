@@ -125,8 +125,9 @@ advances the callback state at `object+0x32`, performs the exact five-cell
 MAP/`DS:6986` probe order at states `4/6/8/10`, and creates three-tick ICO
 children through the recovered `16CE -> 10B5` contract. State 10 clears the
 parent and publishes the address-qualified terminal coordinates
-`DS:8828/DS:882A`; the indexed `01F7:1AAA` transition consumer and authored
-selector population remain explicit unresolved boundaries.
+`DS:8828/DS:882A`; the indexed `01F7:1AAA` transition consumer is now modeled
+for the observed W1L4 row `(288,144)`, while other authored selector rows remain
+data boundaries.
 
 The remaining W1L1 authored visual callbacks now publish their closed static
 contracts without being folded into generic gameplay behavior:
@@ -190,8 +191,8 @@ effect types intentionally remain callback-free parent declarations with their
 `LOOP_W1.ICO` child path. The test also verifies that the callback-bearing
 subset at the native player start is published through the scheduler. This is
 an inventory gate, not a claim that every family has complete gameplay parity:
-dedicated-event seed/lifetime, exact collectible overlap, and the transition
-consumer remain explicit boundaries above. The falling-leaf
+dedicated-event seed/lifetime and the transition presentation/menu handoff
+remain explicit boundaries above. The falling-leaf
 `01F7:4727/47E7` closure is now implemented: a replay may inject the captured
 `DS:6468/646C` ring, and the native session publishes the exact signed table
 choice, fixed-point fall, animation delay/cursor, and sprite slot.

@@ -24,6 +24,21 @@ std::string areaNameFor(const std::string &mapName) {
     return mapName.substr(0, extension) + ".ARE";
 }
 
+bool transitionSpawnFor(const std::string &mapName, SpawnPoint &spawn) {
+    std::string upper(mapName);
+    for (std::size_t index = 0; index < upper.size(); ++index) {
+        upper[index] = static_cast<char>(
+            std::toupper(static_cast<unsigned char>(upper[index])));
+    }
+    if (upper == "W1L4.MAP") {
+        // Native post-1AAA checkpoint: DS:85D2=0 selects the first authored
+        // transition row, whose fixed-point player position is (288,144).
+        spawn = SpawnPoint(288, 144);
+        return true;
+    }
+    return false;
+}
+
 } // namespace
 
 std::unique_ptr<LevelRuntime> LevelRuntime::load(
@@ -126,6 +141,25 @@ std::unique_ptr<LevelRuntime> LevelRuntime::reload(
         trace->targetMap = targetMapName;
         trace->stages.clear();
         trace->stages.push_back(LevelReloadStage::TransitionGate5010);
+        trace->hasPlayerSpawn = false;
+        trace->playerSpawnX = 0;
+        trace->playerSpawnY = 0;
+    }
+
+    const LevelGameplayState previousState = _session.gameplayState();
+    const std::uint32_t previousDeaths = _session.deaths();
+    LevelSessionConfig nextConfig = config;
+    SpawnPoint transitionSpawn;
+    if (!nextConfig.hasSpawn && transitionSpawnFor(targetMapName,
+                                                    transitionSpawn)) {
+        nextConfig.hasSpawn = true;
+        nextConfig.spawnX = transitionSpawn.x;
+        nextConfig.spawnY = transitionSpawn.y;
+        if (trace != 0) {
+            trace->hasPlayerSpawn = true;
+            trace->playerSpawnX = transitionSpawn.x;
+            trace->playerSpawnY = transitionSpawn.y;
+        }
     }
 
     // 0908/0931 release the old pooled records before the new resource
@@ -141,7 +175,7 @@ std::unique_ptr<LevelRuntime> LevelRuntime::reload(
     // parsed resource handoff; no presentation-only copy routine is exposed
     // as gameplay state.
     std::unique_ptr<LevelRuntime> next = LevelRuntime::load(
-        archive, targetMapName, _playerBobName, config);
+        archive, targetMapName, _playerBobName, nextConfig);
     if (trace != 0) {
         trace->stages.push_back(LevelReloadStage::TransitionBufferCopy0D5A);
         trace->stages.push_back(LevelReloadStage::PlayerReposition1AAA);
@@ -150,6 +184,8 @@ std::unique_ptr<LevelRuntime> LevelRuntime::reload(
     // reset reconstructs the target session, initializes the 0x78 player
     // record, and publishes the target region's scheduler entries.
     next->reset(simulation);
+    next->_session.restorePersistentStateForReload(previousState,
+                                                   previousDeaths);
     if (trace != 0) {
         trace->stages.push_back(LevelReloadStage::AnimationLoader5D38);
         trace->stages.push_back(LevelReloadStage::CameraRebuild321F);

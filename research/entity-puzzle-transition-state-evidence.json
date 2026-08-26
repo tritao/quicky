@@ -1,0 +1,47 @@
+{
+  "schema": "entity-puzzle-transition-state-evidence-v1",
+  "purpose": "Focused static/runtime contract for W1L1 completion score writes and the 5010 -> 1AAA reload boundary.",
+  "inputs": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "static_closure": "research/ghidra/transition-reload-closure.json",
+    "processor": "x86:LE:16:Protected Mode",
+    "ghidra": "12.1.3"
+  },
+  "static_contract": {
+    "completion_consumer": "01D7:14E1",
+    "completion_consumer_behavior": "Consumes DS:880C in the completion presentation, adding 0x14 to the score per pending unit and redrawing the score.",
+    "all_letters_branch": "01D7:16C6 adds 0x7D0 when DS:60D8 == 0x007F and continues through 1709.",
+    "reload_entry": "01D7:5010",
+    "reload_player_consumer": "01F7:1AAA reads the selected DS:85D2 transition row, writes the new player fixed-point position, reinstalls callback 01F7:3F27, sets +0x29, clears DS:89EA, and calls 5D38.",
+    "persistent_fields": ["DS:881C/881E", "DS:880A", "DS:8822", "DS:8824"],
+    "reset_fields": ["DS:60D8", "DS:880C", "DS:8810", "DS:612E", "DS:89EA"]
+  },
+  "dynamic_trace": {
+    "trace_schema": "quiky-goal-transition-trace-v1",
+    "trace": "research/evidence/entity-puzzle-transition-state-trace.json",
+    "trace_sha256": "cac89da073f835b891d25b4f9b9969ce24b504fa2e8bf41b0a37f6e6c5d38474",
+    "command": "python3 research/tools/quiky_goal_transition_trace.py --runtime-dir research/build/traces/player-w1l1-goal-cloud-current/goal/game --native-goal --native-cloud-focus --native-post-input --deep --force-player-x 256 --force-player-y 390 --timeout 20 --output /tmp/quiky-goal-transition-state.json",
+    "script": "research/automation/quiky_goal_transition_trace.lua",
+    "script_sha256": "53c9cbaddfce7f67bc66ea7c94614931c5191e57d5c40bb1aaa70317f7e83970",
+    "archive_sha256": "d4ef4ed3c1a2324d36c18bdeb78fb373d80f9ec76f7903f4fbdc1ed7a58da19c",
+    "observations": [
+      {"checkpoint": "01D7:5010", "score": 2950, "ammo": 0, "lives": 4, "current_health": 3, "maximum_health": 3, "puzzle_mask": 127, "pending_action": 12},
+      {"checkpoint": "0207:18C7", "lookup": "GAMEDATA\\W1L4.map", "score": 2950, "ammo": 0, "lives": 4, "current_health": 3, "maximum_health": 3, "puzzle_mask": 0, "pending_action": 12},
+      {"checkpoint": "01F7:35C7", "player_fixed_position": ["0x01200000", "0x00900000"], "player_position": [288, 144], "callback": "01F7:3FF8", "mode": 0}
+    ]
+  },
+  "implementation_status": {
+    "implemented": [
+      "W1L1 all-letter aggregate score update: pending units * 0x14 + 0x7D0",
+      "completion event state writes for DS:881C, DS:880C, and DS:612E",
+      "persistent score/lives/health across LevelRuntime::reload",
+      "W1L4 transition spawn (288,144)",
+      "reset of puzzle, ammo, invulnerability, and transition state"
+    ],
+    "presentation_only_unresolved": [
+      "per-frame completion-card drawing and score animation timing",
+      "palette/fade/page handoff during the transition"
+    ]
+  }
+}

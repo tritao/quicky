@@ -34,8 +34,13 @@ enum class LevelReloadStage {
 struct LevelReloadTrace {
     std::string targetMap;
     std::vector<LevelReloadStage> stages;
+    bool hasPlayerSpawn;
+    std::int32_t playerSpawnX;
+    std::int32_t playerSpawnY;
 
-    LevelReloadTrace() : targetMap(), stages() {}
+    LevelReloadTrace()
+        : targetMap(), stages(), hasPlayerSpawn(false), playerSpawnX(0),
+          playerSpawnY(0) {}
 };
 
 // Owns all resources and runtime state needed to play one MAP/ARE level.

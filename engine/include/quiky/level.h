@@ -251,6 +251,11 @@ public:
 
     SpawnPoint spawnPoint() const;
     void reset(Simulation &simulation);
+    // 01D7:5010/01F7:1AAA preserves the persistent gameplay fields while
+    // rebuilding the target level. Transient level/object fields are reset
+    // by reset().
+    void restorePersistentStateForReload(
+        const LevelGameplayState &previousState, std::uint32_t previousDeaths);
     void tick(Simulation &simulation, const WorldCollisionView &world,
               const InputState &input, SimulationOutput &output);
 
@@ -333,6 +338,7 @@ private:
     void advanceEnemyResponse(Simulation *simulation, LevelEntity &entity);
     void applyCollectibleCallback(LevelEntity &entity, PlayerRecord &player,
                                   std::vector<LevelStateWrite> &writes);
+    void applyCompletionPresentation(LevelEvent &event);
     void releaseScheduledEntity(ObjectScheduler *scheduler,
                                 LevelEntity &entity);
     void appendCollectedEvent(const LevelEntity &entity,

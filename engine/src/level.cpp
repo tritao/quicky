@@ -222,6 +222,13 @@ void LevelSession::reset(Simulation &simulation) {
     _score = 0;
     _deaths = 0;
     _gameplayState = LevelGameplayState();
+    if (upperAscii(_mapName) == "W1L1.MAP") {
+        // Native W1L1 selector startup publishes three health units; the
+        // generic state default remains five for levels without a closed
+        // setup record.
+        _gameplayState.currentHealth8822 = 3;
+        _gameplayState.maximumHealth8824 = 3;
+    }
     _alternateActionActive = false;
     if (_config.hasLeafPrngState) {
         _leafPrngIndex = _config.leafPrngIndex;
@@ -258,6 +265,20 @@ void LevelSession::reset(Simulation &simulation) {
     }
     _effects.clear();
     resetPlayer(simulation);
+}
+
+void LevelSession::restorePersistentStateForReload(
+    const LevelGameplayState &previousState, std::uint32_t previousDeaths) {
+    // The native reload trace shows DS:881C/881E, DS:880A, DS:8822, and
+    // DS:8824 surviving 5010->1AAA. DS:60D8, DS:880C, DS:8810, DS:612E,
+    // and the transition/contact gates are rebuilt or cleared by the new
+    // level setup and must not be copied across this boundary.
+    _score = previousState.score881c;
+    _deaths = previousDeaths;
+    _gameplayState.score881c = previousState.score881c;
+    _gameplayState.lives880a = previousState.lives880a;
+    _gameplayState.currentHealth8822 = previousState.currentHealth8822;
+    _gameplayState.maximumHealth8824 = previousState.maximumHealth8824;
 }
 
 void LevelSession::resetPlayer(Simulation &simulation) {
@@ -1083,6 +1104,29 @@ void LevelSession::applyCollectibleCallback(
     appendStateWrite(writes, 0x881c, 4, scoreBefore, scoreAfter);
 }
 
+void LevelSession::applyCompletionPresentation(LevelEvent &event) {
+    // 01D7:14E1 consumes DS:880C one unit at a time and adds 0x14 to the
+    // score for each unit. The all-seven branch at 01D7:16C6 then adds
+    // 0x7D0. The native W1L1 trace reaches 5010 with the aggregate already
+    // applied: score 750 -> 2950, DS:880C 10 -> 0, and DS:612E -> 12.
+    // The presentation frames themselves remain outside LevelSession; the
+    // state writes are published on the exit event for replay/parity tools.
+    const std::uint32_t scoreBefore = _gameplayState.score881c;
+    const std::uint16_t cerealBefore = _gameplayState.ammo880c;
+    const std::uint32_t scoreAfter =
+        scoreBefore + static_cast<std::uint32_t>(cerealBefore) * 0x14u + 0x7d0u;
+    _score = scoreAfter;
+    _gameplayState.score881c = scoreAfter;
+    appendStateWrite(event.stateWrites, 0x881c, 4, scoreBefore, scoreAfter);
+
+    _gameplayState.ammo880c = 0;
+    appendStateWrite(event.stateWrites, 0x880c, 2, cerealBefore, 0);
+
+    const std::uint16_t actionBefore = _gameplayState.pendingEvent612e;
+    _gameplayState.pendingEvent612e = 12;
+    appendStateWrite(event.stateWrites, 0x612e, 2, actionBefore, 12);
+}
+
 void LevelSession::appendCollectedEvent(
     const LevelEntity &entity, const std::vector<LevelStateWrite> &writes) {
     LevelEvent event;
@@ -1670,7 +1714,13 @@ void LevelSession::tick(Simulation &simulation,
             // it here prevents a second LevelExit while the frontend performs
             // the reload closure.
             _gameplayState.transitionGate89ea = 0xffff;
-            enqueueEvent(LevelEventType::LevelExit, 0, 0, target);
+            LevelEvent event;
+            event.type = LevelEventType::LevelExit;
+            event.targetLevel = target;
+            if (_gameplayState.puzzleMask60d8 == 0x007f) {
+                applyCompletionPresentation(event);
+            }
+            _events.push_back(event);
         }
     }
     const bool emittedTileEffect = dispatchWorldEffectCallbacks(&simulation);

@@ -54,6 +54,20 @@ local function read_dword_ds(address)
         (string.byte(raw, 4) << 24)
 end
 
+local function gameplay_snapshot()
+    return {
+        score_low = dosbox.mem_read_word("ds", 0x881c),
+        score_high = dosbox.mem_read_word("ds", 0x881e),
+        lives = dosbox.mem_read_word("ds", 0x880a),
+        ammo = dosbox.mem_read_word("ds", 0x880c),
+        current_health = dosbox.mem_read_word("ds", 0x8822),
+        maximum_health = dosbox.mem_read_word("ds", 0x8824),
+        puzzle_mask = dosbox.mem_read_word("ds", 0x60d8),
+        pending_action = dosbox.mem_read_word("ds", 0x612e),
+        invulnerability = dosbox.mem_read_word("ds", 0x8810),
+    }
+end
+
 local function resource_lookup_snapshot(hit)
     if not hit or hit.segment ~= 0x0207 or hit.offset ~= 0x18c7 then
         return nil
@@ -122,6 +136,7 @@ local function checkpoint(name, hit, hold_frames)
             ['end'] = read_dword_ds(0x97e4),
             size = read_dword_ds(0x97ec),
         },
+        gameplay_state = gameplay_snapshot(),
     }
     checkpoints[#checkpoints + 1] = record
     dosbox.output.goal_transition_checkpoints = checkpoints
