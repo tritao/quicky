@@ -20,6 +20,7 @@ local align_object_to_player = trace_config.align_object_to_player or false
 local trace_overlap = trace_config.trace_overlap or false
 local trace_collision = trace_config.trace_collision or false
 local trace_platform = trace_config.trace_platform or false
+local trace_platform_player = trace_config.trace_platform_player or false
 local trace_bump = trace_config.trace_bump or false
 local trace_contact = trace_config.trace_contact or false
 local trace_effect_table = trace_config.trace_effect_table or false
@@ -102,6 +103,111 @@ local function object_snapshot(selector, offset)
         state_field = word(raw, 0x2e + 1),
         update_state = word(raw, 0x32 + 1),
         object_class = string.byte(raw, 0x17 + 1),
+    }
+end
+
+local function player_snapshot(selector, forced_offset)
+    local offset = forced_offset or dosbox.mem_read_word("ds", 0x881a)
+    if offset == nil or (forced_offset == nil and offset == 0) then return nil end
+    local raw = dosbox.mem_read_selector(selector, offset, 0x78) or ""
+    if #raw < 0x78 then return nil end
+    return {
+        selector = selector,
+        offset = offset,
+        raw_hex = hex(raw),
+        position = {x_fixed = dword(raw, 3), y_fixed = dword(raw, 7)},
+        velocity = {x_fixed = dword(raw, 11), y_fixed = dword(raw, 15)},
+        mode = string.byte(raw, 0x37 + 1) or 0,
+        action = word(raw, 0x2a + 1),
+        timer = word(raw, 0x34 + 1),
+    }
+end
+
+local static_globals
+
+local function capture_platform_player(platform_selector, platform_offset,
+                                       realign_platform)
+    if not trace_platform_player then return nil end
+    -- The platform probe also arms 1DEE for its off-camera control path;
+    -- remove that one-shot before the combined scheduler handoff so it
+    -- cannot be mistaken for the player callback.
+    dosbox.breakpoint_remove(0x01f7, 0x1dee)
+    local entry = nil
+    for attempt = 1, 32 do
+        dosbox.breakpoint_set(0x01f7, 0x3ff8, {once = true})
+        dosbox.debug_continue()
+        local candidate = dosbox.wait_for_breakpoint(2000)
+        if not candidate then break end
+        if candidate.segment == 0x01f7 and candidate.offset == 0x3ff8 then
+            entry = candidate
+            break
+        end
+    end
+    if not entry then
+        return {status = "player_callback_not_observed"}
+    end
+    local player_selector = entry.registers.es
+    local player_offset = entry.registers.edi & 0xffff
+    local before = player_snapshot(player_selector, player_offset)
+    local globals_before = static_globals(player_selector)
+    local stack = dosbox.mem_read("ss", entry.registers.esp & 0xffff, 4) or ""
+    if #stack < 2 then
+        return {status = "player_callback_return_unavailable", entry = entry}
+    end
+    local returned = {segment = entry.segment, offset = word(stack, 1)}
+    dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
+    dosbox.breakpoint_set(0x01f7, 0x3a8a, {once = true})
+    dosbox.breakpoint_set(0x01f7, 0x3b44, {once = true})
+    dosbox.debug_continue()
+    local helper_hits = {}
+    local return_hit = nil
+    for attempt = 1, 16 do
+        local hit = dosbox.wait_for_breakpoint(2000)
+        if not hit then break end
+        if hit.segment == returned.segment and hit.offset == returned.offset then
+            return_hit = hit
+            break
+        end
+        helper_hits[#helper_hits + 1] = {
+            segment = hit.segment, offset = hit.offset,
+            registers = hit.registers,
+        }
+        dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
+        dosbox.breakpoint_set(0x01f7, 0x3a8a, {once = true})
+        dosbox.breakpoint_set(0x01f7, 0x3b44, {once = true})
+        dosbox.debug_continue()
+    end
+    if not return_hit then
+        return {
+            status = "player_callback_return_not_observed",
+            entry = {segment = entry.segment, offset = entry.offset,
+                     registers = entry.registers},
+            before = before,
+            globals_before = globals_before,
+            return_address = returned,
+        }
+    end
+    if realign_platform and before ~= nil then
+        dosbox.mem_write_selector(
+            platform_selector, platform_offset + 0x02,
+            little_dword(before.position.x_fixed + align_x_offset * 0x10000))
+        dosbox.mem_write_selector(
+            platform_selector, platform_offset + 0x06,
+            little_dword(before.position.y_fixed + align_y_offset * 0x10000))
+    end
+    return {
+        status = "observed",
+        order = {"platform_callback", "player_callback"},
+        entry = {segment = entry.segment, offset = entry.offset,
+                 registers = entry.registers},
+        return_hit = {segment = return_hit.segment, offset = return_hit.offset,
+                      registers = return_hit.registers},
+        helper_hits = helper_hits,
+        return_address = returned,
+        before = before,
+        after = player_snapshot(player_selector, player_offset),
+        globals_before = globals_before,
+        globals_after = static_globals(player_selector),
     }
 end
 
@@ -244,7 +350,7 @@ local function action_descriptor(action_selector, action)
     }
 end
 
-local function static_globals(object_selector)
+static_globals = function(object_selector)
     local carry_y_raw = dosbox.mem_read("ds", 0x8812, 4) or ""
     local carry_x_raw = dosbox.mem_read("ds", 0x8816, 4) or ""
     local action_selector = dosbox.mem_read_word("ds", 0x504e)
@@ -458,18 +564,30 @@ if sprite_init_offset ~= 0 then
 end
 local interaction_alignment = nil
 if align_object_to_player then
+    local bounds_selector = object_selector
     local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
-    local player = object_snapshot(object_selector, bounds_offset)
+    local player_entry = nil
+    if bounds_offset == nil or bounds_offset == 0 then
+        -- During selector setup DS:881A is not populated yet. The native
+        -- object-trace alignment convention uses the zero-offset setup
+        -- record, which preserves the transition gate for the following
+        -- platform callback; the live ES:EDI player record is captured only
+        -- after that callback below.
+        bounds_offset = 0
+    end
+    local player = player_snapshot(bounds_selector, bounds_offset) or
+        object_snapshot(bounds_selector, bounds_offset)
+    assert(player ~= nil, "player record for object alignment is unavailable")
     local player_bounds_before = dosbox.mem_read_selector(
-        object_selector, bounds_offset + 0x2c, 8)
+        bounds_selector, bounds_offset + 0x2c, 8)
     if force_active_player_bounds then
-        dosbox.mem_write_selector(object_selector, bounds_offset + 0x2c,
+        dosbox.mem_write_selector(bounds_selector, bounds_offset + 0x2c,
                                   little_word(0xfff6))
-        dosbox.mem_write_selector(object_selector, bounds_offset + 0x2e,
+        dosbox.mem_write_selector(bounds_selector, bounds_offset + 0x2e,
                                   little_word(0xffd8))
-        dosbox.mem_write_selector(object_selector, bounds_offset + 0x30,
+        dosbox.mem_write_selector(bounds_selector, bounds_offset + 0x30,
                                   little_word(0x000a))
-        dosbox.mem_write_selector(object_selector, bounds_offset + 0x32,
+        dosbox.mem_write_selector(bounds_selector, bounds_offset + 0x32,
                                   little_word(0x0000))
     end
     if force_bump_player_state then
@@ -478,7 +596,7 @@ if align_object_to_player then
         -- explicit debugger-only state control separate from the normal
         -- active bounds override.
         dosbox.mem_write("ds", 0x89ea, little_word(0))
-        dosbox.mem_write_selector(object_selector, bounds_offset + 0x37,
+        dosbox.mem_write_selector(bounds_selector, bounds_offset + 0x37,
                                   string.char(0x01))
     end
     local aligned_x_fixed = player.position.x_fixed + align_x_offset * 0x10000
@@ -489,12 +607,17 @@ if align_object_to_player then
                               little_dword(aligned_y_fixed))
     initialized_object = object_snapshot(object_selector, object_offset)
     interaction_alignment = {
-        bounds_object = {selector = object_selector, offset = bounds_offset,
+        bounds_object = {selector = bounds_selector, offset = bounds_offset,
                          position = player.position},
         player_bounds_before_hex = hex(player_bounds_before),
         player_bounds_after_hex = hex(dosbox.mem_read_selector(
-            object_selector, bounds_offset + 0x2c, 8)),
+            bounds_selector, bounds_offset + 0x2c, 8)),
         object_position = initialized_object.position,
+        player_entry = player_entry and {
+            segment = player_entry.segment,
+            offset = player_entry.offset,
+            registers = player_entry.registers,
+        } or nil,
         x_offset = align_x_offset,
         y_offset = align_y_offset,
     }
@@ -811,6 +934,9 @@ while #samples < sample_count and attempts < sample_count * 128 do
             dosbox.mem_write("ds", 0x60d8, little_word(force_tile_mask))
         end
         local before = object_snapshot(object_selector, object_offset)
+        local player_selector = (callback_entry.registers and
+            callback_entry.registers.es) or object_selector
+        local player_before = nil
         if force_contact_gate then
             dosbox.mem_write("ds", 0x8806, little_word(1))
             dosbox.mem_write("ds", 0x87de, little_word(before.position.x))
@@ -944,6 +1070,9 @@ while #samples < sample_count and attempts < sample_count * 128 do
         end
         assert(callback_return ~= nil, "overlap probe did not reach callback return")
         local after = object_snapshot(object_selector, object_offset)
+        local player_after_platform = nil
+        local platform_player = capture_platform_player(
+            object_selector, object_offset, false)
         samples[#samples + 1] = {
             sequence = #samples + 1,
             callback = {
@@ -961,6 +1090,10 @@ while #samples < sample_count and attempts < sample_count * 128 do
             globals_after = static_globals(object_selector),
             object_before = before,
             object_after = after,
+            player_selector = player_selector,
+            player_before_platform = player_before,
+            player_after_platform = player_after_platform,
+            platform_player = platform_player,
             changed_bytes = changed_bytes(before.raw_hex, after.raw_hex),
             overlap_probe = overlap_probe,
             collision_probe = collision_probe,

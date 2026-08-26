@@ -15,7 +15,7 @@
     "helper_5937": "direct_contract_closed_dispatch_view_contract_closed_indirect_callback_unresolved",
     "factory_0E06": "allocator_contract_closed_family_selection_is_caller_owned",
     "input_dispatch": "normalized_word_closed_callback_precedence_closed",
-    "moving_platform": "carry_contract_and_static_scheduler_order_closed_combined_runtime_edge_cases_open",
+    "moving_platform": "carry_contract_and_scheduler_order_runtime_confirmed_combined_edge_cases_open",
     "full_cpp_parity": "partial_runtime_callback_implemented_animation_boundary_closed_probe_and_external_data_gates_open"
   },
   "contracts": [
@@ -213,7 +213,7 @@
     "one_way_platform": {"status":"unproven", "reason":"descriptor flags and player vertical probes are mechanically closed, but no direction-controlled natural traversal trace isolates a one-way rule"}
   },
   "moving_platform": {
-    "scheduler": {"static":"0E06 inserts into the current scheduler bank through 1036; 0E96 dispatches phases 0,1,2", "player_dependency":"player callback consumes DS:8812 and DS:8816 in the callback closure", "runtime_order":"platform callback before player consumption is strongly implied by the carry publication/consumption contract but not directly captured in one combined scheduler trace"},
+    "scheduler": {"static":"0E06 inserts into the current scheduler bank through 1036; 0E96 dispatches phases 0,1,2", "player_dependency":"player callback consumes DS:8812 and DS:8816 in the callback closure", "runtime_order":"combined W4L1 trace observes 9DC7 -> A075 -> A0B2 and then 3FF8 entry; the 3FF8 return barrier was not reached in that debugger pass"},
     "carry": {"x":"DS:8816 is a fixed-point platform delta consumed by 3A8A/3B44 and cleared", "y":"DS:8812 is platform_y-player_y+1 in fixed point, consumed at 3FF8 and cleared", "subpixel":"fixed-point globals preserve subpixel carry; no integer rounding is present in the publication formula"},
     "contact_shape":"strict object_x < player_x < object_x+width and object_y <= player_y < object_y+12",
     "landing_jumping":"platform overlap/carry is confirmed; platform-specific landing, jump detachment, inherited velocity, and side/ceiling crushing remain unisolated",
@@ -231,7 +231,8 @@
     {"id":"descriptor_60_control", "trace":"research/build/player-followup-descriptor-60-v1.json", "sha256":"f6c19f9468174683d3c8268af3e8edc8225c2607e0cfe98eb5826051385343ab", "status":"negative_control", "observation":"ordinary baseline takes 3D44; direct descriptor matrix remains the positive 3D02 evidence"},
     {"id":"helper_5937_entry_return", "trace":"research/build/player-followup-5937-entry-return-v1.json", "sha256":"c86d7ff68c6117fb39f4f04f9605e656ecb8e7490fbb69a3fa71485dd2fd13d2", "status":"passed_direct_contract", "observation":"5937 is observed before 5BED return; direct player record and transition aliases remain unchanged in ordinary samples"},
     {"id":"factory_0E06", "trace":"research/build/player-factory-focus.json", "sha256":"89b2d6b627f94d15825446fbde98e85e3f211014b7bf852fc0fad0bbc29e861c", "status":"passed_allocator_observation", "observation":"factory entry/tail and first-free pool insertion are observable; created callback is caller-selected"},
-    {"id":"moving_platform_carry", "trace":"research/build/entity-platform-player-followup-v2.json", "sha256":"4e046a13c349c2fae7369cb3682d406f495454bb7feeb43caa47c4feca26087e", "status":"passed_current_main_overlap_trace", "observation":"Current main-repository tracing reaches A075/A0B2 and records DS:5006=0xFFFF, DS:8816=1, DS:8812=0xFFF80001; the combined scheduler/player, detachment, and crushing trace remains open"}
+    {"id":"moving_platform_carry", "trace":"research/build/entity-platform-player-followup-v2.json", "sha256":"4e046a13c349c2fae7369cb3682d406f495454bb7feeb43caa47c4feca26087e", "status":"passed_current_main_overlap_trace", "observation":"Current main-repository tracing reaches A075/A0B2 and records DS:5006=0xFFFF, DS:8816=1, DS:8812=0xFFF80001"},
+    {"id":"moving_platform_scheduler_order", "trace":"research/evidence/entity-platform-scheduler-order-trace.json", "sha256":"3e21d6fbfc3884cbb21e3aa6eb77bbf85d8859261b4e5251e51d95f918066c86", "status":"passed_entry_order_only", "observation":"Combined W4L1 trace observes 9DC7 -> A075 -> A0B2 -> 3FF8 entry; full 3FF8 return and attached-player edge behavior remain open"}
   ],
   "parity_gate": {
     "compare": ["complete 0x78 pre/post player bytes", "ordered collision probes with coordinates and return flags", "relevant global writes", "spawned object callback/position/effect events"],

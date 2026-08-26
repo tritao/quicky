@@ -1,0 +1,42 @@
+{
+  "schema": "entity-platform-scheduler-order-evidence-v1",
+  "purpose": "Combined runtime ordering probe for a moving-platform callback and the following player callback.",
+  "static_inputs": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "ghidra_contract": "research/ghidra/player-external-state-closure.json",
+    "static_order": "01F7:9DC7 -> A075 -> A0B2 -> 01F7:3FF8 via the later player pass"
+  },
+  "dynamic_trace": {
+    "trace": "research/evidence/entity-platform-scheduler-order-trace.json",
+    "trace_sha256": "3e21d6fbfc3884cbb21e3aa6eb77bbf85d8859261b4e5251e51d95f918066c86",
+    "level": "W4L1",
+    "record_offset": "0x1898",
+    "entity_type": "0x3D",
+    "controls": [
+      "camera=(640,100)",
+      "native platform initializer 01F7:9D18",
+      "setup alignment object=(player setup x-8, player setup y-8)",
+      "no player-coordinate patch after the initial alignment"
+    ],
+    "observed_order": [
+      {"callback": "01F7:9DC7", "helpers": ["01F7:A075", "01F7:A0B2"]},
+      {"callback_entry": "01F7:3FF8", "note": "entry observed after the platform callback; the debugger pass did not reach its return barrier"}
+    ],
+    "platform_publication": {
+      "DS:5006": "0x0000 -> 0xFFFF",
+      "DS:8816": "0x00000000 -> 0x00000001",
+      "DS:8812": "0x00000000 -> 0xFFF80001"
+    }
+  },
+  "conclusion": {
+    "closed": [
+      "The platform callback and player callback are observed in the expected same-frame order.",
+      "A075/A0B2 publication is a real runtime dependency before 3FF8 entry."
+    ],
+    "still_open": [
+      "post-3FF8 full-record write capture in this combined probe",
+      "player detachment on jump, crushing, and culling of an attached platform"
+    ]
+  }
+}

@@ -47,6 +47,7 @@ class ObjectBehaviorConfig:
     trace_overlap: bool = False
     trace_collision: bool = False
     trace_platform: bool = False
+    trace_platform_player: bool = False
     trace_bump: bool = False
     trace_contact: bool = False
     trace_effect_table: bool = False
@@ -99,6 +100,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_overlap": config.trace_overlap,
         "trace_collision": config.trace_collision,
         "trace_platform": config.trace_platform,
+        "trace_platform_player": config.trace_platform_player,
         "trace_bump": config.trace_bump,
         "trace_contact": config.trace_contact,
         "trace_effect_table": config.trace_effect_table,
@@ -270,6 +272,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trace-platform", action="store_true",
         help="capture moving-platform MAP, offscreen, and player-carry helpers",
+    )
+    parser.add_argument(
+        "--trace-platform-player", action="store_true",
+        help="after each platform callback, capture the following player callback and full player record",
     )
     parser.add_argument(
         "--trace-bump", action="store_true",
@@ -516,6 +522,7 @@ def main(argv: list[str] | None = None) -> int:
         trace_overlap=args.trace_overlap,
         trace_collision=args.trace_collision,
         trace_platform=args.trace_platform,
+        trace_platform_player=args.trace_platform_player,
         trace_bump=args.trace_bump,
         trace_contact=args.trace_contact,
         trace_effect_table=args.trace_effect_table,
