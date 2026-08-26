@@ -157,6 +157,8 @@ def check_exports(ledger: dict[str, Any], root: Path) -> None:
         raise ExternalClosureError("external runner is not using the Ghidra protected-mode pipeline")
     if "objdump" in runner_text.lower():
         raise ExternalClosureError("external runner must not use objdump")
+    if '"0442"' not in runner_text:
+        raise ExternalClosureError("external runner must export the 0442 indirect boundary")
 
 
 def verify(ledger_path: Path, root: Path) -> None:
