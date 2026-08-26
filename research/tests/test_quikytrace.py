@@ -82,6 +82,27 @@ class QuikyTraceTests(unittest.TestCase):
             {"keys": [], "frames": 3},
         ])
 
+    def test_continuous_hold_supports_later_jump_phases(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        phases = (parse_input_phase("KBD_space+KBD_up:1"),)
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            input_hold_key="KBD_right",
+            input_hold_frames=20,
+            input_phases=phases,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["input_hold_key"], "KBD_right")
+        self.assertEqual(payload["input_hold_frames"], 20)
+        self.assertEqual(payload["input_phases"], [
+            {"keys": ["KBD_space", "KBD_up"], "frames": 1},
+        ])
+        source = compose_player_trace_source(
+            Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua",
+            config,
+        )
+        self.assertIn("input_hold_keys", source)
+
     def test_input_phase_parser_rejects_invalid_specs(self):
         for value in ("KBD_right", "KBD_right:-1", "A+B+C+D:1", ":3"):
             with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):

@@ -1044,7 +1044,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
     parser.add_argument("--player-input-hold-key",
-                        help="keep one DOSBox key physically held while sampling each callback")
+                        help="keep one or more '+'-separated DOSBox keys physically held while sampling callbacks")
     parser.add_argument("--player-input-hold-frames", type=int, default=0,
                         help="number of guest frames for --player-input-hold-key")
     parser.add_argument("--player-map-patch-cell", type=parse_map_patch_cell,
@@ -1198,8 +1198,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.player_input_phase and (
             args.player_input_key or args.player_input_key_switch or
             args.player_input_key_2 or args.player_input_frames or
-            args.player_input_samples or args.player_input_hold_key or
-            args.player_input_hold_frames):
+            args.player_input_samples):
         raise TraceError("--player-input-phase cannot be combined with legacy player input options")
     if args.player_capture_record and not (
             args.player_focus_callback or args.player_object_focus):

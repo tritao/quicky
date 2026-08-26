@@ -42,6 +42,10 @@ local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
 local input_hold_key = trace_config.input_hold_key or ""
 local input_hold_frames = trace_config.input_hold_frames or 0
+local input_hold_keys = {}
+for key in string.gmatch(input_hold_key, "[^+]+") do
+    input_hold_keys[#input_hold_keys + 1] = key
+end
 local map_patch_cell = trace_config.map_patch_cell
 local map_patch_descriptor = trace_config.map_patch_descriptor
 local map_patch_word = trace_config.map_patch_word
@@ -1481,7 +1485,7 @@ for sequence = 1, sample_count do
         if input_hold_key ~= "" then
             if not continuous_input_active and
                     continuous_input_callbacks < input_hold_frames then
-                dosbox.key(input_hold_key, true)
+                for _, key in ipairs(input_hold_keys) do dosbox.key(key, true) end
                 continuous_input_active = true
             end
             if continuous_input_callbacks < input_hold_frames then
@@ -1489,12 +1493,22 @@ for sequence = 1, sample_count do
                 -- Waiting a DOSBox display frame here would let several
                 -- player callbacks run before the breakpoint is re-armed.
             elseif continuous_input_active and not continuous_input_released then
-                dosbox.key(input_hold_key, false)
+                for index = #input_hold_keys, 1, -1 do
+                    dosbox.key(input_hold_keys[index], false)
+                end
                 continuous_input_active = false
                 continuous_input_released = true
             end
             continuous_input_callbacks = continuous_input_callbacks + 1
             experiment_frame = experiment_frame + 1
+            if phase ~= nil then
+                local keys = phase.keys or {}
+                local phase_frames = phase.frames or 0
+                for _, key in ipairs(keys) do dosbox.key(key, true) end
+                if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+                for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
+                experiment_frame = experiment_frame + phase_frames
+            end
         elseif phase ~= nil then
             local keys = phase.keys or {}
             local phase_frames = phase.frames or 0
@@ -1985,7 +1999,11 @@ for sequence = 1, sample_count do
     end
     samples[#samples + 1] = sample
 end
-if continuous_input_active then dosbox.key(input_hold_key, false) end
+if continuous_input_active then
+    for index = #input_hold_keys, 1, -1 do
+        dosbox.key(input_hold_keys[index], false)
+    end
+end
 
 local capture = stop_for_capture()
 local result = {
