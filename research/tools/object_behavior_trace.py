@@ -48,6 +48,8 @@ class ObjectBehaviorConfig:
     trace_collision: bool = False
     trace_platform: bool = False
     trace_platform_player: bool = False
+    player_input_phases: tuple[dict[str, Any], ...] = ()
+    player_input_before_platform: bool = False
     trace_bump: bool = False
     trace_contact: bool = False
     trace_effect_table: bool = False
@@ -101,6 +103,8 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_collision": config.trace_collision,
         "trace_platform": config.trace_platform,
         "trace_platform_player": config.trace_platform_player,
+        "player_input_phases": list(config.player_input_phases),
+        "player_input_before_platform": config.player_input_before_platform,
         "trace_bump": config.trace_bump,
         "trace_contact": config.trace_contact,
         "trace_effect_table": config.trace_effect_table,
@@ -145,6 +149,8 @@ def lua_literal(value: Any) -> str:
         return repr(value)
     if isinstance(value, str):
         return json.dumps(value)
+    if isinstance(value, (list, tuple)):
+        return "{" + ",".join(lua_literal(item) for item in value) + "}"
     if isinstance(value, dict):
         return "{" + ",".join(
             f"[{json.dumps(str(key))}]={lua_literal(item)}"
@@ -231,6 +237,31 @@ def trace_object_behavior(
     raise TraceError("timed out waiting for the Lua object behavior trace")
 
 
+def parse_player_input_phase(value: str) -> dict[str, Any]:
+    """Parse KEY[+KEY...]:FRAMES for the nested player callback probe."""
+    key_spec, separator, frame_text = value.rpartition(":")
+    if not separator or not key_spec or not frame_text:
+        raise argparse.ArgumentTypeError(
+            "player input phase must use KEY[+KEY...]:FRAMES or WAIT:FRAMES"
+        )
+    keys = [] if key_spec.upper() == "WAIT" else key_spec.split("+")
+    if len(keys) > 3 or any(not key for key in keys):
+        raise argparse.ArgumentTypeError(
+            "player input phase accepts at most three '+'-separated keys"
+        )
+    try:
+        frames = int(frame_text, 0)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(
+            "player input phase frames must be an integer"
+        ) from exc
+    if frames < 0:
+        raise argparse.ArgumentTypeError(
+            "player input phase frames cannot be negative"
+        )
+    return {"keys": keys, "frames": frames}
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--output", type=Path, required=True)
@@ -276,6 +307,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trace-platform-player", action="store_true",
         help="after each platform callback, capture the following player callback and full player record",
+    )
+    parser.add_argument(
+        "--player-input-phase", action="append", type=parse_player_input_phase,
+        default=[],
+        help="input phase before each nested player callback, e.g. KBD_space:6 or WAIT:1",
+    )
+    parser.add_argument(
+        "--player-input-before-platform", action="store_true",
+        help="arm the configured input phase before the platform callback runs",
     )
     parser.add_argument(
         "--trace-bump", action="store_true",
@@ -523,6 +563,8 @@ def main(argv: list[str] | None = None) -> int:
         trace_collision=args.trace_collision,
         trace_platform=args.trace_platform,
         trace_platform_player=args.trace_platform_player,
+        player_input_phases=tuple(args.player_input_phase),
+        player_input_before_platform=args.player_input_before_platform,
         trace_bump=args.trace_bump,
         trace_contact=args.trace_contact,
         trace_effect_table=args.trace_effect_table,

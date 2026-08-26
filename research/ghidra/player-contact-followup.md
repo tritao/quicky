@@ -104,6 +104,18 @@ crushing, and the effect of off-camera removal remain open. Off-camera
 removal is `A06F -> 1DEE`; attached-player behavior after that removal is
 unresolved.
 
+A second hash-pinned W4L1 experiment places the live platform at a controlled
+player-relative position before `9DC7` and holds native `KBD_space+KBD_up`
+through the first combined platform/player handoff. The sample records
+`keyboard_flags=0x22`, `DS:5006=FFFF`, `DS:8816=1`, and
+`DS:8812=0xFFF80001` before `3FF8`; the complete record then changes
+`+0x37` from `0` to `0xFF`, while later samples have zero carry and remain in
+the ascending mode. This confirms the input/carry ordering and a controlled
+jump-detachment transition. It is not a retail-geometry landing trace, so
+natural landing, inherited velocity, crushing, and culling remain explicit
+boundaries. Evidence: `research/evidence/entity-platform-player-jump-detach-v1.json`
+(`9b60c6a74d0abf47d203541587945254da15172e077e3bf98fbf7f35cac46387`).
+
 ## Focused external-state expansion
 
 The companion ledger records the additional static contracts without widening

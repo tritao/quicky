@@ -21,6 +21,9 @@ local trace_overlap = trace_config.trace_overlap or false
 local trace_collision = trace_config.trace_collision or false
 local trace_platform = trace_config.trace_platform or false
 local trace_platform_player = trace_config.trace_platform_player or false
+local player_input_phases = trace_config.player_input_phases or {}
+local player_input_phase_index = 0
+local player_input_before_platform = trace_config.player_input_before_platform or false
 local trace_bump = trace_config.trace_bump or false
 local trace_contact = trace_config.trace_contact or false
 local trace_effect_table = trace_config.trace_effect_table or false
@@ -125,13 +128,53 @@ end
 
 local static_globals
 
+local function prepare_pre_platform_input_phase()
+    if not player_input_before_platform then return nil end
+    player_input_phase_index = player_input_phase_index + 1
+    local phase = player_input_phases[player_input_phase_index]
+    local keys = phase and (phase.keys or {}) or {}
+    for _, key in ipairs(keys) do
+        dosbox.key(key, true)
+    end
+    -- The phase is intentionally held through the next platform/player pair.
+    -- Waiting here would run the pair before its entry breakpoint is armed.
+    return phase
+end
+
 local function capture_platform_player(platform_selector, platform_offset,
-                                       realign_platform)
+                                       realign_platform, pre_platform_phase)
     if not trace_platform_player then return nil end
     -- The platform probe also arms 1DEE for its off-camera control path;
     -- remove that one-shot before the combined scheduler handoff so it
     -- cannot be mistaken for the player callback.
-    dosbox.breakpoint_remove(0x01f7, 0x1dee)
+    for _, offset in ipairs({0x9e75, 0x9fb2, 0xa075, 0xa0b2, 0x1dee}) do
+        dosbox.breakpoint_remove(0x01f7, offset)
+    end
+    local input_phase = pre_platform_phase
+    if input_phase == nil and player_input_before_platform then
+        -- A missing phase still consumes the configured sample slot; it does
+        -- not fall back to the post-callback timing path.
+        input_phase = {}
+    elseif not player_input_before_platform then
+        player_input_phase_index = player_input_phase_index + 1
+        input_phase = player_input_phases[player_input_phase_index]
+    end
+    local held_keys = input_phase and (input_phase.keys or {}) or {}
+    local function release_input_phase()
+        for index = #held_keys, 1, -1 do
+            dosbox.key(held_keys[index], false)
+        end
+    end
+    if input_phase ~= nil and not player_input_before_platform then
+        -- Let the input state reach the game's normal keyboard poll while the
+        -- keys remain held.  The old implementation released them before
+        -- arming 3FF8, so the observed callback saw keyboard_flags == 0 and
+        -- could not prove jump initiation.  Keep the keys held through the
+        -- complete nested callback and release only after its near return.
+        for _, key in ipairs(held_keys) do dosbox.key(key, true) end
+        local phase_frames = input_phase.frames or 0
+        if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+    end
     local entry = nil
     for attempt = 1, 32 do
         dosbox.breakpoint_set(0x01f7, 0x3ff8, {once = true})
@@ -144,7 +187,8 @@ local function capture_platform_player(platform_selector, platform_offset,
         end
     end
     if not entry then
-        return {status = "player_callback_not_observed"}
+        release_input_phase()
+        return {status = "player_callback_not_observed", input_phase = input_phase}
     end
     local player_selector = entry.registers.es
     local player_offset = entry.registers.edi & 0xffff
@@ -152,47 +196,31 @@ local function capture_platform_player(platform_selector, platform_offset,
     local globals_before = static_globals(player_selector)
     local stack = dosbox.mem_read("ss", entry.registers.esp & 0xffff, 4) or ""
     if #stack < 2 then
-        return {status = "player_callback_return_unavailable", entry = entry}
+        release_input_phase()
+        return {status = "player_callback_return_unavailable", entry = entry,
+                input_phase = input_phase}
     end
     local returned = {segment = entry.segment, offset = word(stack, 1)}
+    -- The platform/player probe is a full-record boundary.  Do not install
+    -- nested helper breakpoints here: jump initiation dispatches through an
+    -- additional effect path, and stopping at that opaque presentation call
+    -- used to make a valid callback look like a missing return.
+    local player_path_hits = {}
     dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
-    dosbox.breakpoint_set(0x01f7, 0x3a8a, {once = true})
-    dosbox.breakpoint_set(0x01f7, 0x3b44, {once = true})
     dosbox.debug_continue()
     local helper_hits = {}
+    local input_dispatch_hits = {}
     local return_hit = nil
-    -- A player callback can cross more than sixteen helper barriers before
-    -- its near return when the platform carry path is active.  Keep this
-    -- bounded, but do not mistake the old small budget for a missing return.
-    -- The repeated-hit guard below still prevents a malformed breakpoint
-    -- route from consuming the whole trace.
-    local last_hit_key = nil
-    local repeated_hit_count = 0
-    for attempt = 1, 128 do
-        local hit = dosbox.wait_for_breakpoint(2000)
-        if not hit then break end
-        if hit.segment == returned.segment and hit.offset == returned.offset then
-            return_hit = hit
-            break
-        end
-        local hit_key = string.format("%04x:%04x", hit.segment, hit.offset)
-        if hit_key == last_hit_key then
-            repeated_hit_count = repeated_hit_count + 1
-        else
-            last_hit_key = hit_key
-            repeated_hit_count = 1
-        end
-        helper_hits[#helper_hits + 1] = {
-            segment = hit.segment, offset = hit.offset,
-            registers = hit.registers,
-        }
-        if repeated_hit_count >= 32 then break end
-        dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
-        dosbox.breakpoint_set(0x01f7, 0x3a8a, {once = true})
-        dosbox.breakpoint_set(0x01f7, 0x3b44, {once = true})
-        dosbox.debug_continue()
+    -- The return breakpoint is the only nested boundary here.  This keeps
+    -- opaque effect dispatches from converting a valid full-record sample
+    -- into a false "return not observed" result.
+    return_hit = dosbox.wait_for_breakpoint(5000)
+    if return_hit ~= nil and
+       (return_hit.segment ~= returned.segment or return_hit.offset ~= returned.offset) then
+        return_hit = nil
     end
     if not return_hit then
+        release_input_phase()
         return {
             status = "player_callback_return_not_observed",
             entry = {segment = entry.segment, offset = entry.offset,
@@ -200,8 +228,12 @@ local function capture_platform_player(platform_selector, platform_offset,
             before = before,
             globals_before = globals_before,
             return_address = returned,
+            input_dispatch_hits = input_dispatch_hits,
+            player_path_hits = player_path_hits,
+            input_phase = input_phase,
         }
     end
+    release_input_phase()
     if realign_platform and before ~= nil then
         dosbox.mem_write_selector(
             platform_selector, platform_offset + 0x02,
@@ -223,6 +255,9 @@ local function capture_platform_player(platform_selector, platform_offset,
         after = player_snapshot(player_selector, player_offset),
         globals_before = globals_before,
         globals_after = static_globals(player_selector),
+        input_dispatch_hits = input_dispatch_hits,
+        player_path_hits = player_path_hits,
+        input_phase = input_phase,
     }
 end
 
@@ -374,6 +409,9 @@ static_globals = function(object_selector)
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
         action_flags = dosbox.mem_read_word("ds", 0x8196),
         keyboard_flags = dosbox.mem_read_word("ds", 0x88bc),
+        input_source_656c = dosbox.mem_read_word("ds", 0x656c),
+        input_gate_85da = dosbox.mem_read_word("ds", 0x85da),
+        action_low_copy_4ff0 = dosbox.mem_read_word("ds", 0x4ff0),
         bounds_object_offset = dosbox.mem_read_word("ds", 0x881a),
         bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
         tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
@@ -387,6 +425,7 @@ static_globals = function(object_selector)
         platform_overlap_latch = dosbox.mem_read_word("ds", 0x5006),
         player_carry_y_fixed = dword(carry_y_raw, 1),
         player_carry_x_fixed = dword(carry_x_raw, 1),
+        deferred_y_8812_fixed = dword(dosbox.mem_read("ds", 0x8812, 4) or "", 1),
         object_global_880c = dosbox.mem_read_word("ds", 0x880c),
         object_global_8806 = dosbox.mem_read_word("ds", 0x8806),
         object_global_8808 = dosbox.mem_read_word("ds", 0x8808),
@@ -884,6 +923,7 @@ local samples = {}
 local attempts = 0
 while #samples < sample_count and attempts < sample_count * 128 do
     attempts = attempts + 1
+    local pre_platform_phase = prepare_pre_platform_input_phase()
     dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
     dosbox.debug_continue()
     local callback_entry = wait_hit("object callback entry")
@@ -1087,7 +1127,7 @@ while #samples < sample_count and attempts < sample_count * 128 do
         local after = object_snapshot(object_selector, object_offset)
         local player_after_platform = nil
         local platform_player = capture_platform_player(
-            object_selector, object_offset, false)
+            object_selector, object_offset, false, pre_platform_phase)
         samples[#samples + 1] = {
             sequence = #samples + 1,
             callback = {

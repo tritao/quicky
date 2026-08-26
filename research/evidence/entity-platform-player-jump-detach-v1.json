@@ -1,0 +1,2996 @@
+{
+  "schema": "quiky-object-behavior-v1",
+  "created_utc": "2026-08-26T01:37:24.453257+00:00",
+  "dosbox": {
+    "features": {
+      "cpu_control": true,
+      "cpu_registers": true,
+      "debugger": true,
+      "freeze": true,
+      "input": true,
+      "memory": true,
+      "port_io": true
+    },
+    "version": "0.84.0-da4 (6697f)"
+  },
+  "trace_kind": "object-behavior",
+  "script": "/home/joao/dev/quicky/research/automation/quiky_object_behavior_trace.lua",
+  "script_sha256": "ca9487f6c6273282bb87a19f8b59a14cdec73deb05e36eab2d21fe8bcc43a4dd",
+  "startup_recording": "/home/joao/dev/quicky/research/automation/startup-to-input.json",
+  "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae",
+  "config": {
+    "schema_version": 1,
+    "timeout_ms": 25000,
+    "record_offset": 6296,
+    "entity_type": 61,
+    "samples": 5,
+    "select_level": "W4L1",
+    "selector_frames": 180,
+    "initial_camera_x": 640,
+    "initial_camera_y": 100,
+    "prestream_input_key": "",
+    "prestream_input_frames": 0,
+    "camera_x": 640,
+    "camera_y": 100,
+    "sprite_init_offset": 40216,
+    "align_object_to_player": true,
+    "trace_overlap": false,
+    "trace_collision": false,
+    "trace_platform": true,
+    "trace_platform_player": true,
+    "player_input_phases": [
+      {
+        "keys": [
+          "KBD_space",
+          "KBD_up"
+        ],
+        "frames": 0
+      },
+      {
+        "keys": [],
+        "frames": 0
+      },
+      {
+        "keys": [],
+        "frames": 0
+      },
+      {
+        "keys": [],
+        "frames": 0
+      },
+      {
+        "keys": [],
+        "frames": 0
+      }
+    ],
+    "player_input_before_platform": true,
+    "trace_bump": false,
+    "trace_contact": false,
+    "trace_effect_table": false,
+    "effect_table_attempts": 64,
+    "trace_stream_lifecycle": false,
+    "lifecycle_return_camera_x": 700,
+    "lifecycle_return_camera_y": 350,
+    "force_active_player_bounds": false,
+    "force_bump_player_state": false,
+    "force_cloud_player_state": false,
+    "trace_cloud_consumers": false,
+    "cloud_consumer_offset": 0,
+    "trace_cloud_outer_renderer": false,
+    "cloud_outer_target": 0,
+    "trace_cloud_hardware_renderer": false,
+    "cloud_hardware_frames": 8,
+    "force_contact_gate": false,
+    "align_x_offset": -8,
+    "align_y_offset": -8,
+    "force_velocity_x": null,
+    "force_velocity_y": null,
+    "force_platform_ready": false,
+    "reload_after_collect": false,
+    "reload_level": "",
+    "reload_wait_frames": 30,
+    "force_tile_mask": null,
+    "trace_puzzle_completion": false,
+    "force_completion_outer_state": false,
+    "force_completion_wait_release": false,
+    "puzzle_probe_frames": 120
+  },
+  "events": [
+    {
+      "camera_override": {
+        "x": 640,
+        "y": 100
+      },
+      "dispatch": {
+        "object_class": 1,
+        "offset": 40181,
+        "raw_hex": "f59c0100",
+        "reserved": 0,
+        "segment": 503
+      },
+      "dispatch_callback": {
+        "offset": 40181,
+        "segment": 503
+      },
+      "initial_object": {
+        "lifetime": 0,
+        "object_class": 1,
+        "offset": 360,
+        "position": {
+          "x": 0,
+          "x_fixed": 0,
+          "y": 0,
+          "y_fixed": 0
+        },
+        "raw_hex": "000000000000000000000000000000000000ffff00000001f59cffff97190000000000000000000001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+        "selector": 639,
+        "sprite_slot": 65535,
+        "state_field": 0,
+        "update_callback": 40181,
+        "update_state": 0
+      },
+      "initialized_object": {
+        "lifetime": 0,
+        "object_class": 1,
+        "offset": 360,
+        "position": {
+          "x": 504,
+          "x_fixed": 33030144,
+          "y": 392,
+          "y_fixed": 25690112
+        },
+        "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d381797190000000000000000000001000000000000400000004000000020000000200000200000000000000000000000ff00ff000100ff00140000000000000100000000000000000000000000000000000000000000000000000000000000000000c0010000",
+        "selector": 639,
+        "sprite_slot": 301,
+        "state_field": 16384,
+        "update_callback": 40391,
+        "update_state": 16384
+      },
+      "initializer_breakpoint": {
+        "offset": 40216,
+        "registers": {
+          "cs": 503,
+          "ds": 567,
+          "eax": 9437343,
+          "ebp": 16378,
+          "ebx": 23079056,
+          "ecx": 10384,
+          "edi": 360,
+          "edx": 0,
+          "eip": 40216,
+          "es": 639,
+          "esi": 30086,
+          "esp": 15058,
+          "flags": 12806,
+          "fs": 887,
+          "gs": 855,
+          "ss": 575
+        },
+        "segment": 503
+      },
+      "interaction_alignment": {
+        "bounds_object": {
+          "offset": 0,
+          "position": {
+            "x_fixed": 33554432,
+            "y_fixed": 26214400
+          },
+          "selector": 639
+        },
+        "object_position": {
+          "x": 504,
+          "x_fixed": 33030144,
+          "y": 392,
+          "y_fixed": 25690112
+        },
+        "player_bounds_after_hex": 0.0,
+        "player_bounds_before_hex": 0.0,
+        "x_offset": -8,
+        "y_offset": -8
+      },
+      "object": {
+        "offset": 360,
+        "selector": 639
+      },
+      "record_hex": "3d0030001000",
+      "record_offset": 6296,
+      "runtime_record": {
+        "offset": 5944,
+        "selector": 895
+      },
+      "samples": [
+        {
+          "callback": {
+            "offset": 40391,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 40391,
+              "ebp": 16378,
+              "ebx": 512,
+              "ecx": 5135,
+              "edi": 360,
+              "edx": 1840191,
+              "eip": 40391,
+              "es": 639,
+              "esi": 30590,
+              "esp": 15058,
+              "flags": 12870,
+              "fs": 895,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_address": {
+              "kind": "near",
+              "offset": 3837,
+              "segment": 503,
+              "stack_hex": "fd0e3702"
+            },
+            "segment": 503
+          },
+          "changed_bytes": [
+            {
+              "after": 248,
+              "before": 0,
+              "offset": 42
+            },
+            {
+              "after": 1,
+              "before": 0,
+              "offset": 43
+            },
+            {
+              "after": 136,
+              "before": 0,
+              "offset": 44
+            },
+            {
+              "after": 1,
+              "before": 0,
+              "offset": 45
+            },
+            {
+              "after": 0,
+              "before": 1,
+              "offset": 89
+            },
+            {
+              "after": 255,
+              "before": 0,
+              "offset": 90
+            }
+          ],
+          "collision_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 392,
+                  "ebp": 16378,
+                  "ebx": 0,
+                  "ecx": 5135,
+                  "edi": 360,
+                  "edx": 1840191,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30590,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 895,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 257,
+                  "ebp": 16378,
+                  "ebx": 392,
+                  "ecx": 404,
+                  "edi": 360,
+                  "edx": 1840191,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30590,
+                  "esp": 15056,
+                  "flags": 12870,
+                  "fs": 895,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "globals_after": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65535,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 34,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 65535,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "globals_before": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 0,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 0,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 34,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 4,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 3,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 0,
+            "tile_flag_word": 0
+          },
+          "object_after": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff001400000000000000ff000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "object_before": {
+            "lifetime": 0,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d381797190000000000000000000001000000000000400000004000000020000000200000200000000000000000000000ff00ff000100ff00140000000000000100000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "overlap_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 392,
+                  "ebp": 16378,
+                  "ebx": 0,
+                  "ecx": 5135,
+                  "edi": 360,
+                  "edx": 1840191,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30590,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 895,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 257,
+                  "ebp": 16378,
+                  "ebx": 392,
+                  "ecx": 404,
+                  "edi": 360,
+                  "edx": 1840191,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30590,
+                  "esp": 15056,
+                  "flags": 12870,
+                  "fs": 895,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "3": {
+                "offset": 3837,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 4294443009,
+                  "ebp": 16378,
+                  "ebx": 392,
+                  "ecx": 404,
+                  "edi": 360,
+                  "edx": 1840191,
+                  "eip": 3837,
+                  "es": 639,
+                  "esi": 30590,
+                  "esp": 15060,
+                  "flags": 12931,
+                  "fs": 895,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "platform_player": {
+            "after": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33554433,
+                "y_fixed": 25690114
+              },
+              "raw_hex": "22000100000202008801000000000000feff0a0000000002f83fffff97190800070062316231000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294836224
+              }
+            },
+            "before": {
+              "action": 0,
+              "mode": 0,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33554432,
+                "y_fixed": 26214400
+              },
+              "raw_hex": "000000000002000090010000000000000000000000000002f83fffff97190e000e006c316c31000001010000f6ff28000a0000000000ff00ff000001000000000000000000000000000000000028000000280000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 0
+              }
+            },
+            "entry": {
+              "offset": 16376,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 4294459384,
+                "ebp": 16378,
+                "ebx": 512,
+                "ecx": 5135,
+                "edi": 0,
+                "edx": 1840191,
+                "eip": 16376,
+                "es": 639,
+                "esi": 30630,
+                "esp": 15060,
+                "flags": 12870,
+                "fs": 895,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "globals_after": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65535,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 34,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 65535,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "globals_before": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 0,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 0,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 4294443009,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 34,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 4,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 3,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 65535,
+              "player_carry_x_fixed": 1,
+              "player_carry_y_fixed": 4294443009,
+              "player_state_byte": 0,
+              "tile_flag_word": 0
+            },
+            "helper_hits": null,
+            "input_dispatch_hits": null,
+            "input_phase": {
+              "frames": 0,
+              "keys": {
+                "1": "KBD_space",
+                "2": "KBD_up"
+              }
+            },
+            "order": {
+              "1": "platform_callback",
+              "2": "player_callback"
+            },
+            "player_path_hits": null,
+            "return_address": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_hit": {
+              "offset": 3878,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 0,
+                "ebp": 16378,
+                "ebx": 262152,
+                "ecx": 64,
+                "edi": 0,
+                "edx": 63,
+                "eip": 3878,
+                "es": 639,
+                "esi": 12642,
+                "esp": 15062,
+                "flags": 12934,
+                "fs": 887,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "status": "observed"
+          },
+          "player_selector": 639,
+          "return_hit": {
+            "offset": 3837,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 4294443009,
+              "ebp": 16378,
+              "ebx": 392,
+              "ecx": 404,
+              "edi": 360,
+              "edx": 1840191,
+              "eip": 3837,
+              "es": 639,
+              "esi": 30590,
+              "esp": 15060,
+              "flags": 12931,
+              "fs": 895,
+              "gs": 655,
+              "ss": 575
+            },
+            "segment": 503
+          },
+          "sequence": 1
+        },
+        {
+          "callback": {
+            "offset": 40391,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 40391,
+              "ebp": 16378,
+              "ebx": 100597760,
+              "ecx": 1163984896,
+              "edi": 360,
+              "edx": 975,
+              "eip": 40391,
+              "es": 639,
+              "esi": 30062,
+              "esp": 15058,
+              "flags": 12870,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_address": {
+              "kind": "near",
+              "offset": 3837,
+              "segment": 503,
+              "stack_hex": "fd0e3702"
+            },
+            "segment": 503
+          },
+          "changed_bytes": [
+            {
+              "after": 19,
+              "before": 20,
+              "offset": 82
+            },
+            {
+              "after": 20,
+              "before": 0,
+              "offset": 88
+            },
+            {
+              "after": 0,
+              "before": 255,
+              "offset": 90
+            }
+          ],
+          "collision_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 392,
+                  "ebp": 16378,
+                  "ebx": 100597760,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 100598152,
+                  "ecx": 1163985400,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12802,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "globals_after": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65534,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "globals_before": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65535,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 65535,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "object_after": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff00130000000000140000000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "object_before": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff001400000000000000ff000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "overlap_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 392,
+                  "ebp": 16378,
+                  "ebx": 100597760,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 100598152,
+                  "ecx": 1163985400,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12802,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "3": {
+                "offset": 3837,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 100598152,
+                  "ecx": 1163985400,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 3837,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15060,
+                  "flags": 12870,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "platform_player": {
+            "after": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33533953,
+                "y_fixed": 25559434
+              },
+              "raw_hex": "220001b0ff018a018601000000000018feff140000000002f83fffff97190e000d00a631a631000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294842368
+              }
+            },
+            "before": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33554433,
+                "y_fixed": 25690114
+              },
+              "raw_hex": "22000100000202008801000000000000feff0a0000000002f83fffff97190800070062316231000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294836224
+              }
+            },
+            "entry": {
+              "offset": 16376,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 16376,
+                "ebp": 16378,
+                "ebx": 100597760,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 975,
+                "eip": 16376,
+                "es": 639,
+                "esi": 30070,
+                "esp": 15060,
+                "flags": 12870,
+                "fs": 567,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "globals_after": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65534,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "globals_before": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65535,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "helper_hits": null,
+            "input_dispatch_hits": null,
+            "input_phase": {
+              "frames": 0,
+              "keys": null
+            },
+            "order": {
+              "1": "platform_callback",
+              "2": "player_callback"
+            },
+            "player_path_hits": null,
+            "return_address": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_hit": {
+              "offset": 3878,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 4294836616,
+                "ebp": 16378,
+                "ebx": 512,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 0,
+                "eip": 3878,
+                "es": 639,
+                "esi": 12710,
+                "esp": 15062,
+                "flags": 12806,
+                "fs": 631,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "status": "observed"
+          },
+          "player_selector": 639,
+          "return_hit": {
+            "offset": 3837,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 0,
+              "ebp": 16378,
+              "ebx": 100598152,
+              "ecx": 1163985400,
+              "edi": 360,
+              "edx": 975,
+              "eip": 3837,
+              "es": 639,
+              "esi": 30062,
+              "esp": 15060,
+              "flags": 12870,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "segment": 503
+          },
+          "sequence": 2
+        },
+        {
+          "callback": {
+            "offset": 40391,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 4294876615,
+              "ebp": 16378,
+              "ebx": 142541312,
+              "ecx": 1163984896,
+              "edi": 360,
+              "edx": 975,
+              "eip": 40391,
+              "es": 639,
+              "esi": 30574,
+              "esp": 15058,
+              "flags": 12870,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_address": {
+              "kind": "near",
+              "offset": 3837,
+              "segment": 503,
+              "stack_hex": "fd0e3702"
+            },
+            "segment": 503
+          },
+          "changed_bytes": [
+            {
+              "after": 18,
+              "before": 19,
+              "offset": 82
+            },
+            {
+              "after": 19,
+              "before": 20,
+              "offset": 88
+            }
+          ],
+          "collision_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 4294836616,
+                  "ebp": 16378,
+                  "ebx": 142540800,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12806,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "globals_after": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65533,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "globals_before": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65534,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "object_after": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff00120000000000130000000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "object_before": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff00130000000000140000000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "overlap_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 4294836616,
+                  "ebp": 16378,
+                  "ebx": 142540800,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12806,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "3": {
+                "offset": 3837,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 3837,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15060,
+                  "flags": 12819,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "platform_player": {
+            "after": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33513473,
+                "y_fixed": 25428752
+              },
+              "raw_hex": "22000160ff0110038401000000000030feff140000000002f83fffff97190e000c00a631a631000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294848512
+              }
+            },
+            "before": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33533953,
+                "y_fixed": 25559434
+              },
+              "raw_hex": "220001b0ff018a018601000000000018feff140000000002f83fffff97190e000d00a631a631000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294842368
+              }
+            },
+            "entry": {
+              "offset": 16376,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 16376,
+                "ebp": 16378,
+                "ebx": 142541312,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 975,
+                "eip": 16376,
+                "es": 639,
+                "esi": 30582,
+                "esp": 15060,
+                "flags": 12870,
+                "fs": 567,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "globals_after": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65533,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "globals_before": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65534,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "helper_hits": null,
+            "input_dispatch_hits": null,
+            "input_phase": {
+              "frames": 0,
+              "keys": null
+            },
+            "order": {
+              "1": "platform_callback",
+              "2": "player_callback"
+            },
+            "player_path_hits": null,
+            "return_address": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_hit": {
+              "offset": 3878,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 4294836614,
+                "ebp": 16378,
+                "ebx": 511,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 0,
+                "eip": 3878,
+                "es": 639,
+                "esi": 751,
+                "esp": 15062,
+                "flags": 12806,
+                "fs": 631,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "status": "observed"
+          },
+          "player_selector": 639,
+          "return_hit": {
+            "offset": 3837,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 0,
+              "ebp": 16378,
+              "ebx": 142541192,
+              "ecx": 1163984896,
+              "edi": 360,
+              "edx": 975,
+              "eip": 3837,
+              "es": 639,
+              "esi": 30574,
+              "esp": 15060,
+              "flags": 12819,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "segment": 503
+          },
+          "sequence": 3
+        },
+        {
+          "callback": {
+            "offset": 40391,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 4294876615,
+              "ebp": 16378,
+              "ebx": 142540800,
+              "ecx": 1163984896,
+              "edi": 360,
+              "edx": 975,
+              "eip": 40391,
+              "es": 639,
+              "esi": 30062,
+              "esp": 15058,
+              "flags": 12870,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_address": {
+              "kind": "near",
+              "offset": 3837,
+              "segment": 503,
+              "stack_hex": "fd0e3702"
+            },
+            "segment": 503
+          },
+          "changed_bytes": [
+            {
+              "after": 17,
+              "before": 18,
+              "offset": 82
+            },
+            {
+              "after": 18,
+              "before": 19,
+              "offset": 88
+            }
+          ],
+          "collision_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 4294836616,
+                  "ebp": 16378,
+                  "ebx": 142540800,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12806,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "globals_after": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65532,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "globals_before": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65533,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "object_after": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff00110000000000120000000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "object_before": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff00120000000000130000000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "overlap_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 4294836616,
+                  "ebp": 16378,
+                  "ebx": 142540800,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15056,
+                  "flags": 12806,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "3": {
+                "offset": 3837,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 3837,
+                  "es": 639,
+                  "esi": 30062,
+                  "esp": 15060,
+                  "flags": 12819,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "platform_player": {
+            "after": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33492993,
+                "y_fixed": 25298068
+              },
+              "raw_hex": "22000110ff0194048201000000000048feff140000000002f83fffff97190e000b00a631a631000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294854656
+              }
+            },
+            "before": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33513473,
+                "y_fixed": 25428752
+              },
+              "raw_hex": "22000160ff0110038401000000000030feff140000000002f83fffff97190e000c00a631a631000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294848512
+              }
+            },
+            "entry": {
+              "offset": 16376,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 16376,
+                "ebp": 16378,
+                "ebx": 142540800,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 975,
+                "eip": 16376,
+                "es": 639,
+                "esi": 30070,
+                "esp": 15060,
+                "flags": 12870,
+                "fs": 567,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "globals_after": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65532,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "globals_before": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65533,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "helper_hits": null,
+            "input_dispatch_hits": null,
+            "input_phase": {
+              "frames": 0,
+              "keys": null
+            },
+            "order": {
+              "1": "platform_callback",
+              "2": "player_callback"
+            },
+            "player_path_hits": null,
+            "return_address": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_hit": {
+              "offset": 3878,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 4294836612,
+                "ebp": 16378,
+                "ebx": 511,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 0,
+                "eip": 3878,
+                "es": 639,
+                "esi": 751,
+                "esp": 15062,
+                "flags": 12802,
+                "fs": 631,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "status": "observed"
+          },
+          "player_selector": 639,
+          "return_hit": {
+            "offset": 3837,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 0,
+              "ebp": 16378,
+              "ebx": 142541192,
+              "ecx": 1163984896,
+              "edi": 360,
+              "edx": 975,
+              "eip": 3837,
+              "es": 639,
+              "esi": 30062,
+              "esp": 15060,
+              "flags": 12819,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "segment": 503
+          },
+          "sequence": 4
+        },
+        {
+          "callback": {
+            "offset": 40391,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 4294876615,
+              "ebp": 16378,
+              "ebx": 142541312,
+              "ecx": 1163984896,
+              "edi": 360,
+              "edx": 975,
+              "eip": 40391,
+              "es": 639,
+              "esi": 30574,
+              "esp": 15058,
+              "flags": 12870,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "return_address": {
+              "kind": "near",
+              "offset": 3837,
+              "segment": 503,
+              "stack_hex": "fd0e3702"
+            },
+            "segment": 503
+          },
+          "changed_bytes": [
+            {
+              "after": 16,
+              "before": 17,
+              "offset": 82
+            },
+            {
+              "after": 17,
+              "before": 18,
+              "offset": 88
+            }
+          ],
+          "collision_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 4294836616,
+                  "ebp": 16378,
+                  "ebx": 142540800,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12802,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "globals_after": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65531,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "globals_before": {
+            "action_descriptors": {
+              "13": {
+                "action": 13,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "150df300036a0005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "2": {
+                "action": 2,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1502f30003620005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              },
+              "4": {
+                "action": 4,
+                "pool_byte": 243,
+                "pool_index": 3,
+                "raw_hex": "1504f30003680005",
+                "selector": 879,
+                "target_offset": 11789,
+                "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+              }
+            },
+            "action_flags": 0,
+            "action_low_copy_4ff0": 34,
+            "action_table_selector": 879,
+            "action_word": 0,
+            "bounds_object_flag": 65532,
+            "bounds_object_offset": 0,
+            "camera_x": 640,
+            "camera_y": 100,
+            "cloud_global_89e6": 0,
+            "contact_player_x": 0,
+            "contact_player_y": 0,
+            "deferred_y_8812_fixed": 0,
+            "effect_table_87de_hex": 0.0,
+            "input_gate_85da": 0,
+            "input_source_656c": 0,
+            "keyboard_flags": 0,
+            "object_global_8806": 0,
+            "object_global_8808": 4,
+            "object_global_880a": 3,
+            "object_global_880c": 0,
+            "object_global_881c": 0,
+            "object_global_8822": 0,
+            "object_global_8824": 3,
+            "object_global_88ae": 0,
+            "platform_overlap_latch": 0,
+            "player_carry_x_fixed": 0,
+            "player_carry_y_fixed": 0,
+            "player_state_byte": 255,
+            "tile_flag_word": 0
+          },
+          "object_after": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff00100000000000110000000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "object_before": {
+            "lifetime": 392,
+            "object_class": 1,
+            "offset": 360,
+            "position": {
+              "x": 504,
+              "x_fixed": 33030144,
+              "y": 392,
+              "y_fixed": 25690112
+            },
+            "raw_hex": "00000000f8010000880100000000000000002d0100000001c79d38179719000000000000000000000100f801880100400000004000000020000000200000200000000000000000000000ff00ff000100ff00110000000000120000000000000000000000000000000000000000000000000000000000000000000000c0010000",
+            "selector": 639,
+            "sprite_slot": 301,
+            "state_field": 16384,
+            "update_callback": 40391,
+            "update_state": 16384
+          },
+          "overlap_probe": {
+            "hits": {
+              "1": {
+                "offset": 41077,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 4294836616,
+                  "ebp": 16378,
+                  "ebx": 142540800,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41077,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12822,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "2": {
+                "offset": 41138,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 41138,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15056,
+                  "flags": 12802,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              },
+              "3": {
+                "offset": 3837,
+                "registers": {
+                  "cs": 503,
+                  "ds": 567,
+                  "eax": 0,
+                  "ebp": 16378,
+                  "ebx": 142541192,
+                  "ecx": 1163984896,
+                  "edi": 360,
+                  "edx": 975,
+                  "eip": 3837,
+                  "es": 639,
+                  "esi": 30574,
+                  "esp": 15060,
+                  "flags": 12819,
+                  "fs": 567,
+                  "gs": 655,
+                  "ss": 575
+                },
+                "segment": 503
+              }
+            }
+          },
+          "platform_player": {
+            "after": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33472513,
+                "y_fixed": 25167382
+              },
+              "raw_hex": "220001c0fe0116068001000000000060feff140000000002f83fffff97190e000a00a631a631000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294860800
+              }
+            },
+            "before": {
+              "action": 0,
+              "mode": 255,
+              "offset": 0,
+              "position": {
+                "x_fixed": 33492993,
+                "y_fixed": 25298068
+              },
+              "raw_hex": "22000110ff0194048201000000000048feff140000000002f83fffff97190e000b00a631a631000001010000f6ffd8ff0a0000000000ffff000000000000e8030100000000009001000000020020000000200000002000000020000000800100000004000060fbff00000000000000000000280000000000",
+              "selector": 639,
+              "timer": 0,
+              "velocity": {
+                "x_fixed": 0,
+                "y_fixed": 4294854656
+              }
+            },
+            "entry": {
+              "offset": 16376,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 16376,
+                "ebp": 16378,
+                "ebx": 142541312,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 975,
+                "eip": 16376,
+                "es": 639,
+                "esi": 30582,
+                "esp": 15060,
+                "flags": 12870,
+                "fs": 567,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "globals_after": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65531,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "globals_before": {
+              "action_descriptors": {
+                "13": {
+                  "action": 13,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "150df300036a0005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "2": {
+                  "action": 2,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1502f30003620005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                },
+                "4": {
+                  "action": 4,
+                  "pool_byte": 243,
+                  "pool_index": 3,
+                  "raw_hex": "1504f30003680005",
+                  "selector": 879,
+                  "target_offset": 11789,
+                  "target_raw_hex": "000000000000000000000a0000002223540154010000000000010000000000000000000000000000ffff000100e48000001f050000000000000000ffff00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000ff000000000000000000000000000000000000ffff"
+                }
+              },
+              "action_flags": 0,
+              "action_low_copy_4ff0": 34,
+              "action_table_selector": 879,
+              "action_word": 0,
+              "bounds_object_flag": 65532,
+              "bounds_object_offset": 0,
+              "camera_x": 640,
+              "camera_y": 100,
+              "cloud_global_89e6": 0,
+              "contact_player_x": 0,
+              "contact_player_y": 0,
+              "deferred_y_8812_fixed": 0,
+              "effect_table_87de_hex": 0.0,
+              "input_gate_85da": 0,
+              "input_source_656c": 0,
+              "keyboard_flags": 0,
+              "object_global_8806": 0,
+              "object_global_8808": 4,
+              "object_global_880a": 3,
+              "object_global_880c": 0,
+              "object_global_881c": 0,
+              "object_global_8822": 0,
+              "object_global_8824": 3,
+              "object_global_88ae": 0,
+              "platform_overlap_latch": 0,
+              "player_carry_x_fixed": 0,
+              "player_carry_y_fixed": 0,
+              "player_state_byte": 255,
+              "tile_flag_word": 0
+            },
+            "helper_hits": null,
+            "input_dispatch_hits": null,
+            "input_phase": {
+              "frames": 0,
+              "keys": null
+            },
+            "order": {
+              "1": "platform_callback",
+              "2": "player_callback"
+            },
+            "player_path_hits": null,
+            "return_address": {
+              "offset": 3878,
+              "segment": 503
+            },
+            "return_hit": {
+              "offset": 3878,
+              "registers": {
+                "cs": 503,
+                "ds": 567,
+                "eax": 4294836610,
+                "ebp": 16378,
+                "ebx": 511,
+                "ecx": 1163984896,
+                "edi": 0,
+                "edx": 0,
+                "eip": 3878,
+                "es": 639,
+                "esi": 751,
+                "esp": 15062,
+                "flags": 12822,
+                "fs": 631,
+                "gs": 655,
+                "ss": 575
+              },
+              "segment": 503
+            },
+            "status": "observed"
+          },
+          "player_selector": 639,
+          "return_hit": {
+            "offset": 3837,
+            "registers": {
+              "cs": 503,
+              "ds": 567,
+              "eax": 0,
+              "ebp": 16378,
+              "ebx": 142541192,
+              "ecx": 1163984896,
+              "edi": 360,
+              "edx": 975,
+              "eip": 3837,
+              "es": 639,
+              "esi": 30574,
+              "esp": 15060,
+              "flags": 12819,
+              "fs": 567,
+              "gs": 655,
+              "ss": 575
+            },
+            "segment": 503
+          },
+          "sequence": 5
+        }
+      ],
+      "trace_kind": "object-behavior",
+      "trace_schema_version": 1,
+      "type": 61
+    }
+  ]
+}

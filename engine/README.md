@@ -178,8 +178,11 @@ The confirmed `5DC3` raw-MAP `0x0800` stop/snap path and its `0x46` wait value
 are covered by a native contract test. A combined W4L1 DOS probe observes
 `9DC7 -> A075 -> A0B2 -> 3FF8` in one frame, and a hash-pinned follow-up
 captures the complete `0x78` player record before and after three successive
-player callbacks, including the near return. Platform landing/jump
-detachment and crushing remain explicit boundaries.
+player callbacks, including the near return. A second controlled aligned-
+platform trace holds native Space+Up input through the first combined handoff
+and confirms the initial carry is consumed as the player enters the recovered
+ascending mode. Retail-geometry landing, inherited velocity, and crushing
+remain explicit boundaries.
 The statically confirmed `A06F -> 1DEE` cull/re-stream lifecycle is modeled:
 platform carry/wait state is discarded at release and the ARE anchor and
 initializer state are restored on re-entry. The effect of that release on an
@@ -291,9 +294,9 @@ Explicit unresolved boundaries:
 - the ordinary-level transition behavior of `5937` beyond its recovered direct
   read/write and return contract;
 - natural ceiling validation and descriptor semantic labels/one-way policy;
-- moving-platform landing/jump detachment, crushing, and the attached-player
-  effect of culling; complete post-`3FF8` record capture is validated in the
-  hash-pinned platform follow-up fixture;
+- moving-platform landing/inherited velocity, crushing, and the attached-player
+  effect of culling; controlled jump detachment and complete post-`3FF8` record
+  capture are validated, but retail-geometry contact remains open;
 - the no-descriptor-table fallback, which remains a deliberate research
   boundary.
 

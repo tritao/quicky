@@ -515,13 +515,13 @@
       {"scheduler": "01D7:47FC->01F7:0E96", "nonzero_state": "01D7:481A->01F7:0FA2", "order": "0E96 before 0FA2"},
       {"scheduler": "01D7:4872->01F7:0E96", "nonzero_state": "01D7:4890->01F7:0FA2", "order": "0E96 before 0FA2"}
     ],
-    "platform_to_player": "When the platform is present in the phase bank and the player callback is present in the nonzero-state list, A075/A0B2 publication occurs in 0E96 before the 0FA2 indirect callback dispatch invokes 3FF8. A hash-pinned W4L1 follow-up captures the combined order, 3FF8 entry and near return, and complete 0x78 player records; exact scheduler-list membership and edge transitions remain open.",
+    "platform_to_player": "When the platform is present in the phase bank and the player callback is present in the nonzero-state list, A075/A0B2 publication occurs in 0E96 before the 0FA2 indirect callback dispatch invokes 3FF8. Hash-pinned W4L1 follow-ups capture the combined order, 3FF8 entry and near return, complete 0x78 player records, and a controlled aligned-platform jump transition with the initial carry consumed; exact scheduler-list membership, natural landing/inherited velocity, crushing, and culling behavior remain open.",
     "contact_effect_boundary": "41C1/41CF and 38EC->4519 are statically closed in the callback source; 4519/45AB/470C affect pooled effects and known globals but no direct player movement field.",
     "descriptor_boundary": "1C6E/1C92/5C27/5CC3/5DC3 all have mechanical return contracts; gameplay labels for descriptor high bits remain intentionally unassigned."
   },
   "unresolved": [
     {"address": "01F7:0442", "question": "Which table-selected callback is reached for each 5937 dispatch selector and can any target write player simulation state?", "next": "Trace one changed DS:60D8 bit with the DS:6D8A/6D8E table and indirect callback target recorded."},
-    {"address": "01F7:0FA2", "question": "Which exact list entry invokes 3FF8 in each main-loop pass and how is player membership maintained?", "next": "Capture scheduler-list bank and callback pointers across one platform/player frame."},
+    {"address": "01F7:0FA2", "question": "Which exact list entry invokes 3FF8 in each main-loop pass and how is player membership maintained?", "next": "Capture scheduler-list bank and callback pointers across one platform/player frame, then compare natural platform landing and inherited-velocity transitions."},
     {"address": "01F7:1DEE", "question": "What happens to an attached player when a platform callback is culled?", "next": "Run one off-camera attached-platform trace."},
     {"address": "01F7:4416-44FE", "question": "Does the transition branch occur in normal level movement or only scripted transitions?", "next": "Use one natural level-transition trace; no semantic rename before that trace."},
     {"address": "01F7:41C1/41CF", "question": "Does the generic blocked vertical response represent a natural ceiling hit?", "next": "Capture an unpatched reachable ceiling trajectory."}

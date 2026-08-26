@@ -15,7 +15,7 @@
     "helper_5937": "direct_contract_closed_dispatch_view_contract_closed_indirect_callback_unresolved",
     "factory_0E06": "allocator_contract_closed_family_selection_is_caller_owned",
     "input_dispatch": "normalized_word_closed_callback_precedence_closed",
-    "moving_platform": "carry_contract_scheduler_order_and_full_player_return_runtime_confirmed_detachment_crushing_culling_open",
+    "moving_platform": "carry_contract_scheduler_order_full_player_return_and_controlled_jump_detachment_runtime_confirmed_crushing_culling_open",
     "full_cpp_parity": "partial_runtime_callback_implemented_animation_boundary_closed_probe_and_external_data_gates_open"
   },
   "contracts": [
@@ -216,7 +216,7 @@
     "scheduler": {"static":"0E06 inserts into the current scheduler bank through 1036; 0E96 dispatches phases 0,1,2", "player_dependency":"player callback consumes DS:8812 and DS:8816 in the callback closure", "runtime_order":"combined W4L1 trace observes 9DC7 -> A075 -> A0B2 and then 3FF8 entry; the 3FF8 return barrier was not reached in that debugger pass"},
     "carry": {"x":"DS:8816 is a fixed-point platform delta consumed by 3A8A/3B44 and cleared", "y":"DS:8812 is platform_y-player_y+1 in fixed point, consumed at 3FF8 and cleared", "subpixel":"fixed-point globals preserve subpixel carry; no integer rounding is present in the publication formula"},
     "contact_shape":"strict object_x < player_x < object_x+width and object_y <= player_y < object_y+12",
-    "landing_jumping":"platform overlap/carry is confirmed; platform-specific landing, jump detachment, inherited velocity, and side/ceiling crushing remain unisolated",
+    "landing_jumping":"platform overlap/carry and controlled aligned-platform jump detachment are confirmed; natural platform landing, inherited velocity, and side/ceiling crushing remain unisolated",
     "culling":"platform callback uses A06F -> 1DEE for off-camera removal; attached-player behavior after culling is unresolved"
   },
   "dynamic_checks": [
@@ -233,7 +233,8 @@
     {"id":"factory_0E06", "trace":"research/build/player-factory-focus.json", "sha256":"89b2d6b627f94d15825446fbde98e85e3f211014b7bf852fc0fad0bbc29e861c", "status":"passed_allocator_observation", "observation":"factory entry/tail and first-free pool insertion are observable; created callback is caller-selected"},
     {"id":"moving_platform_carry", "trace":"research/build/entity-platform-player-followup-v2.json", "sha256":"4e046a13c349c2fae7369cb3682d406f495454bb7feeb43caa47c4feca26087e", "status":"passed_current_main_overlap_trace", "observation":"Current main-repository tracing reaches A075/A0B2 and records DS:5006=0xFFFF, DS:8816=1, DS:8812=0xFFF80001"},
     {"id":"moving_platform_scheduler_order", "trace":"research/evidence/entity-platform-scheduler-order-trace.json", "sha256":"3e21d6fbfc3884cbb21e3aa6eb77bbf85d8859261b4e5251e51d95f918066c86", "status":"passed_entry_order", "observation":"Combined W4L1 trace observes 9DC7 -> A075 -> A0B2 -> 3FF8 entry; full return capture is covered by moving_platform_player_return"},
-    {"id":"moving_platform_player_return", "trace":"research/evidence/entity-platform-player-return-v1.json", "sha256":"be18225f3e7e8729018dcc3e6ecef25afb57d709a9fc1f500da41adc1899db98", "status":"passed_full_record_return_capture", "observation":"Three successive W4L1 platform/player samples observe 01F7:3FF8 entry, 01F7:0F26 near return, and complete 0x78-byte player records before and after; jump detachment, crushing, and culling remain open"}
+    {"id":"moving_platform_player_return", "trace":"research/evidence/entity-platform-player-return-v1.json", "sha256":"be18225f3e7e8729018dcc3e6ecef25afb57d709a9fc1f500da41adc1899db98", "status":"passed_full_record_return_capture", "observation":"Three successive W4L1 platform/player samples observe 01F7:3FF8 entry, 01F7:0F26 near return, and complete 0x78-byte player records before and after; jump detachment, crushing, and culling remain open"},
+    {"id":"moving_platform_jump_detachment_controlled", "trace":"research/evidence/entity-platform-player-jump-detach-v1.json", "sha256":"9b60c6a74d0abf47d203541587945254da15172e077e3bf98fbf7f35cac46387", "script_sha256":"ca9487f6c6273282bb87a19f8b59a14cdec73deb05e36eab2d21fe8bcc43a4dd", "archive_sha256":"651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85", "status":"passed_controlled_aligned_platform_with_natural_jump_input", "observation":"With the platform aligned to the live player before 01F7:9DC7 and KBD_space+KBD_up held through the first combined handoff, globals_before show keyboard_flags=0x22, DS:5006=0xFFFF, DS:8816=1, and DS:8812=0xFFF80001. The complete 0x78-byte record changes mode +0x37 from 0 to 0xFF and the next samples show carry globals cleared while mode remains 0xFF. This proves input/carry ordering and a controlled jump-detachment transition; retail platform geometry, natural landing, inherited velocity, crushing, and culling remain open."}
   ],
   "parity_gate": {
     "compare": ["complete 0x78 pre/post player bytes", "ordered collision probes with coordinates and return flags", "relevant global writes", "spawned object callback/position/effect events"],

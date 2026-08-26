@@ -58,6 +58,38 @@ class EntityPlatformSchedulerOrderTests(unittest.TestCase):
             self.assertEqual(len(sample["platform_player"]["before"]["raw_hex"]), 0x78 * 2)
             self.assertEqual(len(sample["platform_player"]["after"]["raw_hex"]), 0x78 * 2)
 
+    def test_controlled_platform_jump_detachment_consumes_initial_carry(self):
+        trace_path = ROOT / "research" / "evidence" / "entity-platform-player-jump-detach-v1.json"
+        trace = json.loads(trace_path.read_text())
+        self.assertEqual(
+            hashlib.sha256(trace_path.read_bytes()).hexdigest(),
+            "9b60c6a74d0abf47d203541587945254da15172e077e3bf98fbf7f35cac46387",
+        )
+        config = trace["config"]
+        self.assertTrue(config["player_input_before_platform"])
+        self.assertEqual(config["player_input_phases"][0]["keys"], ["KBD_space", "KBD_up"])
+        samples = [
+            sample for sample in trace["events"][0]["samples"]
+            if sample["platform_player"].get("status") == "observed"
+        ]
+        self.assertGreaterEqual(len(samples), 3)
+        first = samples[0]["platform_player"]
+        self.assertEqual(first["globals_before"]["keyboard_flags"], 0x22)
+        self.assertEqual(first["globals_before"]["platform_overlap_latch"], 0xFFFF)
+        self.assertEqual(first["globals_before"]["player_carry_x_fixed"], 1)
+        self.assertEqual(first["globals_before"]["player_carry_y_fixed"], 0xFFF80001)
+        self.assertEqual(first["before"]["mode"], 0)
+        self.assertEqual(first["after"]["mode"], 0xFF)
+        self.assertEqual(first["globals_after"]["player_carry_x_fixed"], 0)
+        self.assertEqual(first["globals_after"]["player_carry_y_fixed"], 0)
+        self.assertEqual(len(first["before"]["raw_hex"]), 0x78 * 2)
+        self.assertEqual(len(first["after"]["raw_hex"]), 0x78 * 2)
+        later = samples[1]["platform_player"]
+        self.assertEqual(later["globals_before"]["platform_overlap_latch"], 0)
+        self.assertEqual(later["globals_before"]["player_carry_x_fixed"], 0)
+        self.assertEqual(later["globals_before"]["player_carry_y_fixed"], 0)
+        self.assertEqual(later["before"]["mode"], 0xFF)
+
 
 if __name__ == "__main__":
     unittest.main()
