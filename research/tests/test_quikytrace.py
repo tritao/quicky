@@ -103,6 +103,28 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertIn("input_hold_keys", source)
 
+    def test_callback_spacing_can_switch_to_fine_sampling(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording,
+            frames_between=60,
+            frames_between_after_sample=22,
+            frames_between_after=1,
+        ))
+        self.assertEqual(payload["frames_between"], 60)
+        self.assertEqual(payload["frames_between_after_sample"], 22)
+        self.assertEqual(payload["frames_between_after"], 1)
+
+    def test_input_phase_can_be_held_through_callback(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording,
+            input_phases=(InputPhase(("KBD_space", "KBD_up"), 0),),
+            input_phase_through_callback=True,
+        ))
+        self.assertTrue(payload["input_phase_through_callback"])
+        self.assertEqual(payload["input_phases"][0]["keys"], ["KBD_space", "KBD_up"])
+
     def test_input_phase_parser_rejects_invalid_specs(self):
         for value in ("KBD_right", "KBD_right:-1", "A+B+C+D:1", ":3"):
             with self.subTest(value=value), self.assertRaises(argparse.ArgumentTypeError):

@@ -238,6 +238,8 @@ class PlayerTraceConfig:
     poll_interval: float = 0.05
     samples: int = 8
     frames_between: int = 30
+    frames_between_after_sample: int = 0
+    frames_between_after: int | None = None
     focus_callback: bool = False
     focus_callback_offset: int = 0x3FF8
     map_focus: bool = False
@@ -266,6 +268,7 @@ class PlayerTraceConfig:
     input_samples: int = 0
     input_hold_key: str | None = None
     input_hold_frames: int = 0
+    input_phase_through_callback: bool = False
     map_patch_cell: tuple[int, int, int] | None = None
     map_patch_descriptor: int | None = None
     map_patch_word: int | None = None
@@ -364,6 +367,11 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "timeout_ms": round(config.timeout * 1000),
         "samples": config.samples,
         "frames_between": config.frames_between,
+        "frames_between_after_sample": config.frames_between_after_sample,
+        "frames_between_after": (
+            config.frames_between_after
+            if config.frames_between_after is not None else config.frames_between
+        ),
         "focus_callback": config.focus_callback,
         "focus_callback_offset": config.focus_callback_offset,
         "map_focus": config.map_focus,
@@ -392,6 +400,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_samples": config.input_samples,
         "input_hold_key": config.input_hold_key or "",
         "input_hold_frames": config.input_hold_frames,
+        "input_phase_through_callback": config.input_phase_through_callback,
         "map_patch_cell": list(config.map_patch_cell) if config.map_patch_cell else None,
         "map_patch_descriptor": config.map_patch_descriptor,
         "map_patch_word": config.map_patch_word,
@@ -983,6 +992,14 @@ def build_parser() -> argparse.ArgumentParser:
                         help="number of player/object-pool samples")
     parser.add_argument("--player-frames-between", type=int, default=30,
                         help="guest frames between player/object-pool samples")
+    parser.add_argument(
+        "--player-frames-between-after-sample", type=int, default=0,
+        help="switch to --player-frames-between-after at this 1-based sample",
+    )
+    parser.add_argument(
+        "--player-frames-between-after", type=int,
+        help="fine sample spacing after --player-frames-between-after-sample",
+    )
     parser.add_argument("--player-focus-callback", action="store_true",
                         help="break directly on the selected player callback (default 01F7:3FF8)")
     parser.add_argument("--player-callback-offset", type=lambda value: int(value, 0),
@@ -1059,6 +1076,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-input-phase", action="append", type=parse_input_phase,
                         default=[], metavar="KEY[+KEY...]:FRAMES",
                         help="per-sample input phase; repeat in order, or use WAIT:FRAMES")
+    parser.add_argument(
+        "--player-input-phase-through-callback", action="store_true",
+        help="hold each input phase through its sampled callback barrier",
+    )
     parser.add_argument("--player-capture-record", action="store_true",
                         help="capture the complete 0x78-byte player record before/after each callback")
     parser.add_argument("--player-patch", action="append", type=parse_memory_patch,
@@ -1200,6 +1221,19 @@ def main(argv: list[str] | None = None) -> int:
             args.player_input_key_2 or args.player_input_frames or
             args.player_input_samples):
         raise TraceError("--player-input-phase cannot be combined with legacy player input options")
+    if args.player_frames_between_after_sample < 0:
+        raise TraceError("--player-frames-between-after-sample must be non-negative")
+    if args.player_frames_between_after is not None and args.player_frames_between_after < 0:
+        raise TraceError("--player-frames-between-after must be non-negative")
+    if args.player_frames_between_after_sample and args.player_frames_between_after is None:
+        raise TraceError("--player-frames-between-after-sample requires --player-frames-between-after")
+    if args.player_input_phase_through_callback and not args.player_input_phase:
+        raise TraceError("--player-input-phase-through-callback requires --player-input-phase")
+    if (args.player_input_phase_through_callback and
+            any(phase.frames for phase in args.player_input_phase)):
+        raise TraceError(
+            "--player-input-phase-through-callback requires :0 phases"
+        )
     if args.player_capture_record and not (
             args.player_focus_callback or args.player_object_focus):
         raise TraceError("--player-capture-record requires player callback or object focus")
@@ -1370,6 +1404,8 @@ def main(argv: list[str] | None = None) -> int:
                 poll_interval=args.poll_interval,
                 samples=args.player_samples,
                 frames_between=args.player_frames_between,
+                frames_between_after_sample=args.player_frames_between_after_sample,
+                frames_between_after=args.player_frames_between_after,
                 focus_callback=args.player_focus_callback,
                 focus_callback_offset=args.player_callback_offset,
                 map_focus=args.player_map_focus,
@@ -1398,6 +1434,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_samples=args.player_input_samples,
                 input_hold_key=args.player_input_hold_key,
                 input_hold_frames=args.player_input_hold_frames,
+                input_phase_through_callback=args.player_input_phase_through_callback,
                 map_patch_cell=args.player_map_patch_cell,
                 map_patch_descriptor=args.player_map_patch_descriptor,
                 map_patch_word=args.player_map_patch_word,

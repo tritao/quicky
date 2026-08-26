@@ -10,6 +10,8 @@ local execute_watches = trace_config.execute_watches or {}
 local timeout_ms = trace_config.timeout_ms or 30000
 local sample_count = trace_config.samples or 8
 local frames_between = trace_config.frames_between or 30
+local frames_between_after_sample = trace_config.frames_between_after_sample or 0
+local frames_between_after = trace_config.frames_between_after or frames_between
 local object_focus = trace_config.object_focus
 local factory_focus = trace_config.factory_focus or false
 local focus_callback = trace_config.focus_callback or object_focus ~= nil
@@ -50,6 +52,7 @@ local map_patch_cell = trace_config.map_patch_cell
 local map_patch_descriptor = trace_config.map_patch_descriptor
 local map_patch_word = trace_config.map_patch_word
 local input_phases = trace_config.input_phases or {}
+local input_phase_through_callback = trace_config.input_phase_through_callback or false
 local capture_player_record = trace_config.capture_player_record or false
 -- Full pool snapshots are useful for discovery, but they are expensive: each
 -- sample walks 64 records and decodes every field.  Once the callback has
@@ -1468,9 +1471,31 @@ local experiment_frame = 0
 local continuous_input_active = false
 local continuous_input_released = false
 local continuous_input_callbacks = 0
+local active_phase_keys = nil
+
+local function key_is_continuously_held(key)
+    if input_hold_key == "" then return false end
+    for _, held_key in ipairs(input_hold_keys) do
+        if held_key == key then return true end
+    end
+    return false
+end
+
+local function release_phase_through_callback()
+    if active_phase_keys == nil then return end
+    for index = #active_phase_keys, 1, -1 do
+        if not key_is_continuously_held(active_phase_keys[index]) then
+            dosbox.key(active_phase_keys[index], false)
+        end
+    end
+    active_phase_keys = nil
+end
+
 for sequence = 1, sample_count do
+    local phase = nil
+    local phase_through_callback_keys = nil
     if sequence > 1 then
-        local phase = input_phases[sequence - 1]
+        phase = input_phases[sequence - 1]
         local held_input = phase == nil and input_key ~= "" and input_frames > 0 and
             (input_samples == 0 or sequence <= input_samples + 1)
         local active_input_key = input_key
@@ -1504,17 +1529,25 @@ for sequence = 1, sample_count do
             if phase ~= nil then
                 local keys = phase.keys or {}
                 local phase_frames = phase.frames or 0
-                for _, key in ipairs(keys) do dosbox.key(key, true) end
-                if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
-                for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
+                if input_phase_through_callback then
+                    phase_through_callback_keys = keys
+                else
+                    for _, key in ipairs(keys) do dosbox.key(key, true) end
+                    if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+                    for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
+                end
                 experiment_frame = experiment_frame + phase_frames
             end
         elseif phase ~= nil then
             local keys = phase.keys or {}
             local phase_frames = phase.frames or 0
-            for _, key in ipairs(keys) do dosbox.key(key, true) end
-            if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
-            for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
+            if input_phase_through_callback then
+                phase_through_callback_keys = keys
+            else
+                for _, key in ipairs(keys) do dosbox.key(key, true) end
+                if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+                for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
+            end
             experiment_frame = experiment_frame + phase_frames
         elseif held_input then
             dosbox.key(active_input_key, true)
@@ -1542,8 +1575,19 @@ for sequence = 1, sample_count do
             dosbox.key(active_input_key, false)
             experiment_frame = experiment_frame + input_frames
         end
-        dosbox.wait_frames(frames_between)
-        experiment_frame = experiment_frame + frames_between
+        local sample_frames_between = frames_between
+        if frames_between_after_sample > 0 and
+                sequence >= frames_between_after_sample then
+            sample_frames_between = frames_between_after
+        end
+        dosbox.wait_frames(sample_frames_between)
+        experiment_frame = experiment_frame + sample_frames_between
+        end
+        if phase_through_callback_keys ~= nil then
+            for _, key in ipairs(phase_through_callback_keys) do
+                dosbox.key(key, true)
+            end
+            active_phase_keys = phase_through_callback_keys
         end
         local map_patch = apply_player_map_patch()
         arm_targets()
@@ -1997,8 +2041,15 @@ for sequence = 1, sample_count do
             target_kind = 0x64,
         }
     end
+    if phase_through_callback_keys ~= nil then
+        sample.input_phase_through_callback = {
+            keys = phase_through_callback_keys,
+        }
+        release_phase_through_callback()
+    end
     samples[#samples + 1] = sample
 end
+release_phase_through_callback()
 if continuous_input_active then
     for index = #input_hold_keys, 1, -1 do
         dosbox.key(input_hold_keys[index], false)
