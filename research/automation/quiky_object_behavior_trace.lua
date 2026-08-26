@@ -161,17 +161,32 @@ local function capture_platform_player(platform_selector, platform_offset,
     dosbox.debug_continue()
     local helper_hits = {}
     local return_hit = nil
-    for attempt = 1, 16 do
+    -- A player callback can cross more than sixteen helper barriers before
+    -- its near return when the platform carry path is active.  Keep this
+    -- bounded, but do not mistake the old small budget for a missing return.
+    -- The repeated-hit guard below still prevents a malformed breakpoint
+    -- route from consuming the whole trace.
+    local last_hit_key = nil
+    local repeated_hit_count = 0
+    for attempt = 1, 128 do
         local hit = dosbox.wait_for_breakpoint(2000)
         if not hit then break end
         if hit.segment == returned.segment and hit.offset == returned.offset then
             return_hit = hit
             break
         end
+        local hit_key = string.format("%04x:%04x", hit.segment, hit.offset)
+        if hit_key == last_hit_key then
+            repeated_hit_count = repeated_hit_count + 1
+        else
+            last_hit_key = hit_key
+            repeated_hit_count = 1
+        end
         helper_hits[#helper_hits + 1] = {
             segment = hit.segment, offset = hit.offset,
             registers = hit.registers,
         }
+        if repeated_hit_count >= 32 then break end
         dosbox.breakpoint_set(returned.segment, returned.offset, {once = true})
         dosbox.breakpoint_set(0x01f7, 0x3a8a, {once = true})
         dosbox.breakpoint_set(0x01f7, 0x3b44, {once = true})

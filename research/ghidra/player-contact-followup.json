@@ -15,7 +15,7 @@
     "helper_5937": "direct_contract_closed_dispatch_view_contract_closed_indirect_callback_unresolved",
     "factory_0E06": "allocator_contract_closed_family_selection_is_caller_owned",
     "input_dispatch": "normalized_word_closed_callback_precedence_closed",
-    "moving_platform": "carry_contract_and_scheduler_order_runtime_confirmed_combined_edge_cases_open",
+    "moving_platform": "carry_contract_scheduler_order_and_full_player_return_runtime_confirmed_detachment_crushing_culling_open",
     "full_cpp_parity": "partial_runtime_callback_implemented_animation_boundary_closed_probe_and_external_data_gates_open"
   },
   "contracts": [
@@ -232,19 +232,20 @@
     {"id":"helper_5937_entry_return", "trace":"research/build/player-followup-5937-entry-return-v1.json", "sha256":"c86d7ff68c6117fb39f4f04f9605e656ecb8e7490fbb69a3fa71485dd2fd13d2", "status":"passed_direct_contract", "observation":"5937 is observed before 5BED return; direct player record and transition aliases remain unchanged in ordinary samples"},
     {"id":"factory_0E06", "trace":"research/build/player-factory-focus.json", "sha256":"89b2d6b627f94d15825446fbde98e85e3f211014b7bf852fc0fad0bbc29e861c", "status":"passed_allocator_observation", "observation":"factory entry/tail and first-free pool insertion are observable; created callback is caller-selected"},
     {"id":"moving_platform_carry", "trace":"research/build/entity-platform-player-followup-v2.json", "sha256":"4e046a13c349c2fae7369cb3682d406f495454bb7feeb43caa47c4feca26087e", "status":"passed_current_main_overlap_trace", "observation":"Current main-repository tracing reaches A075/A0B2 and records DS:5006=0xFFFF, DS:8816=1, DS:8812=0xFFF80001"},
-    {"id":"moving_platform_scheduler_order", "trace":"research/evidence/entity-platform-scheduler-order-trace.json", "sha256":"3e21d6fbfc3884cbb21e3aa6eb77bbf85d8859261b4e5251e51d95f918066c86", "status":"passed_entry_order_only", "observation":"Combined W4L1 trace observes 9DC7 -> A075 -> A0B2 -> 3FF8 entry; full 3FF8 return and attached-player edge behavior remain open"}
+    {"id":"moving_platform_scheduler_order", "trace":"research/evidence/entity-platform-scheduler-order-trace.json", "sha256":"3e21d6fbfc3884cbb21e3aa6eb77bbf85d8859261b4e5251e51d95f918066c86", "status":"passed_entry_order", "observation":"Combined W4L1 trace observes 9DC7 -> A075 -> A0B2 -> 3FF8 entry; full return capture is covered by moving_platform_player_return"},
+    {"id":"moving_platform_player_return", "trace":"research/evidence/entity-platform-player-return-v1.json", "sha256":"be18225f3e7e8729018dcc3e6ecef25afb57d709a9fc1f500da41adc1899db98", "status":"passed_full_record_return_capture", "observation":"Three successive W4L1 platform/player samples observe 01F7:3FF8 entry, 01F7:0F26 near return, and complete 0x78-byte player records before and after; jump detachment, crushing, and culling remain open"}
   ],
   "parity_gate": {
     "compare": ["complete 0x78 pre/post player bytes", "ordered collision probes with coordinates and return flags", "relevant global writes", "spawned object callback/position/effect events"],
     "held_out_matrix": ["standing", "jump initiation", "early release", "late release", "apex/free fall", "landing", "ceiling boundary", "side rising", "side falling", "one-way traversal", "moving platform"],
-    "current_cpp_status": "not executable for full parity: engine/src/player_update.cpp intentionally omits grounded/contact/jump orchestration. The research checker must fail closed when a C++ trace is absent rather than compare only positions.",
-    "implementation_gate": "do not replace the contact boundary until a natural ceiling trace, occupied side/ledge trace, one-way traversal trace, and current-main moving-platform scheduler trace are available"
+    "current_cpp_status": "runtime callback and grounded/contact/jump orchestration are implemented; the committed W1L1 DOS fixture passes full-record callback parity, while held-out natural ceiling, one-way, and moving-platform edge parity remain open.",
+    "implementation_gate": "do not promote natural ceiling/one-way labels or moving-platform detachment/crushing/culling behavior until targeted traces close those boundaries"
   },
   "unresolved": [
     {"address":"01F7:5937", "question":"effects of its external dispatch callees on indirect player/global state", "next":"trace one dispatch target per changed DS:60D8 bit with full global aliases"},
     {"address":"01F7:3D02/3DF2", "question":"natural ceiling polarity and descriptor one-way semantics", "next":"capture unpatched controlled level geometry and approach from both vertical directions"},
     {"address":"01F7:0E06", "question":"all caller-specific object families and exact child despawn callback semantics", "next":"trace 6328 callback lifetime and compare with non-contact 0E06 callers"},
-    {"address":"01F7:0E96/1036", "question":"direct scheduler ordering between platform and player and culling of an attached player", "next":"single trace with both callbacks and scheduler bank snapshots"},
+    {"address":"01F7:0E96/1036", "question":"exact scheduler-bank membership and attached-player behavior after jump, crushing, or culling", "next":"trace scheduler bank entries while forcing each one-at-a-time platform edge transition"},
     {"address":"01F7:41C1", "question":"whether the early contact response is ceiling-specific or a generic vertical boundary", "next":"natural ascent impact trace without coordinate patch"}
   ],
   "authoritative_c_source": "research/notes/player-static-decomp.cpp"

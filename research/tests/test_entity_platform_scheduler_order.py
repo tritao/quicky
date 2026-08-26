@@ -34,6 +34,30 @@ class EntityPlatformSchedulerOrderTests(unittest.TestCase):
             sample["globals_after"]["player_carry_y_fixed"], 0xFFF80001
         )
 
+    def test_player_return_followup_captures_full_record(self):
+        contract_path = ROOT / "research" / "entity-platform-scheduler-order-evidence.json"
+        contract = json.loads(contract_path.read_text())
+        followup = contract["player_return_followup"]
+        trace_path = ROOT / followup["trace"]
+        trace = json.loads(trace_path.read_text())
+
+        self.assertEqual(
+            hashlib.sha256(trace_path.read_bytes()).hexdigest(),
+            followup["trace_sha256"],
+        )
+        samples = trace["events"][0]["samples"]
+        observed = [
+            sample for sample in samples
+            if sample["platform_player"].get("status") == "observed"
+        ]
+        self.assertGreaterEqual(len(observed), 3)
+        for sample in observed:
+            self.assertEqual(sample["callback"]["offset"], 0x9DC7)
+            self.assertEqual(sample["platform_player"]["entry"]["offset"], 0x3FF8)
+            self.assertEqual(sample["platform_player"]["return_hit"]["offset"], 0x0F26)
+            self.assertEqual(len(sample["platform_player"]["before"]["raw_hex"]), 0x78 * 2)
+            self.assertEqual(len(sample["platform_player"]["after"]["raw_hex"]), 0x78 * 2)
+
 
 if __name__ == "__main__":
     unittest.main()

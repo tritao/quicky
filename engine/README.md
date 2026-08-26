@@ -175,9 +175,11 @@ the `01F7:3FF8` player callback as an ordered pair; the ordinary scheduler
 invocation list remains separate because the player update is not a pooled
 object callback in this native boundary.
 The confirmed `5DC3` raw-MAP `0x0800` stop/snap path and its `0x46` wait value
-are covered by a native contract test. A combined W4L1 DOS probe now observes
-`9DC7 -> A075 -> A0B2 -> 3FF8` in one frame; post-`3FF8` record parity,
-platform landing/jump detachment, and crushing remain explicit boundaries.
+are covered by a native contract test. A combined W4L1 DOS probe observes
+`9DC7 -> A075 -> A0B2 -> 3FF8` in one frame, and a hash-pinned follow-up
+captures the complete `0x78` player record before and after three successive
+player callbacks, including the near return. Platform landing/jump
+detachment and crushing remain explicit boundaries.
 The statically confirmed `A06F -> 1DEE` cull/re-stream lifecycle is modeled:
 platform carry/wait state is discarded at release and the ARE anchor and
 initializer state are restored on re-entry. The effect of that release on an
@@ -289,10 +291,9 @@ Explicit unresolved boundaries:
 - the ordinary-level transition behavior of `5937` beyond its recovered direct
   read/write and return contract;
 - natural ceiling validation and descriptor semantic labels/one-way policy;
-- moving-platform post-player state parity beyond the observed pre-player
-  publication and `3FF8` entry,
-  landing/jump detachment, crushing, and the attached-player effect of
-  culling;
+- moving-platform landing/jump detachment, crushing, and the attached-player
+  effect of culling; complete post-`3FF8` record capture is validated in the
+  hash-pinned platform follow-up fixture;
 - the no-descriptor-table fallback, which remains a deliberate research
   boundary.
 

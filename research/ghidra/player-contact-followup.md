@@ -97,9 +97,12 @@ clears `DS:8816` in the horizontal/contact path. This closes the publication
 and consumption contract for subpixel carry. The static main-loop call-site
 pairs also establish `0E96` before `0FA2`, so a platform callback in the phase
 bank can publish carry before the later nonzero-state dispatch invokes the
-player callback. Player-list membership, landing/jump detachment, crushing,
-and the combined runtime frame remain open. Off-camera removal is
-`A06F -> 1DEE`; attached-player behavior after that removal is unresolved.
+player callback. A hash-pinned W4L1 follow-up now captures the complete
+`0x78` player record before and after three successive `3FF8` calls and the
+near return at `0F26`. Player-list membership, landing/jump detachment,
+crushing, and the effect of off-camera removal remain open. Off-camera
+removal is `A06F -> 1DEE`; attached-player behavior after that removal is
+unresolved.
 
 ## Focused external-state expansion
 

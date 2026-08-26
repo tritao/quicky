@@ -29,14 +29,38 @@
       "DS:8812": "0x00000000 -> 0xFFF80001"
     }
   },
+  "player_return_followup": {
+    "trace": "research/evidence/entity-platform-player-return-v1.json",
+    "trace_sha256": "be18225f3e7e8729018dcc3e6ecef25afb57d709a9fc1f500da41adc1899db98",
+    "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85",
+    "trace_script_sha256": "38442389ecc8505f3d6db917c73971a0802d8354a2358e3bb1d97eb1c7bc17ba",
+    "controls": [
+      "same W4L1 type-0x3D record and native 01F7:9D18 initializer as the scheduler fixture",
+      "camera=(640,100)",
+      "setup alignment object=(player setup x-8, player setup y-8)",
+      "no player-coordinate patch after initial alignment"
+    ],
+    "observed": {
+      "platform_samples": 4,
+      "full_player_return_samples": 3,
+      "player_callback_entry": "01F7:3FF8",
+      "player_callback_return": "01F7:0F26",
+      "record_size": "0x78",
+      "ordered_callbacks": ["01F7:9DC7", "01F7:A075", "01F7:A0B2", "01F7:3FF8", "01F7:0F26"],
+      "record_capture": "Each observed player sample contains 120-byte before and after records; the callback updates fixed-point position/animation fields and returns through the scheduler caller."
+    },
+    "status": "passed_full_record_return_capture"
+  },
   "conclusion": {
     "closed": [
       "The platform callback and player callback are observed in the expected same-frame order.",
-      "A075/A0B2 publication is a real runtime dependency before 3FF8 entry."
+      "A075/A0B2 publication is a real runtime dependency before 3FF8 entry.",
+      "A hash-pinned platform fixture captures the complete 0x78 player record before and after three successive 3FF8 calls and observes the near callback return."
     ],
     "still_open": [
-      "post-3FF8 full-record write capture in this combined probe",
-      "player detachment on jump, crushing, and culling of an attached platform"
+      "player detachment on jump",
+      "side/ceiling crushing",
+      "the attached-player effect of platform culling"
     ]
   }
 }
