@@ -271,6 +271,7 @@ class PlayerTraceConfig:
     input_hold_frames: int = 0
     input_phase_through_callback: bool = False
     input_phase_hold_callbacks: int = 1
+    input_phase_hold_after_wait: bool = False
     minimal_callback_capture: bool = False
     parity_callback_capture: bool = False
     scheduler_only: bool = False
@@ -410,6 +411,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_hold_frames": config.input_hold_frames,
         "input_phase_through_callback": config.input_phase_through_callback,
         "input_phase_hold_callbacks": config.input_phase_hold_callbacks,
+        "input_phase_hold_after_wait": config.input_phase_hold_after_wait,
         "minimal_callback_capture": config.minimal_callback_capture,
         "parity_callback_capture": config.parity_callback_capture,
         "scheduler_only": config.scheduler_only,
@@ -1114,6 +1116,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="callback barriers to hold a through-callback phase (default 1)",
     )
     parser.add_argument(
+        "--player-input-phase-hold-after-wait", action="store_true",
+        help="keep nonzero input phases held through their wait and sampled callback",
+    )
+    parser.add_argument(
         "--player-minimal-callback-capture", action="store_true",
         help="omit diagnostic global/pool snapshots; enables long lean callback discovery traces",
     )
@@ -1493,6 +1499,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_hold_frames=args.player_input_hold_frames,
                 input_phase_through_callback=args.player_input_phase_through_callback,
                 input_phase_hold_callbacks=args.player_input_phase_hold_callbacks,
+                input_phase_hold_after_wait=args.player_input_phase_hold_after_wait,
                 minimal_callback_capture=args.player_minimal_callback_capture,
                 parity_callback_capture=args.player_parity_capture,
                 scheduler_only=args.player_scheduler_only,

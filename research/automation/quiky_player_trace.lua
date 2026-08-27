@@ -57,6 +57,7 @@ local persistent_map_patch_state = nil
 local input_phases = trace_config.input_phases or {}
 local input_phase_through_callback = trace_config.input_phase_through_callback or false
 local input_phase_hold_callbacks = trace_config.input_phase_hold_callbacks or 1
+local input_phase_hold_after_wait = trace_config.input_phase_hold_after_wait or false
 local capture_player_record = trace_config.capture_player_record or false
 local minimal_callback_capture = trace_config.minimal_callback_capture or false
 local parity_callback_capture = trace_config.parity_callback_capture or false
@@ -2160,11 +2161,14 @@ for sequence = 1, sample_count do
             if phase ~= nil then
                 local keys = phase.keys or {}
                 local phase_frames = phase.frames or 0
-                -- A through-callback phase is callback-stepped only when its
-                -- frame count is zero. Nonzero phases intentionally retain
-                -- the ordinary guest-frame wait so a long natural approach
-                -- can be followed by a short frame-resolution contact probe.
-                if input_phase_through_callback and phase_frames == 0 then
+                -- The historical trace route needs both forms: zero phases
+                -- change keys at a callback barrier, while the explicit
+                -- hold-after-wait mode keeps keys down during a guest wait
+                -- and through the callback sampled at its end.
+                if input_phase_through_callback and
+                   (phase_frames == 0 or input_phase_hold_after_wait) then
+                    for _, key in ipairs(keys) do dosbox.key(key, true) end
+                    if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
                     phase_through_callback_keys = keys
                 else
                     for _, key in ipairs(keys) do dosbox.key(key, true) end
@@ -2177,8 +2181,12 @@ for sequence = 1, sample_count do
             local keys = phase.keys or {}
             local phase_frames = phase.frames or 0
             -- See the corresponding branch above: :0 means one callback
-            -- step, while a nonzero phase remains an unsampled guest wait.
-            if input_phase_through_callback and phase_frames == 0 then
+            -- step; hold-after-wait additionally preserves nonzero phases
+            -- until the callback barrier after their guest-frame wait.
+            if input_phase_through_callback and
+               (phase_frames == 0 or input_phase_hold_after_wait) then
+                for _, key in ipairs(keys) do dosbox.key(key, true) end
+                if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
                 phase_through_callback_keys = keys
             else
                 for _, key in ipairs(keys) do dosbox.key(key, true) end

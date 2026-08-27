@@ -130,7 +130,21 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(payload["input_phases"][0]["keys"], ["KBD_space", "KBD_up"])
         source = (Path(__file__).resolve().parents[1] /
                   "automation/quiky_player_trace.lua").read_text(encoding="utf-8")
-        self.assertIn("input_phase_through_callback and phase_frames == 0", source)
+        self.assertIn("input_phase_through_callback and", source)
+        self.assertIn("input_phase_hold_after_wait", source)
+
+    def test_input_phase_can_hold_keys_after_guest_wait(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        payload = player_trace_lua_config(PlayerTraceConfig(
+            startup_recording=recording,
+            input_phases=(InputPhase(("KBD_space", "KBD_up"), 30),),
+            input_phase_through_callback=True,
+            input_phase_hold_after_wait=True,
+        ))
+        self.assertTrue(payload["input_phase_hold_after_wait"])
+        source = (Path(__file__).resolve().parents[1] /
+                  "automation/quiky_player_trace.lua").read_text(encoding="utf-8")
+        self.assertIn("input_phase_hold_after_wait", source)
 
     def test_minimal_focused_trace_uses_lean_pool_capture_without_watches(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
