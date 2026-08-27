@@ -1,0 +1,78 @@
+{
+  "schema": "quiky.player-w1l2-landing-parity.v1",
+  "purpose": "Held-out W1L2 DOS-to-native replay covering jump initiation, apex transition, free fall, and natural landing.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l2-input-landing-v8.json",
+    "trace_sha256": "135a9f938ad94a488599fca89e517f5ecf9102e4c8e334733990f39705ad4302",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "ab348b006cfbed11e9c7276c32cf7dc8c1f6c85234ac8ecc9b41962030a44f78",
+    "parity_tool": "research/tools/player_callback_parity.py",
+    "comparator": "research/tools/player_parity_compare.py"
+  },
+  "capture": {
+    "command": "python3 research/tools/quikytrace.py --launch --headless --runtime-dir game --select-level W1L2 --selector-frames 60 --timeout 300 --player-trace --player-focus-callback --player-capture-record --player-property-focus --player-collision-event-limit 48 --player-collision-repeat-limit 2 --player-samples 20 --player-frames-between 2 --player-input-hold-key KBD_space+KBD_up --player-input-hold-frames 1 --output research/build/traces/player-w1l2-input-landing-v8.json",
+    "callback": "01F7:3FF8",
+    "samples": 20,
+    "sample_spacing_guest_frames": 3,
+    "initial_player": {
+      "x": 240,
+      "y": 512,
+      "mode": 0,
+      "vertical_velocity_fixed": 0
+    },
+    "jump_initiation": {
+      "sample": 2,
+      "pre_mode": "0x00",
+      "post_mode": "0xFF",
+      "pre_y": 512,
+      "post_y": 512,
+      "post_vertical_velocity_fixed": -303104,
+      "input_hold": "KBD_space+KBD_up through the callback"
+    },
+    "apex_transition": {
+      "sample": 11,
+      "pre_mode": "0xFF",
+      "post_mode": "0x01",
+      "pre_y": 495,
+      "post_y": 495,
+      "post_vertical_velocity_fixed": 0
+    },
+    "landing": {
+      "sample": 20,
+      "pre_mode": "0x01",
+      "post_mode": "0x00",
+      "pre_y": 511,
+      "post_y": 512,
+      "pre_vertical_velocity_fixed": 143360,
+      "post_vertical_velocity_fixed": 0
+    },
+    "property_probe_counts": [6, 8, 5, 5, 5, 5, 5, 5, 5, 5, 4, 10, 10, 10, 10, 10, 10, 10, 10, 12],
+    "collision_trace_guards": false
+  },
+  "result": {
+    "diagnostic_parity": "pass",
+    "callbacks_checked": 20,
+    "complete_player_records": true,
+    "normalized_input_mismatches": 0,
+    "post_record_mismatches": 0,
+    "ordered_property_probe_mismatches": 0,
+    "callback_global_write_mismatches": 0,
+    "parity_command": "python3 research/tools/player_callback_parity.py --original research/build/traces/player-w1l2-input-landing-v8.json --archive game/NESTLE.DAT --map W1L2.MAP --binary build/engine/quiky-player-trace",
+    "interpretation": "The complete callback record, input, ordered property, and global-write boundaries match through the natural W1L2 landing. The DOS capture does not publish factory/effect arrays."
+  },
+  "static_evidence": [
+    "research/notes/player-static-decomp.cpp",
+    "research/ghidra/player-callback-focused-audit.json",
+    "research/ghidra/player-callback-closure.json"
+  ],
+  "unresolved_boundaries": [
+    "Natural ceiling contact and general descriptor class names remain separate runtime questions.",
+    "Moving-platform landing, inherited velocity, crushing, and culling remain outside this static-floor fixture.",
+    "The capture does not publish factory/effect arrays for the callbacks."
+  ],
+  "status": "twenty W1L2 callbacks match the native implementation through jump initiation, apex, free fall, and natural landing"
+}

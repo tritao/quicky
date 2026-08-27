@@ -433,6 +433,9 @@ Dynamically parity-validated:
 - an eight-callback W1L2 input replay with a real `KBD_space+KBD_up` press and
   release: complete player records, normalized input, ordered property probes,
   and callback-global writes all match exactly.
+- a twenty-callback W1L2 replay through jump initiation, apex, free fall, and
+  natural landing; complete records, ordered property probes, and global
+  writes match exactly at every sampled callback.
 
 The captured-DOS replay set is mixed: older standing and late-release fixtures
 remain diagnostic when their source traces omit native probe arrays or opaque
@@ -459,6 +462,12 @@ callback-global mismatches. Its capture and replay command are recorded in
 [`player-w1l2-input-parity-v1.json`](../research/evidence/player-dos-parity/player-w1l2-input-parity-v1.json);
 factory/effect arrays were not published by that DOS trace and remain explicit
 coverage boundaries.
+
+The held-out W1L2 landing replay extends the input fixture across the complete
+short arc. It observes ordinary-to-ascent mode `0x00 -> 0xFF`, the apex
+transition to `0x01`, and the natural landing transition back to `0x00` at
+`y=512` with zero vertical velocity. The twenty-callback exact replay is
+recorded in [`player-w1l2-landing-parity-v1.json`](../research/evidence/player-dos-parity/player-w1l2-landing-parity-v1.json).
 
 The committed fixture and its candidate are under
 `research/evidence/player-dos-parity/`. Re-run the live replay with:
