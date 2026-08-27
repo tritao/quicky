@@ -19,6 +19,17 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class PlayerParityWorkflowTests(unittest.TestCase):
+    def test_w1l2_input_parity_evidence_records_closed_boundaries(self):
+        evidence = ROOT / "research/evidence/player-dos-parity/player-w1l2-input-parity-v1.json"
+        payload = json.loads(evidence.read_text(encoding="utf-8"))
+        result = payload["result"]
+        self.assertEqual(result["diagnostic_parity"], "pass")
+        self.assertEqual(result["callbacks_checked"], 8)
+        self.assertTrue(result["complete_player_records"])
+        self.assertEqual(result["post_record_mismatches"], 0)
+        self.assertEqual(result["ordered_property_probe_mismatches"], 0)
+        self.assertEqual(result["callback_global_write_mismatches"], 0)
+
     def test_committed_w1l1_dos_fixture_has_a_closed_candidate(self):
         source = ROOT / "research/evidence/player-dos-parity/w1l1-jump-property-v3.json"
         candidate = ROOT / "research/evidence/player-dos-parity/w1l1-jump-property-v3-candidate.json"

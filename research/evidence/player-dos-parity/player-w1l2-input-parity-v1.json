@@ -1,0 +1,66 @@
+{
+  "schema": "quiky.player-w1l2-input-parity.v1",
+  "purpose": "Held-out W1L2 DOS-to-native replay for a real jump press, release, and early ascent.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l2-input-parity-v5.json",
+    "trace_sha256": "ed5b2efb06a6c52d746c53dacbbb36cf208e32d1915939b2ecb630ec8dbea1b3",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "ab348b006cfbed11e9c7276c32cf7dc8c1f6c85234ac8ecc9b41962030a44f78",
+    "parity_tool": "research/tools/player_callback_parity.py",
+    "comparator": "research/tools/player_parity_compare.py"
+  },
+  "capture": {
+    "command": "python3 research/tools/quikytrace.py --launch --headless --runtime-dir game --select-level W1L2 --selector-frames 60 --timeout 240 --player-trace --player-focus-callback --player-capture-record --player-collision-focus --player-property-focus --player-collision-event-limit 96 --player-collision-repeat-limit 3 --player-samples 8 --player-frames-between 1 --output research/build/traces/player-w1l2-input-parity-v5.json --player-input-phase KBD_space+KBD_up:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1",
+    "callback": "01F7:3FF8",
+    "samples": 8,
+    "input_sequence": [
+      "baseline",
+      "KBD_space+KBD_up for one guest frame",
+      "WAIT for one guest frame, repeated through sample 8"
+    ],
+    "initial_player": {
+      "x": 240,
+      "y": 512,
+      "mode": 0,
+      "vertical_velocity_fixed": 0
+    },
+    "jump_window": {
+      "sample": 2,
+      "normalized_action_word": "0x0022",
+      "pre_mode": "0xFF",
+      "pre_y": 512,
+      "pre_vertical_velocity_fixed": -303104,
+      "post_y": 510,
+      "post_vertical_velocity_fixed": -131072
+    },
+    "property_probe_counts": [6, 5, 5, 5, 5, 5, 5, 5],
+    "collision_trace_guards": false
+  },
+  "result": {
+    "diagnostic_parity": "pass",
+    "callbacks_checked": 8,
+    "complete_player_records": true,
+    "normalized_input_mismatches": 0,
+    "post_record_mismatches": 0,
+    "ordered_property_probe_mismatches": 0,
+    "callback_global_write_mismatches": 0,
+    "known_effect_mismatches": 0,
+    "parity_command": "python3 research/tools/player_callback_parity.py --original research/build/traces/player-w1l2-input-parity-v5.json --archive game/NESTLE.DAT --map W1L2.MAP --binary build/engine/quiky-player-trace",
+    "interpretation": "The captured callbacks agree with the C++ callback at the available record, input, property, and global-write boundaries. The trace does not publish factory/effect arrays, so those remain coverage-limited rather than inferred equal."
+  },
+  "static_evidence": [
+    "research/notes/player-static-decomp.cpp",
+    "research/ghidra/player-callback-focused-audit.json",
+    "research/ghidra/player-callback-closure.json"
+  ],
+  "unresolved_boundaries": [
+    "Natural ceiling contact and general descriptor class names remain separate runtime questions.",
+    "The capture does not publish factory/effect arrays for the callbacks.",
+    "Later landing, moving-platform, and contact-object behavior require separate held-out traces."
+  ],
+  "status": "eight W1L2 input callbacks match the native implementation for complete player records, normalized input, ordered property probes, and callback-global writes"
+}

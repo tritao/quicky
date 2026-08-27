@@ -430,6 +430,9 @@ Dynamically parity-validated:
   `player_parity_compare.py`;
 - the complete v2 replay fixture, including all twelve `5937` inputs, exact
   player records, ordered property probes, and the direct `DS:4FF8` write.
+- an eight-callback W1L2 input replay with a real `KBD_space+KBD_up` press and
+  release: complete player records, normalized input, ordered property probes,
+  and callback-global writes all match exactly.
 
 The captured-DOS replay set is mixed: older standing and late-release fixtures
 remain diagnostic when their source traces omit native probe arrays or opaque
@@ -449,6 +452,14 @@ factory/effect arrays, so the strict parity mode correctly reports those as
 missing coverage instead of declaring them equal. The result is recorded in
 [`player-w1l2-session-parity-v1.json`](../research/evidence/player-dos-parity/player-w1l2-session-parity-v1.json).
 
+The held-out W1L2 input replay extends that result beyond the stationary
+startup window. The eight-callback `Space+Up` press/release capture reaches the
+early ascent path and has zero complete-record, input, ordered-property, or
+callback-global mismatches. Its capture and replay command are recorded in
+[`player-w1l2-input-parity-v1.json`](../research/evidence/player-dos-parity/player-w1l2-input-parity-v1.json);
+factory/effect arrays were not published by that DOS trace and remain explicit
+coverage boundaries.
+
 The committed fixture and its candidate are under
 `research/evidence/player-dos-parity/`. Re-run the live replay with:
 
@@ -462,7 +473,6 @@ python3 research/tools/player_callback_parity.py \
 The exact callback-selected animation words and the runtime-`DS` basis are
 pinned in
 [`player-animation-tables-static-v1.json`](../research/evidence/player-dos-parity/player-animation-tables-static-v1.json)
-and
 [`player-animation-tables-static.cpp`](../research/notes/player-animation-tables-static.cpp).
 
 Explicit unresolved boundaries:
