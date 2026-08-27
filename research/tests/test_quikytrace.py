@@ -147,6 +147,21 @@ class QuikyTraceTests(unittest.TestCase):
             source,
         )
 
+    def test_parity_capture_is_explicit_and_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            focus_callback=True,
+            capture_player_record=True,
+            parity_callback_capture=True,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertTrue(payload["parity_callback_capture"])
+        source = (Path(__file__).resolve().parents[1] /
+                  "automation/quiky_player_trace.lua").read_text(encoding="utf-8")
+        self.assertIn("parity_callback_capture", source)
+        self.assertIn("parity_globals_snapshot", source)
+
     def test_player_trace_exports_complete_replay_callback_globals(self):
         source = (Path(__file__).resolve().parents[1] /
                   "automation/quiky_player_trace.lua").read_text(encoding="utf-8")

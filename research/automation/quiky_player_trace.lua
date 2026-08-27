@@ -59,6 +59,7 @@ local input_phase_through_callback = trace_config.input_phase_through_callback o
 local input_phase_hold_callbacks = trace_config.input_phase_hold_callbacks or 1
 local capture_player_record = trace_config.capture_player_record or false
 local minimal_callback_capture = trace_config.minimal_callback_capture or false
+local parity_callback_capture = trace_config.parity_callback_capture or false
 local scheduler_only = trace_config.scheduler_only or false
 -- Full pool snapshots are useful for discovery, but they are expensive: each
 -- sample walks 64 records and decodes every field.  Once the callback has
@@ -250,7 +251,8 @@ local function object_snapshot(raw, selector, offset, index)
         index = index,
         selector = selector,
         offset = offset,
-        state_hex = minimal_callback_capture and nil or hex(raw),
+        state_hex = (not minimal_callback_capture or capture_player_record or
+                     parity_callback_capture) and hex(raw) or nil,
         position = {
             x_fixed = x_fixed,
             y_fixed = y_fixed,
@@ -597,6 +599,64 @@ local function static_globals()
         target_capacity = target_capacity,
         target_entries = target_entries,
     }
+end
+
+-- This is deliberately narrower than static_globals().  It contains every
+-- global named by player_replay_manifest.py, including the 5937 dispatch
+-- inputs, but omits the PRNG ring, target ring, and startup-only diagnostics.
+-- The explicit mode keeps long natural routes within the Lua instruction
+-- budget without silently dropping a value that can affect callback replay.
+local function parity_globals_snapshot()
+    return {
+        dispatch_gate_85da = dosbox.mem_read_byte("ds", 0x85da),
+        dispatch_word_60d8 = dosbox.mem_read_word("ds", 0x60d8),
+        dispatch_previous_word_60da = dosbox.mem_read_word("ds", 0x60da),
+        dispatch_score_low_881c = dosbox.mem_read_word("ds", 0x881c),
+        dispatch_score_high_881e = dosbox.mem_read_word("ds", 0x881e),
+        dispatch_lives_880a = dosbox.mem_read_word("ds", 0x880a),
+        dispatch_ammo_880c = dosbox.mem_read_word("ds", 0x880c),
+        dispatch_health_8822 = dosbox.mem_read_word("ds", 0x8822),
+        dispatch_aux_4ff2 = dword(dosbox.mem_read("ds", 0x4ff2, 4) or
+                                  "\0\0\0\0", 1),
+        dispatch_aux_4ff6 = dosbox.mem_read_word("ds", 0x4ff6),
+        dispatch_aux_4ff8 = dosbox.mem_read_word("ds", 0x4ff8),
+        dispatch_aux_4ffa = dosbox.mem_read_word("ds", 0x4ffa),
+        input_action_flags = dosbox.mem_read_word("ds", 0x8196),
+        keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
+        external_x_delta = signed32(dword(
+            dosbox.mem_read("ds", 0x8816, 4) or "\0\0\0\0", 1)),
+        timer_clear = dosbox.mem_read_word("ds", 0x8810),
+        horizontal_limit = dosbox.mem_read_word("ds", 0x4fe2),
+        horizontal_aux = dosbox.mem_read_word("ds", 0x4fe6),
+        horizontal_accumulator = dosbox.mem_read_word("ds", 0x4fe8),
+        horizontal_branch_counter = dosbox.mem_read_word("ds", 0x4fec),
+        horizontal_timer = dosbox.mem_read_word("ds", 0x4fee),
+        horizontal_result_byte = string.byte(
+            dosbox.mem_read("ds", 0x4ff0, 1) or "\0", 1),
+        view_state_a = signed_word(dosbox.mem_read_word("ds", 0x4fe4)),
+        pending_event = dosbox.mem_read_word("ds", 0x612e),
+        camera_x = dosbox.mem_read_word("ds", 0x81c0),
+        camera_y = dosbox.mem_read_word("ds", 0x81c4),
+        camera_y_limit = dosbox.mem_read_word("ds", 0x81cc),
+        player_vertical_adjust = dosbox.mem_read_word("ds", 0x8812),
+        action_source = dosbox.mem_read_word("ds", 0x656c),
+        activation_state = signed_word(dosbox.mem_read_word("ds", 0x85da)),
+        speed_cap_mode = dosbox.mem_read_word("ds", 0x88b6),
+        action_suppressor = signed_word(dosbox.mem_read_word("ds", 0x89e6)),
+        transition_mode = signed_word(dosbox.mem_read_word("ds", 0x89ea)),
+    }
+end
+
+local function trace_globals()
+    if parity_callback_capture then return parity_globals_snapshot() end
+    if minimal_callback_capture then return nil end
+    return static_globals()
+end
+
+local function callback_globals()
+    if parity_callback_capture then return parity_globals_snapshot() end
+    if minimal_callback_capture then return {} end
+    return static_globals()
 end
 
 -- Read the table used by 5CC3 and the currently loaded MAP.  This is kept
@@ -1016,7 +1076,7 @@ local function capture_release_callback(sample)
             release.post_object = object_snapshot(
                 raw_or_error, object.selector, object.offset, -1
             )
-            release.post_globals = static_globals()
+            release.post_globals = callback_globals()
         else
             release.post_object_read_error =
                 ok and "short object state" or tostring(raw_or_error)
@@ -1187,7 +1247,7 @@ local function record_branch(sample, hit)
         dx_mask_0x20 = dx & 0x20,
         dx_mask_0x40 = dx & 0x40,
         object = callback_object_snapshot(hit),
-        globals = minimal_callback_capture and nil or static_globals(),
+        globals = trace_globals(),
     }
     sample.branch_events = sample.branch_events or {}
     if hit.offset == branch_entry_offset then
@@ -1299,7 +1359,7 @@ local function record_collision(sample, hit)
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
         object = callback_object_snapshot(hit),
-        globals = minimal_callback_capture and nil or static_globals(),
+        globals = trace_globals(),
     }
     if hit.offset == 0x3986 then
         local code = dosbox.mem_read_selector(hit.segment, hit.offset, 0x18)
@@ -1553,7 +1613,7 @@ local function record_execute_watch(sample, hit)
         breakpoint = {segment = hit.segment, offset = hit.offset},
         registers = hit.registers,
         object = callback_object_snapshot(hit),
-        globals = minimal_callback_capture and nil or static_globals(),
+        globals = trace_globals(),
     }
     if indirect_target then
         event.indirect_target = true
@@ -1972,7 +2032,7 @@ if transition_focus then
             breakpoint = {segment = hit.segment, offset = hit.offset},
             registers = registers,
             caller = {stack_hex = hex(stack)},
-            globals = static_globals(),
+            globals = trace_globals(),
         }
         if #stack >= 4 then
             event.caller.return_address = {offset = word(stack, 1), segment = word(stack, 3)}
@@ -2020,7 +2080,7 @@ if transition_focus then
             warmup_frames = transition_warmup_frames,
             events = events,
         },
-        final_globals = minimal_callback_capture and nil or static_globals(),
+        final_globals = trace_globals(),
     }
     return
 end
@@ -2204,7 +2264,7 @@ for sequence = 1, sample_count do
         breakpoint = {segment = hit.segment, offset = hit.offset},
         breakpoint_owners = hit.breakpoint_owners,
         registers = hit.registers,
-        globals = minimal_callback_capture and nil or static_globals(),
+        globals = trace_globals(),
         related_breakpoints = {},
     }
     if object_focus ~= nil then
@@ -2314,7 +2374,7 @@ for sequence = 1, sample_count do
         sample.breakpoint = {segment = hit.segment, offset = hit.offset}
         sample.registers = hit.registers
         if not minimal_callback_capture then
-            sample.globals = static_globals()
+            sample.globals = trace_globals()
         end
         if scheduler_only then
             sample.scheduler = scheduler_snapshot()
@@ -2328,7 +2388,7 @@ for sequence = 1, sample_count do
        (focus_callback and (hit.offset == focus_callback_offset or
                             (probe_release_emitter and hit.offset == 0x470c))) then
         local callback_object = callback_object_snapshot(hit)
-        local callback_globals = minimal_callback_capture and {} or static_globals()
+        local callback_globals_before = callback_globals()
         sample.player_callback = {
             breakpoint = {segment = hit.segment, offset = hit.offset},
             callback_offset = hit.offset,
@@ -2337,7 +2397,7 @@ for sequence = 1, sample_count do
                 "ss", (hit.registers.esp or 0) & 0xffff, 12) or ""),
             object = callback_object,
             pre_object = callback_object,
-            pre_globals = callback_globals,
+            pre_globals = callback_globals_before,
             record_size = callback_object and callback_object.state_size or 0x40,
         }
         local stack = dosbox.mem_read(
@@ -2653,14 +2713,14 @@ for sequence = 1, sample_count do
                         sample.player_callback.post_object.state_hex
                     )
                 end
-                sample.player_callback.post_globals = minimal_callback_capture and {} or static_globals()
+                    sample.player_callback.post_globals = callback_globals()
             else
                 sample.player_callback.post_object_read_error =
                     ok and "short object state" or tostring(raw_or_error)
             end
-            sample.player_callback.post_globals = minimal_callback_capture and {} or static_globals()
+            sample.player_callback.post_globals = callback_globals()
             sample.player_callback.global_writes = numeric_differences(
-                callback_globals, sample.player_callback.post_globals
+                callback_globals_before, sample.player_callback.post_globals
             )
             end, function(problem) return tostring(problem) end)
             local restore_ok, restore_error = pcall(
@@ -2736,7 +2796,7 @@ local result = {
     trace_schema_version = trace_config.schema_version or 1,
     samples = samples,
     final_capture_registers = capture.registers,
-    final_globals = minimal_callback_capture and nil or static_globals(),
+    final_globals = trace_globals(),
     final_pool = minimal_callback_capture and nil or pool_snapshot(),
     startup_stream_events = startup_stream_events,
 }

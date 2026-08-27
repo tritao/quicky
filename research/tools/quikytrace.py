@@ -272,6 +272,7 @@ class PlayerTraceConfig:
     input_phase_through_callback: bool = False
     input_phase_hold_callbacks: int = 1
     minimal_callback_capture: bool = False
+    parity_callback_capture: bool = False
     scheduler_only: bool = False
     map_patch_cell: tuple[int, int, int] | None = None
     map_patch_descriptor: int | None = None
@@ -410,6 +411,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_phase_through_callback": config.input_phase_through_callback,
         "input_phase_hold_callbacks": config.input_phase_hold_callbacks,
         "minimal_callback_capture": config.minimal_callback_capture,
+        "parity_callback_capture": config.parity_callback_capture,
         "scheduler_only": config.scheduler_only,
         "map_patch_cell": list(config.map_patch_cell) if config.map_patch_cell else None,
         "map_patch_descriptor": config.map_patch_descriptor,
@@ -1116,6 +1118,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="omit diagnostic global/pool snapshots; enables long lean callback discovery traces",
     )
     parser.add_argument(
+        "--player-parity-capture", action="store_true",
+        help="capture only the statically mapped callback globals needed by replay parity",
+    )
+    parser.add_argument(
         "--player-scheduler-only", action="store_true",
         help="capture scheduler banks without the unrelated 64-record object-pool walk",
     )
@@ -1488,6 +1494,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_phase_through_callback=args.player_input_phase_through_callback,
                 input_phase_hold_callbacks=args.player_input_phase_hold_callbacks,
                 minimal_callback_capture=args.player_minimal_callback_capture,
+                parity_callback_capture=args.player_parity_capture,
                 scheduler_only=args.player_scheduler_only,
                 map_patch_cell=args.player_map_patch_cell,
                 map_patch_descriptor=args.player_map_patch_descriptor,
