@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Fail-closed callback parity comparison for original and C++ trace JSON.
+"""Compatibility wrapper for the shared player parity comparator.
 
-The candidate adapter intentionally uses the same small interchange fields as
-the DOSBox player tracer. A C++ trace must provide, for each sample, either a
-``player_callback`` object or ``pre_record_hex``/``post_record_hex`` and must
-provide the complete ordered collision-probe, callback-global, and known
-effect fields. Missing data is a mismatch; position-only comparisons are not
-accepted.
+The historical command line and import names remain stable. Implementation
+now lives in :mod:`quiky.parity`, where it shares the trace envelope adapter
+with the session comparator.
 """
 
 from __future__ import annotations
@@ -17,50 +14,44 @@ import sys
 from pathlib import Path
 from typing import Any
 
-
-class ParityError(Exception):
-    pass
-
-
-GLOBAL_FIELD_MAP = {
-    "dispatch_previous_word_60da": (0x60DA, 2),
-    "dispatch_aux_4ff2": (0x4FF2, 4),
-    "dispatch_aux_4ff8": (0x4FF8, 2),
-    "dispatch_aux_4ffa": (0x4FFA, 2),
-    "horizontal_timer": (0x4FEE, 2),
-    "horizontal_accumulator": (0x4FE2, 4),
-    "horizontal_aux": (0x4FE8, 4),
-    "horizontal_branch_counter": (0x4FEC, 2),
-    "camera_x": (0x81C0, 2),
-    "camera_y": (0x81C4, 2),
-    "player_vertical_adjust": (0x8812, 4),
-    "horizontal_result_byte": (0x4FF0, 1),
-}
+from quiky.parity import (
+    GLOBAL_FIELD_MAP,
+    ParityError,
+    canonical_effects,
+    canonical_factory,
+    canonical_global_write,
+    canonical_globals,
+    canonical_input,
+    canonical_probes,
+    compare_player,
+    validate_record,
+)
+from quiky.trace import TraceError, extract_samples, load_trace
 
 
 def load_payload(path: Path) -> dict[str, Any]:
+    """Retain the old helper while validating through the shared adapter."""
+
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ParityError(f"{path}: cannot read JSON: {exc}") from exc
-    if not isinstance(value, dict):
-        raise ParityError(f"{path}: top-level value must be an object")
-    events = value.get("events")
+        payload = load_trace(path).payload
+    except TraceError as exc:
+        raise ParityError(str(exc)) from exc
+    events = payload.get("events")
     if isinstance(events, list):
-        if len(events) != 1 or not isinstance(events[0], dict):
-            raise ParityError(f"{path}: events must contain one object")
-        value = events[0]
-    if not isinstance(value.get("samples"), list):
-        raise ParityError(f"{path}: no samples array")
-    return value
+        return events[0]
+    return payload
 
 
 def sample_map(payload: dict[str, Any], label: str) -> dict[int, dict[str, Any]]:
+    try:
+        samples, _ = extract_samples(payload)
+    except TraceError as exc:
+        raise ParityError(str(exc)) from exc
     result: dict[int, dict[str, Any]] = {}
-    for sample in payload["samples"]:
-        if not isinstance(sample, dict) or not isinstance(sample.get("sequence"), int):
+    for sample in samples:
+        sequence = sample.get("sequence")
+        if not isinstance(sequence, int):
             raise ParityError(f"{label}: every sample needs integer sequence")
-        sequence = sample["sequence"]
         if sequence in result:
             raise ParityError(f"{label}: duplicate sample sequence {sequence}")
         result[sequence] = sample
@@ -73,217 +64,21 @@ def callback(sample: dict[str, Any]) -> dict[str, Any] | None:
 
 
 def record_hex(sample: dict[str, Any], which: str) -> str | None:
-    cb = callback(sample)
-    if cb is not None:
-        obj = cb.get("pre_object" if which == "pre" else "post_object")
+    callback_value = callback(sample)
+    if callback_value is not None:
+        obj = callback_value.get("pre_object" if which == "pre" else "post_object")
         if isinstance(obj, dict) and isinstance(obj.get("state_hex"), str):
             return obj["state_hex"]
-        direct = cb.get("pre_record_hex" if which == "pre" else "post_record_hex")
+        direct = callback_value.get(f"{which}_record_hex")
         if isinstance(direct, str):
             return direct
-    direct = sample.get("pre_record_hex" if which == "pre" else "post_record_hex")
+    direct = sample.get(f"{which}_record_hex")
     return direct if isinstance(direct, str) else None
-
-
-def validate_record(value: str | None, label: str) -> str:
-    if value is None:
-        raise ParityError(f"{label}: missing complete player record")
-    normalized = value.lower()
-    if len(normalized) != 0x78 * 2:
-        raise ParityError(f"{label}: player record is not exactly 0x78 bytes")
-    try:
-        bytes.fromhex(normalized)
-    except ValueError as exc:
-        raise ParityError(f"{label}: player record is not hexadecimal") from exc
-    return normalized
-
-
-def canonical_probes(sample: dict[str, Any]) -> list[Any] | None:
-    property_events = sample.get("map_properties")
-    if isinstance(property_events, list):
-        result: list[Any] = []
-        for event in property_events:
-            if not isinstance(event, dict):
-                result.append(event)
-                continue
-            lookup = event.get("map_lookup")
-            if not isinstance(lookup, dict):
-                lookup = event
-            coordinates = event.get("coordinates")
-            if not isinstance(coordinates, dict):
-                coordinates = {}
-            x = lookup.get("x", coordinates.get("x"))
-            y = lookup.get("y", coordinates.get("y"))
-            descriptor = event.get("descriptor_word")
-            if isinstance(x, int) and isinstance(y, int):
-                x_bit = (x & 0x0008) != 0
-                y_bit = (y & 0x0008) != 0
-                quadrant = ((0x02 if x_bit else 0x01) if y_bit else
-                            (0x04 if x_bit else 0x08))
-            else:
-                quadrant = event.get("quadrant_flag_mask")
-            helper = event.get("helper_offset")
-            if helper in (0x1C6E, 0x1C92):
-                occupied = event.get("raw_map_bit_set")
-            elif isinstance(descriptor, int) and isinstance(quadrant, int):
-                occupied = bool((descriptor & 0x000f) and
-                                (descriptor & quadrant))
-            else:
-                occupied = event.get("descriptor_flag_set")
-            result.append({
-                "x": x,
-                "y": y,
-                "cell_word": lookup.get("cell_word",
-                                         lookup.get("raw_cell_word")),
-                "tile_id": lookup.get("tile_id"),
-                "descriptor_word": descriptor,
-                "quadrant_mask": quadrant,
-                "occupied": occupied,
-            })
-        return result
-
-    events = sample.get("collisions")
-    if events is None:
-        events = sample.get("collision_probes")
-    if not isinstance(events, list):
-        return None
-    result: list[Any] = []
-    for event in events:
-        if not isinstance(event, dict):
-            result.append(event)
-            continue
-        map_property = event.get("map_property")
-        lookup = (map_property.get("map_lookup")
-                  if isinstance(map_property, dict) else None)
-        source = lookup if isinstance(lookup, dict) else event
-        result.append({
-            # These are the fields both the DOS normalizer and C++ emitter
-            # can publish without interpreting the helper's carry/flags.
-            "x": source.get("x"),
-            "y": source.get("y"),
-            "cell_word": source.get("cell_word", source.get("raw_cell_word")),
-            "tile_id": source.get("tile_id"),
-            "descriptor_word": (map_property.get("descriptor_word")
-                                 if isinstance(map_property, dict)
-                                 else event.get("descriptor_word")),
-            "quadrant_mask": event.get("quadrant_mask"),
-            "occupied": event.get("occupied"),
-        })
-    return result
-
-
-def canonical_global_write(value: Any) -> Any:
-    if not isinstance(value, dict):
-        return value
-    result = dict(value)
-    field = result.get("field")
-    if field in GLOBAL_FIELD_MAP and "offset" not in result:
-        result["offset"], result["width"] = GLOBAL_FIELD_MAP[field]
-    result.pop("field", None)
-    return result
-
-
-def canonical_globals(sample: dict[str, Any]) -> Any:
-    cb = callback(sample)
-    if cb is not None and isinstance(cb.get("global_writes"), list):
-        return [canonical_global_write(value) for value in cb["global_writes"]]
-    if isinstance(sample.get("global_writes"), list):
-        return [canonical_global_write(value) for value in sample["global_writes"]]
-    return None
-
-
-def canonical_factory(sample: dict[str, Any]) -> Any:
-    event = sample.get("factory_event")
-    if not isinstance(event, dict):
-        return None
-    created = event.get("created_objects")
-    if not isinstance(created, list):
-        return None
-    selected = []
-    for obj in created:
-        if not isinstance(obj, dict):
-            selected.append(obj)
-            continue
-        position = obj.get("position")
-        selected.append({
-            "offset": obj.get("offset"),
-            "callback": obj.get("callback"),
-            "kind": obj.get("kind"),
-            "phase": obj.get("phase"),
-            "sprite_slot": obj.get("sprite_slot"),
-            "position": position,
-        })
-    return selected
-
-
-def canonical_effects(sample: dict[str, Any]) -> Any:
-    cb = callback(sample)
-    if cb is not None and isinstance(cb.get("effect_dispatches"), list):
-        return cb["effect_dispatches"]
-    for key in ("effects", "effect_dispatches"):
-        if isinstance(sample.get(key), list):
-            return sample[key]
-    return None
-
-
-def canonical_input(sample: dict[str, Any]) -> Any:
-    cb = callback(sample)
-    if cb is not None and isinstance(cb.get("input_flags"), int):
-        return cb["input_flags"]
-    globals_value = sample.get("globals")
-    if isinstance(globals_value, dict):
-        keyboard = globals_value.get("keyboard_action_flags")
-        auxiliary = globals_value.get("input_action_flags")
-        if isinstance(keyboard, int) and isinstance(auxiliary, int):
-            # Static 01F7:F21B/F21C returns DS:88BC | DS:8196.  Preserve
-            # that normalized action word when the DOS trace publishes the
-            # two source words rather than a callback-local input field.
-            return (keyboard | auxiliary) & 0xffff
-        if isinstance(auxiliary, int):
-            return auxiliary
-        if isinstance(keyboard, int):
-            return keyboard
-    return None
 
 
 def compare(original: Path, candidate: Path,
             require_complete: bool = False) -> list[dict[str, Any]]:
-    left = sample_map(load_payload(original), "original")
-    right = sample_map(load_payload(candidate), "candidate")
-    mismatches: list[dict[str, Any]] = []
-    for sequence in sorted(set(left) | set(right)):
-        if sequence not in left or sequence not in right:
-            mismatches.append({"sequence": sequence, "field": "sample", "original": sequence in left, "candidate": sequence in right})
-            continue
-        a, b = left[sequence], right[sequence]
-        for which in ("pre", "post"):
-            try:
-                av = validate_record(record_hex(a, which), f"original sample {sequence} {which}")
-                bv = validate_record(record_hex(b, which), f"candidate sample {sequence} {which}")
-            except ParityError as exc:
-                mismatches.append({"sequence": sequence, "field": f"{which}_record", "error": str(exc)})
-                continue
-            if av != bv:
-                mismatches.append({"sequence": sequence, "field": f"{which}_record", "original": av, "candidate": bv})
-        fields = (("input_flags", canonical_input(a), canonical_input(b)),
-                  ("probes", canonical_probes(a), canonical_probes(b)),
-                  ("global_writes", canonical_globals(a), canonical_globals(b)),
-                  ("factory_objects", canonical_factory(a), canonical_factory(b)),
-                  ("effects", canonical_effects(a), canonical_effects(b)))
-        for field, av, bv in fields:
-            if not require_complete:
-                # Older diagnostic captures did not publish every optional
-                # array. Preserve their historical comparison behavior while
-                # allowing the acceptance path to reject absent data.
-                if av is None:
-                    av = []
-                if bv is None:
-                    bv = []
-            if av is None or bv is None:
-                mismatches.append({"sequence": sequence, "field": field, "error": "missing required parity data"})
-            elif av != bv:
-                mismatches.append({"sequence": sequence, "field": field, "original": av, "candidate": bv})
-    return mismatches
+    return compare_player(original, candidate, require_complete=require_complete)
 
 
 def main(argv: list[str] | None = None) -> int:

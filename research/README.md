@@ -129,6 +129,25 @@ python3 research/tools/quikyctl.py level-render /tmp/quiky-assets/W1L1.MAP \
   --output /tmp/W1L1.png
 ~~~
 
+### Shared tooling and compatibility frontend
+
+The first tooling refactor keeps all evidence paths and legacy command lines
+stable. Shared trace loading and parity adapters live under
+[`tools/quiky/`](tools/quiky/), while the additive frontend dispatches the
+existing commands:
+
+~~~sh
+python3 research/tools/quiky.py parity player \
+  --original DOS.json --candidate native.json
+python3 research/tools/quiky.py parity session \
+  --original DOS.json --candidate native.json
+python3 research/tools/quiky.py frame native.bmp dos.png --strict
+python3 research/tools/quiky.py trace --help
+~~~
+
+The category inventory and migration boundary are recorded in
+[`notes/tooling-layout.md`](notes/tooling-layout.md).
+
 ### Controlled ARE experiments
 
 Generate isolated archives for the W1L3 experiment level:
