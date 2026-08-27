@@ -219,8 +219,8 @@
       "animation_table": {"status": "confirmed", "known": "DS:6986 maps tile IDs to world ICO indices; emitted objects use 01F7:10B5 -> 1693 -> 1186 and three-tick lifetime."},
       "death_removal": {"status": "confirmed", "known": "Parent clears active field at state 10; child ICO objects are short-lived pooled objects."},
       "cross_world_variants": {"status": "confirmed", "known": "World ICO mappings are directly matched for W1-W5; type variants differ only by initial +0x2E value. State 10 publishes terminal coordinates through DS:8828/882A; transition routine 01F7:1AAA consumes the indexed coordinate row selected by DS:85D2, repositions the player, reinstalls callback 01F7:3F27, clears DS:89EA, and rebuilds map state."},
-      "evidence_refs": ["research/effect-mappings.json", "research/notes/ghidra-analysis.md", "research/automation/quiky_entity_trace.lua", "research/entity-targeted-decompile-evidence.json"],
-      "open_questions": ["which authored selector/level state writes each indexed DS:8828/882A coordinate row"]
+      "evidence_refs": ["research/effect-mappings.json", "research/notes/ghidra-analysis.md", "research/automation/quiky_entity_trace.lua", "research/entity-targeted-decompile-evidence.json", "research/evidence/player-dos-parity/spawn-table-static-v1.json"],
+                           "open_questions": ["resource/DOS values decoded by 01D7:34C7 and any indirect writes to DS:85D2 remain address-named; direct code writes to DS:85D2 all reset row 0"]
     },
     {
       "id": "cloud",
@@ -260,7 +260,7 @@
         {"type": "0x2B", "fixture": "W1L1 falling-leaf anchor", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "sprite_slot": 700, "callback_samples": 6, "movement": "pooled child leaves; trajectory/cadence not fully reconstructed", "animation_tables": "DS:3312 / DS:3326", "native_world": "BLATT.BOB slots 700-707 and 750-757"},
         {"type": "0x2B", "fixture": "W1L1 lifetime trace, 256 matching child updates", "dispatch": "01F7:4727", "post_initializer": "01F7:474D", "object_callback": "01F7:4727", "callback_samples": 256, "pool_offsets": [120, 240, 360, 480, 720, 840, 960, 1080], "recycled_offsets": [360, 480, 720, 840, 960, 1080], "animation_slots": [700, 701, 702, 703, 704], "cadence_scope": "W1L1 only; no authored W2-W5 leaf declarations", "evidence": "research/entity-leaf-pool-evidence.json"}
       ],
-      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-leaf-pool-evidence.json", "research/entity-leaf-state-evidence.json", "research/notes/type-2b-falling-leaves-sheet.png"],
+      "evidence_refs": ["research/entity-types.json", "research/notes/ghidra-analysis.md", "research/entity-leaf-pool-evidence.json", "research/entity-leaf-state-evidence.json", "research/evidence/player-dos-parity/falling-leaf-static-v1.json", "research/notes/type-2b-falling-leaves-sheet.png"],
     "open_questions": []
     },
     {
@@ -307,10 +307,10 @@
       "types": ["0x34"],
       "role": "hazard_effect",
       "worlds": ["W1", "W2", "W3", "W4", "W5"],
-      "initializer_fields": {"status": "confirmed", "known": "01F7:9BEE installs callback 01F7:9C0C, adds 0x10 to x and 0x20 to y, loads animation table DS:3568, and writes slot 400."},
-      "update_callback_state_machine": {"status": "confirmed", "known": "01F7:9C0C gates on level state, calls the player-range helper, and on overlap emits ONGAME2.TFX sound action DS:612E=4; eight controlled qualifying callbacks repeat the action while 9C0C remains active. It has no multi-state movement loop."},
+      "initializer_fields": {"status": "confirmed", "known": "01F7:9BEE installs callback 01F7:9C0C, performs one raw word ADD +0x10 at object +0x04 and two successive raw word ADD +0x10 operations at object +0x08, then loads animation descriptor DS:3568."},
+      "update_callback_state_machine": {"status": "confirmed", "known": "01F7:9C0C uses DS:85DA < 0x32 only to select the camera/animation prefix; the >=0x32 path continues into the same overlap test. A qualifying contact calls 1B5D -> 1B07, writes persistent player response fields and DS:8950, publishes DS:612E=4, and reaches the presentation sink. It has no multi-state movement loop."},
       "movement_ai": {"status": "confirmed", "known": "The callback contains no x/y integration after initialization; BUMP is a stationary hazard at its shifted ARE placement."},
-      "collision_shape_interaction": {"status": "confirmed", "known": "01F7:9C29 applies the exact open overlap gate object_x-25 < player_x < object_x+25 and object_y-8 < player_y < object_y; with DS:89EA=0 and player+0x37=1, a controlled W1L2 overlap reaches 01F7:9C64 and emits sound action DS:612E=4 (ONGAME2.TFX macro byte 0x68). Render geometry is 32x23, origin 16,23."},
+      "collision_shape_interaction": {"status": "confirmed", "known": "01F7:9C29 applies the exact open overlap gate object_x-25 < player_x < object_x+25 and object_y-8 < player_y < object_y; 39FE supplies the player X/Y and signed +0x37 gate. Contact calls 1B07, then 1B5D writes +0x2B=0xff and subtracts 0x1b000 from +0x0e with 32-bit wrapping, before DS:612E=4. Render geometry is 32x23, origin 16,23."},
       "animation_table": {"status": "confirmed", "known": "A 128-sample live run cycles slots 400, 402, 403, 401 with a seven-tick object+0x20 counter. BUMP_W1.BOB through BUMP_W5.BOB each provide four world-specific records with recorded dimensions/origins."},
       "death_removal": {"status": "confirmed", "known": "A live camera-(0,0) run takes the 01F7:1DCA -> 01F7:1DEE off-camera path and clears object+0x18; hazard reset semantics remain separate."},
       "cross_world_variants": {"status": "confirmed", "known": "Resource trace captures BUMP_W1.BOB and the resource naming establishes BUMP_W1 through BUMP_W5 variants."},

@@ -1,0 +1,48 @@
+{
+  "schema": "quiky.player-spawn-table-static.v1",
+  "purpose": "Targeted Ghidra reference census and static contract for the spawn table consumed by 01F7:1AAA.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "pipeline": "research/tools/run_player_external_closure.py",
+    "reference_script": "research/tools/FindQuikyReferences.java"
+  },
+  "table": {
+    "base": "01F7:8828",
+    "row_size_bytes": 4,
+    "row_count": 32,
+    "layout": "interleaved little-endian words: row[n].x at 8828+4*n and row[n].y at 882A+4*n",
+    "last_row": "row[31] at 01F7:88A4/88A6"
+  },
+  "writers": [
+    {
+      "address": "01D7:34C7",
+      "calling_convention": "near; far resource-row pointer on stack; RET 4; no stable return flags",
+      "contract": "After resource/map refresh, loops i=0..31 and stores word(resource_word_x(i)+0x20) at row[i].x and word(resource_word_y(i)+0x30) at row[i].y.",
+      "resource_selector": "01D7:3861 computes DS:3574 + 5*DS:85D4 as the far source pointer before calling 34C7.",
+      "evidence": ["ghidra:01D7:34C7-3649", "ghidra:01D7:3861-398D", "ghidra:FindQuikyReferences:DS:8828/882A"]
+    },
+    {
+      "address": "01F7:8E4B",
+      "calling_convention": "far pooled-object callback; no scheduler return flags",
+      "contract": "State 10 stores object.x+0x19 at row[0].x and object.y+0x46 at row[0].y, then clears object+0x18.",
+      "evidence": ["ghidra:01F7:8E4B-9255", "ghidra:FindQuikyReferences:DS:8828"]
+    }
+  ],
+  "consumers": [
+    {
+      "address": "01F7:1AAA",
+      "contract": "Reads row = DS:85D2, promotes row[row].x/y words into the high 16 bits of player +0x02/+0x06, reinstalls callback 3F27, sets +0x29=1, and clears DS:89EA.",
+      "evidence": ["ghidra:01F7:1AAA-1AF4", "ghidra:FindQuikyReferences:DS:85D2/8828"]
+    }
+  ],
+  "selector_writes": [
+    {"address": "01D7:4603", "value": 0, "context": "level/transition setup"},
+    {"address": "01D7:4B6B", "value": 0, "context": "recovery setup"},
+    {"address": "01D7:4BD5", "value": 0, "context": "nonterminal recovery setup"},
+    {"address": "01F7:1AFB", "value": 0, "context": "health/checkpoint reset"}
+  ],
+  "static_conclusion": "The apparent terminal coordinate pair is row zero of a 32-row spawn table. 34C7 is the code-defined table writer; 8E4B updates row zero; 1AAA consumes the row selected by DS:85D2. All direct code writes found for DS:85D2 reset it to zero. Resource values and any indirect writes remain address-named boundaries.",
+  "confidence": "confirmed_static_table_layout_and_direct_writer_census_resource_values_open"
+}

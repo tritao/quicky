@@ -8,8 +8,17 @@ sys.path.insert(0, str(ROOT / "research" / "tools"))
 
 from verify_player_external_closure import (  # noqa: E402
     REQUIRED_ADDRESSES,
+    check_5937_dispatch_static,
+    check_camera_map_refresh_static,
     check_contracts,
+    check_death_recovery_static,
+    check_natural_flagged_contact_evidence,
+    check_natural_tile41_contact_evidence,
+    check_negative_mode_second_probe_evidence,
+    check_runtime_scheduler_membership,
     check_scheduler_order,
+    check_transition_effect_static,
+    check_transition_writer_callback_evidence,
     verify,
 )
 
@@ -36,6 +45,33 @@ class PlayerExternalClosureTests(unittest.TestCase):
 
     def test_default_ledger_is_reproducible(self):
         verify(LEDGER, ROOT)
+
+    def test_runtime_scheduler_membership_is_audited(self):
+        check_runtime_scheduler_membership(self.ledger, ROOT)
+
+    def test_death_recovery_static_closure_is_audited(self):
+        check_death_recovery_static(self.ledger, ROOT)
+
+    def test_5937_shared_dispatch_body_is_audited(self):
+        check_5937_dispatch_static(self.ledger, ROOT)
+
+    def test_transition_effect_relocated_closure_is_audited(self):
+        check_transition_effect_static(self.ledger, ROOT)
+
+    def test_transition_writer_callback_is_audited(self):
+        check_transition_writer_callback_evidence(self.ledger, ROOT)
+
+    def test_natural_flagged_contact_is_audited(self):
+        check_natural_flagged_contact_evidence(self.ledger, ROOT)
+
+    def test_natural_tile41_contact_is_audited(self):
+        check_natural_tile41_contact_evidence(self.ledger, ROOT)
+
+    def test_negative_mode_second_probe_is_audited(self):
+        check_negative_mode_second_probe_evidence(self.ledger, ROOT)
+
+    def test_camera_map_refresh_static_closure_is_audited(self):
+        check_camera_map_refresh_static(self.ledger, ROOT)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,122 @@
+{
+  "schema": "quiky.player-death-recovery-focused.v1",
+  "purpose": "Focused protected-mode runtime evidence for the natural W1L1 death-to-respawn boundary after the static recovery closure.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-death-recovery-focused-v5.json",
+    "trace_sha256": "0ab144076267d048d8013dc0e61c2f0b58aff6973162726525cefb835f9b5d50",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "d34768e6e6335293462df3985dd45f32a9e675cce411078624773645cec60838",
+    "startup_recording": "research/automation/startup-to-input.json",
+    "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae"
+  },
+  "method": {
+    "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-focus-callback --player-callback-offset 0x3ff8 --player-capture-record --player-samples 30 --player-frames-between 10 --player-minimal-callback-capture --player-input-key KBD_right --player-input-frames 1600 --player-input-samples 1 --timeout 240 --player-watch-execute 0x1f7:0x19e6 --player-watch-execute 0x1f7:0x199d --player-watch-execute 0x1f7:0x1aaa --player-watch-execute 0x1f7:0x1ae6 --output research/build/traces/player-w1l1-death-recovery-focused-v5.json",
+    "debugger": "DOSBox protected-mode debugger API",
+    "callback": "01F7:3FF8",
+    "watched_entries": ["01F7:19E6", "01F7:199D", "01F7:1AAA", "01F7:1AE6"],
+    "input": "KBD_right held for 1600 input frames after W1L1 startup; callback records sampled every 10 frames"
+  },
+  "observations": {
+    "death_hold": {
+      "first_sampled_frame": 1610,
+      "last_sampled_frame": 1760,
+      "player_record": {
+        "position_pixels": [2132, 368],
+        "action_word": "0x0004",
+        "mode_byte_0x37": "0xff",
+        "velocity_x_fixed": "0x00018000",
+        "velocity_y_fixed": "0x00020000",
+        "record_0x3e": "0x03e8",
+        "record_0x36": "0x00",
+        "record_0x38": "0x00",
+        "record_0x3a": "0x00",
+        "record_0x3b": "0x00",
+        "animation_sequence": "0x31a6",
+        "animation_cursor": "0x31b4"
+      },
+      "globals": {
+        "health_8822": 0,
+        "lives_880a": 3,
+        "transition_gate_89ea": "0xff30 at sampled callback",
+        "action_word_source": "0x0004"
+      },
+      "interpretation": "The sampled record is the delayed death presentation state. The exact unsampled setter and hold counter remain open."
+    },
+    "recovery_entry": {
+      "address": "01F7:1AAA",
+      "observed_frame": 1770,
+      "stop_address": "01F7:1AE6",
+      "event_index": 1,
+      "register_caveat": "The watch stopped with ES=0 and DI=0x0348, so its object snapshot is invalid; only the watched entry and captured globals are used.",
+      "globals_at_watch": {
+        "health_8822": 3,
+        "lives_880a": 3,
+        "transition_gate_89ea": "0xfea2",
+        "health_transition_flags": "0x0003",
+        "dispatch_aux_4ff8": 1,
+        "dispatch_aux_4ffa": 3,
+        "camera_x": 1943,
+        "camera_y": 246
+      }
+    },
+    "first_recovered_callback": {
+      "address": "01F7:3FF8",
+      "observed_frame": 1780,
+      "player_record": {
+        "position_pixels": [1673, 368],
+        "position_fixed": ["0x06890000", "0x01700000"],
+        "action_word": "0x0000",
+        "mode_byte_0x37": "0x00",
+        "velocity_x_fixed": "0x00000000",
+        "velocity_y_fixed": "0x00000000",
+        "record_0x36": "0xff",
+        "record_0x38": "0xff",
+        "record_0x3a": "0x00",
+        "record_0x3b": "0x01",
+        "record_0x3e": "0x03e8",
+        "animation_sequence": "0x316c",
+        "animation_cursor": "0x316c",
+        "callback": "0x3ff8",
+        "object_offset": "0x0000",
+        "phase": 2
+      },
+      "globals": {
+        "health_8822": 3,
+        "lives_880a": 3,
+        "transition_gate_89ea": "0x0000",
+        "health_transition_flags": "0x0003",
+        "transition_event_89e6": "0x0000"
+      },
+      "interpretation": "The first callback after the observed 1AAA entry already sees the indexed spawn position, idle mode, zero velocity, and the 3156 animation state."
+    }
+  },
+  "static_corroboration": {
+    "note": "research/notes/death-recovery-static-decomp.cpp",
+    "entries": {
+      "01F7:1AF5": "restores health from DS:8824, selects spawn row zero, and calls 01F7:1B01",
+      "01F7:1B01": "NE relocation resolves the far call to 01F7:1AAA",
+      "01F7:1AAA": "loads DS:8828 + 4*DS:85D2 into player position, writes callback 3F27 and +0x29=1, clears DS:89EA, and loads descriptor 3156",
+      "01D7:4BA4": "consumes the transition gate and performs the lifecycle/rebuild branch; timer ownership remains external"
+    }
+  },
+  "conclusion": {
+    "status": "natural_respawn_entry_and_next_callback_order_confirmed",
+    "closed": [
+      "A natural W1L1 run enters 01F7:1AAA at the observed recovery boundary.",
+      "The next sampled player callback has the statically expected spawn, reset motion, mode, animation descriptor, and persistent callback identity.",
+      "Health is restored to three and lives remain three across the observed recovery entry and first recovered callback.",
+      "The recovered player remains object offset zero with callback 01F7:3FF8; no semantic meaning is assigned to scheduler append indices."
+    ],
+    "still_open": [
+      "Exact death setter ownership and the unsampled frame at which 19E6 or 199D is entered.",
+      "The timer/IRQ condition that ends the delayed death presentation hold.",
+      "Exact object teardown, scheduler-bank rebuild, and resource reload ordering inside the 4BA4 lifecycle path.",
+      "Native LevelSession death/recovery implementation and held-out full-record parity."
+    ],
+    "implementation_rule": "Do not replace the remaining external timer and teardown contracts with a guessed fixed countdown."
+  }
+}

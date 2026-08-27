@@ -1,0 +1,122 @@
+{
+  "schema": "quiky.player-death-recovery-lifecycle.v1",
+  "purpose": "Natural W1L1 hazard-to-death-to-recovery observation paired with the focused static lifecycle closure.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "080680db4f8232313b27380908d792f1fc1924bc981b2ce52555b420326516b7",
+    "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae"
+  },
+  "traces": [
+    {
+      "kind": "coarse_full_record_pool_scheduler_globals",
+      "path": "research/build/traces/player-w1l1-death-recovery-current.json",
+      "sha256": "236bc0aaf1f59795ee898dc648de2f84c353849ad3a3423863c1a0a19b642e88"
+    },
+    {
+      "kind": "dense_full_player_record_timeline",
+      "path": "research/build/traces/player-w1l1-death-timeline-current.json",
+      "sha256": "235034a57fd436c18b712aaf7a71842ccf3a2c3c068ce6aa79eccd682fe46499"
+    },
+    {
+      "kind": "transition_focus_negative_control",
+      "path": "research/build/traces/player-w1l1-death-transition-current.json",
+      "sha256": "d31dc0b2244c4456b40d2a291ec049223b1de48909da8133044c4840c3406228"
+    }
+  ],
+  "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-focus-callback --player-callback-offset 0x3ff8 --player-capture-record --player-samples 80 --player-frames-between 3 --player-minimal-callback-capture --player-input-key KBD_right --player-input-frames 1600 --player-input-samples 1 --timeout 150 --output research/build/traces/player-w1l1-death-timeline-current.json",
+  "static_contract": {
+    "damage_entry": "01F7:19E6",
+    "instant_death_entry": "01F7:199D",
+    "lifecycle_consumer": "01D7:4BA4",
+    "map_loader": "01D7:3861",
+    "map_postload": "01D7:34C7",
+    "recovery_initializer": "01F7:1AAA",
+    "health_restore": "01F7:1AF5",
+    "recovery_relocation": "01F7:1B01 -> 01F7:1AAA",
+    "evidence": [
+      "ghidra:199D-1AF5",
+      "ghidra:34C7-3649",
+      "ghidra:3861-398D",
+      "ghidra:4BA4-504F",
+      "reloc:01F7:1B01->01F7:1AAA"
+    ]
+  },
+  "natural_w1l1_observation": {
+    "input": "KBD_right held for 1600 input frames after W1L1 startup",
+    "first_death_state_observed_frame": 1603,
+    "last_death_state_observed_frame": 1813,
+    "first_recovery_state_observed_frame": 1816,
+    "death_state": {
+      "position_pixels": [2132, 368],
+      "action_word": "0x0004",
+      "mode_byte": "0xff",
+      "velocity_x_fixed": "0x00018000",
+      "velocity_y_fixed": "0x00020000",
+      "record_0x3e": "0x03e8",
+      "record_0x37": "0xff",
+      "record_0x3a": "0x00",
+      "record_0x3b": "0x00",
+      "record_0x40": "0x01",
+      "animation_sequence_word_observed": "0x31a6",
+      "animation_cursor_word_observed": "0x31b4",
+      "interpretation": "Death is identified by the combined mode/animation/motion state; action word 0x0004 is not unique to death."
+    },
+    "recovery_state": {
+      "position_pixels": [1673, 368],
+      "action_word": "0x0000",
+      "mode_byte": "0x00",
+      "velocity_x_fixed": "0x00000000",
+      "velocity_y_fixed": "0x00000000",
+      "record_0x3e": "0x03e8",
+      "record_0x36": "0xff",
+      "record_0x37": "0x00",
+      "record_0x38": "0xff",
+      "record_0x3b": "0x01",
+      "animation_sequence_word_observed": "0x316c",
+      "interpretation": "Recovery restores the indexed spawn position and idle animation; the timer at +0x3e remains 0x03e8 in the first observed recovered callback."
+    },
+    "global_lifecycle": {
+      "death_sample_health": 0,
+      "death_sample_lives": 3,
+      "recovery_sample_health": 3,
+      "recovery_sample_lives": 3,
+      "transition_gate": "DS:89EA is negative during the death hold and zero at the first recovered sample.",
+      "transition_word": "DS:89E6 remained zero in the captured recovery run."
+    },
+    "scheduler_membership": {
+      "stable_identity": {
+        "callback_offset": "0x3ff8",
+        "object_offset": "0x0000"
+      },
+      "observation": "The player remains represented in scheduler banks during death and recovery; bank base and append index rotate or duplicate, so append index is not identity.",
+      "evidence": "coarse_full_record_pool_scheduler_globals trace"
+    }
+  },
+  "negative_control": {
+    "trace": "transition_focus_negative_control",
+    "steps": 96,
+    "observed_events": ["write_89ea_clear", "player_callback"],
+    "not_observed": ["01F7:19E6", "01F7:199D", "01F7:1B01"],
+    "conclusion": "This probe did not reach the natural death setter and is not evidence that the death path is absent."
+  },
+  "conclusion": {
+    "status": "natural_record_timing_and_membership_partial",
+    "closed": [
+      "Natural W1L1 death-state and first recovery-state record shapes are captured.",
+      "The observed death hold spans sampled frames 1603..1813, with recovery first observed at 1816.",
+      "Player scheduler identity remains callback 0x3ff8 plus object offset zero.",
+      "Static recovery map/spawn reconstruction and the 1B01 -> 1AAA relocation are closed."
+    ],
+    "still_open": [
+      "Exact unsampled death-setter frame and callback ownership between contact and 19E6/199D.",
+      "Exact lifecycle counter/condition that ends the delayed death hold.",
+      "Scheduler rebuild order and resource teardown/reload writes during recovery.",
+      "Native ceiling and descriptor gameplay-class validation.",
+      "C++ LevelSession death/recovery implementation and held-out parity."
+    ]
+  }
+}

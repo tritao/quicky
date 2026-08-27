@@ -1,0 +1,82 @@
+{
+  "schema": "quiky.camera-map-refresh-static.v1",
+  "purpose": "Focused protected-mode Ghidra closure for the camera/map refresh boundary called by 01F7:321F.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "pipeline": "research/tools/run_player_external_closure.py --output /tmp/quiky-player-external-v61",
+    "independent_projects": "project-a and project-b decompilation/listing outputs matched",
+    "decomp_sha256": "3bb72090d97ae637a0d2bb5bddd916b5d74061bbe343e0217aa80766dfbc9c0d",
+    "listing_sha256": "ff35ba625c0f8b78b2b14dd5b35036745b466cec2d0f9c087a1e0a7a0155b17f"
+  },
+  "contracts": [
+    {
+      "address": "01F7:17AE",
+      "name": "reset_stream_and_event_banks_17AE",
+      "classification": "contract",
+      "calling_convention": "far; no explicit arguments; RETF; no caller-consumed flags",
+      "inputs_outputs": "Writes byte values 0..0x7f to DS:8960, clears DS:895E, then clears the first word of each 0x80 eight-byte record at DS:6586 with an eight-byte stride.",
+      "player_reads": [],
+      "player_writes": [],
+      "global_reads": [],
+      "global_writes": ["DS:8960[0..0x7f]", "DS:895E=0", "DS:6586 + 8*n first word for n=0..0x7f"],
+      "probe_coordinates": [],
+      "scheduler_position": "Camera/map rebuild reset boundary; clears event ownership before later declaration/event publication.",
+      "object_effects": "Resets the dedicated event/stream bookkeeping; does not clear pooled object callbacks directly.",
+      "feeds_back_into_simulation": "yes indirectly through event/stream ownership and later ARE publication",
+      "callees": [],
+      "callers": [{"address": "01F7:321F", "name": "rebuild_camera_map_321F", "classification": "contract"}],
+      "confidence": "confirmed_static_independent_ghidra_export",
+      "evidence": ["ghidra:v60 decomp-lifecycle-seg3", "ghidra:v60 disasm-seg3", "01F7:17AE-17D3"]
+    },
+    {
+      "address": "01F7:1ED7",
+      "name": "update_camera_scroll_1ED7",
+      "classification": "contract",
+      "calling_convention": "far; no explicit arguments; eight-byte BP frame; RETF; no caller-consumed flags",
+      "inputs_outputs": "Copies DS:81AA/81A6 to DS:81B2/81AE, forms local target positions from DS:60DC/60E0 plus DS:81A6/81AA, integrates DS:60DC/60E0 into DS:81BE/81C2, clamps against DS:36FC..3700 and DS:36FE..3702, refreshes crossed map strips/pages, derives DS:81CE/81D0, and commits DS:81A6/81AA.",
+      "player_reads": [],
+      "player_writes": [],
+      "global_reads": ["DS:60DC", "DS:60E0", "DS:81A6", "DS:81AA", "DS:81BE", "DS:81C2", "DS:81C0", "DS:81C4", "DS:36FC", "DS:36FE", "DS:3700", "DS:3702", "DS:81AC", "DS:81A8", "DS:81CA", "DS:81CC", "DS:5C9A"],
+      "global_writes": ["DS:81B2", "DS:81AE", "DS:3706", "DS:3704", "DS:81BE", "DS:81C2", "DS:370E", "DS:81AC", "DS:370A", "DS:370C", "DS:81A8", "DS:81D0", "DS:81CE", "DS:81A6", "DS:81AA"],
+      "probe_coordinates": ["Y boundary refresh uses DS:81AC and DS:370E", "X boundary refresh uses DS:81A8 and DS:370C", "map tile/image coordinates are passed to 20C8 or 2CB2"],
+      "scheduler_position": "Called by 01F7:321F during reload/camera rebuild before the next object scheduler pass.",
+      "object_effects": "Invokes map-strip/column preparation and page-copy helpers; the 1CDA call in the enclosing 321F path can instantiate streamed ARE objects.",
+      "feeds_back_into_simulation": "yes; camera/stream globals and ARE declaration timing can change later gameplay state",
+      "callees": [
+        {"address": "01F7:2064", "name": "normalize_camera_y_in_1ED7_frame_2064", "classification": "contract", "flags": "caller-local helper; updates DS:8176/DS:370A and BP-local target"},
+        {"address": "01F7:20C8", "name": "prepare_map_column_20C8", "classification": "irrelevant", "flags": "VGA/map-image preparation"},
+        {"address": "01F7:2CB2", "name": "prepare_map_strip_2CB2", "classification": "irrelevant", "flags": "VGA/map-image preparation"},
+        {"address": "01F7:2F71", "name": "copy_horizontal_page_2F71", "classification": "irrelevant", "flags": "VGA page copy"},
+        {"address": "01F7:2FE9", "name": "copy_vertical_page_2FE9", "classification": "irrelevant", "flags": "VGA page copy"}
+      ],
+      "callers": [{"address": "01F7:321F", "name": "rebuild_camera_map_321F", "classification": "contract"}],
+      "confidence": "confirmed_static_independent_ghidra_export_runtime_stream_feedback_open",
+      "evidence": ["ghidra:v60 decomp-lifecycle-seg3", "ghidra:v60 disasm-seg3", "01F7:1ED7-2061", "research/notes/rendering-behavior.md:844-850"]
+    },
+    {
+      "address": "01F7:3062",
+      "name": "copy_prepared_vga_map_3062",
+      "classification": "irrelevant",
+      "calling_convention": "far; inherited register/page-list arguments; returns a register value not consumed by 321F; no gameplay flags",
+      "inputs_outputs": "Saves/restores graphics-controller state, copies prepared rows from page-list records rooted at DS:3718 through DS:817A/DS:817C, processes pending prepared entries rooted at DS:3778, and restores VGA state.",
+      "player_reads": [],
+      "player_writes": [],
+      "global_reads": ["DS:3704", "DS:3718", "DS:8176", "DS:81C8", "DS:817C", "DS:817A", "DS:3706", "DS:3778", "DS:5C9A"],
+      "global_writes": ["DS:8176 temporary page/wrap selector", "VGA ports and video memory"],
+      "probe_coordinates": [],
+      "scheduler_position": "Presentation tail of the 321F refresh loop.",
+      "object_effects": "Copies already-prepared map/page data; does not allocate objects or rewrite MAP/descriptor words.",
+      "feeds_back_into_simulation": "no direct player, MAP, descriptor, scheduler, or callback-global simulation feedback",
+      "callees": [{"address": "01F7:2F36", "name": "address_named_vga_copy_helper_2F36", "classification": "irrelevant", "flags": "presentation-only"}],
+      "callers": [{"address": "01F7:321F", "name": "rebuild_camera_map_321F", "classification": "contract"}],
+      "confidence": "confirmed_static_presentation_only_independent_ghidra_export",
+      "evidence": ["ghidra:v60 decomp-lifecycle-seg3", "ghidra:v60 disasm-seg3", "01F7:3062 body", "research/notes/rendering-behavior.md:498-505"]
+    }
+  ],
+  "runtime_boundary": {
+    "closed": ["17AE scheduler/event reset writes", "1ED7 camera-state update and refresh order", "3062 presentation-only classification"],
+    "open": ["runtime camera deltas and authored bounds", "which streamed declarations appear after a refresh", "whether a later gameplay mismatch is caused by 1CDA/resource data rather than the refresh code"]
+  }
+}

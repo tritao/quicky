@@ -23,6 +23,10 @@ class ParityError(Exception):
 
 
 GLOBAL_FIELD_MAP = {
+    "dispatch_previous_word_60da": (0x60DA, 2),
+    "dispatch_aux_4ff2": (0x4FF2, 4),
+    "dispatch_aux_4ff8": (0x4FF8, 2),
+    "dispatch_aux_4ffa": (0x4FFA, 2),
     "horizontal_timer": (0x4FEE, 2),
     "horizontal_accumulator": (0x4FE2, 4),
     "horizontal_aux": (0x4FE8, 4),
@@ -185,16 +189,16 @@ def canonical_globals(sample: dict[str, Any]) -> Any:
         return [canonical_global_write(value) for value in cb["global_writes"]]
     if isinstance(sample.get("global_writes"), list):
         return [canonical_global_write(value) for value in sample["global_writes"]]
-    return []
+    return None
 
 
 def canonical_factory(sample: dict[str, Any]) -> Any:
     event = sample.get("factory_event")
     if not isinstance(event, dict):
-        return []
+        return None
     created = event.get("created_objects")
     if not isinstance(created, list):
-        return []
+        return None
     selected = []
     for obj in created:
         if not isinstance(obj, dict):
@@ -219,7 +223,7 @@ def canonical_effects(sample: dict[str, Any]) -> Any:
     for key in ("effects", "effect_dispatches"):
         if isinstance(sample.get(key), list):
             return sample[key]
-    return []
+    return None
 
 
 def canonical_input(sample: dict[str, Any]) -> Any:
@@ -242,7 +246,8 @@ def canonical_input(sample: dict[str, Any]) -> Any:
     return None
 
 
-def compare(original: Path, candidate: Path) -> list[dict[str, Any]]:
+def compare(original: Path, candidate: Path,
+            require_complete: bool = False) -> list[dict[str, Any]]:
     left = sample_map(load_payload(original), "original")
     right = sample_map(load_payload(candidate), "candidate")
     mismatches: list[dict[str, Any]] = []
@@ -266,6 +271,14 @@ def compare(original: Path, candidate: Path) -> list[dict[str, Any]]:
                   ("factory_objects", canonical_factory(a), canonical_factory(b)),
                   ("effects", canonical_effects(a), canonical_effects(b)))
         for field, av, bv in fields:
+            if not require_complete:
+                # Older diagnostic captures did not publish every optional
+                # array. Preserve their historical comparison behavior while
+                # allowing the acceptance path to reject absent data.
+                if av is None:
+                    av = []
+                if bv is None:
+                    bv = []
             if av is None or bv is None:
                 mismatches.append({"sequence": sequence, "field": field, "error": "missing required parity data"})
             elif av != bv:
@@ -278,9 +291,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--original", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--max-report", type=int, default=8)
+    parser.add_argument(
+        "--require-complete", action="store_true",
+        help="fail when either trace omits a comparable callback field",
+    )
     args = parser.parse_args(argv)
     try:
-        mismatches = compare(args.original, args.candidate)
+        mismatches = compare(args.original, args.candidate,
+                             require_complete=args.require_complete)
     except ParityError as exc:
         print(f"player-parity: {exc}", file=sys.stderr)
         return 2

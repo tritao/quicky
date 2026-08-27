@@ -1,0 +1,122 @@
+{
+  "schema": "quiky.player-transition-effect-static.v1",
+  "purpose": "Focused Protected-Mode Ghidra closure for the 01F7:199D -> 01E7:0CE3 transition-effect edge.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "pipeline": "research/tools/run_player_external_closure.py --output /tmp/quiky-player-external-v60",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "independent_projects": "project-a and project-b decompilation/listing outputs matched"
+  },
+  "relocations": [
+    {
+      "instruction": "01F7:19A9",
+      "target": "01E7:0CE3",
+      "evidence": "NE relocation source 01F7:19A9"
+    },
+    {
+      "instruction": "01E7:0CE8",
+      "target": "0227:05CD",
+      "evidence": "NE relocation source 01E7:0CE8"
+    },
+    {
+      "instruction": "01E7:0D03",
+      "target": "01E7:33D5",
+      "evidence": "NE relocation source 01E7:0D03"
+    }
+  ],
+  "exports": {
+    "decomp_seg2": {
+      "path": "/tmp/quiky-player-external-v60/decomp-lifecycle-seg2-a/QUIKY_SEG02.bin.c",
+      "sha256": "221c675317c2553db1315ae262337916ad2422ea152f3e9c6ed9601907c2104e",
+      "independent_sha256": "221c675317c2553db1315ae262337916ad2422ea152f3e9c6ed9601907c2104e"
+    },
+    "listing_seg2": {
+      "path": "/tmp/quiky-player-external-v60/disasm-seg2-a/QUIKY_SEG02.bin.asm",
+      "sha256": "cc217ae0bd86aef108a48bf95268b86660dfd8bb4de29ec310986477371ce6e4",
+      "independent_sha256": "cc217ae0bd86aef108a48bf95268b86660dfd8bb4de29ec310986477371ce6e4"
+    },
+    "decomp_seg5": {
+      "path": "/tmp/quiky-player-external-v60/decomp-lifecycle-seg5-a/QUIKY_SEG05.bin.c",
+      "sha256": "75582b700630bd35d5e77df2b97a03482d571ca29e603027d72a0321954b014e",
+      "independent_sha256": "75582b700630bd35d5e77df2b97a03482d571ca29e603027d72a0321954b014e"
+    },
+    "listing_seg5": {
+      "path": "/tmp/quiky-player-external-v60/disasm-seg5-a/QUIKY_SEG05.bin.asm",
+      "sha256": "3d6383c35efb313b8b2749a2922c7c97e01ba4d8fa58f9c485771a29aadd387d",
+      "independent_sha256": "3d6383c35efb313b8b2749a2922c7c97e01ba4d8fa58f9c485771a29aadd387d"
+    }
+  },
+  "note_sha256": "4cbbb92b027012bbd1ecbaa5249f42ecdb8d0d45278c23c48a79ac8934365961",
+  "contracts": [
+    {
+      "address": "01E7:0CE3",
+      "name": "address_named_transition_effect_01E7_0CE3",
+      "classification": "contract",
+      "calling_convention": "far; no caller-consumed return flags; 01F7:199D calls it after publishing DS:89EA",
+      "inputs_outputs": "Reads DS:5044; calls 0227:05CD with AX=0; if enabled writes DS:504C=0x18, then calls 01E7:33D5 with BX=8, CX=0x40, DX=0x3F; RETF at 0x0D09",
+      "player_reads": [],
+      "player_writes": [],
+      "global_reads": ["DS:5044"],
+      "global_writes": ["DS:504C=0x0018 when DS:5044 != 0"],
+      "probe_coordinates": [],
+      "scheduler_position": "Synchronous death/transition boundary called by 01F7:199D; before the 199D motion/reset writes return to the player callback boundary",
+      "object_effects": "Publishes external transition/effect state and delegates FFFF parameter publication; no object allocation",
+      "feeds_back_into_simulation": "No direct player/MAP/descriptor/scheduler write; DS:504C remains an external transition/effect state contract",
+      "callees": [
+        {"address": "0227:05CD", "name": "address_named_stack_probe_0227_05CD", "classification": "irrelevant", "flags": "AX=0; RETF/no gameplay flags"},
+        {"address": "01E7:33D5", "name": "address_named_effect_parameter_writer_01E7_33D5", "classification": "irrelevant", "flags": "BX=8/CX=0x40/DX=0x3F; RETF/no gameplay flags"}
+      ],
+      "callers": [
+        {"address": "01F7:199D", "name": "player_instant_death_199D", "classification": "contract"},
+        {"address": "01F7:19E6", "name": "player_damage_or_death_19E6", "classification": "contract"}
+      ],
+      "confidence": "confirmed_static_independent_ghidra_export",
+      "evidence": ["ghidra:v60 decomp-lifecycle-seg2", "ghidra:v60 disasm-seg2", "reloc:01F7:19A9->01E7:0CE3", "research/notes/player-transition-effect-static-decomp.cpp"]
+    },
+    {
+      "address": "01E7:33D5",
+      "name": "address_named_effect_parameter_writer_01E7_33D5",
+      "classification": "irrelevant",
+      "calling_convention": "far; inputs BX/CX/DX; saves and restores DS and CX; RETF at 0x33EB",
+      "inputs_outputs": "Writes FFFF:2FE9=BX, FFFF:2FEB=low-byte(-CX), FFFF:2FEC=DL; no stable return flags",
+      "player_reads": [],
+      "player_writes": [],
+      "global_reads": [],
+      "global_writes": ["FFFF:2FE9", "FFFF:2FEB", "FFFF:2FEC"],
+      "probe_coordinates": [],
+      "scheduler_position": "Nested effect-parameter leaf in 01E7:0CE3; no scheduler invocation",
+      "object_effects": "Publishes three FFFF-segment effect/runtime parameter bytes/words; no object creation or callback dispatch",
+      "feeds_back_into_simulation": "No direct player or DS callback-global write; presentation/runtime parameter only at this boundary",
+      "callees": [],
+      "callers": [
+        {"address": "01E7:0CE3", "name": "address_named_transition_effect_01E7_0CE3", "classification": "contract"}
+      ],
+      "confidence": "confirmed_static_independent_ghidra_export",
+      "evidence": ["ghidra:v60 decomp-lifecycle-seg2", "ghidra:v60 disasm-seg2", "reloc:01E7:0D03->01E7:33D5", "research/notes/player-transition-effect-static-decomp.cpp"]
+    },
+    {
+      "address": "0227:05CD",
+      "name": "address_named_stack_probe_0227_05CD",
+      "classification": "irrelevant",
+      "calling_convention": "far runtime stack probe; AX is the requested stack size; fast path RETF at 0x05EA, failure branches to 0227:026D",
+      "inputs_outputs": "Checks AX+0x200 against SP and SS:[0x0A]/SS:[0x0E]; lowers SS:[0x0E] when the new distance is smaller; no gameplay return flags",
+      "player_reads": [],
+      "player_writes": [],
+      "global_reads": ["SS:[0x0A]", "SS:[0x0E]", "SP"],
+      "global_writes": ["SS:[0x0E] on fast path"],
+      "probe_coordinates": [],
+      "scheduler_position": "Runtime guard nested at the start of 01E7:0CE3; no scheduler invocation",
+      "object_effects": "Only protects the runtime stack; failure transfers to the runtime handler at 0227:026D",
+      "feeds_back_into_simulation": "No; it cannot modify the player record or callback globals on the normal fast path",
+      "callees": [],
+      "callers": [
+        {"address": "01E7:0CE3", "name": "address_named_transition_effect_01E7_0CE3", "classification": "contract"},
+        {"address": "other relocated calls", "name": "address_named_runtime_stack_guard_callers", "classification": "irrelevant"}
+      ],
+      "confidence": "confirmed_static_fast_path_failure_boundary",
+      "evidence": ["ghidra:v60 decomp-lifecycle-seg5", "ghidra:v60 disasm-seg5", "reloc:01E7:0CE8->0227:05CD", "research/notes/player-transition-effect-static-decomp.cpp"]
+    }
+  ],
+  "stopping_rule": "The effect/runtime leaf is closed at FFFF-only parameter publication and the stack guard. Do not expand 0227:026D unless a normal gameplay trace shows stack exhaustion or a player parity mismatch reaches it."
+}

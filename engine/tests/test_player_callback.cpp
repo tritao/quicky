@@ -168,6 +168,66 @@ void testCommonTailClosedAnimationAndViewCopy() {
     assert(trace.globalWrites[1].after == 0x00d4);
 }
 
+void testStaticHorizontalAnimationDescriptors() {
+    quiky::Map map = makeMap();
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    quiky::PlayerRecord turning = playerAt();
+    turning.animationState36 = 1;
+    turning.verticalResponse3A = 1;
+    turning.velocityX.raw = 0x00001000;
+    turning.syncToRaw();
+    updater.updatePlayer(turning, quiky::InputState::fromActionFlags(0x0004),
+                         world, 0);
+    assert(turning.field1E == 4);
+    assert(turning.animationCursor22 == 0x3144);
+    assert(turning.field24 == 0x3144);
+    assert(turning.statusWord12 == 0);
+
+    quiky::PlayerRecord running = playerAt();
+    running.verticalResponse3A = 1;
+    running.velocityX.raw = 0x00028000;
+    running.horizontalSpeedCap5C.raw = 0x00030000;
+    running.syncToRaw();
+    updater.updatePlayer(running, quiky::InputState::fromActionFlags(0x0004),
+                         world, 0);
+    assert(running.field1E == 2);
+    assert(running.animationCursor22 == 0x3192);
+    assert(running.field24 == 0x3192);
+    assert(running.statusWord12 == 0);
+}
+
+void test5937PublishesAddressQualifiedCountState() {
+    quiky::Map map = makeMap();
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    updater.globalsForSetup().dispatchDisplayCount8822 = 3;
+    updater.globalsForSetup().dispatchPublishedCount4FF8 = 1;
+    updater.globalsForSetup().dispatchWord60D8 = 0x0020;
+    updater.globalsForSetup().dispatchPreviousWord60DA = 0;
+
+    quiky::PlayerRecord player = playerAt();
+    quiky::PlayerUpdateTrace trace;
+    updater.updatePlayer(player, quiky::InputState(), world, &trace);
+
+    // 01F7:5937 runs before the movement callback and publishes one display
+    // count step plus the changed dispatch word. Nested 386F/0598 calls are
+    // intentionally outside this simulation trace.
+    assert(updater.globals().dispatchPublishedCount4FF8 == 2);
+    assert(updater.globals().dispatchPreviousWord60DA == 0x0020);
+    assert(trace.globalWrites.size() >= 2);
+    assert(trace.globalWrites[0].address == 0x60da);
+    assert(trace.globalWrites[0].before == 0);
+    assert(trace.globalWrites[0].after == 0x0020);
+    assert(trace.globalWrites[1].address == 0x4ff8);
+    assert(trace.globalWrites[1].before == 1);
+    assert(trace.globalWrites[1].after == 2);
+}
+
 } // namespace
 
 int main() {
@@ -175,6 +235,8 @@ int main() {
     testLandingAndCeilingResponses();
     testPostStepContactUsesCurrentRecordCoordinates();
     testCommonTailClosedAnimationAndViewCopy();
+    testStaticHorizontalAnimationDescriptors();
+    test5937PublishesAddressQualifiedCountState();
     std::cout << "player callback contact tests passed\n";
     return 0;
 }

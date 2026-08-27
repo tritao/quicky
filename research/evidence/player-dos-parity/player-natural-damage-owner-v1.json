@@ -1,0 +1,89 @@
+{
+  "schema": "quiky.player-natural-damage-owner.v1",
+  "purpose": "Natural W1L1 execution watch locating the hazard callback and the damage writer at the player death boundary.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace": "research/build/traces/player-w1l1-natural-damage-owner-v8.json",
+    "trace_sha256": "4f5bed334b5aa54d60c0b1bc3074e6ec09fe5ebd2e7b4ed7adbcc370cdfd5b10",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "c3e4a6dccdc5d849063988e05af62bee962af7e6b49053aedd2f800362e2c7e2",
+    "host_tool": "research/tools/quikytrace.py",
+    "host_tool_sha256": "be1ce847d1bd43ce9cbcc8d89b56a9b61faa311b9c1726d32d509ef88fbe09a3",
+    "ghidra_export": "research/build/player-external-state-closure-recovery-v9",
+    "ghidra_decomp_sha256": "6c24b593a9a223bfa52665ebe632b1fbcced912137a5fd98c6ebc19ae5b7a78c",
+    "ghidra_listing_sha256": "c90fd7e52c17ef9fed008768c28f750761e796d4c88be1e3c2d3e1e204d2ced7"
+  },
+  "method": {
+    "level": "W1L1",
+    "samples": 40,
+    "frames_between": 1,
+    "input": "KBD_right held for 1520 warmup frames, then one frame before each post-baseline sample",
+    "focus": "01F7:3FF8 with complete 0x78-byte callback capture",
+    "execute_watches": ["01F7:19E6", "01F7:199D"],
+    "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-focus-callback --player-callback-offset 0x3ff8 --player-capture-record --player-minimal-callback-capture --player-samples 40 --player-frames-between 1 --player-input-key KBD_right --player-input-warmup-frames 1520 --player-input-frames 1 --player-input-samples 40 --player-watch-execute 0x1f7:0x19e6 --player-watch-execute 0x1f7:0x199d --timeout 240 --output research/build/traces/player-w1l1-natural-damage-owner-v8.json"
+  },
+  "observations": {
+    "damage_writer": {
+      "address": "01F7:19E6",
+      "frame": 1542,
+      "caller_object_offset": "0x0528",
+      "caller_callback": "01F7:6DC4",
+      "caller_object_position_pixels": [2147, 368],
+      "registers_at_entry": {
+        "BX": "0x0863",
+        "DX": "0x0170",
+        "DI": "0x0528",
+        "SI": "0x7596"
+      },
+      "globals_at_entry": {
+        "DS:8822_health": 1,
+        "DS:880A_lives": 4,
+        "DS:89EA_transition_gate": 0,
+        "DS:612E_pending_sound": 0
+      }
+    },
+    "post_contact_callback": {
+      "frame": 1544,
+      "player_position_pixels": [2129, 368],
+      "player_action_word": "0x0004",
+      "player_mode_byte_0x37": "0xff",
+      "player_timer_0x3e": "0x03e8",
+      "player_velocity_x_fixed": "0x00018000",
+      "player_velocity_y_fixed": "0xfffe3000",
+      "globals": {
+        "DS:8822_health": 0,
+        "DS:880A_lives": 3,
+        "DS:89EA_transition_gate": "0xffff",
+        "DS:612E_pending_sound": 1
+      }
+    },
+    "instant_death_writer_199D_hits": 0,
+    "other_owner_hits": "The sampled boundary contains no 199D execution; the natural contact reaches 19E6 from 6DC4. The callback's complete pre/post records show the terminal motion/reset state on the following callback barrier."
+  },
+  "static_crosscheck": {
+    "hazard_callback": "01F7:6DC4",
+    "hazard_route": "6DC4 -> 1B77 -> 19E6",
+    "supporting_helpers": ["01F7:1DCA", "01F7:1DEE", "01F7:1C4D", "01F7:5C27", "01F7:5D38"],
+    "evidence": [
+      "ghidra:6DC4-707B",
+      "ghidra:DumpFocusedDisasm:6DC4-256",
+      "reloc:01F7:6DC4->01F7:1DCA/1DEE/1B77/1C4D/5C27/5D38",
+      "research/ghidra/player-external-state-closure.json"
+    ]
+  },
+  "conclusion": {
+    "status": "natural_owner_closed_for_observed_w1l1_hazard",
+    "closed": [
+      "The natural W1L1 hazard object at pool offset 0x528 uses callback 01F7:6DC4.",
+      "The observed contact calls 01F7:19E6, not 01F7:199D.",
+      "19E6 is the health/lives/death-gate writer for this natural hazard route.",
+      "The post-contact player record and global transition are visible at the next callback barrier."
+    ],
+    "still_open": [
+      "Whether every W1L1 damage family uses 6DC4 or another address-qualified callback.",
+      "The exact delayed death-hold terminal condition and recovery resource teardown.",
+      "The effect dispatcher side effects beyond DS:612E=1."
+    ]
+  }
+}

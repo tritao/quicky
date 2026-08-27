@@ -92,6 +92,16 @@ std::int32_t parseSigned32(const std::string &value,
     return static_cast<std::int32_t>(parsed);
 }
 
+std::uint32_t parseUnsigned32(const std::string &value,
+                              const std::string &name) {
+    const std::int64_t parsed = parseSigned(value, name);
+    if (parsed < 0 ||
+        static_cast<std::uint64_t>(parsed) > 0xffffffffULL) {
+        throw quiky::FormatError("replay " + name + " outside uint32 range");
+    }
+    return static_cast<std::uint32_t>(parsed);
+}
+
 quiky::PlayerRawRecord parseRecordHex(const std::string &value) {
     if (value.size() != quiky::PlayerRawRecord::kSize * 2) {
         throw quiky::FormatError("replay player record is not 0x78 bytes");
@@ -137,10 +147,10 @@ std::vector<ReplayFrame> readReplay(const std::string &path) {
         while (row >> field) {
             fields.push_back(field);
         }
-        if (fields.size() != 22) {
+        if (fields.size() != 22 && fields.size() != 34) {
             std::ostringstream message;
             message << "replay manifest line " << lineNumber
-                    << " must contain 22 fields";
+                    << " must contain 22 fields (v1) or 34 fields (v2)";
             throw quiky::FormatError(message.str());
         }
         const std::int64_t sequence = parseSigned(fields[0], "sequence");
@@ -150,7 +160,8 @@ std::vector<ReplayFrame> readReplay(const std::string &path) {
         ReplayFrame frame;
         frame.sequence = static_cast<std::size_t>(sequence);
         frame.actionFlags = parseUnsigned16(fields[1], "action_flags");
-        frame.record = parseRecordHex(fields[21]);
+        frame.record = parseRecordHex(
+            fields[fields.size() == 34 ? 33 : 21]);
         frame.fields = fields;
         frames.push_back(frame);
     }
@@ -187,6 +198,43 @@ void applyReplayGlobals(const ReplayFrame &frame,
     if (present(f[18])) globals.specialSpeedCapMode88B6 = parseUnsigned16(f[18], "speed_cap_mode");
     if (present(f[19])) globals.actionSuppressor89E6 = parseSigned16(f[19], "action_suppressor");
     if (present(f[20])) globals.collisionTransitionMode89EA = parseSigned16(f[20], "transition_mode");
+
+    if (f.size() == 34) {
+        const std::uint16_t gate = parseUnsigned16(
+            f[21], "dispatch_gate_85da");
+        if (gate > 0xff) {
+            throw quiky::FormatError(
+                "replay dispatch_gate_85da outside uint8 range");
+        }
+        // DS:85DA is read as a byte by 5937 and as a signed word by the
+        // input gate. Preserve both views of the same captured word.
+        const std::uint16_t activation = static_cast<std::uint16_t>(
+            globals.activationState85DA);
+        globals.activationState85DA = static_cast<std::int16_t>(
+            static_cast<std::uint16_t>((activation & 0xff00U) | gate));
+        globals.dispatchWord60D8 = parseUnsigned16(
+            f[22], "dispatch_word_60d8");
+        globals.dispatchPreviousWord60DA = parseUnsigned16(
+            f[23], "dispatch_previous_word_60da");
+        globals.dispatchScoreLow881C = parseUnsigned16(
+            f[24], "dispatch_score_low_881c");
+        globals.dispatchScoreHigh881E = parseUnsigned16(
+            f[25], "dispatch_score_high_881e");
+        globals.dispatchLives880A = parseUnsigned16(
+            f[26], "dispatch_lives_880a");
+        globals.dispatchAmmo880C = parseUnsigned16(
+            f[27], "dispatch_ammo_880c");
+        globals.dispatchDisplayCount8822 = parseUnsigned16(
+            f[28], "dispatch_health_8822");
+        globals.dispatchPublishedScore4FF2 = parseUnsigned32(
+            f[29], "dispatch_aux_4ff2");
+        globals.dispatchPublishedAmmo4FF6 = parseUnsigned16(
+            f[30], "dispatch_aux_4ff6");
+        globals.dispatchPublishedCount4FF8 = parseUnsigned16(
+            f[31], "dispatch_aux_4ff8");
+        globals.dispatchPublishedLives4FFA = parseUnsigned16(
+            f[32], "dispatch_aux_4ffa");
+    }
 }
 
 void writeProbe(std::ostream &output,

@@ -1,0 +1,67 @@
+{
+  "schema": "quiky.player-5937-runtime-target-static.v1",
+  "purpose": "Protected Mode static contract for the captured runtime-loaded callback reached through 01F7:0598.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace": "research/build/traces/player-w1l1-0598-target-code-v3.json",
+    "trace_sha256": "a1df7b17c13ceb664360181faf5365958c23a8d268025490db9fd7c3e54b0425",
+    "raw_image": "research/build/runtime-target-14ef-0218.bin",
+    "raw_image_sha256": "952719f1cfb535ae04877055752323b955ede5c2281a803c03525f47616dba25",
+    "static_runner": "research/tools/run_runtime_target_static.py",
+    "static_export": "research/build/runtime-target-static-v1",
+    "ghidra_language": "x86:LE:16:Protected Mode:default"
+  },
+  "target": {
+    "address": "14EF:0218",
+    "name": "address_named_loaded_callback_14EF_0218",
+    "entry_registers": {
+      "DS": "014F",
+      "SI": "0252",
+      "AX": "0022",
+      "BX": "0100",
+      "CX": "0001",
+      "DX": "0005"
+    },
+    "return": "RETF at 14EF:0358 to 01F7:059B",
+    "calling_convention": "far; AX/BX/CX/DX/SI inputs; AX and SI preserved; no caller-consumed return flags",
+    "callees": [],
+    "probes": [],
+    "player_reads": [],
+    "player_writes": [],
+    "named_global_reads": [],
+    "named_global_writes": [],
+    "external_writes": [
+      "DS:SI-relative bytes/words at fixed offsets 0x58..0x3CA, with SI row adjustments derived from CH:AH, CH:BL, and CH:BH",
+      "I/O port DX four times with AL rotated left by one between writes"
+    ],
+    "object_creation": [],
+    "scheduler_position": "nested under 01F7:5937 -> 386F -> 0442 -> 0598 before the player callback movement path",
+    "feeds_back_into_player_simulation": "not observed for this target/invocation; DS:SI alias remains address-named",
+    "classification": "contract",
+    "confidence": "confirmed_static_body_and_single_target_entry_return_trace"
+  },
+  "static_exports": {
+    "decomp_a": "research/build/runtime-target-static-v1/decomp-a/runtime-target-padded.bin.c",
+    "decomp_b": "research/build/runtime-target-static-v1/decomp-b/runtime-target-padded.bin.c",
+    "decomp_sha256": "654f7bc5e4ec1a323ad3d0a9caba81ae12887d82d9a76d6896dea07abf13af44",
+    "listing_a": "research/build/runtime-target-static-v1/disasm-a/runtime-target-padded.bin.asm",
+    "listing_b": "research/build/runtime-target-static-v1/disasm-b/runtime-target-padded.bin.asm",
+    "listing_sha256": "5867fa592b2ae25d56a45b5e11307295becc3d00fa7d6178efd2f9eccdbbecab",
+    "manifest": "research/build/runtime-target-static-v1/manifest.json",
+    "independent_project_a_equals_b": true
+  },
+  "interpretation": {
+    "confirmed": [
+      "The captured target is a 319-byte far leaf ending at 14EF:0358; no CALL instruction or object creation occurs in the recovered body.",
+      "The body performs only the listed DS:SI-relative constant stores and four port writes, preserving AX and SI.",
+      "The target returned to 01F7:059B and the captured player/global simulation snapshots had no differences across entry and return."
+    ],
+    "does_not_prove": [
+      "That all DS:6D8A runtime callback targets have the same body or side effects.",
+      "The semantic identity of the DS:SI-relative runtime table or the port device.",
+      "That an unobserved target selected during another gameplay state cannot affect simulation."
+    ],
+    "closure_effect": "14EF:0218 is no longer opaque; the generic 01F7:0598 edge remains address-named for other runtime-selected targets."
+  }
+}

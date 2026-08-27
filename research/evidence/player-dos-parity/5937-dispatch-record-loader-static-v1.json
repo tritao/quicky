@@ -1,0 +1,49 @@
+{
+  "schema": "quiky.5937-dispatch-record-loader-static.v1",
+  "purpose": "Mechanically audited static contract for the normal runtime loader that fills DS:6D8A records consumed by the 5937 dispatch path.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "pipeline": "research/tools/run_player_external_closure.py --output research/build/player-external-state-closure-recovery-v45",
+    "independent_projects": "project-a and project-b decompilation/listing/data outputs matched"
+  },
+  "contract": {
+    "address": "01D7:39ED-3BAB",
+    "call_site": "01D7:3A0A -> 01F7:05A0",
+    "name": "load_dispatch_record_39ED",
+    "classification": "contract",
+    "calling_convention": "near body ending RET 0x4 at 3BAB; established BP frame; relocated 3A0A call passes the selector/descriptor word to far 05A0",
+    "inputs_outputs": "The entry gate at 39ED returns a byte used by OR/JZ: a nonzero result exits through 3BAA, while zero enters the loader body. The body reads a selector/descriptor word using DS:97E2, obtains a DS:6D8A record index from 05A0, reads two-byte fields at record +0x08/+0x0A/+0x00/+0x02, loads a size at +0x28 and resource B at +0x20/+0x22, loads a size at +0x0C and resource A at +0x10/+0x12, derives callback words +0x18/+0x1A from resource A, and jumps back to 39ED at 3BA7.",
+    "player_reads": [],
+    "player_writes": [],
+    "global_reads": ["DS:97E2", "DS:6D8A"],
+    "global_writes": ["DS:6D8A record fields +0x00/+0x02/+0x08/+0x0A/+0x0C/+0x10/+0x12/+0x18/+0x1A/+0x20/+0x22/+0x28"],
+    "probe_coordinates": [],
+    "scheduler_position": "Normal resource-record construction before 5937/386F/0442 consumes the selected record; not a player callback scheduler pass",
+    "object_effects": "Allocates/fills runtime resource buffers and publishes far callback words in the record; 05A0 may reclaim the selector's old record first",
+    "feeds_back_into_simulation": "indirectly; 0442/0598 later consumes the runtime callback words, but no direct player simulation write is present",
+    "callees": [
+      {"address": "01F7:05A0", "name": "manage_dispatch_record_selector_05A0", "classification": "contract", "flags": "selector word; returns selected record index"},
+      {"address": "address-named resource helpers", "name": "address_named_resource_loader_helpers", "classification": "unresolved", "flags": "runtime sizes, buffers, and callback segment/selector"}
+    ],
+    "callers": [
+      {"address": "01D7:3A0A", "name": "address_named_dispatch_record_loader_callsite", "classification": "confirmed_relocation", "flags": "far call to 01F7:05A0 occurs inside this loader body"}
+    ],
+    "confidence": "confirmed_static_record_layout_and_call_order_runtime_resource_values_open",
+    "evidence": [
+      "ghidra:player-external-state-closure-recovery-v45/decomp-mainloop-a/QUIKY_SEG01.bin.c",
+      "ghidra:player-external-state-closure-recovery-v45/decomp-mainloop-b/QUIKY_SEG01.bin.c",
+      "ghidra:player-external-state-closure-recovery-v45/disasm-a/QUIKY_SEG01.bin.asm",
+      "ghidra:player-external-state-closure-recovery-v45/disasm-b/QUIKY_SEG01.bin.asm",
+      "reloc:01D7:3A0A->01F7:05A0",
+      "research/evidence/player-dos-parity/5937-dispatch-table-manager-static-v1.json",
+      "research/notes/5937-dispatch-record-loader-static-decomp.cpp"
+    ]
+  },
+  "runtime_boundary": {
+    "record_size": "0x2c bytes",
+    "record_table": "DS:6D8A",
+    "unresolved": ["resource reader/allocator return values", "runtime callback segment/selector at +0x1A", "entry-gate return condition at 39ED"]
+  }
+}

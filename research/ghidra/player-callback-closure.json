@@ -118,7 +118,7 @@
       "global_reads":["DS:4FEE","DS:4FE2","DS:4FE8","DS:656C","DS:81C4","DS:81CC","DS:85DA","DS:89E6","DS:89EA","DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],
       "global_writes":["DS:4FE2","DS:4FE8","DS:4FEC","DS:4FEE","DS:4FF0","DS:5003","DS:612E","DS:8810","DS:8812","DS:8822","DS:89EC"],
       "callees":[
-        {"site":"3FF8","address":"01F7:5937","name":"player_helper_5937","flags":"unknown","classification":"unresolved"},
+        {"site":"3FF8","address":"01F7:5937","name":"player_helper_5937","flags":"direct global writes closed; observed startup target set is non-simulation","classification":"contract"},
         {"site":"4006","address":"01F7:648E","name":"probe_contact_right","flags":"CF=1 enters 41C1","classification":"inline"},
         {"site":"400F","address":"01F7:6484","name":"probe_contact_plus5","flags":"CF forwarded from 6370","classification":"inline"},
         {"site":"4018","address":"01F7:3A8A","name":"dispatch_special_tile_contact","flags":"none","classification":"inline"},
@@ -303,11 +303,11 @@
     },
     {
       "address":"01E7:0CE3","range":null,"name":"dispatch_transition_effect_0CE3","old_symbol":"FUN_0CE3","classification":"contract","convention":"far","signature":"void dispatch_transition_effect_0CE3(void)",
-      "inputs":["transition/effect globals"],"outputs":["external effect dispatch"],"player_reads":[],"player_writes":[],"global_reads":[],"global_writes":[],"callees":[],"confidence":"unresolved","evidence":["reloc:199D call target"]
+      "inputs":["DS:5044 effect-enable byte"],"outputs":["RETF at 01E7:0D09; no caller-consumed flags"],"player_reads":[],"player_writes":[],"global_reads":["DS:5044"],"global_writes":["DS:504C=0x0018 when DS:5044 != 0"],"callees":[{"site":"0CE8","address":"0227:05CD","name":"address_named_stack_probe_0227_05CD","flags":"none","classification":"irrelevant"},{"site":"0D03","address":"01E7:33D5","name":"address_named_effect_parameter_writer_01E7_33D5","flags":"none","classification":"irrelevant"}],"confidence":"confirmed","evidence":["reloc:199D call target","reloc:0CE8->0227:05CD","reloc:0D03->01E7:33D5","ghidra:v60 decomp-lifecycle-seg2","ghidra:v60 disasm-seg2","research/notes/player-transition-effect-static-decomp.cpp"]
     },
     {
-      "address":"01F7:5937","range":null,"name":"player_helper_5937","old_symbol":"FUN_5937","classification":"unresolved","convention":"far","signature":"void player_helper_5937(void)",
-      "inputs":["external input/auxiliary state"],"outputs":["unknown local/global updates; callback proceeds with DS:89EA test"],"player_reads":[],"player_writes":[],"global_reads":["unknown"],"global_writes":["unknown"],"callees":[],"confidence":"unresolved","evidence":["reloc:3FF8 call target","dynamic:callback-entry barrier only"]
+      "address":"01F7:5937","range":["5937","5BED"],"name":"player_helper_5937","old_symbol":"FUN_5937","classification":"contract","convention":"far","signature":"void player_helper_5937(void)",
+      "inputs":["DS:85DA gate; DS:60D8/DS:60DA changed word; DS:881C/DS:8822/DS:880A/DS:880C score-health-lives state; DS:4FF2/DS:4FF6/DS:4FF8/DS:4FFA auxiliary state"],"outputs":["DS:60DA publication; exact changed-bit and score/count/lives dispatch through 386F/0442; far return at 5BED"],"player_reads":[],"player_writes":[],"global_reads":["DS:85DA","DS:60D8","DS:60DA","DS:881C","DS:8822","DS:880A","DS:880C","DS:4FF2","DS:4FF6","DS:4FF8","DS:4FFA"],"global_writes":["DS:60DA","DS:4FF2","DS:4FF8","DS:4FFA"],"callees":["386F","5BED","address-named loaded 0442 record callback"],"confidence":"mechanical","evidence":["reloc:3FF8 call target","ghidra:5937-5BED","research/notes/player-helper-5937-static-decomp.cpp","research/evidence/player-dos-parity/5937-runtime-target-level-matrix-v1.json"]
     },
     {
       "address":"01F7:F17F","range":["F17F","F1A8"],"name":"keyboard_irq1_ring_producer","old_symbol":"FUN_F17F","classification":"contract","convention":"near","signature":"void keyboard_irq1_ring_producer(void)",
@@ -340,7 +340,7 @@
     {"question":"Does the side probe short-circuit its +5 retry when x-5 is occupied?","evidence":"research/notes/player-collision-semantics.md:selector-safe ordered-side-probe","status":"answered"},
     {"question":"Does descriptor DX&0x30 suppress the y-8 retry and do DX&0x20/0x40 select response/latch paths?","evidence":"research/notes/descriptor-collision-evidence.json","status":"answered"},
     {"question":"Do the recovered horizontal and vertical formulas match controlled fixtures?","evidence":"research/evidence/player-horizontal/validation.json; research/evidence/player-vertical/validation.json; research/notes/player-horizontal.md; research/notes/player-vertical.md","status":"answered"},
-    {"question":"What does 01F7:5937 write before the callback gate?","evidence":"none; retain address-qualified unresolved contract","status":"open"},
+    {"question":"What does 01F7:5937 write before the callback gate?","evidence":"research/notes/player-helper-5937-static-decomp.cpp; research/evidence/player-dos-parity/5937-runtime-target-level-matrix-v1.json","status":"answered_for_direct_body_and_observed_level_startup_targets; other runtime targets remain address-named"},
     {"question":"Which runtime object does 01F7:0E06 allocate for contact tiles?","evidence":"research/entity-targeted-decompile-evidence.json; contact traces","status":"partially answered"}
   ]
 }

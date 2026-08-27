@@ -1,0 +1,81 @@
+{
+  "schema": "quiky.player-natural-branch-entry-negative-control.v1",
+  "purpose": "Archive a focused W1L1 branch-entry trace that reaches the ordinary ascent-to-fall transition without proving a ceiling contact.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-natural-contact-branch-entry-v1.json",
+    "trace_sha256": "0b5eac607d4e9993880b4ca3e817565c3cc4cfa90268a22713369d37ecca90c6",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "39c96e3852d17d58833ae2b99bf8d5f9a7ef38578fcabbe2bfec286a95c1c32c"
+  },
+  "method": {
+    "level": "W1L1",
+    "coordinate_patch": null,
+    "route": "21 KBD_right:30 phases, then KBD_right+KBD_space+KBD_up:30 phases",
+    "focus": "01F7:3FF8 with complete 0x78-byte record capture",
+    "execute_watches": [
+      "01F7:4323",
+      "01F7:4363",
+      "01F7:4366",
+      "01F7:4368",
+      "01F7:41C1",
+      "01F7:41CF",
+      "01F7:42B4",
+      "01F7:41E8",
+      "01F7:3D02",
+      "01F7:3DF2",
+      "01F7:4384"
+    ],
+    "sampling": "50 samples, one guest frame between samples, collision event/repeat limits set to 1"
+  },
+  "observations": {
+    "ascent_path": {
+      "sequence": 24,
+      "frame": 713,
+      "entry": "01F7:4323",
+      "position": {"x": 1089, "y": 318},
+      "mode_signed": -1,
+      "velocity_y_fixed_signed_before": -81920,
+      "post_position": {"x": 1089, "y": 317},
+      "post_velocity_y_fixed_signed": -73728
+    },
+    "ordinary_apex_join": {
+      "last_ascent_sequence": 37,
+      "last_ascent_frame": 726,
+      "last_ascent_entry": "01F7:4323",
+      "last_ascent_position": {"x": 1098, "y": 312},
+      "last_ascent_velocity_y_fixed_signed": -8192,
+      "join_sequence": 38,
+      "join_frame": 727,
+      "join_entry": "01F7:41E8",
+      "join_mode_signed": 1,
+      "join_velocity_y_fixed_signed": 0,
+      "join_post_mode_signed": 1,
+      "join_post_velocity_y_fixed_signed": 0,
+      "next_gravity_sequence": 39,
+      "next_gravity_entry": "01F7:4384",
+      "next_velocity_y_fixed_signed": 10240
+    },
+    "contact_watches": {
+      "observed": ["01F7:4323", "01F7:4366", "01F7:41E8", "01F7:4384"],
+      "not_observed": ["01F7:4363", "01F7:4368", "01F7:41C1", "01F7:41CF", "01F7:3D02", "01F7:3DF2"],
+      "descriptor_or_probe_evidence": "No flagged descriptor probe or shared 41C1/41CF contact-response predecessor was observed in the transition window."
+    }
+  },
+  "interpretation": {
+    "confirmed": [
+      "The unpatched W1L1 route reaches 01F7:4323 during ascent and then joins 01F7:41E8 with mode +1 before positive gravity advances.",
+      "The route is a natural ordinary apex/fall control for branch attribution."
+    ],
+    "does_not_prove": [
+      "A natural ceiling collision.",
+      "That 01F7:41C1 or 01F7:41CF performed the observed mode transition.",
+      "The descriptor word or one-way polarity at this route."
+    ]
+  },
+  "status": "ordinary_apex_negative_control_archived",
+  "next": "Use a separate reachable low-ceiling route with an execute watch on the predecessor branch; retain natural ceiling and general descriptor classification as unresolved until that trace is captured."
+}

@@ -1,0 +1,92 @@
+{
+  "schema": "quiky.player-5937-runtime-target-level-matrix.v1",
+  "purpose": "Target-inclusive Protected Mode entry/return observations for the runtime callback selected by 01F7:0598 during ordinary level-start player callbacks.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "0f0c1e769b09e923d02a536679338134b533a2785e6c9b06e5cb915e8a245b6c",
+    "ghidra_language": "x86:LE:16:Protected Mode"
+  },
+  "method": {
+    "focus": "01F7:3FF8 player callback with automatic execute watches on 5937, 386F, 0442, and the resolved target",
+    "sample_condition": "one ordinary unpatched callback sample at each selected level startup; no coordinate or MAP patch",
+    "stack_argument_rule": "At 01F7:0442, [BP+06] is the selector argument; EBX is the middle argument and is not used to index DS:6D8E",
+    "return_capture": "The resolved target far return address is validated against the protected-mode selector and armed before continuing",
+    "simulation_snapshot": "Complete dispatched 0x78-byte object, complete original player 0x78-byte record, and recovered original-DS simulation words are compared across target entry and return"
+  },
+  "dispatch": {
+    "selector_argument_bp_06": "0x01FF",
+    "target_return": {"segment": "0x01F7", "offset": "0x059B"},
+    "records": [
+      {
+        "level": "W2L1",
+        "trace": "/tmp/player-w2l1-5937-target-auto-v2.json",
+        "trace_sha256": "ca4683bd4ed677b911cc8356449b987bae1b68f4ed0adb7ecef458c16489b70c",
+        "record_table_index": 145,
+        "record": {"selector": "0x028F", "offset": "0x18EC", "size": "0x2C"},
+        "record_callback": {"segment": "0x1247", "offset": "0x1470"},
+        "dispatched_object_record": {"selector": "0x028F", "offset": "0x18EC", "size": "0x78", "differences": []},
+        "player_record_differences": [],
+        "original_data_differences": [],
+        "feeds_back_into_player_simulation": false,
+        "confidence": "confirmed_for_one_ordinary_level_startup_target"
+      },
+      {
+        "level": "W3L1",
+        "trace": "/tmp/player-w3l1-5937-target-auto-v1.json",
+        "trace_sha256": "d79dc21a8ea67e05ea90f58a4dc2474715aaef6466c80f4e7812f13930248c1f",
+        "record_table_index": 171,
+        "record": {"selector": "0x028F", "offset": "0x1D64", "size": "0x2C"},
+        "record_callback": {"segment": "0x1397", "offset": "0x1040"},
+        "dispatched_object_record": {"selector": "0x028F", "offset": "0x1D64", "size": "0x78", "differences": []},
+        "player_record_differences": [],
+        "original_data_differences": [],
+        "feeds_back_into_player_simulation": false,
+        "confidence": "confirmed_for_one_ordinary_level_startup_target"
+      },
+      {
+        "level": "W4L1",
+        "trace": "/tmp/player-w4l1-5937-target-auto-v1.json",
+        "trace_sha256": "d834c87dd2f6a3082367d26e70c460560aad98cb9c76b36f4bce01b4a7add6f9",
+        "record_table_index": 165,
+        "record": {"selector": "0x028F", "offset": "0x1C5C", "size": "0x2C"},
+        "record_callback": {"segment": "0x1387", "offset": "0x03FC"},
+        "dispatched_object_record": {"selector": "0x028F", "offset": "0x1C5C", "size": "0x78", "differences": []},
+        "player_record_differences": [],
+        "original_data_differences": [],
+        "feeds_back_into_player_simulation": false,
+        "confidence": "confirmed_for_one_ordinary_level_startup_target"
+      },
+      {
+        "level": "W5L1",
+        "trace": "/tmp/player-w5l1-5937-target-auto-v1.json",
+        "trace_sha256": "a2d76727e8daf3e6d2ce569e66e19b7a1f4321aca8511bcd3fbd77d7e3805909",
+        "record_table_index": 225,
+        "record": {"selector": "0x028F", "offset": "0x26AC", "size": "0x2C"},
+        "record_callback": {"segment": "0x163F", "offset": "0x0C10"},
+        "dispatched_object_record": {"selector": "0x028F", "offset": "0x26AC", "size": "0x78", "differences": []},
+        "player_record_differences": [],
+        "original_data_differences": [],
+        "feeds_back_into_player_simulation": false,
+        "confidence": "confirmed_for_one_ordinary_level_startup_target"
+      }
+    ]
+  },
+  "interpretation": {
+    "confirmed": [
+      "The automatic target watch resolves the actual [BP+06]=0x01FF callback for four additional authored level starts.",
+      "All four targets return to 01F7:059B.",
+      "Each observed target leaves its dispatched object record, the complete player record, and the recovered original-DS simulation words unchanged across entry and return.",
+      "The target address is level-resource data selected through the shared 01F7:0598 call site, not a stable code address that can be assigned a guessed semantic name."
+    ],
+    "does_not_prove": [
+      "Behavior of other DS:6D8A records selected by non-startup actions, later frames, transitions, or other object states.",
+      "That every loaded callback is presentation-only outside these five ordinary startup observations.",
+      "Platform, descriptor, ceiling, or other player-contact behavior."
+    ],
+    "closure_effect": "For ordinary level-start 5937 dispatches in W1L1 through W5L1, the selected callback is bounded as a non-simulation contract; the generic runtime-record target remains address-named and unresolved for other states."
+  }
+}

@@ -1,0 +1,137 @@
+{
+  "schema": "quiky.player-5937-runtime-target-level-ordinary-static.v1",
+  "purpose": "Focused Protected Mode static expansion of the normal runtime-loaded 01F7:0598 target selected at ordinary startup in W1L1 through W5L1.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "static_runner": "research/tools/run_runtime_target_static.py",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "dispatch": "01F7:5937 -> 386F -> 0442 -> 0598 with the unpatched ordinary level-start record",
+    "static_method": "Each captured 0x400-byte target window was padded at its recorded entry offset and imported into two independent Ghidra projects."
+  },
+  "common_body": {
+    "body_size_bytes": 309,
+    "body_sha256": "6408cc8d623b432b51ad8993b275d54cb13be12a0f3b9a88f0ef4f9f594da627",
+    "terminator": "PUSH SI; PUSH AX ... POP AX; POP SI; RETF",
+    "calls": [],
+    "conditional_branches": [],
+    "calling_convention": "far; AX/BX/CX/DX/SI live inputs; AX and SI preserved; no caller-consumed return flags established",
+    "reads": ["AX low/high bytes", "BX low/high bytes", "CX high byte", "DX as I/O port", "SI as DS-relative base"],
+    "writes": [
+      "four OUT DX,AL operations",
+      "four ordered blocks of twelve DS:SI-relative word stores",
+      "row adjustments using CH:AH, CH:BL, and CH:BH"
+    ],
+    "probes": [],
+    "object_creation": [],
+    "player_reads": [],
+    "player_writes": [],
+    "named_global_reads": [],
+    "named_global_writes": [],
+    "scheduler_position": "nested inside 01F7:5937 -> 386F -> 0442 -> 0598, before the player movement path",
+    "simulation_feedback": "none observed in any five entry/return snapshots; DS:SI destination remains address-named",
+    "classification": "contract",
+    "confidence": "confirmed_static_body_and_five_ordinary_level_entry_return_traces"
+  },
+  "targets": [
+    {
+      "level": "W1L1",
+      "address": "14A7:1258",
+      "name": "address_named_loaded_callback_14A7_1258",
+      "runtime_selector": "0x14A7",
+      "trace": "research/build/traces/w1l1-5937-ordinary-target-code-v1.json",
+      "trace_sha256": "293c14c4c8a8fc3c716e1be6041e647dc0a8e868b5cbc1ee44ecac03686a00fb",
+      "raw_image": "research/build/runtime-target-w1l1-5937-ordinary.bin",
+      "raw_sha256": "821787336b1da9e5fe0c3edc26882f86940fd79367b1bb423ec2a9e7f515735c",
+      "static_export": "research/build/runtime-target-w1l1-5937-ordinary-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "9ea126a30850e8e791a3dc1a3acca03fe5b320db9a5c16bba315d684724568be",
+        "disasm_sha256": "d7e2c8454fe03d8176d7ec56bd04161b2f1fc4ec8b6564745aa076d159659004"
+      },
+      "return": "14A7:138C -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W2L1",
+      "address": "1247:1470",
+      "name": "address_named_loaded_callback_1247_1470",
+      "runtime_selector": "0x1247",
+      "trace": "research/build/traces/w2l1-5937-ordinary-target-code-v1.json",
+      "trace_sha256": "ff07de205142246547a6fbcfac9a5caf06f9afbdd8e35a24ce51061b5c825aa3",
+      "raw_image": "research/build/runtime-target-w2l1-5937-ordinary.bin",
+      "raw_sha256": "b1c6f49d3ad98ebe6e4ec09608ccdd5f375ae7a2108051f7b1bb114df4cd7419",
+      "static_export": "research/build/runtime-target-w2l1-5937-ordinary-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "a9b4901581a9b56697030ce18f4b6420989e2407315bbc118acd743fd5dd0e19",
+        "disasm_sha256": "4f3ca25438608201b9b46744e9f6c8219ff288ab74ec98ded3c4cfa2e1044839"
+      },
+      "return": "1247:15A4 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W3L1",
+      "address": "1397:1040",
+      "name": "address_named_loaded_callback_1397_1040",
+      "runtime_selector": "0x1397",
+      "trace": "research/build/traces/w3l1-5937-ordinary-target-code-v1.json",
+      "trace_sha256": "17270bf534c8bfc947dc347fda008dcc0e793ff4e1b363bc3de5d2f21e52a7d6",
+      "raw_image": "research/build/runtime-target-w3l1-5937-ordinary.bin",
+      "raw_sha256": "33139e4225625a38ac21d2350b0fbb946a73b5bc66b58012498d613dea61df5d",
+      "static_export": "research/build/runtime-target-w3l1-5937-ordinary-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "290a4bc01800da533eae875a8944248cb7a9dd41bceee2f3741264e10851e4bd",
+        "disasm_sha256": "45e13edbda4c1f76d8f4df4daeecd3f4ac674bb2c04ab6f576c5b5d3fee28b64"
+      },
+      "return": "1397:1174 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W4L1",
+      "address": "1387:03FC",
+      "name": "address_named_loaded_callback_1387_03FC",
+      "runtime_selector": "0x1387",
+      "trace": "research/build/traces/w4l1-5937-ordinary-target-code-v1.json",
+      "trace_sha256": "13056944df8536526fc707f031787686c5190be39acb3f860931c8efd6187bfa",
+      "raw_image": "research/build/runtime-target-w4l1-5937-ordinary.bin",
+      "raw_sha256": "b8d13a483b2a7447b8de708a1b271035ab6c3a41686e4633da692bc4e78f7a08",
+      "static_export": "research/build/runtime-target-w4l1-5937-ordinary-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "092ed0a2d2e12a55e586a7299e76984e81fa86aebeac987d60432c834041d099",
+        "disasm_sha256": "0133179d8a76fd6190698f6c86dcd17eabe18bbe250ce6757ade814fb746c231"
+      },
+      "return": "1387:0530 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W5L1",
+      "address": "163F:0C10",
+      "name": "address_named_loaded_callback_163F_0C10",
+      "runtime_selector": "0x163F",
+      "trace": "research/build/traces/w5l1-5937-ordinary-target-code-v1.json",
+      "trace_sha256": "5108196b013d76844957cb199824a14f9e3409e2348a136bf8dab719f3d44260",
+      "raw_image": "research/build/runtime-target-w5l1-5937-ordinary.bin",
+      "raw_sha256": "e4fa56f24fd8fd3278cc55e6d0f8ad7001e5ff43543b178722a3c587444a0f57",
+      "static_export": "research/build/runtime-target-w5l1-5937-ordinary-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "1dbc22f1e474a0ed32b61488eea5f73e9dacd7f1e947b0ebca7a21b128cd153b",
+        "disasm_sha256": "dbcc9c2378cef2b0334d4f426d80bbae96994498796ef204a38c9f1c91204aef"
+      },
+      "return": "163F:0D44 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    }
+  ],
+  "interpretation": {
+    "confirmed": [
+      "The normal W1L1 through W5L1 startup targets share one recovered 309-byte far-leaf body.",
+      "Each body has no CALL or conditional branch and returns to 01F7:059B after the fixed table and port side effects.",
+      "All five entry/return traces show unchanged complete simulation snapshots and dispatched target-object records."
+    ],
+    "does_not_prove": [
+      "The behavior of callbacks selected by later gameplay states or other runtime records.",
+      "The semantic identity of the DS:SI-relative table or I/O port.",
+      "That runtime callbacks outside this ordinary-startup set cannot feed back into player simulation."
+    ],
+    "closure_effect": "The ordinary W1L1-W5L1 startup target set is now statically bounded as a non-simulation contract; the generic 01F7:0598 edge remains address-named outside captured targets."
+  }
+}

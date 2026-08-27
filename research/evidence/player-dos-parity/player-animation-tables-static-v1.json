@@ -1,0 +1,46 @@
+{
+  "schema": "quiky.player-animation-tables-static.v1",
+  "purpose": "Static recovery of callback-selected player animation descriptors from the runtime DS segment.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment": "QUIKY_SEG06.bin",
+    "segment_sha256": "dfe30a7808993f4f0557f4845505e758e489bb6f8fe95394bdf81d5aa3ac1a54",
+    "runtime_ds_selector": "0237",
+    "language": "x86:LE:16:Protected Mode:default",
+    "runner": "research/tools/run_player_external_closure.py",
+    "output": "research/build/player-external-state-closure-recovery-v54/animation-data-a/player-animation-words.txt",
+    "output_sha256": "03813b66afd6b20618c2a35636069be35f246d525482eb9d21a4458b36555de5",
+    "independent_output": "research/build/player-external-state-closure-recovery-v54/animation-data-b/player-animation-words.txt",
+    "independent_output_sha256": "03813b66afd6b20618c2a35636069be35f246d525482eb9d21a4458b36555de5"
+  },
+  "descriptors": {
+    "01F7:3142": [4, 0, 1, 2, 3, 4, 5, 6],
+    "01F7:3156": [4, 0, 0, 0, -3],
+    "01F7:3160": [8, 10, 11, 12, -1],
+    "01F7:316A": [14, 0, 16, 17, 18, 18, 19, 19, 19, 18, 17, 16, 0, -1],
+    "01F7:3186": [20, 13, 14, 15, -1],
+    "01F7:3190": [2, 0, 1, 2, 3, 4, 5, 6],
+    "01F7:31A4": [14, 20, 21, 22, 23, 24, 25, 26, 27, 28, -3],
+    "01F7:31BA": [15, 30, 31, 32, 33, 33, 33, 33, 34, 34, 34, 35, 36, 37]
+  },
+  "selection_evidence": {
+    "01F7:3142": "01F7:3AB9 turn/ordinary horizontal path",
+    "01F7:3156": "01F7:3AB9 idle/grounded path",
+    "01F7:3160": "01F7:42B4 jump initiation",
+    "01F7:316A": "01F7:4384 common tail suppression path",
+    "01F7:3186": "01F7:41CF blocked/contact response",
+    "01F7:3190": "01F7:3AB9 high-speed horizontal path",
+    "01F7:31A4": "01F7:4416 transition path",
+    "01F7:31BA": "01F7:43D5 long-idle path"
+  },
+  "comparison": {
+    "project_a_equals_project_b": true,
+    "engine_tables_updated": ["01F7:3142", "01F7:3190"],
+    "status": "static_bytes_match_and_callback_selected_tables_are represented"
+  },
+  "confidence": "confirmed_static_data_with_runtime_ds_basis",
+  "unresolved": [
+    "Runtime resource loading could mutate DS:3142..31D8 after process startup; this export proves the imported segment contents and callback selection, not every loader write."
+  ]
+}

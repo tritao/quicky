@@ -1,0 +1,36 @@
+{
+  "schema": "quiky.player-w1l2-native-scheduler-trace.v1",
+  "purpose": "Record the mechanically checked native W1L2 scheduler boundary for BUMP and WURM2.",
+  "source": {
+    "archive": "game/NESTLE.DAT",
+    "map": "W1L2.MAP",
+    "native_trace_command": "build/engine/quiky-w1l1-trace game/NESTLE.DAT W1L2.MAP /tmp/w1l2-native-contract.json --frames 32 --action-flags 0 --camera-x 1400 --camera-y 400",
+    "validator": "python3 research/tools/verify_w1l2_native_trace.py /tmp/w1l2-native-contract.json",
+    "static_ledger": "research/ghidra/normal-enemy-static-closure.json",
+    "static_note": "research/notes/wurm2-static-decomp.cpp"
+  },
+  "closed_contracts": {
+    "scheduler": "All phase-1 object callbacks are published before the phase-2 player callback.",
+    "bump": "0x34 uses callback 01F7:9C0C, object+0x20 countdown, and 400/402/403/401 cursor cycle.",
+    "wurm2": "0x01/0x02 use callback 01F7:6DC4, descriptor-backed 1C4D/5C27 branch polarity, and state-0 signed fixed-point movement.",
+    "trace_fields": "The native trace publishes callback-visible enemy and BUMP fields without collapsing their recovered byte/word roles."
+  },
+  "validation": {
+    "samples_checked": 32,
+    "entities_checked": 128,
+    "wurm2_motion_steps": 93,
+    "bump_steps": 32,
+    "result": "pass",
+    "notes": [
+      "WURM2 timer rollover is checked using the integrated pre-state velocity because 6DC4 can rewrite +0x0A after advancing +0x02.",
+      "The trace contains no natural player contact with these objects, so contact tails are not promoted by this run."
+    ]
+  },
+  "unresolved_boundaries": [
+    "DOS/native full-session parity fixture for W1L2",
+    "WURM2 01F7:707B target rows DS:8806/DS:8808/DS:79DE",
+    "renderer-owned 5D38/5D60 cursor contents",
+    "4AB3 response-object lifecycle and opaque audio internals"
+  ],
+  "status": "native scheduler and callback-visible W1L2 BUMP/WURM2 contracts mechanically checked; remaining runtime-data and presentation boundaries explicit"
+}

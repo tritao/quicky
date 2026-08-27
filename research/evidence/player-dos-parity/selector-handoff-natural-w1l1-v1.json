@@ -1,0 +1,32 @@
+{
+  "schema": "quiky.player-dos-parity.selector-handoff.v1",
+  "purpose": "Natural W1L1 selector launch boundary used to target the first ARE/player-object static expansion.",
+  "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+  "trace": "research/build/selector-handoff-v4.json",
+  "trace_sha256": "116ce2f96c46e70382a6d32908d9f3c68c6be47df8f0ad0b2b47bd2f4397d6e3",
+  "controls": {
+    "level": "W1L1",
+    "selector": "native level selector",
+    "coordinate_patching": false,
+    "transition_state_writes": false,
+    "timer_irq_rearm_after_first_hit": false
+  },
+  "ordered_hits": [
+    {"sequence": 1, "address": "01F7:F049", "point": "timer_irq"},
+    {"sequence": 2, "address": "01D7:4B55", "point": "buffer_copy"},
+    {"sequence": 3, "address": "01D7:4B6E", "point": "player_recovery"},
+    {"sequence": 4, "address": "01F7:1E04", "point": "are_declaration"}
+  ],
+  "not_observed_before_first_declaration": [
+    "01D7:4B78",
+    "01D7:504F",
+    "01D7:48BB"
+  ],
+  "static_interpretation": {
+    "4B6E": "relocated far call to 01F7:1AAA",
+    "1AAA_first_call": "relocated far call to 01F7:0B56",
+    "0B56": "clears scheduler banks, calls 01F7:0E06 with AX=0x3F27, publishes DS:881A, sets object phase 2",
+    "first_declaration": "01F7:1E04 is the six-byte ARE walker; its generic path calls 01F7:0E06 and initializes object position from DS:3714/3716"
+  },
+  "confidence": "confirmed_natural_entry_order; indirect type-specific initializer remains open"
+}

@@ -128,6 +128,21 @@ void writeGlobalState(std::ostream &output,
            << ",\"puzzle_mask_60d8\":" << state.puzzleMask60d8
            << ",\"terminal_x_8828\":" << state.terminalX8828
            << ",\"terminal_y_882a\":" << state.terminalY882a
+           << ",\"shared_target_active_count_8806\":"
+           << state.sharedTargetActiveCount8806
+           << ",\"shared_target_capacity_8808\":"
+           << state.sharedTargetCapacity8808
+           << ",\"shared_target_rows_87de\":[";
+    for (std::size_t index = 0; index < state.sharedTargetRows87de.size();
+         ++index) {
+        if (index != 0) output << ',';
+        const quiky::TargetCoordinateRow &row =
+            state.sharedTargetRows87de[index];
+        output << "{\"index\":" << index
+               << ",\"x\":" << row.x
+               << ",\"y\":" << row.y << "}";
+    }
+    output << "]"
            << ",\"cloud_signal_89e6\":" << state.cloudSignal89e6
            << ",\"transition_gate_89ea\":" << state.transitionGate89ea
            << ",\"platform_latch_5006\":" << state.platformLatch5006
@@ -206,6 +221,8 @@ void writeEntity(std::ostream &output, const quiky::LevelEntity &entity) {
            << ",\"x\":" << entity.x << ",\"y\":" << entity.y
            << ",\"x_fixed\":" << entity.positionX.raw
            << ",\"y_fixed\":" << entity.positionY.raw
+           << ",\"velocity_x_fixed\":" << entity.velocityX.raw
+           << ",\"velocity_y_fixed\":" << entity.velocityY.raw
            << ",\"phase\":" << static_cast<unsigned>(entity.phase)
            << ",\"kind\":" << static_cast<unsigned>(entity.kind)
            << ",\"callback\":";
@@ -227,6 +244,51 @@ void writeEntity(std::ostream &output, const quiky::LevelEntity &entity) {
            << entity.ambientAnimationCursor
            << ",\"ambient_table\":"
            << static_cast<unsigned>(entity.ambientTable)
+           // Address-qualified callback state is emitted verbatim for the
+           // normal-enemy closure. These fields are intentionally not folded
+           // into a generic enemy abstraction: the WURM2 trace needs to
+           // distinguish byte-shaped state from fixed-point words and the
+           // BUMP trace needs its independent +0x20/+0x24 timer/cursor.
+           << ",\"enemy_phase_timer\":" << entity.enemyPhaseTimer
+           << ",\"enemy_timer\":" << entity.enemyTimer
+           << ",\"enemy_state\":" << entity.enemyState
+           << ",\"enemy_orientation\":"
+           << static_cast<int>(entity.enemyOrientation)
+           << ",\"enemy_patrol_direction\":"
+           << static_cast<int>(entity.enemyPatrolDirection)
+           << ",\"enemy_transition_timer\":"
+           << entity.enemyTransitionTimer
+           << ",\"enemy_phase34\":" << entity.enemyPhase34
+           << ",\"enemy_sine_or_probe39\":"
+           << entity.enemySineOrProbe39
+           << ",\"enemy_vertical_state36\":"
+           << static_cast<int>(entity.enemyVerticalState36)
+           << ",\"enemy_transition_state3d\":"
+           << static_cast<int>(entity.enemyTransitionState3d)
+           << ",\"enemy_source_or_kind2c\":"
+           << static_cast<int>(entity.enemySourceOrKind2c)
+           << ",\"enemy_aux3e\":" << entity.enemyAux3e
+           << ",\"enemy_vertical_offset40\":"
+           << entity.enemyVerticalOffset40
+           << ",\"enemy_origin_y36\":" << entity.enemyOriginY36
+           << ",\"enemy_saved_velocity3a\":"
+           << entity.enemySavedVelocity3a
+           << ",\"enemy_saved_direction44\":"
+           << static_cast<int>(entity.enemySavedDirection44)
+           << ",\"map_blocked\":"
+           << static_cast<unsigned>(entity.mapBlocked)
+           << ",\"target_cursor_30\":" << entity.targetCursor30
+           << ",\"contact_callback\":";
+    writeCallback(output, entity.contactCallback);
+    output
+           << ",\"enemy_animation_delay\":"
+           << entity.enemyAnimationDelay
+           << ",\"enemy_animation_sequence\":"
+           << entity.enemyAnimationSequence
+           << ",\"bump_animation_delay20\":"
+           << entity.bumpAnimationDelay20
+           << ",\"bump_animation_cursor24\":"
+           << entity.bumpAnimationCursor24
            << ",\"active_frames\":" << entity.activeFrames
            << ",\"platform_carry_active\":"
            << (entity.platformCarryActive ? "true" : "false")

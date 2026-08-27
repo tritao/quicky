@@ -1,0 +1,35 @@
+{
+  "schema": "quiky.scheduler-visible-queue-static.v1",
+  "executable": "game/QUIKY.EXE",
+  "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+  "method": "Independent Ghidra 12.1.3 raw NE-segment import with x86:LE:16:Protected Mode, no analysis, AnnotateQuiky.java/AnnotatePlayerCollision.java, DumpExternalClosure.java, and DumpFocusedDisasm.java; project A and project B exports compared byte-for-byte.",
+  "runner": "research/tools/run_player_external_closure.py",
+  "export": {
+    "path": "/tmp/quiky-player-external-scheduler-v61",
+    "decomp_segment3_sha256": "1f23eea12825166c0846ccc20720e127f1ac7ff616966c7a91f3b7d0841e710d",
+    "disasm_segment3_sha256": "cf6123115c619ff05cf8d950e510c6619eb6dbb415185d36d02cf1e4bdc6b058",
+    "independent_projects_match": true
+  },
+  "function": {
+    "address": "01F7:34BC",
+    "name": "append_visible_object_queue_34BC",
+    "calling_convention": "far RETF; AX=object +0x04 X, BX=object +0x08 Y, DX=object +0x12 flags, CL=object +0x16 mode/low byte",
+    "return_flags": "none consumed; RETF at 34E2",
+    "reads": ["DS:6D86 far queue base", "DS:8174 visible-queue cursor"],
+    "writes": ["DS:8174 += 1", "ES:[DI+0x04]=DX", "ES:[DI]=AX", "ES:[DI+0x02]=BX", "ES:[DI+0x06]=0", "ES:[DI+0x07]=CL"],
+    "record_stride": "0x08 bytes",
+    "callers": ["01F7:0FDC at the relocated fixed far call 01F7:1024"],
+    "player_fields_read": [],
+    "player_fields_written": [],
+    "probe_coordinates": [],
+    "object_creation": "none",
+    "scheduler_position": "01F7:0E96 phase pass, after each visible scheduler entry's phase callback",
+    "feeds_back_into_simulation": false,
+    "confidence": "confirmed_static_relocation_and_Ghidra"
+  },
+  "evidence": [
+    "Ghidra listing: 34BC PUSH AX; 34BD LES DI,[6D86]; 34C1 AX=[8174]; 34C4 SHL AX,3; 34C7 ADD DI,AX; 34C9 POP AX; 34CA INC [8174]; 34CE ES:[DI+4]=DX; 34D2 ES:[DI]=AX; 34D5 ES:[DI+2]=BX; 34D9 ES:[DI+6]=0; 34DE ES:[DI+7]=CL; 34E2 RETF",
+    "Relocation: 01F7:1024 -> 01F7:34BC",
+    "No player/MAP/descriptor/scheduler-membership write appears in the independent Ghidra body or focused listing."
+  ]
+}

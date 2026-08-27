@@ -117,11 +117,22 @@ def check_functions(payload: dict[str, Any], segment_size: int,
 def check_edges(payload: dict[str, Any], functions: dict[tuple[int, int], dict[str, Any]]) -> None:
     for item in payload["functions"]:
         for edge in item["callees"]:
+            # A string is an explicitly address-named opaque call target.
+            # It is contract metadata, not a direct edge that can be checked
+            # against the closure's function table.  This is needed for
+            # runtime-selected far callbacks such as the 5937/0442 path.
+            if isinstance(edge, str):
+                if not edge.strip():
+                    raise ClosureError(f"{item['name']} has an empty opaque callee")
+                continue
+            if not isinstance(edge, dict):
+                raise ClosureError(f"{item['name']} has an invalid callee entry")
             target = address(edge["address"])
             if target not in functions:
-                raise ClosureError(
-                    f"{item['name']} callee {edge['address']} has no classified contract"
-                )
+                if edge.get("classification") != "irrelevant":
+                    raise ClosureError(
+                        f"{item['name']} callee {edge['address']} has no classified contract"
+                    )
             if edge.get("classification") not in {"inline", "contract", "irrelevant", "unresolved"}:
                 raise ClosureError(f"{item['name']} callee {edge['address']} is unclassified")
             if not edge.get("flags"):
@@ -147,7 +158,12 @@ def check_callgraph(payload: dict[str, Any], path: Path,
     for item in payload["functions"]:
         source = address(item["address"])
         for callee in item["callees"]:
+            if isinstance(callee, str):
+                continue
             target = address(callee["address"])
+            if (target not in functions and
+                    callee.get("classification") == "irrelevant"):
+                continue
             for raw_site in callee["site"].split(","):
                 expected.add((source, (source[0], int(raw_site, 16)), target))
 
@@ -159,9 +175,22 @@ def check_callgraph(payload: dict[str, Any], path: Path,
         if source not in known:
             raise ClosureError(f"exported call edge source {edge['source']} is outside closure")
         if target not in known:
-            raise ClosureError(
-                f"exported call edge {edge['source']} -> {edge['target']} lacks a contract"
+            allowed_external = any(
+                address(item["address"]) == source and
+                isinstance(callee, dict) and
+                address(callee["address"]) == target and
+                callee.get("site") and
+                call_site[1] in {
+                    int(raw_site, 16) for raw_site in callee["site"].split(",")
+                } and callee.get("classification") == "irrelevant"
+                for item in payload["functions"]
+                for callee in item["callees"]
             )
+            if not allowed_external:
+                raise ClosureError(
+                    f"exported call edge {edge['source']} -> {edge['target']} lacks a contract"
+                )
+            continue
         actual.add((source, call_site, target))
     if actual != expected:
         missing = sorted(expected - actual)
@@ -183,6 +212,8 @@ def expected_call_edges(payload: dict[str, Any]) -> list[tuple[tuple[int, int], 
         if item.get("range") is None:
             continue
         for callee in item["callees"]:
+            if isinstance(callee, str):
+                continue
             target = address(callee["address"])
             for raw_site in callee["site"].split(","):
                 edges.append((source, int(raw_site, 16), target, callee["name"]))

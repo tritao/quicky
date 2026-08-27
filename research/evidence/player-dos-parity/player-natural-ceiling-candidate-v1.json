@@ -1,0 +1,60 @@
+{
+  "schema": "quiky.player-natural-ceiling-candidate.v1",
+  "purpose": "Archive an unpatched W1L1 ascent whose runtime state matches the statically recovered blocked-ascent response, while preserving the exact helper-attribution limitation.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "/tmp/player-w1l1-natural-ceiling-watched-v3.json",
+    "trace_sha256": "c5f9eeea0c9a464769c2ee1624a1408c08549a944142b88753aea78c7ecdd497",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "edcde7340d9e0d0069698e04645c6a5716034ac67bbfaf35d7d8b1baf2bb8093"
+  },
+  "method": {
+    "level": "W1L1",
+    "coordinate_patch": null,
+    "approach": "20 samples of KBD_right held for 30 guest frames each",
+    "jump": "KBD_right+KBD_space+KBD_up held for 5 guest frames",
+    "sampling": "30 guest frames between samples, then 1 frame after sample 21",
+    "callback_capture": "focused 01F7:3FF8, complete 0x78-byte record, minimal global/pool snapshots",
+    "execute_watches": ["01F7:41C1", "01F7:41CF", "01F7:3D02", "01F7:3DF2"],
+    "command": "args=(); for _ in $(seq 1 20); do args+=(--player-input-phase KBD_right:30); done; python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --timeout 120 --player-trace --player-focus-callback --player-minimal-callback-capture --player-capture-record --player-samples 40 --player-frames-between 30 --player-frames-between-after-sample 21 --player-frames-between-after 1 --player-collision-event-limit 1 --player-collision-repeat-limit 1 --player-watch-execute 0x1f7:0x41c1 --player-watch-execute 0x1f7:0x41cf --player-watch-execute 0x1f7:0x3d02 --player-watch-execute 0x1f7:0x3df2 ${args[@]} --player-input-phase KBD_right+KBD_space+KBD_up:5 --output /tmp/player-w1l1-natural-ceiling-watched-v3.json"
+  },
+  "observations": {
+    "pre_boundary_sample": {
+      "sequence": 38,
+      "frame": 1193,
+      "position": {"x": 1008, "y": 365},
+      "mode": -1,
+      "velocity_y_fixed_signed": -8192,
+      "post_mode": -1,
+      "post_velocity_y_fixed_signed": -8192
+    },
+    "post_boundary_sample": {
+      "sequence": 39,
+      "frame": 1194,
+      "position": {"x": 1008, "y": 365},
+      "mode": 1,
+      "velocity_y_fixed_signed": 0,
+      "post_mode": 1,
+      "post_velocity_y_fixed_signed": 10240
+    },
+    "execute_watch_window": {
+      "observed": ["01F7:3D02"],
+      "not_observed": ["01F7:41C1", "01F7:41CF", "01F7:3DF2"],
+      "caveat": "The 3D02 watch is recorded in the post-boundary callback window; the exact mode write occurs between callback barriers, so this does not by itself attribute the write to 3D02."
+    }
+  },
+  "status": "candidate_reclassified_ordinary_apex",
+  "proves": [
+    "The route reaches the same observable mode and velocity reversal as the static blocked-ascent response without a coordinate patch.",
+    "The transition is followed by positive vertical velocity and descent."
+  ],
+  "does_not_prove": [
+    "that the event is a ceiling rather than another natural vertical descriptor boundary",
+    "that 41C1 or 41CF performed the mode write",
+    "the descriptor word or exact probe order at the write boundary"
+  ],
+  "next": "Treat this route as an ordinary-apex control. Use a separate route through a flagged descriptor tile for ceiling/one-way classification."
+}

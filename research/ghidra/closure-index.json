@@ -1,0 +1,88 @@
+{
+  "schema": "quiky.research-closure-index.v1",
+  "purpose": "Single index of authoritative behavioral closures; historical exports remain evidence only.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "pipeline": "Protected-Mode Ghidra raw NE import with repository Java scripts and NE relocation audit; no external x86 disassembler"
+  },
+  "policy": {
+    "canonical_ledger": "One JSON ledger owns the closure contract; notes and exports are evidence referenced by that ledger.",
+    "historical_exports": "research/build/** is generated evidence and is not a second source of truth.",
+    "unknowns": "Unresolved behavior remains address-qualified and is not assigned a semantic name until evidence closes it.",
+    "expansion": "Add a new closure only when a parity mismatch or an explicitly named simulation edge reaches an unclassified address."
+  },
+  "closures": [
+    {
+      "id": "player_callback",
+      "scope": "01F7:3FF8-44FE and direct player collision/animation helpers",
+      "ledger": "research/ghidra/player-callback-closure.json",
+      "notes": ["research/notes/player-static-decomp.cpp"],
+      "verifier": "research/tools/verify_player_callback_closure.py",
+      "status": "implemented_with_explicit_runtime_boundaries"
+    },
+    {
+      "id": "player_external_state",
+      "scope": "Player-facing scheduler, carry, contact, lifecycle, descriptor, effect, and selected object edges",
+      "ledger": "research/ghidra/player-external-state-closure.json",
+      "notes": [
+        "research/notes/platform-static-decomp.cpp",
+        "research/notes/death-recovery-static-decomp.cpp",
+        "research/notes/5937-dispatch-static-decomp.cpp"
+      ],
+      "verifier": "research/tools/verify_player_external_closure.py",
+      "status": "static_contracts_closed_runtime_edges_explicit"
+    },
+    {
+      "id": "player_factory",
+      "scope": "01F7:0E06 caller-selected player/contact/lifecycle object families",
+      "ledger": "research/ghidra/player-factory-static-closure.json",
+      "notes": ["research/notes/player-factory-static-decomp.cpp"],
+      "verifier": "research/tools/verify_player_factory_static.py",
+      "status": "allocator_and_focused_callers_closed"
+    },
+    {
+      "id": "descriptor_backend",
+      "scope": "Descriptor/MAP query contracts used by player and platform probes",
+      "ledger": "research/ghidra/descriptor-backend-static-closure.json",
+      "notes": ["research/notes/player-collision-semantics.md"],
+      "verifier": "research/tools/verify_descriptor_backend_static.py",
+      "status": "query_contract_closed_semantic_classes_open"
+    },
+    {
+      "id": "runtime_table",
+      "scope": "BIENE startup-built DS:7974 table and software-float producer",
+      "ledger": "research/ghidra/biene-runtime-table-static-closure.json",
+      "notes": ["research/notes/biene-static-decomp.cpp"],
+      "verifier": "research/tools/verify_biene_runtime_table_static.py",
+      "status": "builder_and_coefficients_closed_abi_and_seed_open"
+    },
+    {
+      "id": "normal_enemy",
+      "scope": "Recovered normal-enemy initializer/callback families",
+      "ledger": "research/ghidra/normal-enemy-static-closure.json",
+      "notes": [
+        "research/notes/normal-enemy-static-decomp.cpp",
+        "research/notes/normal-enemy-native-bridge.cpp"
+      ],
+      "verifier": "research/tools/verify_normal_enemy_static_closure.py",
+      "status": "static_family_contracts_closed_native_phase_coverage_partial"
+    },
+    {
+      "id": "boss",
+      "scope": "World-specific boss constructors, callbacks, child effects, and completion edges",
+      "ledger": "research/ghidra/boss-static-closure.json",
+      "notes": ["research/notes/boss-static-decomp.cpp"],
+      "verifier": "research/tools/verify_boss_static_closure.py",
+      "status": "static_contracts_closed_runtime_timing_open"
+    },
+    {
+      "id": "transition_reload",
+      "scope": "Post-5010 reload, player reposition, camera/MAP rebuild, and resource boundary",
+      "ledger": "research/ghidra/transition-reload-closure.json",
+      "notes": ["research/notes/death-recovery-static-decomp.cpp"],
+      "verifier": "research/tools/verify_player_external_closure.py",
+      "status": "orchestration_closed_resource_and_timer_boundaries_open"
+    }
+  ]
+}

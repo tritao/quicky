@@ -1,0 +1,102 @@
+{
+  "schema": "quiky.player-scheduler-membership.v2",
+  "purpose": "Corrected W1L1 scheduler membership evidence using the Protected Mode entry layout: two independent near callback words followed by the pooled-object offset.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace": "/tmp/player-scheduler-0fa2-v1.json",
+    "trace_sha256": "91e06638fe311164d688af3d9364158736bf1106ae7edeaf35755147bcb75cd7",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "4b9b4f728ebf2f9166497191ebb9a013f43426549474b42eeaf97ef3bbce58a9",
+    "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae"
+  },
+  "static_export": {
+    "runner": "research/tools/run_player_external_closure.py",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "output": "research/build/player-external-state-closure-recovery-scheduler-v1",
+    "decomp_sha256": "8346a41ce71b36a5d7cb6937eaafafc557da82bd60397959358963e59ef4b2b7",
+    "listing_sha256": "4cadf96049330a2e80997ced4034a5bb9845e1340f0226eb7287247814bd1530",
+    "independent_project_check": "passed; project-a and project-b outputs matched"
+  },
+  "entry_layout": [
+    {
+      "offset": "0x00",
+      "name": "phase_callback_offset",
+      "width": 2,
+      "use": "0E96 reads this word, compares it with FFFF, and calls it with near CALL AX after phase filtering",
+      "evidence": ["01F7:0E96:0EB9-0ED1", "01F7:0FDC:0FF0-100C", "01F7:1036:1051-1055"]
+    },
+    {
+      "offset": "0x02",
+      "name": "secondary_callback_offset",
+      "width": 2,
+      "use": "0FA2 reads this word, skips zero, and calls it with near CALL AX; 0FDC tests it for presence",
+      "evidence": ["01F7:0FA2:0FBA-0FCD", "01F7:0FDC:0FF9-1006", "01F7:1036:104A-104E"]
+    },
+    {
+      "offset": "0x04",
+      "name": "object_offset",
+      "width": 2,
+      "use": "all three scheduler passes load this word into DI",
+      "evidence": ["01F7:0E96:0EC1", "01F7:0FA2:0FC7", "01F7:0FDC:1006", "01F7:1036:1055"]
+    },
+    {
+      "offset": "0x06",
+      "name": "entry_word_06",
+      "width": 2,
+      "use": "not read by 0E96, 0FA2, or 0FDC; retained address-named",
+      "evidence": ["01F7:0E96-1032 contiguous listing"]
+    }
+  ],
+  "observations": [
+    {
+      "sample": 1,
+      "watch": "01F7:0FA2",
+      "insert_cursor": "0x0250",
+      "selected_bank_base": "0x7766",
+      "player_entry": {
+        "index": 9,
+        "phase_callback_offset": "0x3ff8",
+        "secondary_callback_offset": "0x1997",
+        "object_offset": "0x0000"
+      },
+      "interpretation": "The entry's phase callback is the player update; its separate secondary callback word is the common 1997 presentation path."
+    },
+    {
+      "sample": 2,
+      "watch": "01F7:0FA2",
+      "insert_cursor": "0x0040",
+      "selected_bank_base": "0x7566",
+      "player_entries": [
+        {
+          "bank_base": "0x7566",
+          "index": 7,
+          "phase_callback_offset": "0x3ff8",
+          "object_offset": "0x0000"
+        },
+        {
+          "bank_base": "0x7766",
+          "index": 9,
+          "phase_callback_offset": "0x3ff8",
+          "object_offset": "0x0000"
+        }
+      ],
+      "interpretation": "Bank rotation changes the physical append index; phase callback offset plus object offset remain the stable observed player identity."
+    }
+  ],
+  "conclusion": {
+    "status": "static_entry_roles_and_current_w1l1_membership_confirmed",
+    "closed": [
+      "01F7:0FA2 uses the bank selected by DS:7966 bit 0x0200.",
+      "The scheduler entry is not a callback offset/segment far pointer.",
+      "The phase callback at +0x00 is 01F7:3FF8 for the observed player entry.",
+      "The secondary callback at +0x02 is 01F7:1997 for the observed player entry.",
+      "The pooled player object offset is zero in both observed rotated-bank entries."
+    ],
+    "still_open": [
+      "membership rebuild timing after player death, reload, jump detachment, or platform culling",
+      "whether every main-loop callsite uses the same bank contents outside this W1L1 startup window",
+      "the meaning of entry +0x06, which the scheduler passes do not read"
+    ]
+  }
+}

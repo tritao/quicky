@@ -101,6 +101,30 @@ void appendStateWrite(std::vector<LevelStateWrite> &writes,
     }
 }
 
+std::int16_t addSignedWord(std::int16_t left, std::int16_t right) {
+    return static_cast<std::int16_t>(
+        static_cast<std::uint16_t>(left) +
+        static_cast<std::uint16_t>(right));
+}
+
+bool signedWordSubtractionIsNegative(std::int16_t left,
+                                     std::int16_t right) {
+    // 01F7:1A7D is SUB AX,BX followed by JS. Test the sign bit of the
+    // wrapped 16-bit result so the C++ model does not depend on signed
+    // overflow or implementation-defined promotion behavior.
+    const std::uint16_t result = static_cast<std::uint16_t>(
+        static_cast<std::uint16_t>(left) -
+        static_cast<std::uint16_t>(right));
+    return (result & 0x8000U) != 0;
+}
+
+std::int16_t fixedHighWord(std::int32_t raw) {
+    // ES:[DI+04]/ES:[DI+08] are the signed high words of the fixed-point
+    // positions. This is an arithmetic shift, not host-language division.
+    return static_cast<std::int16_t>(static_cast<std::uint16_t>(
+        static_cast<std::uint32_t>(raw) >> 16));
+}
+
 } // namespace
 
 LevelGameplayState::LevelGameplayState()
@@ -113,10 +137,15 @@ LevelGameplayState::LevelGameplayState()
       pendingEvent612e(0),
       playerTimer0034(0),
       puzzleMask60d8(0),
+      spawnRows8828(),
       terminalX8828(0),
       terminalY882a(0),
+      sharedTargetActiveCount8806(0),
+      sharedTargetCapacity8808(4),
+      sharedTargetRows87de(),
       cloudSignal89e6(0),
       transitionGate89ea(0),
+      transitionEffectBits8950(0),
       platformLatch5006(0),
       platformCarryX8816(0),
       platformCarryY8812(0) {
@@ -132,7 +161,9 @@ LevelSessionConfig::LevelSessionConfig()
       spawnY(100),
       hasLeafPrngState(false),
       leafPrngIndex(0),
-      leafPrngRing() {
+      leafPrngRing(),
+      hasBieneRuntimeTable(false),
+      bieneRuntimeTable() {
 }
 
 LevelSession::LevelSession(const std::string &mapName, const Map &map,
@@ -176,7 +207,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
             // 6D5F/684A place the enemy object 0x20 pixels below the ARE
             // declaration. Keep the declaration anchor separately so reset
             // can reproduce the initializer rather than the last position.
-            entity.y += 0x20;
+            entity.y += normalEnemyYOffset(entity.type);
         }
         entity.positionX = Fixed16::fromPixels(entity.x);
         entity.positionY = Fixed16::fromPixels(entity.y);
@@ -194,6 +225,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
         initializeWorldEffect(entity);
         initializeAmbientVisual(entity);
         initializeMovingPlatform(entity);
+        initializeBump(entity);
         _entities.push_back(entity);
     }
 }
@@ -241,7 +273,7 @@ void LevelSession::reset(Simulation &simulation) {
         LevelEntity &entity = _entities[index];
         entity.phase = EntityPhase::Dormant;
         entity.x = entity.initialX;
-        entity.y = entity.initialY + (isNormalEnemyType(entity.type) ? 0x20 : 0);
+        entity.y = entity.initialY + normalEnemyYOffset(entity.type);
         entity.positionX = Fixed16::fromPixels(entity.x);
         entity.positionY = Fixed16::fromPixels(entity.y);
         entity.animationFrame = 0;
@@ -262,6 +294,7 @@ void LevelSession::reset(Simulation &simulation) {
         initializeWorldEffect(entity);
         initializeAmbientVisual(entity);
         initializeMovingPlatform(entity);
+        initializeBump(entity);
     }
     _effects.clear();
     resetPlayer(simulation);
@@ -336,7 +369,8 @@ EntityKind LevelSession::classify(std::uint16_t type) {
 }
 
 bool LevelSession::isNormalEnemyType(std::uint16_t type) {
-    return isWurm2Type(type) || isBieneType(type);
+    return (type >= 0x01 && type <= 0x0c) ||
+           (type >= 0x15 && type <= 0x1c);
 }
 
 bool LevelSession::isWurm2Type(std::uint16_t type) {
@@ -345,6 +379,15 @@ bool LevelSession::isWurm2Type(std::uint16_t type) {
 
 bool LevelSession::isBieneType(std::uint16_t type) {
     return type == 0x03 || type == 0x04;
+}
+
+std::int32_t LevelSession::normalEnemyYOffset(std::uint16_t type) {
+    // 01F7:7AE3 is the only normal-enemy initializer in this closure that
+    // uses +0x10. The other family initializers use +0x20.
+    if (!isNormalEnemyType(type)) {
+        return 0;
+    }
+    return type == 0x05 || type == 0x06 ? 0x10 : 0x20;
 }
 
 bool LevelSession::isCloudType(std::uint16_t type) {
@@ -366,19 +409,106 @@ void LevelSession::initializeEnemy(LevelEntity &entity) {
         entity.enemyPhaseTimer = 0;
         entity.enemyTimer = 0;
         entity.enemyState = 0;
+        entity.enemyOrientation = -1;
+        entity.enemyPatrolDirection = -1;
+        entity.enemyTransitionTimer = 0;
+        entity.enemyPhase34 = 0;
+        entity.enemySineOrProbe39 = 0;
+        entity.enemyVerticalState36 = 0;
+        entity.enemyTransitionState3d = 0;
+        entity.enemySourceOrKind2c = -1;
+        entity.enemyAux3e = 0;
+        entity.enemyVerticalOffset40 = 0;
+        entity.enemyOriginY36 = 0;
+        entity.enemySavedVelocity3a = 0;
+        entity.enemySavedDirection44 = 0;
         entity.mapBlocked = 0;
         entity.enemyAnimationDelay = 0;
+        entity.enemyAnimationSequence = 0;
         return;
     }
 
-    const bool rightVariant = entity.type == 0x02 || entity.type == 0x04;
-    entity.velocityX = Fixed16(rightVariant ? 0x15000 : -0x15000);
+    const bool rightVariant = (entity.type & 1U) == 0;
+    const std::int32_t direction = rightVariant ? 1 : -1;
+    entity.velocityX = Fixed16();
     entity.velocityY = Fixed16();
     entity.enemyPhaseTimer = 0;
     entity.enemyTimer = 0x14;
     entity.enemyState = 0;
+    entity.enemyOrientation = static_cast<std::int8_t>(direction);
+    entity.enemyPatrolDirection = static_cast<std::int8_t>(direction);
+    entity.enemyTransitionTimer = 0;
+    entity.enemyPhase34 = 0;
+    entity.enemySineOrProbe39 = 0;
+    entity.enemyVerticalState36 = 0;
+    entity.enemyTransitionState3d = 0;
+    entity.enemySourceOrKind2c = -1;
+    entity.enemyAux3e = 0;
+    entity.enemyVerticalOffset40 = 0;
+    entity.enemyOriginY36 = entity.positionY.raw;
+    entity.enemySavedVelocity3a = 0;
+    entity.enemySavedDirection44 = 0;
     entity.mapBlocked = 0;
     entity.enemyAnimationDelay = 0x0e;
+    entity.enemyAnimationSequence = 0;
+    switch (entity.type) {
+    case 0x01:
+    case 0x02:
+        entity.velocityX = Fixed16(direction * 0x15000);
+        entity.enemyAnimationSequence = 0x33ee;
+        break;
+    case 0x03:
+    case 0x04:
+        entity.velocityX = Fixed16(direction * 0x15000);
+        entity.enemyOriginY36 = entity.positionY.raw;
+        break;
+    case 0x05:
+    case 0x06:
+        entity.velocityX = Fixed16(direction * 0x7000);
+        entity.enemyPhaseTimer = 0;
+        entity.enemySineOrProbe39 = 0x14;
+        entity.enemyTransitionState3d = 0;
+        entity.enemyTimer = 0x19;
+        break;
+    case 0x07:
+    case 0x08:
+        entity.velocityX = Fixed16(direction * 0x5000);
+        entity.enemySineOrProbe39 = 0x14;
+        break;
+    case 0x09:
+    case 0x0a:
+        entity.velocityX = Fixed16(direction * 0x6000);
+        entity.velocityY = Fixed16(-0x30000);
+        entity.enemyTransitionState3d = 0;
+        break;
+    case 0x0b:
+    case 0x0c:
+        entity.velocityX = Fixed16(direction * 0x15000);
+        entity.enemyPhaseTimer = 0x14;
+        break;
+    case 0x15:
+    case 0x16:
+        entity.velocityX = Fixed16(direction * 0x17000);
+        entity.enemyAnimationDelay = 8;
+        break;
+    case 0x17:
+    case 0x18:
+        entity.velocityX = Fixed16(direction * 0x12000);
+        entity.enemyAnimationDelay = 16;
+        break;
+    case 0x19:
+    case 0x1a:
+        entity.velocityX = Fixed16(direction * 0x15000);
+        entity.enemyAnimationDelay = 8;
+        break;
+    case 0x1b:
+    case 0x1c:
+        entity.velocityX = Fixed16(direction * 0x15000);
+        entity.enemyAnimationDelay = 6;
+        break;
+    default:
+        break;
+    }
     entity.enemyContactPending = false;
     entity.contactCallback = CallbackIdentity();
     entity.responseTimer = 0;
@@ -445,7 +575,7 @@ void LevelSession::initializeAmbientVisual(LevelEntity &entity) {
     entity.ambientAnimationCursor = 0x3328;
 }
 
-std::uint8_t LevelSession::nextLeafPrngByte() {
+std::uint8_t LevelSession::nextSharedPrngByte() {
     const std::uint8_t value = _leafPrngRing[_leafPrngIndex & 0x00ff];
     _leafPrngIndex = static_cast<std::uint16_t>((_leafPrngIndex + 1) & 0x00ff);
     return value;
@@ -460,7 +590,7 @@ void LevelSession::initializeAmbientVisualRuntime(LevelEntity &entity) {
     //   signed ring byte > 0 -> DS:3312 (delay 8, slots 700..707)
     //   signed ring byte <=0 -> DS:3326 (delay 10, slots 703..707,700..702)
     // The second ring byte is consumed by the fixed-point velocity seed.
-    const std::int8_t tableSeed = static_cast<std::int8_t>(nextLeafPrngByte());
+    const std::int8_t tableSeed = static_cast<std::int8_t>(nextSharedPrngByte());
     entity.ambientTable = tableSeed > 0 ? 0 : 1;
     entity.ambientAnimationDelay = entity.ambientTable == 0 ? 8 : 10;
     entity.ambientAnimationCursor = entity.ambientTable == 0
@@ -468,7 +598,7 @@ void LevelSession::initializeAmbientVisualRuntime(LevelEntity &entity) {
     entity.spriteSlot = entity.ambientTable == 0 ? 700 : 703;
 
     const std::int8_t velocitySeed =
-        static_cast<std::int8_t>(nextLeafPrngByte());
+        static_cast<std::int8_t>(nextSharedPrngByte());
     const std::int32_t perturbation =
         static_cast<std::int32_t>(velocitySeed) * 0x80;
     entity.ambientVelocityY = Fixed16::fromRaw(
@@ -485,24 +615,68 @@ void LevelSession::initializeMovingPlatform(LevelEntity &entity) {
     entity.platformWait52 = 0;
     entity.platformWait54 = 0;
     entity.platformCooldown58 = 0;
+    entity.platformDirectionY4c = -1;
+    entity.platformEdgeLatch50 = -1;
+    entity.platformDirectionX4e = 1;
+    entity.platformHorizontal4a = false;
+    entity.platformAxisMarker4b = 0;
+    entity.platformMotionGate59 = true;
+    entity.platformInitializerMapChecked = false;
     entity.platformCarryActive = false;
     if (entity.kind != EntityKind::MovingPlatform) {
         return;
     }
 
-    // The four 9CF5/9D19/9D5E/9D82 initializers publish static PLATFW
-    // geometry and flags. The archived post-initializer records show zero
-    // initial velocity; authored motion may seed it later through the
-    // address-qualified state path.
+    // 01F7:9C70 clears both fixed-point velocities, initializes +4C=-1,
+    // +4E=1, +50=-1, +59=1, and leaves +52=0 until the type wrapper writes
+    // 0x14. The 5DA1 word probe can clear +59 when the initializer cell has
+    // raw bit 0x0200; it is deferred until the first callback because the
+    // constructor does not own a WorldCollisionView.
+    //
+    // 9CF5/9D19 select the horizontal variants (3D/3E), while 9D5E/9D82
+    // select the vertical variants (3F/40). +4B is retained as an exact
+    // byte-shaped initializer field even though 9DC7 branches on +4A and
+    // uses +4C/+4E as the live movement directions.
+    entity.platformHorizontal4a = entity.type == 0x3d || entity.type == 0x3e;
+    entity.platformAxisMarker4b = entity.platformHorizontal4a ? 0 : 0xff;
+    entity.platformWait52 = 0x14;
     entity.velocityX = Fixed16();
     entity.velocityY = Fixed16();
 }
 
+void LevelSession::initializeBump(LevelEntity &entity) {
+    entity.bumpAnimationDelay20 = 0;
+    entity.bumpAnimationCursor24 = 0;
+    if (entity.type != 0x34) {
+        return;
+    }
+
+    // 01F7:9BEE performs one word ADD +0x10 at object+0x04 and two
+    // successive word ADD +0x10 operations at object+0x08. The ARE anchor is
+    // retained in initialX/initialY so re-streaming reconstructs the pooled
+    // object rather than carrying a culled position forward.
+    const auto addObjectWord = [](std::int32_t value,
+                                  std::uint16_t amount) {
+        // 01F7:9BEE updates the pooled object with 16-bit ADD instructions.
+        // Keep the word wrap/sign conversion visible instead of allowing a
+        // host-width coordinate add to change the boundary behavior.
+        return static_cast<std::int32_t>(static_cast<std::int16_t>(
+            static_cast<std::uint16_t>(value) + amount));
+    };
+    entity.x = addObjectWord(entity.initialX, 0x10);
+    entity.y = addObjectWord(entity.initialY, 0x20);
+    entity.positionX = Fixed16::fromPixels(entity.x);
+    entity.positionY = Fixed16::fromPixels(entity.y);
+    entity.bumpAnimationDelay20 = 6;
+    entity.bumpAnimationCursor24 = 0;
+    entity.animationFrame = 0;
+    entity.spriteSlot = 400;
+}
+
 CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
-    // These identities are the recovered ARE callback targets. Collectibles
-    // and the two W1 normal-enemy families are executed by this slice; the
-    // other identities are published for scheduler order and remain external
-    // contracts.
+    // These identities are the recovered ARE callback targets. The normal
+    // enemy family is deliberately explicit: the callback address is part of
+    // the replay contract even when a presentation-only tail remains opaque.
     if (type == 0x6f || type == 0x70 || type == 0x71 || type == 0x72 ||
         type == 0x2c || (type >= 0x79 && type <= 0x7f)) {
         return CallbackIdentity(0x01f7, 0x8d20, "collectible_8d20");
@@ -518,6 +692,30 @@ CallbackIdentity LevelSession::callbackFor(std::uint16_t type) {
     }
     if (type == 0x03 || type == 0x04) {
         return CallbackIdentity(0x01f7, 0x68c0, "entity_biene_68c0");
+    }
+    if (type == 0x05 || type == 0x06) {
+        return CallbackIdentity(0x01f7, 0x7b71, "entity_fisch_7b71");
+    }
+    if (type == 0x07 || type == 0x08) {
+        return CallbackIdentity(0x01f7, 0x778c, "entity_krabbe_778c");
+    }
+    if (type == 0x09 || type == 0x0a) {
+        return CallbackIdentity(0x01f7, 0x715e, "entity_pengo_715e");
+    }
+    if (type == 0x0b || type == 0x0c) {
+        return CallbackIdentity(0x01f7, 0x66e1, "entity_schnee_66e1");
+    }
+    if (type == 0x15 || type == 0x16) {
+        return CallbackIdentity(0x01f7, 0x7ef8, "entity_fliege_7ef8");
+    }
+    if (type == 0x17 || type == 0x18) {
+        return CallbackIdentity(0x01f7, 0x8472, "entity_spinne_8472");
+    }
+    if (type == 0x19 || type == 0x1a) {
+        return CallbackIdentity(0x01f7, 0x5071, "entity_buggy_5071");
+    }
+    if (type == 0x1b || type == 0x1c) {
+        return CallbackIdentity(0x01f7, 0x5f28, "entity_ufo_5f28");
     }
     if (type >= 0x1f && type <= 0x21) {
         return CallbackIdentity(0x01f7, 0x8e4b, "world_effect_8e4b");
@@ -944,6 +1142,12 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
                 entity.positionY = Fixed16::fromPixels(entity.y);
                 initializeMovingPlatform(entity);
             }
+            if (entity.type == 0x34) {
+                // 01F7:1DEE clears the pooled callback off camera; a later
+                // ARE scan re-enters 9BEE and reapplies the initializer word
+                // shifts and descriptor start.
+                initializeBump(entity);
+            }
             if (scheduler != 0 && entity.updateCallback.offset != 0) {
                 entity.schedulerHandle = scheduler->queueSpawn(
                     entity.updateCallback, entity.id, false);
@@ -1148,19 +1352,35 @@ void LevelSession::syncPlayerTimer(const PlayerRecord &player) {
 
 void LevelSession::dispatchEnemyCallbacks(
     Simulation *simulation, const WorldCollisionView &world,
-    const PlayerRecord &player) {
+    PlayerRecord &player,
+    std::vector<SimulationCallbackStep> &dependencyOrder) {
     ObjectScheduler *scheduler = simulation == 0
         ? 0 : &simulation->stateForSetup().scheduler;
     for (std::size_t index = 0; index < _entities.size(); ++index) {
         LevelEntity &entity = _entities[index];
-        if (!entity.active || !isNormalEnemyType(entity.type) ||
+        if (!entity.active ||
+            (!isNormalEnemyType(entity.type) && entity.type != 0x34) ||
             entity.updateCallback.offset == 0) {
             continue;
         }
         if (scheduler != 0 &&
             (!entity.schedulerHandle.valid() ||
              entity.schedulerHandle.slot >= scheduler->objects().size() ||
-             !scheduler->objects()[entity.schedulerHandle.slot].active)) {
+             (!scheduler->objects()[entity.schedulerHandle.slot].active &&
+              !scheduler->objects()[entity.schedulerHandle.slot].pendingSpawn))) {
+            continue;
+        }
+
+        // 01F7:0E06 gives normal ARE objects phase +0x17=1 and their
+        // initializer installs the primary callback at +0x18. 01F7:1036
+        // publishes that callback in the 01F7:0E96 phase list.  The player
+        // object is phase 2, so this callback must precede 01F7:3FF8.
+        dependencyOrder.push_back(SimulationCallbackStep(
+            SimulationCallbackPhase::GameplayObjectBeforePlayer,
+            entity.id, entity.updateCallback));
+
+        if (entity.type == 0x34) {
+            updateBump(simulation, entity, player);
             continue;
         }
 
@@ -1169,32 +1389,271 @@ void LevelSession::dispatchEnemyCallbacks(
             continue;
         }
 
+        // 01F7:6DC4 and 01F7:68C0 call 1B77 immediately after their
+        // visibility gate, before the MAP probes and movement state machine.
+        // The candidate position is therefore the pre-update object word.
+        if (isWurm2Type(entity.type) || isBieneType(entity.type)) {
+            std::vector<LevelStateWrite> writes;
+            if (applyNormalEnemyDamage(entity, player, writes)) {
+                LevelEvent event;
+                event.type = LevelEventType::PlayerDamaged;
+                event.entityId = entity.id;
+                event.entityType = entity.type;
+                event.stateWrites = writes;
+                _events.push_back(event);
+            }
+        }
+
         if (isWurm2Type(entity.type)) {
             updateWurm2(entity, world);
+        } else if (isBieneType(entity.type)) {
+            updateBiene(entity, world, player);
         } else {
-            updateBiene(entity, world);
+            updateNormalEnemy(entity, world);
         }
 
         // The family callbacks publish the same animation delay field as the
         // initializers. The BOB cursor tables remain renderer-owned; this
         // counter is retained here so the callback-visible timing is not
-        // replaced with a generic frame counter.
+        // replaced with a generic frame counter.  The delay is a family
+        // contract recovered from the corresponding loader, not a universal
+        // enemy constant.
+        const std::uint16_t animationDelay =
+            entity.type == 0x15 || entity.type == 0x16 ||
+            entity.type == 0x19 || entity.type == 0x1a ? 8 :
+            (entity.type == 0x17 || entity.type == 0x18 ? 16 :
+             (entity.type == 0x1b || entity.type == 0x1c ? 6 : 14));
         if (entity.enemyAnimationDelay != 0) {
             --entity.enemyAnimationDelay;
         } else {
-            entity.enemyAnimationDelay = 0x0e;
+            entity.enemyAnimationDelay = animationDelay;
             entity.animationFrame = static_cast<std::uint16_t>(
                 (entity.animationFrame + 1) & 0x00ff);
         }
 
-        // The native contact tail is a separate 4AB3/4C5D object response.
-        // Keep the overlap predicate explicit until the persistent-player
-        // coordinate source and family-specific bounds are moved into the
-        // level trace contract. It must not be treated as player death.
-        if (overlaps(player, entity, _config.hazardRadius)) {
+        // The native contact tail is a separate 4AB3/4C5D object response for
+        // the remaining normal-enemy families. WURM2/BIENE already executed
+        // their 1B77 damage route above and do not enter this tail.
+        if (!isWurm2Type(entity.type) && !isBieneType(entity.type) &&
+            overlaps(player, entity, _config.hazardRadius)) {
             beginEnemyContact(entity);
         }
     }
+}
+
+void LevelSession::updateBump(Simulation *simulation, LevelEntity &entity,
+                              PlayerRecord &player) {
+    // 01F7:9C0C: the callback's DS:85DA gate is a byte comparison. Values
+    // below 0x32 execute visibility/animation advancement; the >=0x32 path
+    // skips that prefix but continues into the same proximity test.
+    const std::int16_t activation = simulation != 0 &&
+        simulation->playerUpdater() != 0
+        ? simulation->playerUpdater()->activationState85DA() : 0;
+    const bool runCameraAnimationPrefix =
+        static_cast<std::uint8_t>(activation) < 0x32;
+
+    if (runCameraAnimationPrefix) {
+        // The enclosing stream pass already applies 1DCA/1DEE.  5D60's
+        // object-local contract is retained exactly: decrement +0x20 first,
+        // then advance the cursor when the next callback observes zero.
+        if (entity.bumpAnimationDelay20 != 0) {
+            --entity.bumpAnimationDelay20;
+        } else {
+            static const std::uint16_t kBumpSlots[4] =
+                {400, 402, 403, 401};
+            entity.bumpAnimationCursor24 = static_cast<std::uint16_t>(
+                (entity.bumpAnimationCursor24 + 1) & 3U);
+            entity.spriteSlot =
+                kBumpSlots[entity.bumpAnimationCursor24];
+            entity.animationFrame = entity.bumpAnimationCursor24;
+            entity.bumpAnimationDelay20 = 6;
+        }
+    }
+
+    player.syncToRaw();
+    // 01F7:39FE returns the signed high words of player +0x04/+0x08 and the
+    // signed byte at +0x37. The strict comparisons below preserve the raw
+    // 16-bit object/player coordinate convention.
+    const std::int16_t playerX = player.xPixel();
+    const std::int16_t playerY = player.yPixel();
+    const std::int8_t playerMode = player.mode37;
+    if (playerMode <= 0) {
+        return;
+    }
+
+    const std::int16_t objectX = static_cast<std::int16_t>(entity.x);
+    const std::int16_t objectY = static_cast<std::int16_t>(entity.y);
+    if (!(addSignedWord(objectX, static_cast<std::int16_t>(-0x19)) < playerX &&
+          playerX < addSignedWord(objectX, 0x19) &&
+          addSignedWord(objectY, static_cast<std::int16_t>(-0x08)) < playerY &&
+          playerY < objectY)) {
+        return;
+    }
+
+    // 01F7:9C57 reloads the BUMP object descriptor from DS:3568 before the
+    // player response. The table contents are a resource boundary, but the
+    // observed logical start is closed and remains explicit here.
+    entity.bumpAnimationDelay20 = 6;
+    entity.bumpAnimationCursor24 = 0;
+    entity.animationFrame = 0;
+    entity.spriteSlot = 400;
+
+    // 01F7:1B07, reached by 1B5D, resolves DS:881A to this persistent player.
+    // Preserve the mask/write order and the exact typed player offsets.
+    const std::uint16_t effectBitsBefore =
+        _gameplayState.transitionEffectBits8950;
+    const std::uint16_t effectBitsAfter = static_cast<std::uint16_t>(
+        effectBitsBefore & 0xffcfU);
+    _gameplayState.transitionEffectBits8950 = effectBitsAfter;
+
+    player.sideResponse3B = 0;
+    player.resetDeathTimer3E = 0x03e8;
+    player.mode37 = static_cast<std::int8_t>(0xff);
+    player.verticalResponse3A = 0;
+    player.contactScratch2B = 0xff;
+
+    // 1B07 copies player+0x64 to +0x0E; 1B5D then subtracts wrapping dword
+    // 0x1B000. Do not express this as a host signed subtraction.
+    player.velocityY.raw = Fixed16::wrapSubRaw(
+        player.negativeYSpeed64.raw, 0x0001b000);
+    if ((effectBitsAfter & 0x0004U) == 0) {
+        // 5D38(0x3160): delay 8, first frame 10, cursor 0x3162. The
+        // direction byte selects the mirrored frame family by +0x32.
+        player.field1E = 8;
+        player.animationDelay20 = 8;
+        player.animationCursor22 = 0x3162;
+        player.field24 = 0x3162;
+        const std::int16_t frame = player.directionByte28 == 0xff
+            ? static_cast<std::int16_t>(10 + 0x32) : 10;
+        player.statusWord12 = static_cast<std::uint16_t>(frame);
+    }
+
+    const std::uint16_t pendingBefore = _gameplayState.pendingEvent612e;
+    _gameplayState.pendingEvent612e = 4;
+
+    LevelEvent event;
+    event.type = LevelEventType::EntityCollisionImpact;
+    event.entityId = entity.id;
+    event.entityType = entity.type;
+    appendStateWrite(event.stateWrites, 0x8950, 2,
+                     effectBitsBefore, effectBitsAfter);
+    appendStateWrite(event.stateWrites, 0x612e, 2,
+                     pendingBefore, _gameplayState.pendingEvent612e);
+    _events.push_back(event);
+}
+
+bool LevelSession::applyNormalEnemyDamage(
+    const LevelEntity &entity, PlayerRecord &player,
+    std::vector<LevelStateWrite> &writes) {
+    // 01F7:393C returns zero bounds while DS:89EA is nonzero, but 1B77 still
+    // performs its signed comparisons. Preserve that exact order instead of
+    // turning the gate into a higher-level early return.
+    player.syncToRaw();
+    const std::int16_t playerX = player.xPixel();
+    const std::int16_t playerY = player.yPixel();
+    const std::int16_t boundsAX = _gameplayState.transitionGate89ea != 0
+        ? 0 : addSignedWord(playerX, player.state2C);
+    const std::int16_t boundsBX = _gameplayState.transitionGate89ea != 0
+        ? 0 : addSignedWord(playerY, player.verticalStepOrDirection2E);
+    const std::int16_t boundsCX = _gameplayState.transitionGate89ea != 0
+        ? 0 : addSignedWord(playerX, player.state30);
+    const std::int16_t boundsDX = _gameplayState.transitionGate89ea != 0
+        ? 0 : addSignedWord(
+            playerY, static_cast<std::int16_t>(player.callbackState32));
+
+    const std::int16_t candidateX = static_cast<std::int16_t>(entity.x);
+    const std::int16_t candidateY = static_cast<std::int16_t>(entity.y);
+    const std::int16_t xOffset = -10;
+    const std::int16_t yOffset = isBieneType(entity.type) ? -20 : -10;
+    const std::int16_t xExtent = 20;
+    const std::int16_t yExtent = 20;
+
+    std::int16_t edge = addSignedWord(candidateX, xOffset);
+    if (edge >= boundsCX) {
+        return false;
+    }
+    edge = addSignedWord(edge, xExtent);
+    if (edge <= boundsAX) {
+        return false;
+    }
+
+    edge = addSignedWord(candidateY, yOffset);
+    if (edge >= boundsDX) {
+        return false;
+    }
+    edge = addSignedWord(edge, yExtent);
+    if (edge <= boundsBX) {
+        return false;
+    }
+
+    // 01F7:1BB5-1BBF returns AX=1 and does not call 19E6 while DS:8810 is
+    // nonzero. The caller ignores AX, but the absence of writes is part of
+    // the observable contract.
+    if (_gameplayState.invulnerabilityGate8810 != 0) {
+        return false;
+    }
+
+    // 01F7:19E6, 19EB-1A95. The player timer is the first gate inside the
+    // damage writer; 1B77 still reports a contact, but no state is changed.
+    if (player.timer34 != 0) {
+        return false;
+    }
+
+    const std::uint16_t pendingBefore = _gameplayState.pendingEvent612e;
+    _gameplayState.pendingEvent612e = 1;
+    appendStateWrite(writes, 0x612e, 2, pendingBefore, 1);
+
+    const std::uint16_t healthBefore = _gameplayState.currentHealth8822;
+    const std::uint16_t healthAfter = static_cast<std::uint16_t>(
+        healthBefore - 1);
+    _gameplayState.currentHealth8822 = healthAfter;
+    appendStateWrite(writes, 0x8822, 2, healthBefore, healthAfter);
+
+    if (healthAfter != 0) {
+        // 01F7:1A73 is the complete nonterminal player write.
+        player.timer34 = 0x00d2;
+    } else {
+        // 01F7:1A06-1A6B. The effect/IRQ-driven recovery consumer remains
+        // outside this native boundary; these are only the writes made by
+        // 19E6 itself.
+        const std::uint16_t livesBefore = _gameplayState.lives880a;
+        const std::uint16_t livesAfter = static_cast<std::uint16_t>(
+            livesBefore - 1);
+        _gameplayState.lives880a = livesAfter;
+        appendStateWrite(writes, 0x880a, 2, livesBefore, livesAfter);
+
+        const std::uint16_t effectBitsBefore =
+            _gameplayState.transitionEffectBits8950;
+        const std::uint16_t effectBitsAfter = static_cast<std::uint16_t>(
+            effectBitsBefore & 0xffcfU);
+        _gameplayState.transitionEffectBits8950 = effectBitsAfter;
+        appendStateWrite(writes, 0x8950, 2, effectBitsBefore, effectBitsAfter);
+
+        player.velocityY.raw = static_cast<std::int32_t>(0xfffe0000U);
+        player.acceleration4C.raw = 0x00002000;
+        player.positiveYAcceleration50.raw = 0x00002000;
+        player.horizontalSpeedCap5C.raw = 0x00018000;
+        player.positiveYSpeedCap60.raw = 0x00040000;
+
+        const std::uint16_t gateBefore = _gameplayState.transitionGate89ea;
+        _gameplayState.transitionGate89ea = 0xffff;
+        appendStateWrite(writes, 0x89ea, 2, gateBefore, 0xffff);
+
+        player.velocityY.raw = static_cast<std::int32_t>(0xfffe0000U);
+        player.sideResponse3B = 0;
+        player.resetDeathTimer3E = 0x03e8;
+        player.mode37 = -1;
+        player.verticalResponse3A = 0;
+        player.contactScratch2B = 0;
+    }
+
+    // 01F7:1A79-1A8C: SUB player+0x04,BX followed by JS. BX is the
+    // candidate object's integer X word, not the post-update position.
+    player.velocityX.raw = signedWordSubtractionIsNegative(
+        playerX, candidateX) ? static_cast<std::int32_t>(0xfffe8000U)
+                             : 0x00018000;
+    player.syncToRaw();
+    return true;
 }
 
 void LevelSession::dispatchCloudCallbacks(Simulation *simulation,
@@ -1224,6 +1683,36 @@ void LevelSession::dispatchCloudCallbacks(Simulation *simulation,
     }
 }
 
+void LevelSession::publishMovingPlatformCarry(
+    LevelEntity &entity, PlayerRecord &player, Simulation *simulation) {
+    // 01F7:A0B2 consumes DS:5006, not the pre-motion overlap result. The X
+    // subtraction is a 16-bit object-word subtraction before the fixed-point
+    // shift; preserve that wrap even when the platform reverses.
+    if (_gameplayState.platformLatch5006 != 0) {
+        const std::uint16_t deltaX = static_cast<std::uint16_t>(
+            entity.x - entity.platformPreviousX);
+        const std::int32_t carryX = Fixed16::wrapAddRaw(
+            static_cast<std::int32_t>(static_cast<std::uint32_t>(deltaX) << 16),
+            1);
+        const std::int32_t carryY = Fixed16::wrapAddRaw(
+            Fixed16::wrapSubRaw(entity.positionY.raw, player.positionY.raw), 1);
+        _gameplayState.platformCarryX8816 = carryX;
+        _gameplayState.platformCarryY8812 = carryY;
+        entity.platformCarryActive = true; // object +0x5A = 0xff
+        entity.platformMotionGate59 = false; // object +0x59 = 0
+        if (simulation != 0 && simulation->playerUpdater() != 0) {
+            simulation->playerUpdater()->publishPlatformCarry(carryX, carryY);
+        }
+        return;
+    }
+
+    if (entity.platformCarryActive) {
+        // A0B2 clears +0x5A and starts the 0x14-tick recontact cooldown.
+        entity.platformCarryActive = false;
+        entity.platformCooldown58 = 0x14;
+    }
+}
+
 void LevelSession::dispatchMovingPlatformCallbacks(
     Simulation *simulation, const WorldCollisionView &world,
     PlayerRecord &player,
@@ -1245,82 +1734,154 @@ void LevelSession::dispatchMovingPlatformCallbacks(
         _gameplayState.platformCarryX8816 = 0;
         _gameplayState.platformCarryY8812 = 0;
 
-        bool accepted = false;
+        if (!entity.platformInitializerMapChecked) {
+            // 01F7:9C70 -> 5DA1 tests the initializer cell with TEST AH,0x02.
+            // The constructor cannot access the collision view, so publish
+            // this one-time +0x59 decision at the first callback.
+            const MapCell initializerCell = world.cellAt(
+                entity.x / 16, entity.y / 16);
+            entity.platformMotionGate59 =
+                !initializerCell.inBounds ||
+                (initializerCell.rawWord & 0x0200U) == 0;
+            entity.platformInitializerMapChecked = true;
+        }
+
         if (entity.platformCooldown58 != 0) {
             --entity.platformCooldown58;
         } else if (player.mode37 >= 0) {
             const std::int32_t playerX = player.positionX.floorPixels();
             const std::int32_t playerY = player.positionY.floorPixels();
-            const std::int32_t width = entity.collisionWidth;
-            // 01F7:A075: strict X interval, half-open 12-pixel Y interval.
-            accepted = entity.x < playerX &&
-                       playerX < entity.x + width &&
-                       entity.y <= playerY && playerY < entity.y + 12;
-        }
-        if (accepted) {
-            _gameplayState.platformLatch5006 = 0xffff;
+            // 01F7:A075: strict X interval, half-open 12-pixel Y band.
+            if (entity.x < playerX && playerX < entity.x + entity.collisionWidth &&
+                entity.y <= playerY && playerY < entity.y + 12) {
+                _gameplayState.platformLatch5006 = 0xffff;
+            }
         }
 
-        // Object+0x2A is the integer platform position captured before the
-        // motion branch. A0B2 compares the post-motion object+0x04 against it.
+        // Object +0x2A/+0x2C are captured before the movement state machine.
         entity.platformPreviousX = entity.x;
         entity.platformPreviousY = entity.y;
 
-        if (entity.platformWait54 != 0) {
-            --entity.platformWait54;
-        } else if (entity.platformWait52 != 0) {
-            --entity.platformWait52;
-        } else if (entity.velocityX.raw != 0) {
-            const std::int32_t direction = entity.velocityX.raw < 0 ? -1 : 1;
-            const std::int32_t probeX = entity.x + direction * 16;
-            if (world.mapRawBit0800Confirmed(probeX, entity.y)) {
-                entity.velocityX = Fixed16();
-                entity.x = (entity.x / 16) * 16;
-                entity.positionX = Fixed16::fromPixels(entity.x);
-                entity.platformWait54 = 0x46;
-            } else {
+        // The initializer's +0x59==1 branch jumps directly to A0B2.
+        if (entity.platformMotionGate59) {
+            publishMovingPlatformCarry(entity, player, simulation);
+            continue;
+        }
+
+        const auto setIntegerX = [&entity](std::int32_t value) {
+            entity.x = value;
+            entity.positionX.raw = (entity.positionX.raw & 0x0000ffff) |
+                                   (static_cast<std::int32_t>(value) << 16);
+        };
+        const auto setIntegerY = [&entity](std::int32_t value) {
+            entity.y = value;
+            entity.positionY.raw = (entity.positionY.raw & 0x0000ffff) |
+                                   (static_cast<std::int32_t>(value) << 16);
+        };
+
+        if (entity.platformHorizontal4a) {
+            if (entity.platformWait54 != 0) {
+                --entity.platformWait54;
+            } else if (entity.velocityX.raw != 0) {
+                const std::int32_t oldX = entity.x;
                 entity.positionX.raw = Fixed16::wrapAddRaw(
                     entity.positionX.raw, entity.velocityX.raw);
                 entity.x = entity.positionX.floorPixels();
-            }
-        } else if (entity.velocityY.raw != 0) {
-            const std::int32_t direction = entity.velocityY.raw < 0 ? -1 : 1;
-            const std::int32_t probeY = entity.y + direction * 16;
-            if (world.mapRawBit0800Confirmed(entity.x, probeY)) {
-                entity.velocityY = Fixed16();
-                entity.y = (entity.y / 16) * 16;
-                entity.positionY = Fixed16::fromPixels(entity.y);
-                entity.platformWait54 = 0x46;
+                if (((entity.x ^ oldX) & 0xfff0) != 0) {
+                    const std::int32_t probeX =
+                        (entity.x & ~0x0f) +
+                        (entity.platformDirectionX4e == 1
+                             ? entity.collisionWidth - 0x10 : 0x10);
+                    if (world.mapRawBit0800Confirmed(probeX, entity.y)) {
+                        entity.velocityX = Fixed16();
+                        entity.platformWait54 = 0x46;
+                        setIntegerX(entity.x & ~0x0f);
+                        if (entity.platformDirectionX4e != 1) {
+                            setIntegerX(entity.x + 0x10);
+                        }
+                    }
+                }
+            } else if (entity.platformWait52 != 0) {
+                --entity.platformWait52;
+            } else if (entity.platformEdgeLatch50 == -1) {
+                entity.platformEdgeLatch50 = 0;
+                const bool blockedAhead = world.mapRawBit0800Confirmed(
+                    entity.x + entity.collisionWidth, entity.y);
+                if (blockedAhead) {
+                    entity.velocityX = Fixed16(-0x28000);
+                    setIntegerX(entity.x - 1);
+                    entity.platformDirectionX4e = -1;
+                } else {
+                    entity.velocityX = Fixed16(0x28000);
+                    setIntegerX(entity.x + 1);
+                    entity.platformDirectionX4e = 1;
+                }
             } else {
+                const bool blockedBehind = world.mapRawBit0800Confirmed(
+                    entity.x - 0x10, entity.y);
+                bool reverse = false;
+                if (!blockedBehind) {
+                    const bool blockedAhead = world.mapRawBit0800Confirmed(
+                        entity.x + entity.collisionWidth, entity.y);
+                    reverse = !blockedAhead && entity.platformDirectionX4e == -1;
+                }
+                if (reverse) {
+                    entity.velocityX = Fixed16(-0x28000);
+                    setIntegerX(entity.x - 1);
+                    entity.platformDirectionX4e = -1;
+                } else {
+                    entity.velocityX = Fixed16(0x28000);
+                    setIntegerX(entity.x + 1);
+                    entity.platformDirectionX4e = 1;
+                }
+            }
+        } else {
+            if (entity.platformWait54 != 0) {
+                --entity.platformWait54;
+            } else if (entity.velocityY.raw != 0) {
+                const std::int32_t oldY = entity.y;
                 entity.positionY.raw = Fixed16::wrapAddRaw(
                     entity.positionY.raw, entity.velocityY.raw);
                 entity.y = entity.positionY.floorPixels();
+                if (((entity.y ^ oldY) & 0xfff0) != 0) {
+                    const std::int32_t probeY =
+                        (entity.y & ~0x0f) +
+                        (entity.platformDirectionY4c == 1 ? 0x10 : 0);
+                    if (world.mapRawBit0800Confirmed(entity.x, probeY)) {
+                        entity.velocityY = Fixed16();
+                        entity.platformWait54 = 0x46;
+                        setIntegerY(entity.y & ~0x0f);
+                        if (entity.platformDirectionY4c != 1) {
+                            setIntegerY(entity.y + 0x10);
+                        }
+                    }
+                }
+            } else if (entity.platformWait52 != 0) {
+                --entity.platformWait52;
+            } else {
+                const bool blockedUp = world.mapRawBit0800Confirmed(
+                    entity.x, entity.y + 0x10);
+                if (blockedUp) {
+                    entity.velocityY = Fixed16(-0x28000);
+                    setIntegerY(entity.y - 1);
+                    entity.platformDirectionY4c = -1;
+                } else {
+                    const bool blockedDown = world.mapRawBit0800Confirmed(
+                        entity.x, entity.y - 0x10);
+                    if (!blockedDown && entity.platformDirectionY4c == 1) {
+                        entity.velocityY = Fixed16(0x28000);
+                        setIntegerY(entity.y + 1);
+                        entity.platformDirectionY4c = 1;
+                    } else {
+                        entity.velocityY = Fixed16(-0x28000);
+                        setIntegerY(entity.y - 1);
+                        entity.platformDirectionY4c = -1;
+                    }
+                }
             }
         }
 
-        if (accepted) {
-            const std::int32_t pixelDelta =
-                entity.x - entity.platformPreviousX;
-            const std::uint32_t shiftedDelta = static_cast<std::uint32_t>(
-                pixelDelta) << 16;
-            const std::int32_t carryX = static_cast<std::int32_t>(
-                shiftedDelta) + 1;
-            const std::int32_t platformY = Fixed16::fromPixels(entity.y).raw;
-            const std::int32_t carryY = Fixed16::wrapAddRaw(
-                Fixed16::wrapSubRaw(platformY, player.positionY.raw), 1);
-            _gameplayState.platformCarryX8816 = carryX;
-            _gameplayState.platformCarryY8812 = carryY;
-            entity.platformCarryActive = true;
-            if (simulation != 0 && simulation->playerUpdater() != 0) {
-                simulation->playerUpdater()->publishPlatformCarry(
-                    carryX, carryY);
-            }
-        } else if (entity.platformCarryActive) {
-            // A0B2 clears +0x5A and starts the 0x14-tick recontact cooldown
-            // when the prior carry latch is no longer accepted.
-            entity.platformCarryActive = false;
-            entity.platformCooldown58 = 0x14;
-        }
+        publishMovingPlatformCarry(entity, player, simulation);
     }
 }
 
@@ -1347,7 +1908,7 @@ bool LevelSession::dispatchWorldEffectCallbacks(Simulation *simulation) {
 
 bool LevelSession::updateWorldEffect(Simulation *simulation,
                                       LevelEntity &entity) {
-    // The 8E4B zero-state path has already passed through the scheduler's
+        // The 8E4B zero-state path has already passed through the scheduler's
     // camera/loaded-region gate. Its remaining 393C bounds gate is an
     // external persistent-player contract; keeping the object dormant until
     // it is streamed is the native state available to this engine boundary.
@@ -1366,11 +1927,13 @@ bool LevelSession::updateWorldEffect(Simulation *simulation,
     }
 
     if (state == 10) {
-        // The callback clears object+0x18 and publishes two int32 values at
-        // DS:8828/DS:882A. 01F7:1AAA's indexed consumer is intentionally
-        // outside this closure; these writes are retained as named state.
-        const std::int32_t afterX = entity.x + 0x19;
-        const std::int32_t afterY = entity.y + 0x46;
+        // 01F7:8E4B stores words at row zero, DS:8828/DS:882A. Preserve the
+        // 16-bit write width and keep the legacy scalar fields as aliases.
+        const std::uint16_t afterX = static_cast<std::uint16_t>(
+            entity.x + 0x19);
+        const std::uint16_t afterY = static_cast<std::uint16_t>(
+            entity.y + 0x46);
+        _gameplayState.spawnRows8828[0] = SpawnCoordinateRow{afterX, afterY};
         _gameplayState.terminalX8828 = afterX;
         _gameplayState.terminalY882a = afterY;
 
@@ -1386,64 +1949,665 @@ bool LevelSession::updateWorldEffect(Simulation *simulation,
 
 void LevelSession::updateWurm2(LevelEntity &entity,
                                const WorldCollisionView &world) {
-    const bool blocked = enemyMapBlocked(entity, world);
-    entity.mapBlocked = blocked ? 1 : 0;
-    if (blocked) {
-        entity.velocityX.raw = Fixed16::wrapNegRaw(entity.velocityX.raw);
-    }
-    entity.positionX.raw = Fixed16::wrapAddRaw(entity.positionX.raw,
-                                                entity.velocityX.raw);
-    entity.x = entity.positionX.floorPixels();
+    // 01F7:6DC4 publishes +0x2F from 1C4D/5C27 before entering its signed
+    // state machine. The player damage overlap was already evaluated by the
+    // phase-1 caller immediately before this movement path.
+    entity.mapBlocked = enemyMapBlocked(entity, world) ? 1 : 0;
+    const auto clampVelocity = [](std::int32_t value) {
+        return std::max<std::int32_t>(-0x15000,
+               std::min<std::int32_t>(0x15000, value));
+    };
+    const auto advanceX = [&entity]() {
+        entity.positionX.raw = Fixed16::wrapAddRaw(entity.positionX.raw,
+                                                    entity.velocityX.raw);
+        entity.x = entity.positionX.floorPixels();
+    };
+    const auto loadAnimation = [&entity](std::uint16_t sequence) {
+        // 01F7:5D38 writes the sequence/cursor and reloads the object delay.
+        // The native renderer owns the BOB cursor; retain the callback-visible
+        // delay and selected sequence at the entity boundary.
+        entity.enemyAnimationDelay = 0x0e;
+        entity.enemyAnimationSequence = sequence;
+        (void)sequence;
+    };
 
-    // 6DC4 uses +0x2A as a 0..0x96 patrol phase before the PRNG/state branch.
-    // The branch's random vertical target is outside this W1L1 implementation
-    // until its selected runtime value is captured; do not invent one here.
-    if (entity.enemyPhaseTimer < 0x96) {
-        ++entity.enemyPhaseTimer;
-    } else {
-        entity.enemyPhaseTimer = 0;
+    const std::int32_t orientation = entity.enemyOrientation;
+    const std::int32_t patrolDirection = entity.enemyPatrolDirection;
+    const auto finishCallback = [this, &entity]() {
+        // 01F7:707B follows every state-machine exit, including early returns
+        // from state 0, state 2, and the non-state-3 movement branch.
+        consumeWurm2TargetTail(entity);
+    };
+    if (entity.enemyState < 1) {
+        // 6E31-6E36: the normalized map result preserves the raw +0x2F
+        // polarity. Positive means the 6E3A descriptor-contact response;
+        // zero/nonpositive means the ordinary 6F16 integration path.
+        if (static_cast<std::int8_t>(entity.mapBlocked) > 0) {
+            if (patrolDirection < 0) {
+                if (entity.enemyTimer == 0x14) {
+                    loadAnimation(0x33ee);
+                }
+                entity.velocityX.raw = clampVelocity(
+                    entity.velocityX.raw - (orientation << 12));
+                advanceX();
+                const std::uint16_t nextTimer = static_cast<std::uint16_t>(
+                    entity.enemyTimer - 1);
+                entity.enemyTimer = nextTimer;
+                if (static_cast<std::int16_t>(nextTimer) < 0) {
+                    entity.enemyOrientation = static_cast<std::int8_t>(
+                        0 - entity.enemyOrientation);
+                    entity.enemyPatrolDirection = static_cast<std::int8_t>(
+                        0 - entity.enemyPatrolDirection);
+                    entity.enemyTimer = 0x3c;
+                    entity.velocityX.raw =
+                        static_cast<std::int32_t>(entity.enemyOrientation) << 9;
+                }
+            } else {
+                entity.velocityX.raw = clampVelocity(
+                    entity.velocityX.raw + (orientation << 10));
+                advanceX();
+                const std::uint16_t nextTimer = static_cast<std::uint16_t>(
+                    entity.enemyTimer - 1);
+                entity.enemyTimer = nextTimer;
+                if (static_cast<std::int16_t>(nextTimer) < 0) {
+                    entity.enemyPatrolDirection = static_cast<std::int8_t>(
+                        0 - entity.enemyPatrolDirection);
+                    entity.mapBlocked = 0xff;
+                    entity.enemyTimer = 0x14;
+                }
+            }
+        } else {
+            advanceX();
+            entity.enemyPhaseTimer = static_cast<std::uint16_t>(
+                entity.enemyPhaseTimer + 1);
+            if (entity.enemyPhaseTimer > 0x96) {
+                // 01F7:6DC4 uses the same DS:6468/646C byte ring as the
+                // falling-leaf and dedicated-event initializers. The signed
+                // byte is sign-extended, then logically shifted right once.
+                const std::int16_t randomByte = static_cast<std::int8_t>(
+                    nextSharedPrngByte());
+                entity.enemyPhaseTimer = static_cast<std::uint16_t>(
+                    static_cast<std::uint16_t>(randomByte) >> 1);
+                entity.enemyState = 1;
+            }
+        }
+        finishCallback();
+        return;
     }
+
+    if (static_cast<std::int8_t>(entity.mapBlocked) > 0) {
+        entity.enemyState = 0;
+        entity.enemyPhaseTimer = 0x78;
+        finishCallback();
+        return;
+    }
+
+    if (entity.enemyState == 2) {
+        entity.enemyTransitionTimer = static_cast<std::uint16_t>(
+            entity.enemyTransitionTimer + 1);
+        if (entity.enemyTransitionTimer > 0x4b) {
+            entity.enemyTransitionTimer = 0;
+            entity.enemyState = 3;
+            loadAnimation(0x33e2);
+        } else {
+            finishCallback();
+            return;
+        }
+    } else if (entity.enemyState != 3) {
+        loadAnimation(0x33e2);
+        entity.velocityX.raw = clampVelocity(
+            entity.velocityX.raw - (orientation << 11));
+        advanceX();
+        const bool movingInOrientation = entity.enemyOrientation <= 0
+            ? entity.velocityX.raw < 0 : entity.velocityX.raw > 0;
+        if (movingInOrientation) {
+            finishCallback();
+            return;
+        }
+        entity.velocityX.raw = 0;
+        entity.enemyState = 2;
+        loadAnimation(0x33fa);
+        finishCallback();
+        return;
+    }
+
+    entity.velocityX.raw = clampVelocity(
+        entity.velocityX.raw + (orientation << 11));
+    advanceX();
+    if ((entity.enemyOrientation > 0 && entity.velocityX.raw >= 0x15000) ||
+        (entity.enemyOrientation <= 0 && entity.velocityX.raw <= -0x15000)) {
+        entity.enemyState = 0;
+        loadAnimation(0x33ee);
+    }
+    finishCallback();
+}
+
+void LevelSession::consumeWurm2TargetTail(LevelEntity &entity) {
+    // 01F7:707B-7080: the shared target scan is skipped when DS:8806 is
+    // zero. The ring is four-byte rows at DS:87DE; its capacity is the word
+    // at DS:8808 and the object cursor is +0x30.
+    if (_gameplayState.sharedTargetActiveCount8806 == 0) {
+        return;
+    }
+
+    std::uint16_t index = entity.targetCursor30;
+    // 7086-7092 uses signed JL. Normal runtime cursors are nonnegative, but
+    // retain the raw 16-bit comparison so an address-qualified negative value
+    // also wraps to row zero instead of indexing the host container.
+    if (static_cast<std::int16_t>(index) >= static_cast<std::int16_t>(
+            _gameplayState.sharedTargetCapacity8808)) {
+        entity.targetCursor30 = 0;
+        index = 0;
+    }
+    const TargetCoordinateRow &target =
+        _gameplayState.sharedTargetRows87de[index & 0x007fU];
+    const std::int16_t objectX = static_cast<std::int16_t>(entity.x);
+    const std::int16_t objectY = static_cast<std::int16_t>(entity.y);
+    const std::int16_t targetX = static_cast<std::int16_t>(target.x);
+    const std::int16_t targetY = static_cast<std::int16_t>(target.y);
+    const std::int16_t xLower = static_cast<std::int16_t>(
+        static_cast<std::uint16_t>(objectX - 0x19));
+    const std::int16_t xUpper = static_cast<std::int16_t>(
+        static_cast<std::uint16_t>(objectX + 0x19));
+    const std::int16_t yUpper = static_cast<std::int16_t>(
+        static_cast<std::uint16_t>(objectY + 5));
+    const std::int16_t yLower = static_cast<std::int16_t>(
+        static_cast<std::uint16_t>(objectY - 0x0f));
+
+    // 709E-70C1: strict X window (object-0x19, object+0x19) and strict Y
+    // window (object-0x0f, object+5), using the original JLE/JGE exits.
+    if (targetX > xLower && targetX < xUpper &&
+        targetY < yUpper && targetY > yLower) {
+        // 70C3 clears only the row X word.  70C9 publishes the 4AB3 response
+        // callback; its child/effect lifetime is intentionally not synthesized
+        // here because that callback is a separate contract boundary.
+        _gameplayState.sharedTargetRows87de[index & 0x007fU].x = 0;
+        entity.contactCallback = CallbackIdentity(
+            0x01f7, 0x4ab3, "contact_response_action_0d_4ab3");
+    }
+    // 70CF advances +0x30 even when the selected target does not overlap.
+    entity.targetCursor30 = static_cast<std::uint16_t>(index + 1);
 }
 
 void LevelSession::updateBiene(LevelEntity &entity,
-                               const WorldCollisionView &world) {
+                               const WorldCollisionView &world,
+                               const PlayerRecord &player) {
     const bool blocked = enemyMapBlocked(entity, world);
     entity.mapBlocked = blocked ? 1 : 0;
-    if (blocked) {
-        entity.velocityX.raw = Fixed16::wrapNegRaw(entity.velocityX.raw);
-    }
-    entity.positionX.raw = Fixed16::wrapAddRaw(entity.positionX.raw,
-                                                entity.velocityX.raw);
-    entity.x = entity.positionX.floorPixels();
 
-    // 68C0's state-1 sine/exit phases are identified in the static closure,
-    // but their selected phase data is not part of the W1L1 runtime fixture.
-    // State zero's horizontal path is closed and remains exact here.
+    const auto advanceX = [&entity]() {
+        entity.positionX.raw = Fixed16::wrapAddRaw(entity.positionX.raw,
+                                                    entity.velocityX.raw);
+        entity.x = entity.positionX.floorPixels();
+    };
+    const auto advanceY = [&entity]() {
+        entity.y = entity.positionY.floorPixels();
+    };
+    const auto clampWrapped = [](std::int32_t value,
+                                 std::int32_t minimum,
+                                 std::int32_t maximum) {
+        return value < minimum ? minimum : (value > maximum ? maximum : value);
+    };
+    const auto loadAnimation = [&entity](std::uint16_t sequence) {
+        // 01F7:5D38 publishes the callback-visible sequence and reloads the
+        // object animation delay. The BOB cursor remains renderer-owned.
+        entity.enemyAnimationDelay = 0x0e;
+        entity.enemyAnimationSequence = sequence;
+    };
+    const auto replaceHighWord = [](std::int32_t raw, std::uint16_t high) {
+        return static_cast<std::int32_t>(
+            (static_cast<std::uint32_t>(raw) & 0x0000ffffU) |
+            (static_cast<std::uint32_t>(high) << 16));
+    };
+    const auto transitionX = [&entity]() {
+        return fixedHighWord(entity.positionX.raw);
+    };
+    const auto transitionY = [&entity]() {
+        return fixedHighWord(entity.positionY.raw);
+    };
+
+    // 01F7:68F0-6A61. The state-zero path uses the same raw 1C4D MAP gate
+    // published in entity.mapBlocked. Its range gate depends on DS:81C4;
+    // the native caller may supply that value through the camera stream
+    // anchor, while a missing anchor leaves the transition explicitly inert.
+    if (static_cast<std::uint16_t>(entity.enemyState) < 1) {
+        const std::int32_t orientation = entity.enemyOrientation;
+        const std::int32_t patrolDirection = entity.enemySourceOrKind2c;
+        // 68F9-68FE: the raw +0x2F latch is inverted relative to the
+        // native boolean spelling. A positive MAP/contact result takes the
+        // 6902 patrol/contact response; a nonpositive result takes 69DD and
+        // integrates the already-published velocity.
+        if (static_cast<std::int8_t>(entity.mapBlocked) > 0) {
+            if (patrolDirection < 0) {
+                if (entity.enemyTimer == 0x14) {
+                    loadAnimation(0x33c0);
+                }
+                entity.velocityX.raw = clampWrapped(
+                    Fixed16::wrapSubRaw(entity.velocityX.raw,
+                                        orientation * 0x1000),
+                    static_cast<std::int32_t>(0xfffeb000U), 0x15000);
+                advanceX();
+                const std::uint16_t timer = entity.enemyTimer;
+                entity.enemyTimer = static_cast<std::uint16_t>(timer - 1);
+                if (timer == 0) {
+                    entity.enemyOrientation = static_cast<std::int8_t>(
+                        0 - entity.enemyOrientation);
+                    entity.enemyPatrolDirection = static_cast<std::int8_t>(
+                        0 - entity.enemyPatrolDirection);
+                    entity.enemySourceOrKind2c = static_cast<std::int8_t>(
+                        0 - entity.enemySourceOrKind2c);
+                    entity.velocityX.raw = static_cast<std::int32_t>(
+                        entity.enemyOrientation) * 0x0200;
+                    entity.enemyTimer = 0x3c;
+                }
+            } else {
+                entity.velocityX.raw = clampWrapped(
+                    Fixed16::wrapAddRaw(entity.velocityX.raw,
+                                        orientation * 0x0400),
+                    static_cast<std::int32_t>(0xfffeb000U), 0x15000);
+                advanceX();
+                const std::uint16_t timer = entity.enemyTimer;
+                entity.enemyTimer = static_cast<std::uint16_t>(timer - 1);
+                if (timer == 0) {
+                    entity.enemySourceOrKind2c = static_cast<std::int8_t>(
+                        0 - entity.enemySourceOrKind2c);
+                    entity.mapBlocked = 0xff;
+                    entity.enemyTimer = 0x14;
+                }
+            }
+        } else {
+            advanceX();
+            entity.enemyPhaseTimer = static_cast<std::uint16_t>(
+                entity.enemyPhaseTimer + 1);
+            if (entity.enemyPhaseTimer > 0x96) {
+                entity.enemyPhaseTimer = 0;
+                entity.mapBlocked = 1;
+            }
+        }
+
+        if (_streamAnchorActive) {
+            const std::int16_t playerX = static_cast<std::int16_t>(
+                player.positionX.floorPixels());
+            const std::int16_t playerY = static_cast<std::int16_t>(
+                player.positionY.floorPixels());
+            const std::int16_t objectX = transitionX();
+            const std::int16_t objectY = transitionY();
+            bool inXRange = false;
+            if (entity.enemyOrientation < 0) {
+                const std::int16_t right = static_cast<std::int16_t>(
+                    playerX + 0x28);
+                inXRange = objectX < right && objectX >
+                    static_cast<std::int16_t>(right - 5);
+            } else {
+                const std::int16_t left = static_cast<std::int16_t>(
+                    playerX - 0x28);
+                inXRange = objectX > left && objectX <
+                    static_cast<std::int16_t>(left + 5);
+            }
+            if (inXRange && objectY < playerY &&
+                objectY > static_cast<std::int16_t>(_streamAnchorY)) {
+                entity.enemyState = 1;
+                loadAnimation(0x33c8);
+            }
+        }
+        return;
+    }
+
+    // States 1-8 consume startup-built DS:7974. Keep this as an explicit
+    // external-data boundary when the runtime table has not been injected;
+    // state-zero motion above is fully independent of that table.
+    if (!_config.hasBieneRuntimeTable)
+        return;
+
+    // 01F7:6A69-6AC5. DS:7974 is indexed by a 10-bit wrapped phase. The
+    // original writes the vertical high word as a 16-bit word, so preserve
+    // that width instead of treating the operation as fixed-point addition.
+    if (static_cast<std::uint16_t>(entity.enemyState) < 2) {
+        const std::uint16_t oldHigh = static_cast<std::uint16_t>(
+            fixedHighWord(entity.positionY.raw));
+        const std::uint16_t priorVertical = static_cast<std::uint16_t>(
+            entity.enemyVerticalOffset40);
+        const std::uint16_t nextHigh = static_cast<std::uint16_t>(
+            oldHigh - priorVertical);
+        entity.positionY.raw = replaceHighWord(entity.positionY.raw, nextHigh);
+        const std::uint16_t phase = static_cast<std::uint16_t>(
+            (static_cast<std::uint16_t>(entity.enemyAux3e) + 0x20U) & 0x03ffU);
+        entity.enemyAux3e = phase;
+        const std::int32_t tableByte = static_cast<std::int8_t>(
+            _config.bieneRuntimeTable[phase]);
+        const std::int32_t phaseDelta = Fixed16::arithmeticShiftRight(
+            tableByte, 5);
+        entity.enemyVerticalOffset40 = static_cast<std::int16_t>(phaseDelta);
+        const std::uint16_t adjustedHigh = static_cast<std::uint16_t>(
+            nextHigh + static_cast<std::uint16_t>(
+                static_cast<std::int16_t>(phaseDelta)));
+        entity.positionY.raw = replaceHighWord(entity.positionY.raw,
+                                               adjustedHigh);
+        entity.positionY.raw = Fixed16::wrapSubRaw(
+            entity.positionY.raw, 0x1388);
+        entity.positionX.raw = Fixed16::wrapSubRaw(
+            entity.positionX.raw,
+            static_cast<std::int32_t>(entity.enemyOrientation) * 0x2000);
+        entity.x = entity.positionX.floorPixels();
+        advanceY();
+        entity.enemyPhase34 = static_cast<std::uint16_t>(
+            static_cast<std::uint16_t>(entity.enemyPhase34) + 1);
+        if (static_cast<std::uint16_t>(entity.enemyPhase34) > 0x32) {
+            entity.enemyPhase34 = 0;
+            entity.enemyState = 2;
+        }
+    }
+
+    // 01F7:6ACB-6C0F. The setup write and timer decrement intentionally use
+    // the original order; state 2 therefore enters state 3 in this callback.
+    if (static_cast<std::uint16_t>(entity.enemyState) < 5) {
+        entity.enemySavedVelocity3a = entity.velocityX.raw;
+        if (entity.enemyState != 3 && entity.enemyState != 4) {
+            entity.enemyState = 3;
+            entity.velocityY.raw = 0x1f4;
+            entity.enemyTimer = 0x3c;
+        }
+        if (entity.enemyState == 3) {
+            entity.velocityY.raw = clampWrapped(
+                Fixed16::wrapAddRaw(entity.velocityY.raw, 0x4e20),
+                static_cast<std::int32_t>(0xfffb0000U), 0x50000);
+            entity.velocityX.raw = clampWrapped(
+                Fixed16::wrapAddRaw(entity.velocityX.raw,
+                                    static_cast<std::int32_t>(
+                                        entity.enemyOrientation) * 0x10000),
+                static_cast<std::int32_t>(0xfffeb000U), 0x15000);
+            entity.positionY.raw = Fixed16::wrapAddRaw(
+                entity.positionY.raw, entity.velocityY.raw);
+            entity.positionX.raw = Fixed16::wrapAddRaw(
+                entity.positionX.raw, entity.velocityX.raw);
+            entity.x = entity.positionX.floorPixels();
+            advanceY();
+            const std::uint16_t timer = entity.enemyTimer;
+            entity.enemyTimer = static_cast<std::uint16_t>(timer - 1);
+            if (timer == 0) {
+                entity.enemyState = 4;
+                entity.enemyTimer = 0x3c;
+            }
+        } else {
+            entity.positionY.raw = Fixed16::wrapAddRaw(
+                entity.positionY.raw, entity.velocityY.raw);
+            advanceY();
+        }
+        if (world.transitionDescriptorProbeConfirmed(
+                transitionX(), transitionY())) {
+            entity.enemyState = 5;
+            loadAnimation(0x33d2);
+        }
+    }
+
+    // 01F7:6C12-6C35. This is the fixed response wait before the exit arc.
+    if (static_cast<std::uint16_t>(entity.enemyState) < 6) {
+        entity.enemyPhase34 = static_cast<std::uint16_t>(
+            static_cast<std::uint16_t>(entity.enemyPhase34) + 1);
+        if (static_cast<std::uint16_t>(entity.enemyPhase34) > 0x6e) {
+            entity.enemyPhase34 = 0;
+            entity.enemyState = 6;
+            loadAnimation(0x33c0);
+        }
+    }
+
+    // 01F7:6C3A-6CFC. The final exit motion uses the raw MAP 0x4000 probe
+    // from 1C4D at (x +/- 10, y - 10), then restores state zero below the
+    // original Y origin. No descriptor polarity is invented here.
+    if (entity.enemyState != 7 && entity.enemyState != 8) {
+        entity.enemyState = 7;
+        entity.velocityY.raw = static_cast<std::int32_t>(0xfffffe0cU);
+        entity.enemyTimer = 0x46;
+    }
+    if (entity.enemyState == 7) {
+        entity.velocityY.raw = clampWrapped(
+            Fixed16::wrapSubRaw(entity.velocityY.raw, 0xfa0),
+            static_cast<std::int32_t>(0xfffc0000U), 0x40000);
+        entity.positionY.raw = Fixed16::wrapAddRaw(
+            entity.positionY.raw, entity.velocityY.raw);
+        advanceY();
+        const std::int32_t probeX = static_cast<std::int32_t>(
+            fixedHighWord(entity.positionX.raw)) +
+            (entity.enemyOrientation == 1 ? 10 : -10);
+        const std::int32_t probeY = static_cast<std::int32_t>(
+            fixedHighWord(entity.positionY.raw)) - 10;
+        if (world.mapRawBit4000Confirmed(probeX, probeY)) {
+            entity.enemyOrientation = static_cast<std::int8_t>(
+                0 - entity.enemyOrientation);
+            entity.enemyPatrolDirection = static_cast<std::int8_t>(
+                0 - entity.enemyPatrolDirection);
+        }
+        entity.positionX.raw = Fixed16::wrapAddRaw(
+            entity.positionX.raw,
+            static_cast<std::int32_t>(entity.enemyOrientation) * 0x20000);
+        entity.x = entity.positionX.floorPixels();
+        const std::uint16_t timer = entity.enemyTimer;
+        entity.enemyTimer = static_cast<std::uint16_t>(timer - 1);
+        if (timer == 0) {
+            entity.enemyState = 8;
+            entity.enemyTimer = 0x46;
+        }
+    } else {
+        entity.positionY.raw = Fixed16::wrapAddRaw(
+            entity.positionY.raw, entity.velocityY.raw);
+        advanceY();
+    }
+
+    if (entity.positionY.raw < entity.enemyOriginY36) {
+        entity.enemyState = 0;
+        entity.enemyTimer = 0x14;
+        entity.velocityX.raw = entity.enemySavedVelocity3a;
+    }
 }
 
 bool LevelSession::enemyMapBlocked(const LevelEntity &entity,
                                    const WorldCollisionView &world) const {
     const std::int32_t direction = entity.velocityX.raw < 0 ? -1 : 1;
-    const std::int32_t probeX = entity.x + direction * 0x26;
+    std::int32_t horizontalProbe = 0x26;
+    if (entity.type == 0x05 || entity.type == 0x06 ||
+        entity.type == 0x07 || entity.type == 0x08) {
+        // FISCH and KRABBE use the object+0x39 directional probe field. The
+        // initializer seeds it to 0x14; subsequent transitions may update it,
+        // so read the field rather than replacing it with a constant.
+        horizontalProbe = entity.enemySineOrProbe39;
+    } else if (entity.type == 0x09 || entity.type == 0x0a) {
+        horizontalProbe = 0x0e;
+    } else if (entity.type == 0x15 || entity.type == 0x16) {
+        horizontalProbe = 0x20;
+    } else if (entity.type == 0x17 || entity.type == 0x18) {
+        horizontalProbe = 0x23;
+    } else if (entity.type == 0x19 || entity.type == 0x1a) {
+        horizontalProbe = 0x28;
+    } else if (entity.type == 0x1b || entity.type == 0x1c) {
+        horizontalProbe = 0x14;
+    } else if (entity.type == 0x0b || entity.type == 0x0c) {
+        horizontalProbe = 0x20;
+    }
+    const std::int32_t probeX = entity.x + direction * horizontalProbe;
     if (isWurm2Type(entity.type)) {
-        // 6DC4's outer checks use the -10/-10 WURM2 offsets and the
-        // direction-dependent +/-0x26 x probes. 1C6E's raw 0x4000 test is
-        // closed; the neighboring 1C4D return polarity remains address-
-        // qualified and is not substituted with a player descriptor test.
+        // 01F7:6DC4 first consumes 01F7:1C4D with AX=+0x28, BX=-0x28.
+        // 1C4D returns CF when its 5C27 descriptor probe is occupied and
+        // 6DC4 stores +0x2F=1 on that carry. It then makes one direct 5C27
+        // probe at object Y and X +/-0x26; the JZ path stores +0x2F=1 when
+        // that probe is clear. Preserve the raw branch polarity here. A
+        // missing descriptor table is an explicit external boundary and
+        // retains the initializer-equivalent nonpositive state.
+        if (!world.hasDescriptorTable()) {
+            return false;
+        }
+        const std::int32_t objectX = entity.x;
+        const std::int32_t objectY = entity.y;
+        const std::int32_t orientedX = objectX +
+            (entity.enemyOrientation == 1 ? 0x28 : -0x28);
+        if (world.blocksProbeConfirmed(orientedX, objectY - 0x28)) {
+            return true;
+        }
+        const std::int32_t sideX = objectX +
+            (entity.enemyOrientation > 0 ? 0x26 : -0x26);
+        return !world.blocksProbeConfirmed(sideX, objectY);
+    }
+
+    if (isBieneType(entity.type)) {
+        // 01F7:1C4D receives (x=20,y=-20) from 68C0. It negates the X
+        // offset unless +0x29 is exactly one, then forwards one raw 1C6E
+        // 0x4000 MAP probe; there is no second Y probe in this helper.
+        const std::int32_t orientedX = static_cast<std::int32_t>(
+            fixedHighWord(entity.positionX.raw)) +
+            (entity.enemyOrientation == 1 ? 20 : -20);
+        const std::int32_t orientedY = static_cast<std::int32_t>(
+            fixedHighWord(entity.positionY.raw)) - 20;
+        return world.mapRawBit4000Confirmed(orientedX, orientedY);
+    }
+    if (entity.type == 0x0b || entity.type == 0x0c) {
+        // 66E1/6757's MAP gate is an outer 20x40 pair.
+        return world.mapRawBit4000Confirmed(probeX, entity.y - 20) ||
+               world.mapRawBit4000Confirmed(probeX, entity.y + 20);
+    }
+    if (entity.type == 0x09 || entity.type == 0x0a) {
         return world.mapRawBit4000Confirmed(probeX, entity.y - 10) ||
                world.mapRawBit4000Confirmed(probeX, entity.y + 10);
     }
+    // The remaining normal callbacks use the three directional MAP probes
+    // at y-1, y-0x11, and y-0x0c. This is the shared 1C4D/1C6E contract;
+    // descriptor meaning is intentionally not inferred here.
+    return world.mapRawBit4000Confirmed(probeX, entity.y - 1) ||
+           world.mapRawBit4000Confirmed(probeX, entity.y - 0x11) ||
+           world.mapRawBit4000Confirmed(probeX, entity.y - 0x0c);
+}
 
-    // 68C0 uses the BIENE -20/-10 outer y offsets with the same directional
-    // x probe pair.
-    return world.mapRawBit4000Confirmed(probeX, entity.y - 20) ||
-           world.mapRawBit4000Confirmed(probeX, entity.y - 10);
+void LevelSession::updateNormalEnemy(LevelEntity &entity,
+                                      const WorldCollisionView &world) {
+    // The eight additional family callbacks share a completely recovered
+    // state-0 patrol boundary. Their later vertical/transition states are
+    // retained as address-qualified fields until the runtime table and the
+    // family-specific animation/effect loaders are wired into the native
+    // object trace. This keeps the new dispatch useful without inventing a
+    // generic enemy AI for states whose external data is not present here.
+    const bool blocked = enemyMapBlocked(entity, world);
+    entity.mapBlocked = blocked ? 1 : 0;
+    const std::int32_t direction = entity.enemyPatrolDirection < 0 ? -1 : 1;
+    const auto clampVelocity = [](std::int32_t value,
+                                  std::int32_t cap) {
+        return std::max<std::int32_t>(-cap, std::min<std::int32_t>(cap, value));
+    };
+    const auto advanceX = [&entity]() {
+        entity.positionX.raw = Fixed16::wrapAddRaw(entity.positionX.raw,
+                                                    entity.velocityX.raw);
+        entity.x = entity.positionX.floorPixels();
+    };
+    if (entity.type == 0x0b || entity.type == 0x0c) {
+        // 01F7:6757 adds x velocity and abs(velocity_x >> 1) to Y. The
+        // callback's timer/clear edge remains the closed 6838 contract.
+        advanceX();
+        const std::int32_t verticalStep =
+            Fixed16::arithmeticShiftRight(entity.velocityX.raw, 1);
+        entity.positionY.raw = Fixed16::wrapAddRaw(
+            entity.positionY.raw, verticalStep < 0 ? -verticalStep : verticalStep);
+        entity.y = entity.positionY.floorPixels();
+        return;
+    }
+
+    if (entity.type == 0x09 || entity.type == 0x0a) {
+        // 01F7:715E's state-0 blocked branch is distinct from the ordinary
+        // patrol path: source -1 applies direction*-0x200, while the later
+        // response applies direction*0x400, both with a +/-0x6000 cap.
+        if (!blocked) {
+            advanceX();
+            entity.enemyPhaseTimer = static_cast<std::uint16_t>(
+                entity.enemyPhaseTimer + 1);
+            if (entity.enemyPhaseTimer > 0x96) {
+                entity.enemyPhaseTimer = 0;
+                entity.enemyState = 1;
+            }
+            return;
+        }
+        const std::int32_t delta = entity.enemySourceOrKind2c < 0
+            ? direction * -0x200 : direction * 0x400;
+        entity.velocityX.raw = clampVelocity(
+            Fixed16::wrapAddRaw(entity.velocityX.raw, delta), 0x6000);
+        advanceX();
+        const std::int16_t nextTimer = static_cast<std::int16_t>(
+            static_cast<std::uint16_t>(entity.enemyTimer - 1));
+        entity.enemyTimer = static_cast<std::uint16_t>(nextTimer);
+        if (nextTimer < 0) {
+            entity.enemyOrientation = static_cast<std::int8_t>(
+                -entity.enemyOrientation);
+            entity.enemyPatrolDirection = static_cast<std::int8_t>(
+                -entity.enemyPatrolDirection);
+            entity.enemySourceOrKind2c = static_cast<std::int8_t>(
+                -entity.enemySourceOrKind2c);
+            entity.velocityX.raw = static_cast<std::int32_t>(
+                entity.enemyPatrolDirection) * 0x20;
+            entity.enemyTimer = 0x19;
+        }
+        return;
+    }
+
+    if (entity.enemyState > 0) {
+        // State transitions are present in the static closure, but cannot be
+        // reduced to the existing world view without the family runtime-table/effect
+        // tables. Preserve state and all typed fields for a later trace-backed
+        // expansion rather than applying a guessed vertical trajectory.
+        return;
+    }
+
+    if (!blocked) {
+        advanceX();
+        entity.enemyPhaseTimer = static_cast<std::uint16_t>(
+            entity.enemyPhaseTimer + 1);
+        if (entity.enemyPhaseTimer > 0x96) {
+            entity.enemyPhaseTimer = 0;
+            entity.enemyState = 1;
+        }
+        return;
+    }
+
+    std::int32_t delta = direction * 0x400;
+    std::int32_t cap = 0x15000;
+    if (entity.type == 0x07 || entity.type == 0x08) {
+        delta = entity.enemySourceOrKind2c < 0 ? direction * -0x400
+                                               : direction * 0x400;
+        cap = 0x5000;
+    } else if (entity.type == 0x15 || entity.type == 0x16) {
+        delta = entity.enemySourceOrKind2c < 0 ? direction * -0x1000
+                                               : direction * 0x400;
+        cap = 0x17000;
+    } else if (entity.type == 0x17 || entity.type == 0x18) {
+        delta = entity.enemySourceOrKind2c < 0 ? direction * -0x1000
+                                               : direction * 0x400;
+        cap = 0x12000;
+    } else if (entity.type == 0x19 || entity.type == 0x1a ||
+               entity.type == 0x1b || entity.type == 0x1c) {
+        delta = entity.enemySourceOrKind2c < 0 ? direction * -0x1000
+                                               : direction * 0x400;
+        cap = 0x15000;
+    }
+    entity.velocityX.raw = clampVelocity(
+        Fixed16::wrapAddRaw(entity.velocityX.raw, delta), cap);
+    advanceX();
+    const std::int16_t nextTimer = static_cast<std::int16_t>(
+        static_cast<std::uint16_t>(entity.enemyTimer - 1));
+    entity.enemyTimer = static_cast<std::uint16_t>(nextTimer);
+    if (nextTimer < 0) {
+        entity.enemyOrientation = static_cast<std::int8_t>(
+            -entity.enemyOrientation);
+        entity.enemyPatrolDirection = static_cast<std::int8_t>(
+            -entity.enemyPatrolDirection);
+        entity.enemySourceOrKind2c = static_cast<std::int8_t>(
+            -entity.enemySourceOrKind2c);
+        entity.velocityX.raw = static_cast<std::int32_t>(
+            entity.enemyPatrolDirection) * 0x20;
+        entity.enemyTimer = 0x19;
+    }
 }
 
 void LevelSession::beginEnemyContact(LevelEntity &entity) {
     entity.enemyContactPending = true;
+    const bool alternateResponse = entity.type == 0x05 || entity.type == 0x06 ||
+        entity.type == 0x07 || entity.type == 0x08;
     entity.contactCallback = CallbackIdentity(
-        0x01f7, 0x4ab3, "enemy_contact_4ab3");
+        0x01f7, alternateResponse ? 0x4ba0 : 0x4ab3,
+        alternateResponse ? "enemy_contact_4ba0" : "enemy_contact_4ab3");
     entity.responseTimer = 0x28;
     enqueueEvent(LevelEventType::EntityCollisionImpact, entity.id,
                  entity.type);
@@ -1539,6 +2703,12 @@ void LevelSession::advanceActiveEntities() {
                 entity.ambientAnimationDelay =
                     entity.ambientTable == 0 ? 8 : 10;
             }
+            continue;
+        }
+        if (entity.type == 0x34) {
+            // 01F7:9C0C owns BUMP's descriptor countdown in the phase-1
+            // callback, before the player callback. Do not replace its
+            // object+0x20 timer with the generic native frame counter.
             continue;
         }
         if (!isNormalEnemyType(entity.type) && !isWorldEffectType(entity.type) &&
@@ -1689,6 +2859,17 @@ void LevelSession::tick(Simulation &simulation,
     std::vector<SimulationCallbackStep> dependencyOrder;
     dispatchMovingPlatformCallbacks(&simulation, world, player,
                                     dependencyOrder);
+    // 01F7:0E96 dispatches phase-1 normal-enemy primary callbacks before the
+    // phase-2 player callback. Keep this call before Simulation::tick(); the
+    // simulation boundary owns the player update itself.
+    dispatchEnemyCallbacks(&simulation, world, player, dependencyOrder);
+    // 01F7:19E6 may publish DS:89EA during the phase-1 enemy pass. The
+    // phase-2 3FF8 callback reads the same global before any movement path;
+    // publish it through the updater boundary before Simulation::tick().
+    if (simulation.playerUpdater() != 0) {
+        simulation.playerUpdater()->publishTransitionGate(
+            _gameplayState.transitionGate89ea);
+    }
     simulation.tick(input, world, output);
     if (simulation.playerUpdater() != 0) {
         dependencyOrder.push_back(SimulationCallbackStep(
@@ -1736,7 +2917,6 @@ void LevelSession::tick(Simulation &simulation,
         enqueueEvent(LevelEventType::AlternateActionObject);
     }
 
-    dispatchEnemyCallbacks(&simulation, world, player);
     dispatchCollectibleCallbacks(&simulation, player);
 
     for (std::size_t index = 0; index < _entities.size(); ++index) {
@@ -1745,9 +2925,15 @@ void LevelSession::tick(Simulation &simulation,
             continue;
         }
         if (isNormalEnemyType(entity.type)) {
-            // Normal WURM2/BIENE contact is handled by the recovered
-            // 4AB3/4C5D response boundary above, not by the provisional
-            // player-death hazard path.
+            // All normal-enemy contact decisions are made in the phase-1
+            // callback dispatch above. WURM2/BIENE use 1B77 -> 19E6;
+            // the remaining families use their recovered 4AB3/4C5D tail.
+            // Do not run the broad provisional hazard reset a second time.
+            continue;
+        }
+        if (entity.type == 0x34) {
+            // BUMP's 9C0C contact path is a player response, not the generic
+            // death/reset hazard tail. It has already run before 3FF8.
             continue;
         }
         if (entity.kind == EntityKind::Hazard &&

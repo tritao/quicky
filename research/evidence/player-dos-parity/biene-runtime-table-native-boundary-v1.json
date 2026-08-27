@@ -1,0 +1,41 @@
+{
+  "schema": "quiky.biene-runtime-table-native-boundary.v1",
+  "purpose": "Native bridge for the statically closed BIENE nonzero-state path without inventing the startup-generated runtime table.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "static_note": "research/notes/biene-static-decomp.cpp",
+    "static_ledger": "research/ghidra/biene-runtime-table-static-closure.json",
+    "ghidra_export": "research/build/biene-static-closure-v3",
+    "ghidra_independent_export_match": true
+  },
+  "native_boundary": {
+    "configuration": "LevelSessionConfig.hasBieneRuntimeTable and bieneRuntimeTable[0x400]",
+    "consumer": "01F7:68C0 state 1 at 01F7:6A69",
+    "phase": "(object+0x3e + 0x20) & 0x03ff",
+    "sample": "signed DS:7974[phase] >> 5",
+    "writes": [
+      "object +0x08 high word",
+      "object +0x3e word",
+      "object +0x40 word",
+      "object +0x06 dword",
+      "object +0x02 dword",
+      "object +0x34 word",
+      "object +0x32 word"
+    ],
+    "fixture": "engine/tests/test_formats_faithful.cpp:testRecoveredBieneRuntimePhaseContract"
+  },
+  "closed_without_guessing": [
+    "10-bit phase selection",
+    "signed-byte arithmetic shift",
+    "16-bit high-word correction ordering",
+    "fixed-point X/Y wrapping",
+    "state-1 phase counter transition"
+  ],
+  "unresolved": [
+    "DOS-time seed and software-floating-point ABI that generate DS:7974",
+    "runtime source of DS:81C4 for the state-zero range gate",
+    "natural W1L1 evidence for nonzero BIENE states",
+    "presentation-only 6D01/5D60 effect and animation tails"
+  ]
+}

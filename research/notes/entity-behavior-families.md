@@ -549,7 +549,9 @@ constant and moves the platform from x=-8 to x=+40 relative to the player:
 `DS:5006` changes from `0 -> FFFF` to remaining `0`, directly resolving the
 horizontal approach polarity.
 
-BUMP `0x34` is now bounded across all requested dimensions. Its callback uses
+BUMP `0x34` is now bounded across all requested dimensions and its confirmed
+simulation-affecting callback is integrated in the native phase-1 scheduler.
+Its callback uses
 the open player gate `object_x-25 < player_x < object_x+25` and
 `object_y-8 < player_y < object_y`; the accepted branch emits sound action
 `DS:612E=4`.
@@ -562,6 +564,17 @@ write. Eight qualifying samples repeat sound action 4 while callback `9C0C`
 remains active, so there is no BUMP contact reset/removal state. See
 [`entity-action-dispatch-evidence.json`](../entity-action-dispatch-evidence.json)
 and [`entity-bump-evidence.json`](../entity-bump-evidence.json).
+
+The first W1L2 movement family is now bounded at the same level of precision.
+WURM2 types `0x01/0x02` use the shared `01F7:6DC4` callback after their
+`6DA3/6DB1` dispatch wrappers. Its native state-0 bridge preserves the signed
+fixed-point acceleration and the callback's raw `+0x2F` branch polarity. The
+MAP decision is no longer represented by the provisional raw `0x4000` probe:
+the bridge evaluates the recovered `01F7:1C4D -> 5C27` descriptor probe at
+`(+/-0x28,-0x28)`, then the direct `5C27` side probe at `(+/-0x26,0)`, in
+callback order. Descriptor contents remain an injected world input, while
+the later `707B` target-ring and renderer tail remains an explicit external
+boundary. See [`w1l2-wurm2-native-bridge-v1.json`](../evidence/player-dos-parity/w1l2-wurm2-native-bridge-v1.json).
 
 ## Cross-world rules
 

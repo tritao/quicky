@@ -1,0 +1,94 @@
+{
+  "schema": "quiky.w1l1-primary-callback-scheduler-order-static.v1",
+  "purpose": "Record the Ghidra-derived ordering contract for W1 normal-enemy primary callbacks and the player callback.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment3": "research/build/ghidra-segments/QUIKY_SEG03.bin",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "pipeline": "research/tools/run_player_external_closure.py; Ghidra-only raw NE segment import, listing, and decompiler exports",
+    "evidence": [
+      "research/build/player-external-state-closure-recovery-v58/decomp-a/QUIKY_SEG03.bin.c",
+      "research/build/player-external-state-closure-recovery-v58/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+      "research/ghidra/player-external-state-closure.json",
+      "research/ghidra/normal-enemy-static-closure.json"
+    ]
+  },
+  "static_chain": [
+    {
+      "address": "01F7:0E06",
+      "name": "are_object_factory",
+      "inputs_outputs": "Allocates the first-free 0x78-byte object and initializes +0x18 from AX, +0x1C=0x1997, +0x28=1, +0x17=1, +0x12=0xffff, +0x1A=0xffff, +0x14=0.",
+      "player_global_writes": [],
+      "object_writes": ["+0x18 primary callback", "+0x1C secondary callback", "+0x17 phase=1"],
+      "return_flags": "ES:DI publishes the object; allocator failure enters the existing fatal path; no gameplay callback consumes flags",
+      "confidence": "confirmed_static"
+    },
+    {
+      "address": "01F7:684A/689F/68AD",
+      "name": "biene_initializer_and_orientation_wrappers",
+      "inputs_outputs": "Far ES:DI object; installs primary callback 01F7:68C0, seeds W1 BIENE state, and selects orientation/velocity by wrapper.",
+      "player_global_writes": [],
+      "object_writes": ["+0x18=0x68c0", "+0x2A=0", "+0x34=0", "+0x32=0", "+0x0A=0xfffeb000 or its negation", "+0x08 += 0x20", "+0x2C=0xff", "+0x2D=0x14", "+0x2F=0xff"],
+      "return_flags": "none consumed by the scheduler",
+      "confidence": "confirmed_static"
+    },
+    {
+      "address": "01F7:6D5F/6DA3/6DB1",
+      "name": "wurm2_initializer_and_orientation_wrappers",
+      "inputs_outputs": "Far ES:DI object; installs primary callback 01F7:6DC4, seeds W1 WURM2 state, and selects orientation/velocity by wrapper.",
+      "player_global_writes": [],
+      "object_writes": ["+0x18=0x6dc4", "+0x2A=0", "+0x33=0", "+0x30=0", "+0x32=0", "+0x0A=0xfffeb000 or its negation", "+0x08 += 0x20", "+0x2C=0xff", "+0x2D=0x14", "+0x2F=0xff"],
+      "return_flags": "none consumed by the scheduler",
+      "confidence": "confirmed_static"
+    },
+    {
+      "address": "01F7:1036",
+      "name": "register_object_scheduler_entry",
+      "inputs_outputs": "Far ES:DI object; appends +0x18 to the current bank entry +0x00, +0x1C to +0x02, and the object offset to +0x04, then advances DS:7966 by eight bytes.",
+      "player_global_writes": ["DS:7566/DS:7766 bank entry", "DS:7966", "next entry +0x00=0xffff"],
+      "object_writes": [],
+      "return_flags": "preserves the caller's AX/DX pair; no scheduler flags are consumed",
+      "confidence": "confirmed_static"
+    },
+    {
+      "address": "01F7:0E96",
+      "name": "object_update_pass_by_phase",
+      "inputs_outputs": "Walks the selected scheduler bank three times, invoking entry +0x00 for object phase 0, then 1, then 2; increments DS:88C8 after each callback.",
+      "player_global_writes": ["DS:7966 bank toggle", "DS:88C8 callback count"],
+      "object_writes": [],
+      "return_flags": "primary callback return flags are not consumed by the pass",
+      "probe_coordinates": "delegated to each primary callback",
+      "scheduler_position": "phase 1 before phase 2",
+      "confidence": "confirmed_static"
+    },
+    {
+      "address": "01F7:3FF8",
+      "name": "update_player_3FF8",
+      "inputs_outputs": "Far ES:DI player object; phase-2 primary callback in the same 0E96 pass.",
+      "player_global_writes": ["complete player callback record and its recovered globals"],
+      "object_writes": ["player +0x00..+0x77 as recovered by the callback closure"],
+      "return_flags": "near/far callback return is handled by the scheduler wrapper; no phase ordering flags consumed",
+      "scheduler_position": "after phase-1 W1 normal-enemy callbacks",
+      "confidence": "confirmed_static_and_runtime_platform_order"
+    },
+    {
+      "address": "01F7:0FA2",
+      "name": "object_update_pass_nonzero_state",
+      "inputs_outputs": "Later pass invokes scheduler entry +0x02 secondary callbacks, independent of the +0x18 primary callback phase.",
+      "player_global_writes": [],
+      "object_writes": [],
+      "return_flags": "secondary callback return flags are not consumed",
+      "scheduler_position": "after 0E96; not the dispatch point for W1 68C0/6DC4 primary callbacks",
+      "confidence": "confirmed_static"
+    }
+  ],
+  "conclusion": {
+    "w1_primary_order": ["01F7:68C0 or 01F7:6DC4", "01F7:3FF8"],
+    "native_change": "Dispatch the implemented W1 normal-enemy callbacks before Simulation::tick() and record them as GameplayObjectBeforePlayer.",
+    "scope": "This closes ordering for the implemented W1 primary callbacks only. It does not claim that every pooled object family is implemented or that secondary presentation callbacks affect player simulation.",
+    "remaining_runtime_questions": ["natural enemy/player contact timing in additional W1 routes", "phase-bank membership after reload/cull", "secondary callbacks that can feed gameplay outside the closed W1 paths"]
+  },
+  "status": "static_primary_order_closed"
+}

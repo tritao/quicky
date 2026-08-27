@@ -1,0 +1,57 @@
+{
+  "schema": "quiky.platform-player-horizontal-motion-negative.v1",
+  "purpose": "Held-out controlled W4L1 trace for the negative horizontal platform delta and 16-bit wrapped carry contract.",
+  "source": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85",
+    "trace": "research/build/traces/platform-w4l1-player-controlled-horizontal-negative-v1.json",
+    "trace_sha256": "bae6f838e971de6e8b86301e37fa1e035076056973c085e8d4289e4db44be56c",
+    "automation_script": "research/automation/quiky_object_behavior_trace.lua",
+    "automation_script_sha256": "b0bf12d75a7678804b14f34f817bf64f6161cd4698bf0b00d14c123e548395f2"
+  },
+  "method": {
+    "level": "W4L1",
+    "record_offset": "0x1898",
+    "entity_type": "0x3D",
+    "platform_callback": "01F7:9DC7",
+    "player_callback": "01F7:3FF8",
+    "samples": 8,
+    "controls": [
+      "platform aligned to the live player at x=-8,y=-8",
+      "object +0x0A seeded with fixed-point velocity 0xFFFD8000 (-0x28000)",
+      "no executable or MAP mutation"
+    ]
+  },
+  "observations": {
+    "scheduler_order": ["01F7:9DC7", "01F7:A075", "01F7:A0B2", "01F7:3FF8"],
+    "platform_position_first_samples": [
+      [[504, 392], [501, 392]],
+      [[501, 392], [499, 392]],
+      [[499, 392], [496, 392]],
+      [[496, 392], [494, 392]]
+    ],
+    "first_carry": {
+      "delta_word": "0xFFFD",
+      "DS:8816_before_player": "0xFFFD0001",
+      "DS:8816_after_player": "0x00000000",
+      "DS:8812_before_player": "0xFFF80001",
+      "DS:8812_after_player": "0x00000000",
+      "player_position_x_fixed_before_after": ["0x02000000", "0x01FD0001"]
+    },
+    "fractional_motion": "The raw platform position retains the fractional component of -0x00028000 across the integer sequence 504,501,499,496,494; this is the negative counterpart of the positive 504,506,509,511 trace."
+  },
+  "conclusion": {
+    "confirmed": [
+      "A0B2 performs the platform-current-minus-previous X subtraction as a wrapped 16-bit word before the fixed-point shift and +1.",
+      "Negative platform carry is published before 3FF8 and consumed/cleared by the same callback.",
+      "Both horizontal carry polarities are now covered by independent DOS traces and native assertions."
+    ],
+    "still_open": [
+      "Natural authored platform landing and inherited launch velocity.",
+      "Side or ceiling crushing.",
+      "Attached-player behavior when the platform is culled or the scheduler bank is rebuilt.",
+      "Whether the observed recontact cooldown is the complete retail attachment policy."
+    ],
+    "confidence": "confirmed_controlled_negative_horizontal_motion_and_wrapped_carry; platform_attachment_edges_open"
+  }
+}

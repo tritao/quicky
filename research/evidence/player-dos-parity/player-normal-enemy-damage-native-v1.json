@@ -1,0 +1,85 @@
+{
+  "schema": "quiky.player-normal-enemy-damage-native.v1",
+  "purpose": "Record the native implementation and contract tests for the statically closed W1L1 WURM2/BIENE player damage route.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "static_ledger": "research/ghidra/player-external-state-closure.json",
+    "static_notes": [
+      "research/notes/player-static-decomp.cpp",
+      "research/notes/death-recovery-static-decomp.cpp",
+      "research/notes/wurm2-static-decomp.cpp",
+      "research/notes/biene-static-decomp.cpp"
+    ],
+    "natural_owner_trace": "research/evidence/player-dos-parity/player-natural-damage-owner-v1.json",
+    "native_source": "engine/src/level.cpp",
+    "native_test": "engine/tests/test_formats_faithful.cpp:testRecoveredNormalEnemyDamageContract"
+  },
+  "scheduler_order": {
+    "phase_1": "01F7:6DC4 or 01F7:68C0",
+    "contact": "01F7:1B77 -> 01F7:393C -> 01F7:19E6",
+    "phase_2": "01F7:3FF8",
+    "transition_gate_publication": "LevelSession publishes DS:89EA to the player updater between phase 1 and phase 2"
+  },
+  "families": [
+    {
+      "types": ["0x01", "0x02"],
+      "callback": "01F7:6DC4",
+      "bounds": {"x_offset": -10, "y_offset": -10, "x_extent": 20, "y_extent": 20},
+      "confidence": "confirmed_static_and_native_contract_test"
+    },
+    {
+      "types": ["0x03", "0x04"],
+      "callback": "01F7:68C0",
+      "bounds": {"x_offset": -10, "y_offset": -20, "x_extent": 20, "y_extent": 20},
+      "confidence": "confirmed_static_and_native_contract_test"
+    }
+  ],
+  "state_contract": {
+    "rectangle": "Signed 16-bit strict overlap comparisons with wrapped additions; transition gate publishes zero bounds but does not bypass 1B77 comparisons.",
+    "gates": [
+      "DS:8810 != 0 suppresses 19E6",
+      "player +0x34 != 0 suppresses 19E6 after contact"
+    ],
+    "nonterminal": [
+      "DS:612E = 1",
+      "DS:8822 -= 1",
+      "player +0x34 = 0x00D2",
+      "player +0x0A = 0x00018000 or 0xFFFE8000 from wrapped SUB player+0x04,BX"
+    ],
+    "terminal": [
+      "DS:880A -= 1",
+      "DS:8950 &= 0xFFCF",
+      "DS:89EA = 0xFFFF",
+      "player +0x0E = 0xFFFE0000",
+      "player +0x4C = 0x00002000",
+      "player +0x50 = 0x00002000",
+      "player +0x5C = 0x00018000",
+      "player +0x60 = 0x00040000",
+      "player +0x3B = 0",
+      "player +0x3E = 0x03E8",
+      "player +0x37 = 0xFF",
+      "player +0x3A = 0",
+      "player +0x2B = 0"
+    ],
+    "event": "LevelEventType::PlayerDamaged with ordered global writes; complete player record is available from SimulationOutput.player."
+  },
+  "validation": {
+    "ordinary_wurm2": "health 2 -> 1, timer 0xD2, positive knockback, no 4AB3 pending response",
+    "ordinary_biene": "health 2 -> 1, timer 0xD2, no 4AB3 pending response",
+    "terminal_wurm2": "health 1 -> 0, lives 4 -> 3, terminal record writes, updater observes same-tick DS:89EA gate",
+    "suppression": ["invulnerability gate", "player timer", "transition gate"],
+    "commands": [
+      "cmake --build build/engine -j2",
+      "ctest --test-dir build/engine --output-on-failure",
+      "python3 -m unittest discover -s research/tests -p 'test_*.py'"
+    ]
+  },
+  "unresolved": [
+    "opaque 01E7:0CE3/0FCF effect and sound dispatch from 19FB",
+    "delayed death/recovery consumer after terminal 19E6",
+    "natural coverage of every W1L1 damage family",
+    "special-tile 3A8A -> 19E6 native integration"
+  ],
+  "status": "native_w1l1_wurm2_biene_route_closed_with_explicit_external_boundaries"
+}

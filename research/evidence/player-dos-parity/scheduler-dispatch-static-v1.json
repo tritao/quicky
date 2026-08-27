@@ -1,0 +1,76 @@
+{
+  "schema": "quiky.scheduler-dispatch-static.v1",
+  "purpose": "Targeted Protected Mode Ghidra audit of the shared eight-byte scheduler entry used by 0E96, 0FA2, 0FDC, and 1036.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "language": "x86:LE:16:Protected Mode",
+    "runner": "research/tools/run_player_external_closure.py",
+    "output": "research/build/player-external-state-closure-recovery-scheduler-v1",
+    "independent_project_check": "passed; project-a and project-b outputs matched",
+    "decomp_sha256": "8346a41ce71b36a5d7cb6937eaafafc557da82bd60397959358963e59ef4b2b7",
+    "listing_sha256": "4cadf96049330a2e80997ced4034a5bb9845e1340f0226eb7287247814bd1530",
+    "relocation_sha256": "f20880b3ddfc090f46fdfbeca1449c1559cffa1f9acaf28fab28f5b60fe24a95"
+  },
+  "entry_layout": [
+    {
+      "offset": "0x00",
+      "name": "phase_callback_offset",
+      "operation": "0E96 reads the word, tests FFFF, and calls AX after filtering object +0x17 by phase; 1036 writes object +0x18 here",
+      "return_flags": "the phase callback's flags are not consumed by 0E96",
+      "evidence": ["01F7:0E96:0EB9-0ED1", "01F7:0EEE-0EFB", "01F7:0F14-0F24", "01F7:1036:1051-1055"]
+    },
+    {
+      "offset": "0x02",
+      "name": "secondary_callback_offset",
+      "operation": "0FA2 loads this word into AX, skips zero, and calls AX with near CALL; 0FDC tests it for presence; 1036 writes object +0x1C here",
+      "return_flags": "the secondary callback's flags are not consumed by 0FA2",
+      "evidence": ["01F7:0FA2:0FBA-0FCD", "01F7:0FDC:0FF9-1006", "01F7:1036:104A-104E"]
+    },
+    {
+      "offset": "0x04",
+      "name": "object_offset",
+      "operation": "0E96, 0FA2, and 0FDC load this word into DI; 1036 writes DI here",
+      "return_flags": "none",
+      "evidence": ["01F7:0E96:0EC1", "01F7:0FA2:0FC7", "01F7:0FDC:1006", "01F7:1036:1055"]
+    },
+    {
+      "offset": "0x06",
+      "name": "entry_word_06",
+      "operation": "not read or written by 0E96, 0FA2, 0FDC, or 1036",
+      "return_flags": "none",
+      "evidence": ["01F7:0E96-1032 contiguous listing", "01F7:1036-1066"]
+    }
+  ],
+  "function_contracts": [
+    {
+      "address": "01F7:0E96",
+      "return": "RETF at 0F38",
+      "writes": ["DS:7966 bank toggle", "DS:88C8 callback count"],
+      "calls": ["near entry +0x00 callbacks in phase 0, 1, and 2 order", "01F7:0FDC at 0F35"]
+    },
+    {
+      "address": "01F7:0FA2",
+      "return": "RETF at 0FD8",
+      "writes": [],
+      "calls": ["near entry +0x02 callback through CALL AX"]
+    },
+    {
+      "address": "01F7:0FDC",
+      "return": "near RET at 1032",
+      "writes": ["DS:8174=0"],
+      "calls": ["fixed far import at 1024 when object +0x12 bit 0x8000 is clear"]
+    },
+    {
+      "address": "01F7:1036",
+      "return": "RETF at 1066, or early RETF at 103E",
+      "writes": ["entry +0x00 from object +0x18", "entry +0x02 from object +0x1C", "entry +0x04 from DI", "next entry +0x00=FFFF", "DS:7966 += 8"],
+      "calls": []
+    }
+  ],
+  "simulation_consequence": {
+    "confirmed": "A platform and player phase callback can execute in the same 0E96 pass in their object-phase order; 0FA2 is a later secondary-callback pass.",
+    "player_feedback": "The scheduler has no direct player-record write. Platform 9DC7 can publish DS:5006/DS:8812/DS:8816, and the phase-ordered player 3FF8 callback can consume it.",
+    "unresolved": ["runtime bank membership after death/reload, detachment, and culling", "meaning of entry +0x06", "fixed far import target at 0FDC:1024"]
+  }
+}

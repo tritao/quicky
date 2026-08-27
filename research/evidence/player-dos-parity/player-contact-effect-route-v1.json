@@ -1,0 +1,37 @@
+{
+  "schema": "quiky.player-contact-effect-route.v1",
+  "purpose": "Bounded ordinary W1L1 watch for the contact-child callback and its MAP-writing descendant; a negative result is route-scoped only.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace": "/tmp/player-contact-effect-route.json",
+    "trace_sha256": "d58d49ec564c58f4f4f13b17af274a60f40d32efe2e8b6e42a526cd9af1a5b41",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "eaa36684050f2012f242f2a484792677bdd5ddbbedfe055989142e1dce5682b7"
+  },
+  "method": {
+    "level": "W1L1",
+    "samples": 8,
+    "frames_between": 8,
+    "input": "KBD_right held for 8 guest frames before each sample",
+    "focus": "01F7:3FF8 with complete 0x78-byte callback capture",
+    "execute_watches": ["01F7:6328", "01F7:16CE", "01F7:10B5", "01F7:1693"]
+  },
+  "observations": {
+    "player_callback_samples": 8,
+    "contact_child_6328_hits": 0,
+    "map_writer_16CE_hits": 0,
+    "effect_callback_10B5_hits": 2,
+    "effect_visibility_1693_hits": 1,
+    "effect_only_hits": "The two 10B5 hits were on pooled objects whose callback was already 10B5; no 6328 or 16CE execution linked them to the player contact path.",
+    "route": "The sampled route advanced from the W1L1 start under right input and did not reach a contact-created 6328 child."
+  },
+  "status": "negative_for_sampled_route_only",
+  "does_not_prove": [
+    "that 6328 is unreachable during natural contact",
+    "that 16CE cannot rewrite a gameplay-relevant MAP cell",
+    "that contact effects are presentation-only",
+    "the indirect callback targets selected by 5937"
+  ],
+  "next": "Capture a natural or tightly controlled contact that actually allocates callback 6328, then watch 6328 and 16CE with MAP cell words before/after the write."
+}

@@ -471,21 +471,34 @@ void testRecoveredW1L1EnemyFamilies() {
     assert(output.schedulerCallbacks.size() == 2);
     assert(output.schedulerCallbacks[0].callback.offset == 0x6dc4);
     assert(output.schedulerCallbacks[1].callback.offset == 0x68c0);
+    assert(output.playerDependencyOrder.size() == 3);
+    assert(output.playerDependencyOrder[0].phase ==
+           quiky::SimulationCallbackPhase::GameplayObjectBeforePlayer);
+    assert(output.playerDependencyOrder[0].callback.offset == 0x6dc4);
+    assert(output.playerDependencyOrder[1].phase ==
+           quiky::SimulationCallbackPhase::GameplayObjectBeforePlayer);
+    assert(output.playerDependencyOrder[1].callback.offset == 0x68c0);
+    assert(output.playerDependencyOrder[2].phase ==
+           quiky::SimulationCallbackPhase::PlayerUpdate);
+    assert(output.playerDependencyOrder[2].callback.offset == 0x3ff8);
     assert(session.entities()[0].x == 14);
     assert(session.entities()[1].x == 78);
     assert(session.deaths() == 0);
-    assert(session.entities()[0].enemyContactPending);
-    assert(session.entities()[0].contactCallback.offset == 0x4ab3);
-    assert(session.entities()[0].responseTimer == 0x28);
+    // WURM2/BIENE enter 01F7:1B77 before their movement callback. The
+    // generic 4AB3/4C5D response belongs to the remaining normal families;
+    // these two W1L1 families now use the recovered 19E6 damage contract.
+    assert(!session.entities()[0].enemyContactPending);
+    assert(session.entities()[0].contactCallback.offset == 0);
+    assert(session.entities()[0].responseTimer == 0);
     assert(!session.entities()[1].enemyContactPending);
-    assert(session.consumeEvent().type == quiky::LevelEventType::EntityCollisionImpact);
+    assert(session.consumeEvent().type == quiky::LevelEventType::None);
 
     for (int frame = 0; frame < 40; ++frame) {
         session.tick(simulation, world, quiky::InputState(), output);
     }
-    assert(!session.entities()[0].active);
+    assert(session.entities()[0].active);
     assert(session.entities()[1].active);
-    assert(session.entities()[0].streamSuppressed);
+    assert(!session.entities()[0].streamSuppressed);
     assert(!session.entities()[1].streamSuppressed);
 
     session.updateStreaming(simulation, 400, 400);
@@ -493,6 +506,7 @@ void testRecoveredW1L1EnemyFamilies() {
     assert(output.schedulerCallbacks.empty());
     assert(!session.entities()[0].active);
     assert(!session.entities()[1].active);
+    assert(session.entities()[0].streamSuppressed);
     assert(session.entities()[1].streamSuppressed);
 
     session.updateStreaming(simulation, 16, 16);
@@ -500,6 +514,421 @@ void testRecoveredW1L1EnemyFamilies() {
     assert(output.schedulerCallbacks.empty());
     assert(!session.entities()[0].active);
     assert(!session.entities()[1].active);
+}
+
+void testRecoveredBumpCallbackContract() {
+    const quiky::Map map = makeMap(16, 8);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 44;
+    config.streamRadiusRegions = 1;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L2.MAP", map, makeSingleArea(0x34),
+                                config);
+    quiky::Simulation simulation;
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 44);
+    assert(session.entities()[0].type == 0x34);
+    assert(session.entities()[0].updateCallback.offset == 0x9c0c);
+    assert(session.entities()[0].x == session.entities()[0].initialX + 0x10);
+    assert(session.entities()[0].y == session.entities()[0].initialY + 0x20);
+    assert(session.entities()[0].spriteSlot == 400);
+    assert(session.entities()[0].bumpAnimationDelay20 == 6);
+
+    // The BUMP range uses the persistent player's integer high words and
+    // requires signed +0x37 > 0. No player updater is installed here so the
+    // post-contact record can be checked before the next 3FF8 callback.
+    quiky::PlayerRecord &player = simulation.stateForSetup().player;
+    player.positionX = quiky::Fixed16::fromPixels(
+        session.entities()[0].x);
+    player.positionY = quiky::Fixed16::fromPixels(
+        session.entities()[0].y - 4);
+    player.mode37 = 1;
+    player.negativeYSpeed64.raw = static_cast<std::int32_t>(0xfffb6000U);
+    player.directionByte28 = 1;
+    player.syncToRaw();
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    const quiky::PlayerRecord &after = simulation.state().player;
+    assert(after.mode37 == -1);
+    assert(after.sideResponse3B == 0);
+    assert(after.verticalResponse3A == 0);
+    assert(after.resetDeathTimer3E == 0x03e8);
+    assert(after.contactScratch2B == 0xff);
+    assert(after.velocityY.raw ==
+           quiky::Fixed16::wrapSubRaw(0xfffb6000, 0x0001b000));
+    assert(after.animationDelay20 == 8);
+    assert(after.animationCursor22 == 0x3162);
+    assert(after.statusWord12 == 10);
+    assert(session.gameplayState().pendingEvent612e == 4);
+    const quiky::LevelEvent event = session.consumeEvent();
+    assert(event.type == quiky::LevelEventType::EntityCollisionImpact);
+    assert(event.entityType == 0x34);
+
+    // The callback continues to run after contact; its descriptor reload
+    // starts the seven-tick countdown again and does not remove the object.
+    assert(session.entities()[0].active);
+    assert(session.entities()[0].spriteSlot == 400);
+    assert(session.entities()[0].bumpAnimationDelay20 == 6);
+
+    quiky::LevelSession animationSession("W1L2.MAP", map,
+                                         makeSingleArea(0x34), config);
+    quiky::Simulation animationSimulation;
+    quiky::SimulationOutput animationOutput;
+    animationSession.reset(animationSimulation);
+    animationSession.updateStreaming(animationSimulation, 16, 44);
+    for (int frame = 1; frame <= 21; ++frame) {
+        animationSession.tick(animationSimulation, world,
+                               quiky::InputState(), animationOutput);
+        const std::uint16_t expectedSlot =
+            frame < 7 ? 400 : (frame < 14 ? 402 : (frame < 21 ? 403 : 401));
+        assert(animationSession.entities()[0].spriteSlot == expectedSlot);
+    }
+}
+
+void testRecoveredWurm2DescriptorProbeContract() {
+    // 01F7:6DC4 uses the descriptor-backed 1C4D probe at (+0x28,-0x28)
+    // followed by one direct 5C27 probe at X+/-0x26. The two descriptor
+    // words below distinguish the oriented point from the direct side point
+    // without relying on a host-side solid-tile abstraction.
+    const quiky::Map map = makeMap(32, 16, 1);
+    quiky::PlayerDescriptorTable descriptors;
+    descriptors.setWord(1, 0x0008);
+    const quiky::WorldCollisionView world(map, &descriptors);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 48;
+    config.streamRadiusRegions = 1;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L2.MAP", map, makeSingleArea(0x02),
+                                config);
+    quiky::Simulation simulation;
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 48);
+
+    quiky::LevelEntity &wurm2 = session.entitiesForSetup()[0];
+    wurm2.x = 128;
+    wurm2.y = 128;
+    wurm2.positionX = quiky::Fixed16::fromPixels(wurm2.x);
+    wurm2.positionY = quiky::Fixed16::fromPixels(wurm2.y);
+    // Keep the velocity below the clamp so the two static branches cannot
+    // accidentally produce the same result.
+    wurm2.velocityX.raw = 0x1000;
+    session.tick(simulation, world, quiky::InputState(), output);
+    // Descriptor 0x0008 leaves the oriented point clear (quadrant 0x0002)
+    // and marks the direct side point occupied (quadrant 0x0008), so the
+    // raw callback flag remains nonpositive and the ordinary 6F16 path is
+    // taken, integrating the existing velocity.
+    assert(wurm2.mapBlocked == 0);
+    assert(wurm2.x == 128);
+    assert(wurm2.velocityX.raw == 0x1000);
+
+    descriptors.setWord(1, 0x0002);
+    session.tick(simulation, world, quiky::InputState(), output);
+    // The next descriptor word marks the oriented 1C4D point occupied. The
+    // callback stores +0x2F=1 and takes its alternate state-0 path.
+    assert(wurm2.mapBlocked == 1);
+    assert(wurm2.x == 128);
+    assert(wurm2.velocityX.raw == 0x1400);
+}
+
+void testRecoveredWurm2TargetTailContract() {
+    // 01F7:707B scans the shared DS:87DE rows after every 6DC4 state path.
+    // Use two rows so this covers a non-match, strict overlap, X-only clear,
+    // cursor advancement, and the 4AB3 callback publication.
+    const quiky::Map map = makeMap(32, 16, 0);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 1;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L2.MAP", map, makeSingleArea(0x01),
+                                config);
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 16);
+
+    quiky::LevelEntity &wurm2 = session.entitiesForSetup()[0];
+    wurm2.x = 100;
+    wurm2.y = 100;
+    wurm2.positionX = quiky::Fixed16::fromPixels(100);
+    wurm2.positionY = quiky::Fixed16::fromPixels(100);
+    wurm2.velocityX = quiky::Fixed16();
+    wurm2.targetCursor30 = 0;
+    quiky::LevelGameplayState &globals = session.gameplayStateForSetup();
+    globals.sharedTargetActiveCount8806 = 1;
+    globals.sharedTargetCapacity8808 = 2;
+    globals.sharedTargetRows87de[0] = quiky::TargetCoordinateRow(300, 300);
+    globals.sharedTargetRows87de[1] = quiky::TargetCoordinateRow(100, 100);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(wurm2.targetCursor30 == 1);
+    assert(globals.sharedTargetRows87de[0].x == 300);
+    assert(wurm2.contactCallback.offset == 0);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(wurm2.targetCursor30 == 2);
+    assert(globals.sharedTargetRows87de[1].x == 0);
+    assert(globals.sharedTargetRows87de[1].y == 100);
+    assert(wurm2.contactCallback.offset == 0x4ab3);
+
+    // A cursor equal to capacity wraps before selecting the row.
+    wurm2.targetCursor30 = 2;
+    globals.sharedTargetRows87de[0] = quiky::TargetCoordinateRow(100, 100);
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(wurm2.targetCursor30 == 1);
+    assert(globals.sharedTargetRows87de[0].x == 0);
+}
+
+void testRecoveredBieneStateZeroMapPolarityContract() {
+    // 01F7:68C0 -> 1C4D/1C6E publishes the state-zero MAP result in +0x2F.
+    // The raw MAP bit is enough for this branch contract; no descriptor table
+    // or startup-built BIENE table is involved.
+    quiky::Map map = makeMap(16, 8);
+    map.cells[1 * map.width + 1] = 0x4000;
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 1;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L1.MAP", map, makeSingleArea(0x03),
+                                config);
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 16);
+
+    quiky::LevelEntity &biene = session.entitiesForSetup()[0];
+    biene.x = 48;
+    biene.y = 48;
+    biene.positionX = quiky::Fixed16::fromPixels(48);
+    biene.positionY = quiky::Fixed16::fromPixels(48);
+    biene.enemyState = 0;
+    biene.enemyOrientation = -1;
+    biene.enemySourceOrKind2c = -1;
+    biene.enemyPatrolDirection = -1;
+    biene.enemyTimer = 0x14;
+    biene.enemyPhaseTimer = 0;
+    biene.velocityX.raw = 0x1000;
+
+    // 68F9 JLE is not taken for a positive latch: 6909 subtracts
+    // orientation<<12 from the velocity and advances x.
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(biene.mapBlocked == 1);
+    assert(biene.velocityX.raw == 0x2000);
+    assert(biene.enemyPhaseTimer == 0);
+
+    map.cells[1 * map.width + 1] = 0;
+    biene.positionX = quiky::Fixed16::fromPixels(48);
+    biene.positionY = quiky::Fixed16::fromPixels(48);
+    biene.x = 48;
+    biene.y = 48;
+    biene.enemyTimer = 0x14;
+    biene.enemyPhaseTimer = 0;
+    biene.velocityX.raw = 0x1000;
+
+    // 68F9 JLE is taken for a nonpositive latch: 69DD integrates the
+    // existing velocity and increments +0x2A without patrol acceleration.
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(biene.mapBlocked == 0);
+    assert(biene.velocityX.raw == 0x1000);
+    assert(biene.enemyPhaseTimer == 1);
+}
+
+void testRecoveredBieneRuntimePhaseContract() {
+    quiky::Map descriptorMap = makeMap(1, 1, 1);
+    quiky::PlayerDescriptorTable descriptors;
+    descriptors.setWord(1, 0x0008);
+    const quiky::WorldCollisionView descriptorWorld(descriptorMap,
+                                                    &descriptors);
+    assert(descriptorWorld.transitionDescriptorProbeConfirmed(0, 0));
+    assert(!descriptorWorld.transitionDescriptorProbeConfirmed(8, 0));
+
+    const quiky::Map map = makeMap(16, 8);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 1;
+    config.enableEdgeExit = false;
+    config.hasBieneRuntimeTable = true;
+    config.bieneRuntimeTable.fill(0);
+
+    quiky::LevelSession session("W1L1.MAP", map, makeSingleArea(0x03),
+                                config);
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 16);
+
+    quiky::LevelEntity &biene = session.entitiesForSetup()[0];
+    const std::int32_t oldX = biene.positionX.raw;
+    const std::int32_t oldY = biene.positionY.raw;
+    biene.enemyState = 1;
+    biene.enemyAux3e = 0;
+    biene.enemyVerticalOffset40 = 0;
+    biene.enemyPhase34 = 0;
+    // Keep the final state-7 exit arc above its origin so this fixture can
+    // observe the state-1 -> state-3 -> state-7 fall-through in one callback.
+    biene.enemyOriginY36 = quiky::Fixed16::fromPixels(-400).raw;
+
+    session.tick(simulation, world, quiky::InputState(), output);
+
+    // 01F7:6A69 masks the phase to 10 bits, consumes the injected signed
+    // byte at phase+0x20, and adjusts the Y high word before subtracting the
+    // fixed 0x1388 transition step. The X fixed-point correction is a raw
+    // sign*0x2000 subtraction for the type-03 orientation.
+    assert(biene.enemyAux3e == 0x20);
+    // 01F7:6ACB and 01F7:6C12 each increment +0x34 after state 1 falls
+    // through the same callback, so the post-callback word is two.
+    assert(biene.enemyPhase34 == 2);
+    assert(biene.enemyVerticalOffset40 == 0);
+    const std::int32_t afterState3Y = quiky::Fixed16::wrapAddRaw(
+        quiky::Fixed16::wrapSubRaw(oldY, 0x1388), 0x5014);
+    assert(biene.positionY.raw == quiky::Fixed16::wrapAddRaw(
+        afterState3Y, static_cast<std::int32_t>(0xffffee6cU)));
+    assert(biene.positionX.raw == quiky::Fixed16::wrapAddRaw(
+        quiky::Fixed16::wrapSubRaw(oldX, -0x2000), -0x15000 - 0x20000));
+    assert(biene.enemyState == 7);
+}
+
+void testRecoveredNormalEnemyDamageContract() {
+    const quiky::Map map = makeMap(16, 8);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 48;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    struct Result {
+        quiky::PlayerRecord player;
+        quiky::LevelGameplayState gameplay;
+        quiky::LevelEvent event;
+        bool enemyContactPending;
+    };
+
+    const auto run = [&](std::uint16_t type, std::uint16_t health,
+                         std::uint16_t invulnerability,
+                         std::uint16_t timer,
+                         std::uint16_t transitionGate,
+                         std::uint16_t effectBits,
+                         bool installPlayerUpdater = false) {
+        quiky::LevelSession session("W1L1.MAP", map, makeSingleArea(type),
+                                    config);
+        quiky::Simulation simulation;
+        quiky::TraceClosedPlayerUpdate updater;
+        if (installPlayerUpdater) {
+            simulation.setExperimentalPlayerUpdater(&updater);
+        }
+        quiky::SimulationOutput output;
+        quiky::PlayerDescriptorTable descriptors;
+        const quiky::WorldCollisionView callbackWorld(
+            map, installPlayerUpdater ? &descriptors : 0);
+        session.reset(simulation);
+        session.updateStreaming(simulation, 16, 48);
+
+        // 01F7:393C publishes the exact four signed player bounds consumed
+        // by 01F7:1B77. WURM2 uses object Y-10; BIENE uses object Y-20.
+        quiky::PlayerRecord &player = simulation.stateForSetup().player;
+        player.positionX = quiky::Fixed16::fromPixels(16);
+        player.positionY = quiky::Fixed16::fromPixels(
+            type == 0x03 ? 58 : 48);
+        player.state2C = -10;
+        player.verticalStepOrDirection2E = -40;
+        player.state30 = 10;
+        player.callbackState32 = 0;
+        player.timer34 = timer;
+        player.syncToRaw();
+
+        session.gameplayStateForSetup().currentHealth8822 = health;
+        session.gameplayStateForSetup().invulnerabilityGate8810 =
+            invulnerability;
+        session.gameplayStateForSetup().transitionGate89ea = transitionGate;
+        session.gameplayStateForSetup().transitionEffectBits8950 = effectBits;
+
+        session.tick(simulation, callbackWorld, quiky::InputState(), output);
+        Result result;
+        result.player = simulation.stateForSetup().player;
+        result.gameplay = session.gameplayState();
+        result.event = session.consumeEvent();
+        result.enemyContactPending = session.entities()[0].enemyContactPending;
+        return result;
+    };
+
+    const Result ordinary = run(0x01, 2, 0, 0, 0, 0);
+    assert(ordinary.event.type == quiky::LevelEventType::PlayerDamaged);
+    assert(ordinary.event.entityType == 0x01);
+    assert(ordinary.event.stateWrites.size() == 2);
+    assert(ordinary.event.stateWrites[0].address == 0x612e);
+    assert(ordinary.event.stateWrites[0].before == 0);
+    assert(ordinary.event.stateWrites[0].after == 1);
+    assert(ordinary.event.stateWrites[1].address == 0x8822);
+    assert(ordinary.event.stateWrites[1].before == 2);
+    assert(ordinary.event.stateWrites[1].after == 1);
+    assert(ordinary.gameplay.currentHealth8822 == 1);
+    assert(ordinary.gameplay.lives880a == 4);
+    assert(ordinary.gameplay.pendingEvent612e == 1);
+    assert(ordinary.player.timer34 == 0xd2);
+    assert(ordinary.player.velocityX.raw == 0x00018000);
+    assert(!ordinary.enemyContactPending);
+
+    const Result biene = run(0x03, 2, 0, 0, 0, 0);
+    assert(biene.event.type == quiky::LevelEventType::PlayerDamaged);
+    assert(biene.gameplay.currentHealth8822 == 1);
+    assert(biene.player.timer34 == 0xd2);
+    assert(!biene.enemyContactPending);
+
+    const Result terminal = run(0x01, 1, 0, 0, 0, 0xffff, true);
+    assert(terminal.event.type == quiky::LevelEventType::PlayerDamaged);
+    assert(terminal.event.stateWrites.size() == 5);
+    assert(terminal.event.stateWrites[2].address == 0x880a);
+    assert(terminal.event.stateWrites[3].address == 0x8950);
+    assert(terminal.event.stateWrites[3].after == 0xffcf);
+    assert(terminal.event.stateWrites[4].address == 0x89ea);
+    assert(terminal.event.stateWrites[4].after == 0xffff);
+    assert(terminal.gameplay.currentHealth8822 == 0);
+    assert(terminal.gameplay.lives880a == 3);
+    assert(terminal.player.mode37 == -1);
+    assert(terminal.player.sideResponse3B == 0);
+    assert(terminal.player.verticalResponse3A == 0);
+    assert(terminal.player.contactScratch2B == 0);
+    assert(terminal.player.resetDeathTimer3E == 0x03e8);
+    assert(terminal.player.velocityX.raw == 0x00018000);
+    assert(terminal.player.velocityY.raw == static_cast<std::int32_t>(0xfffe0000U));
+    assert(terminal.player.acceleration4C.raw == 0x00002000);
+    assert(terminal.player.positiveYAcceleration50.raw == 0x00002000);
+    assert(terminal.player.horizontalSpeedCap5C.raw == 0x00018000);
+    assert(terminal.player.positiveYSpeedCap60.raw == 0x00040000);
+
+    assert(run(0x01, 2, 0xffff, 0, 0, 0).event.type ==
+           quiky::LevelEventType::None);
+    assert(run(0x01, 2, 0, 0xd2, 0, 0).event.type ==
+           quiky::LevelEventType::None);
+    assert(run(0x01, 2, 0, 0, 0xffff, 0).event.type ==
+           quiky::LevelEventType::None);
 }
 
 void testRecoveredAnimatedTileEffectStateMachine() {
@@ -575,6 +1004,8 @@ void testRecoveredAnimatedTileEffectStateMachine() {
     assert(session.entities()[0].streamSuppressed);
     assert(session.gameplayState().terminalX8828 == 41);
     assert(session.gameplayState().terminalY882a == 86);
+    assert(session.gameplayState().spawnRows8828[0].x == 41);
+    assert(session.gameplayState().spawnRows8828[0].y == 86);
     // The state-8 children are still in their third native tick when state
     // 10 creates its children; they are removed at the following 10B5 pass.
     assert(session.effects().size() == 10);
@@ -715,6 +1146,13 @@ void testRecoveredMovingPlatformCarryContract() {
     assert(session.entities()[0].updateCallback.offset == 0x9dc7);
     assert(session.entities()[0].spriteSlot == 301);
     assert(session.entities()[0].spriteResource == "PLATFW1.BOB");
+    assert(!session.entities()[0].platformHorizontal4a);
+    assert(session.entities()[0].platformDirectionY4c == -1);
+    assert(session.entities()[0].platformDirectionX4e == 1);
+    assert(session.entities()[0].platformEdgeLatch50 == -1);
+    assert(session.entities()[0].platformAxisMarker4b == 0xff);
+    assert(session.entities()[0].platformWait52 == 0x14);
+    assert(session.entities()[0].platformMotionGate59);
 
     session.tick(simulation, world, quiky::InputState(), output);
     assert(output.schedulerCallbacks.size() == 1);
@@ -750,18 +1188,79 @@ void testRecoveredMovingPlatformCarryContract() {
     assert(!rejected.entities()[0].platformCarryActive);
 
     quiky::Map blockedMap = makeMap(16, 8);
-    blockedMap.cells[18] = 0x0800;
+    // The recovered 9C70 initializer keeps +0x59 set unless the initializer
+    // cell has raw bit 0x0200. Use a horizontal 0x3D variant and force one
+    // 16-pixel crossing so 9DC7 reaches the 0x0800 stop/snap probe at x=48.
+    blockedMap.cells[17] = 0x0200;
+    blockedMap.cells[19] = 0x0800;
     const quiky::WorldCollisionView blockedWorld(blockedMap, &descriptors);
-    assert(blockedWorld.mapRawBit0800Confirmed(32, 16));
+    assert(blockedWorld.mapRawBit0800Confirmed(48, 16));
     quiky::LevelSession moving("W1L1.MAP", blockedMap,
-                               makeSingleArea(0x3f), config);
+                               makeSingleArea(0x3d), config);
     moving.reset(simulation);
     moving.updateStreaming(simulation, 24, 16);
-    moving.entitiesForSetup()[0].velocityX = quiky::Fixed16(0x10000);
+    moving.entitiesForSetup()[0].velocityX = quiky::Fixed16(0x100000);
     moving.tick(simulation, blockedWorld, quiky::InputState(), output);
-    assert(moving.entities()[0].x == 16);
+    assert(moving.entities()[0].x == 32);
     assert(moving.entities()[0].velocityX.raw == 0);
     assert(moving.entities()[0].platformWait54 == 0x46);
+    assert(moving.entities()[0].platformHorizontal4a);
+    assert(!moving.entities()[0].platformMotionGate59);
+
+    quiky::Map horizontalMap = makeMap(16, 8);
+    // The platform initializer's 5DA1 test clears +0x59 when the
+    // initializer cell contains raw bit 0x0200.  With that gate closed, a
+    // seeded +0x0A velocity reaches the horizontal integration path on the
+    // first callback.  Spawn one pixel inside the strict A075 X interval so
+    // the carry is published before the player callback runs.
+    horizontalMap.cells[17] = 0x0200;
+    const quiky::WorldCollisionView horizontalWorld(horizontalMap,
+                                                     &descriptors);
+    quiky::LevelSession horizontal("W1L1.MAP", horizontalMap,
+                                   makeSingleArea(0x3d), config);
+    quiky::Simulation horizontalSimulation;
+    quiky::TraceClosedPlayerUpdate horizontalUpdater;
+    horizontalSimulation.setExperimentalPlayerUpdater(&horizontalUpdater);
+    horizontal.reset(horizontalSimulation);
+    horizontal.updateStreaming(horizontalSimulation, 25, 16);
+    horizontal.entitiesForSetup()[0].velocityX = quiky::Fixed16(0x28000);
+    const std::int32_t horizontalPlayerXBefore =
+        horizontalSimulation.state().player.positionX.raw;
+    horizontal.tick(horizontalSimulation, horizontalWorld,
+                    quiky::InputState(), output);
+    assert(horizontal.entities()[0].x == 18);
+    assert(horizontal.entities()[0].platformPreviousX == 16);
+    assert(horizontal.gameplayState().platformLatch5006 == 0xffff);
+    assert(horizontal.gameplayState().platformCarryX8816 ==
+           quiky::Fixed16::fromRaw(0x00020001).raw);
+    assert(horizontalSimulation.state().player.positionX.raw ==
+           quiky::Fixed16::wrapAddRaw(horizontalPlayerXBefore,
+                                      0x00020001));
+    assert(horizontalSimulation.state().player.positionY.raw ==
+           quiky::Fixed16::fromPixels(16).raw + 2);
+
+    quiky::LevelSession horizontalNegative("W1L1.MAP", horizontalMap,
+                                           makeSingleArea(0x3d), config);
+    quiky::Simulation horizontalNegativeSimulation;
+    quiky::TraceClosedPlayerUpdate horizontalNegativeUpdater;
+    horizontalNegativeSimulation.setExperimentalPlayerUpdater(
+        &horizontalNegativeUpdater);
+    horizontalNegative.reset(horizontalNegativeSimulation);
+    horizontalNegative.updateStreaming(horizontalNegativeSimulation, 25, 16);
+    horizontalNegative.entitiesForSetup()[0].velocityX =
+        quiky::Fixed16(static_cast<std::int32_t>(0xfffd8000U));
+    const std::int32_t horizontalNegativePlayerXBefore =
+        horizontalNegativeSimulation.state().player.positionX.raw;
+    horizontalNegative.tick(horizontalNegativeSimulation, horizontalWorld,
+                             quiky::InputState(), output);
+    assert(horizontalNegative.entities()[0].x == 13);
+    assert(horizontalNegative.entities()[0].platformPreviousX == 16);
+    assert(horizontalNegative.gameplayState().platformLatch5006 == 0xffff);
+    assert(horizontalNegative.gameplayState().platformCarryX8816 ==
+           static_cast<std::int32_t>(0xfffd0001U));
+    assert(horizontalNegativeSimulation.state().player.positionX.raw ==
+           quiky::Fixed16::wrapAddRaw(horizontalNegativePlayerXBefore,
+                                      static_cast<std::int32_t>(0xfffd0001U)));
 
     quiky::LevelSession culled("W1L1.MAP", map,
                                makeSingleArea(0x3f), config);
@@ -797,6 +1296,12 @@ int main() {
         testRecoveredCollectibleStateContracts();
         testRecoveredCollectibleStrictBounds();
         testRecoveredW1L1EnemyFamilies();
+        testRecoveredBumpCallbackContract();
+        testRecoveredWurm2DescriptorProbeContract();
+        testRecoveredWurm2TargetTailContract();
+        testRecoveredBieneStateZeroMapPolarityContract();
+        testRecoveredBieneRuntimePhaseContract();
+        testRecoveredNormalEnemyDamageContract();
         testRecoveredAnimatedTileEffectStateMachine();
         testRecoveredW1L1AmbientAndDedicatedContracts();
         testRecoveredMovingPlatformCarryContract();

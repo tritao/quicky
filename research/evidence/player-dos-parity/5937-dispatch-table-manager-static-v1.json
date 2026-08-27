@@ -1,0 +1,49 @@
+{
+  "schema": "quiky.5937-dispatch-table-manager-static.v1",
+  "purpose": "Mechanically audited static contract for the runtime selector-to-record manager reached by the focused 5937 dispatch closure.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "pipeline": "research/tools/run_player_external_closure.py --output research/build/player-external-state-closure-recovery-v44",
+    "independent_projects": "project-a and project-b decompilation/listing/data outputs matched"
+  },
+  "contract": {
+    "address": "01F7:05A0",
+    "name": "manage_dispatch_record_selector_05A0",
+    "classification": "contract",
+    "calling_convention": "far; selector at [BP+0x06]; RETF 0x2; AX returns the current selector mapping",
+    "inputs_outputs": "Calls 0227:05CD with AX=0x0006, calls 01F7:0931(selector), scans candidates 0..0x018f inclusive as DS:6D8A records with 0x2c-byte stride, replaces DS:6D8E[selector] with the first record whose resource pointers at +0x10/+0x12 are both zero, and returns DS:6D8E[selector]. If no record is free, the existing mapping remains unchanged.",
+    "player_reads": [],
+    "player_writes": [],
+    "global_reads": ["DS:6D8A", "DS:6D8E[selector]"],
+    "global_writes": ["DS:6D8E[selector] when a free record is found"],
+    "probe_coordinates": [],
+    "scheduler_position": "Dispatch/resource-record management before a later 5937/386F record callback; no direct player-callback invocation",
+    "object_effects": "May release the selector's prior runtime record through 01F7:0931 and changes the runtime selector map; record resource contents and far callback pointers are data-driven.",
+    "feeds_back_into_simulation": "indirectly; selector remapping can affect later auxiliary dispatch, but no player-record or callback-global simulation write is direct",
+    "callees": [
+      {"address": "0227:05CD", "name": "address_named_stack_space_probe_05CD", "classification": "contract", "flags": "AX=0x0006; no gameplay state returned"},
+      {"address": "01F7:0931", "name": "reload_transition_delay_tick_0931", "classification": "contract", "flags": "selector word; clears mapped record resource pointers and restores DS:6D8E[selector]=FFFF"}
+    ],
+    "callers": [
+      {"address": "01F7:05A0 relocation call sites", "name": "address_named_runtime_record_manager_callers", "classification": "confirmed_relocation"}
+    ],
+    "confidence": "confirmed_static_independent_ghidra_export_runtime_record_contents_open",
+    "evidence": [
+      "ghidra:player-external-state-closure-recovery-v44/decomp-a/QUIKY_SEG03.bin.c",
+      "ghidra:player-external-state-closure-recovery-v44/decomp-b/QUIKY_SEG03.bin.c",
+      "ghidra:player-external-state-closure-recovery-v44/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+      "ghidra:player-external-state-closure-recovery-v44/disasm-seg3-b/QUIKY_SEG03.bin.asm",
+      "reloc:01F7:05A0->0227:05CD",
+      "reloc:01F7:05A0->01F7:0931",
+      "research/ghidra/transition-reload-closure.json",
+      "research/notes/5937-dispatch-table-manager-static-decomp.cpp"
+    ]
+  },
+  "runtime_boundary": {
+    "records": "DS:6D8A runtime far-pointer table; each record is 0x2c bytes",
+    "selector_map": "DS:6D8E word array",
+    "unresolved": ["runtime record callback pointers at +0x18/+0x1a", "resource ownership beyond the 0931 cleanup contract"]
+  }
+}

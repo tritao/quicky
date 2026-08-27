@@ -28,7 +28,16 @@ public class DumpFocusedDisasm extends GhidraScript {
                 int count = Integer.parseInt(countText,
                     countText.startsWith("0x") || countText.startsWith("0X") ? 16 : 10);
                 writer.printf("; ---- %04X count=%d ----%n", offset, count);
-                Instruction instruction = currentProgram.getListing().getInstructionAt(toAddr(offset));
+                Address start = toAddr(offset);
+                Instruction instruction = currentProgram.getListing().getInstructionAt(start);
+                if (instruction == null) {
+                    // Raw Binary imports are intentionally opened with
+                    // --noanalysis. Define only this requested slice so a
+                    // lifecycle consumer can be audited without whole-program
+                    // analysis.
+                    disassemble(start);
+                    instruction = currentProgram.getListing().getInstructionAt(start);
+                }
                 for (int n = 0; instruction != null && n < count; n++) {
                     writer.printf("%s  %s%n", instruction.getAddress(), instruction);
                     instruction = instruction.getNext();

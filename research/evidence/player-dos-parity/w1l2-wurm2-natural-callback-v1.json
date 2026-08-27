@@ -1,0 +1,63 @@
+{
+  "schema": "quiky.player-w1l2-wurm2-natural-callback.v1",
+  "purpose": "Natural DOS validation of the statically recovered 01F7:6DC4 WURM2 state-zero callback on W1L2.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/entity-wurm2-real-w1l2-v3.json",
+    "trace_sha256": "9131c2b5d9b09e41a09fe2fff989a54d6ea89b77b8fc86a503bb492a31aad6b8",
+    "trace_validator": "research/tools/verify_wurm2_dos_trace.py",
+    "trace_validator_sha256": "f9f2316416d007e9125aecdc5108a5cfe2cee515e03877359ec0802d11817378",
+    "static_note": "research/notes/wurm2-static-decomp.cpp",
+    "static_note_sha256": "624859cee562c1f6a70d0aea33f02a9346e9d36d5d315138f2c25a945566bdf6",
+    "ghidra_listing": "research/build/bump-static-closure-v4/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+    "ghidra_listing_sha256": "f6e9fe2ab09f45f95a1e5ded750dc63b33eb7a8aace3567c901733364c98c6ef"
+  },
+  "capture": {
+    "command": "python3 research/tools/quikytrace.py --launch --headless --runtime-dir game --select-level W1L2 --selector-frames 60 --output research/build/entity-wurm2-real-w1l2-v3.json --player-trace --player-object-focus 0x6dc4 --player-samples 4 --player-frames-between 1 --player-input-key KBD_right --player-input-warmup-frames 300 --player-capture-record",
+    "valid_callback_samples": 3,
+    "skipped_samples": "The fourth sample stopped at the selector barrier and had no 6DC4 callback record.",
+    "object_offset": 1560,
+    "callback": "01F7:6DC4",
+    "initial_position_pixels": [420, 784],
+    "observed_x_fixed": ["0x01A4C000", "0x01A61000", "0x01A76000", "0x01A8B000"],
+    "observed_velocity_x_fixed": "0x00015000",
+    "observed_fields": {
+      "+0x2A": "0x1C -> 0x1D -> 0x1E -> 0x1F",
+      "+0x2C": "0xFF throughout",
+      "+0x2F": "0xFF throughout",
+      "+0x32": "0x00 throughout",
+      "+0x20/+0x24": "5D60 delay/cursor advancement",
+      "target_active_count": 0,
+      "callback_global_writes": 0
+    }
+  },
+  "static_resolution": {
+    "listing": "6E31 CMP byte ES:[DI+0x2F],0; 6E36 JLE 6F16. Raw +0x2F=0xFF therefore takes ordinary 6F16 integration, not the 6E3A contact-response path.",
+    "ordinary_path": "6F16 adds the existing +0x0A velocity to +0x02, increments +0x2A, and then enters 707B.",
+    "contact_path": "Positive raw +0x2F enters 6E3A; +0x2C selects 6E41 versus 6EBC acceleration and timer handling.",
+    "native_spelling": "The C++ bridge stores a positive raw latch as mapBlocked=true, so its mapBlocked branch corresponds to DOS 6E3A and its false branch corresponds to DOS 6F16.",
+    "previous_error": "The first verifier revision reversed the 6E31/6E36 JLE polarity; it predicted 0x14000 X integration for the captured 0xFF latch.",
+    "resolution": "Corrected the address-annotated note and verifier; the captured 0x15000 integration now matches 6F16 exactly."
+  },
+  "validation": {
+    "command": "python3 research/tools/verify_wurm2_dos_trace.py research/build/entity-wurm2-real-w1l2-v3.json",
+    "result": "OK: natural DOS WURM2 callback matches static 6DC4 contract",
+    "summary": {
+      "callbacks_checked": 3,
+      "motion_steps_checked": 3,
+      "animation_steps_checked": 3,
+      "target_active_count_observations": 3,
+      "target_loop_active_observations": 0
+    },
+    "unit_regression": "research/tests/test_wurm2_dos_trace.py"
+  },
+  "remaining_boundaries": [
+    "A natural positive +0x2F descriptor-contact sample is still needed to validate the 6E3A acceleration branch.",
+    "The 707B target-ring path remains unobserved because DS:8806 was zero.",
+    "Presentation-only 5D60 descriptor contents and opaque response/audio tails remain outside this callback contract."
+  ],
+  "status": "natural W1L2 state-zero callback contract validated; contact and target-ring variants remain explicit boundaries"
+}

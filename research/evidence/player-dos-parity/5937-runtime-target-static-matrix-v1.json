@@ -1,0 +1,121 @@
+{
+  "schema": "quiky.player-5937-runtime-target-static-matrix.v1",
+  "purpose": "Protected Mode static and entry/return audit of all seven changed-bit runtime callback targets captured from 01F7:0598.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "static_runner": "research/tools/run_runtime_target_static.py"
+  },
+  "method": {
+    "dispatch": "W1L1 startup with DS:60D8 patched to one changed bit and DS:60DA cleared; 01F7:5937 -> 386F -> 0442 -> 0598",
+    "return": "Each target return was validated at 01F7:059B before the ordinary player callback continued.",
+    "static": "Each captured 0x400-byte target window was padded at its recorded entry offset and imported into two independent Ghidra projects without analysis.",
+    "common_result": "All seven static bodies contain no CALL instruction and end in RETF; all seven dynamic samples report empty player/global/object differences."
+  },
+  "targets": [
+    {
+      "changed_bit": "0x01",
+      "address": "14EF:0218",
+      "trace": "research/build/traces/player-w1l1-0598-target-code-v3.json",
+      "trace_sha256": "a1df7b17c13ceb664360181faf5365958c23a8d268025490db9fd7c3e54b0425",
+      "raw_image": "research/build/runtime-target-14ef-0218.bin",
+      "raw_sha256": "952719f1cfb535ae04877055752323b955ede5c2281a803c03525f47616dba25",
+      "static_export": "research/build/runtime-target-static-v1/manifest.json",
+      "entry_registers": {"AX": "0022", "BX": "0100", "CX": "0001", "DS": "014F", "SI": "0252"},
+      "return": "14EF:0358 -> 01F7:059B",
+      "call_count": 0,
+      "simulation_differences": {"player": [], "globals": [], "object": []}
+    },
+    {
+      "changed_bit": "0x02",
+      "address": "14F7:03C8",
+      "trace": "research/build/traces/player-w1l1-0598-target-code-bit02-v1.json",
+      "trace_sha256": "8330eacfa62da7f494051305ad1f732ac0eb83f0dcaae05a4afc6855fef58348",
+      "raw_image": "research/build/runtime-target-14f7-03c8.bin",
+      "raw_sha256": "04f45875a6589b6c418839c91c22aa347964b2c869679e0c40d8f9040b79a6f1",
+      "static_export": "research/build/runtime-target-static-14f7-03c8-v1/manifest.json",
+      "entry_registers": {"AX": "0188", "BX": "0000", "CX": "0003", "DS": "014F", "SI": "0254"},
+      "return": "14F7:0485 -> 01F7:059B",
+      "call_count": 0,
+      "simulation_differences": {"player": [], "globals": [], "object": []}
+    },
+    {
+      "changed_bit": "0x04",
+      "address": "14FF:04F4",
+      "trace": "research/build/traces/player-w1l1-0598-target-code-bit04-v1.json",
+      "trace_sha256": "12147ec5f7612691db13644af9a778e9dd35df3f02e54eebfdb973b42b7ebb01",
+      "raw_image": "research/build/runtime-target-14ff-04f4.bin",
+      "raw_sha256": "f16aac34699e54f6f54d0e679af2e0d2c9fc09cd9ff449417f7bdc0be0532b0c",
+      "static_export": "research/build/runtime-target-static-14ff-04f4-v1/manifest.json",
+      "entry_registers": {"AX": "0044", "BX": "0001", "CX": "0002", "DS": "014F", "SI": "0256"},
+      "return": "14FF:05C2 -> 01F7:059B",
+      "call_count": 0,
+      "simulation_differences": {"player": [], "globals": [], "object": []}
+    },
+    {
+      "changed_bit": "0x08",
+      "address": "1507:0640",
+      "trace": "research/build/traces/player-w1l1-0598-target-code-bit0008-v1.json",
+      "trace_sha256": "f1651e4775d911eaaf4f3380ab2d0113a463a090aaf095cf33ffc9d0d0d188d3",
+      "raw_image": "research/build/runtime-target-1507-0640.bin",
+      "raw_sha256": "77e734aef4543c1890a67ef7cfbfbbb7a62048cb30a25b2a088f1d89d633fabf",
+      "static_export": "research/build/runtime-target-static-1507-0640-v1/manifest.json",
+      "entry_registers": {"AX": "0022", "BX": "0100", "CX": "0001", "DS": "014F", "SI": "0258"},
+      "return": "1507:0702 -> 01F7:059B",
+      "call_count": 0,
+      "simulation_differences": {"player": [], "globals": [], "object": []}
+    },
+    {
+      "changed_bit": "0x10",
+      "address": "150F:0770",
+      "trace": "research/build/traces/player-w1l1-0598-target-code-bit0010-v1.json",
+      "trace_sha256": "818259e4f5c1459e326c04b22af9420fe4102ef62e4db54ae7479fcdb417ebd9",
+      "raw_image": "research/build/runtime-target-150f-0770.bin",
+      "raw_sha256": "ef9447f1fc001688df7f739ac91033c7e461dddf130cf85d146e289aebd34f52",
+      "static_export": "research/build/runtime-target-static-150f-0770-v1/manifest.json",
+      "entry_registers": {"AX": "0011", "BX": "0000", "CX": "0000", "DS": "014F", "SI": "025A"},
+      "return": "150F:081A -> 01F7:059B",
+      "call_count": 0,
+      "simulation_differences": {"player": [], "globals": [], "object": []}
+    },
+    {
+      "changed_bit": "0x20",
+      "address": "1517:0888",
+      "trace": "research/build/traces/player-w1l1-0598-target-code-bit0020-v1.json",
+      "trace_sha256": "7c342832a8b36aee0902a0c4de78d0bbab79580788175b2c14ca92293dece53f",
+      "raw_image": "research/build/runtime-target-1517-0888.bin",
+      "raw_sha256": "d8c8140557750c50fc685953598ae40181422b3fc7c17a9ff1df3e9515fc2bb2",
+      "static_export": "research/build/runtime-target-static-1517-0888-v1/manifest.json",
+      "entry_registers": {"AX": "0188", "BX": "0000", "CX": "0003", "DS": "014F", "SI": "025B"},
+      "return": "1517:090E -> 01F7:059B",
+      "call_count": 0,
+      "simulation_differences": {"player": [], "globals": [], "object": []}
+    },
+    {
+      "changed_bit": "0x40",
+      "address": "151F:097C",
+      "trace": "research/build/traces/player-w1l1-0598-target-code-bit0040-v1.json",
+      "trace_sha256": "6b70dc5dc29b99ba02b46c81586ba51315fa7151cae5b68bc249b3e12b00ad35",
+      "raw_image": "research/build/runtime-target-151f-097c.bin",
+      "raw_sha256": "4f42ee6d6c62c6309889827a479cdc1f743f8ca2e6af85915d3224e82a481118",
+      "static_export": "research/build/runtime-target-static-151f-097c-v1/manifest.json",
+      "entry_registers": {"AX": "0044", "BX": "0001", "CX": "0002", "DS": "014F", "SI": "025C"},
+      "return": "151F:0A53 -> 01F7:059B",
+      "call_count": 0,
+      "simulation_differences": {"player": [], "globals": [], "object": []}
+    }
+  ],
+  "interpretation": {
+    "confirmed": [
+      "All seven changed-bit targets are statically bounded as no-call far leaves with exact return addresses and DS:SI/port side effects retained in their per-target listings.",
+      "All seven entry/return samples show no player-record, named callback-global, or dispatched-object differences."
+    ],
+    "does_not_prove": [
+      "The behavior of runtime DS:6D8A records selected outside this changed-bit matrix.",
+      "The semantic identity of the DS:SI destination table or port device."
+    ],
+    "closure_effect": "The sampled 01F7:0598 edge is reduced from seven opaque runtime callbacks to seven explicit external contracts; the generic unobserved record target remains address-named and unresolved."
+  }
+}

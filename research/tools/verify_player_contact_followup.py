@@ -143,6 +143,10 @@ def check_source(source_path: Path) -> None:
         raise FollowupError("authoritative C-like source still uses a guessed 0E06 name")
     if "initialize_contact_object" in text:
         raise FollowupError("old guessed 0E06 name remains in authoritative source")
+    if "PlayerRecord* child = object_pool_factory_0E06(0x6328, 0);" not in text:
+        raise FollowupError("contact tile path must write the pooled 0E06 child, not the player record")
+    if "child->u16(0x08, static_cast<uint16_t>(DS.contact_y_scratch));" not in text:
+        raise FollowupError("ordinary contact child must preserve the separate +0x08 pixel-Y write")
     if re.search(r"p->vy\([^\n]*p->vx\(\)", text):
         raise FollowupError("descriptor correction still uses X velocity for the Y response")
 

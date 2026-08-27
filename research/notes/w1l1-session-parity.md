@@ -64,6 +64,24 @@ player probe/effect arrays on those samples. The old unseeded fixture remains
 diagnostic only for leaf bytes because `DS:646C` is process-generated and is
 not present in that archived capture.
 
+The diagnostic comparison reports those omissions explicitly. For a held-out
+acceptance fixture, add `--require-complete`; that mode returns failure when
+either side omits a comparable player, object, probe, global-write, or effect
+field, so a short capture cannot accidentally qualify as exact parity.
+
+The callback-level command accepts the same switch:
+
+```sh
+python3 research/tools/player_callback_parity.py \
+  --original TRACE.json --archive game/NESTLE.DAT --map W1L1.MAP \
+  --binary build/engine/quiky-player-trace --require-complete
+```
+
+The first seeded leaf replay is recorded in
+[`w1l1-leaf-prng-replay-derivation-v1.json`](../evidence/player-dos-parity/w1l1-leaf-prng-replay-derivation-v1.json).
+It supplies the six observed initializer byte pairs only as an explicit
+replay input; the native default remains unchanged.
+
 The W1L1 collectible callback boundary is now implemented from the focused
 `8D31 -> 393C` decompilation. Native tests use the recovered signed player
 intervals, 16-pixel object-Y alignment, `DS:89EA` gate, and strict edge

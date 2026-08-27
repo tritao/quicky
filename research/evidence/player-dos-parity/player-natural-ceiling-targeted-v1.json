@@ -1,0 +1,53 @@
+{
+  "schema": "quiky.player-natural-ceiling-targeted.v1",
+  "purpose": "Unpatched W1L1 experiment aimed at the authored descriptor structures near x=1040..1168; distinguishes blocked ascent from ordinary travel without changing the archive or executable.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-natural-ceiling-targeted-v1.json",
+    "trace_sha256": "e0f4873f7c8df9aad67b9de41843de7a11a4af7bd2963e2ea7835c3d94fc3f56",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "static_contract": "research/ghidra/player-callback-focused-audit.json"
+  },
+  "method": {
+    "level": "W1L1",
+    "archive_or_executable_patches": false,
+    "input": "KBD_right sampled for 30 guest frames; the unpatched KBD_right+KBD_space phase begins at sample 31 near x=1401; right input continues afterward",
+    "samples": 50,
+    "watched_addresses": [
+      "01F7:4323",
+      "01F7:4368",
+      "01F7:3986",
+      "01F7:41C1",
+      "01F7:41CF"
+    ]
+  },
+  "observations": {
+    "sampled_position_range": [[128, 400], [2132, 368]],
+    "target_structure_crossing": "The route crosses x=1040..1168 before the jump, in ordinary mode/correction; it does not test ascent through the authored descriptor structure. No 4368 predecessor or 41C1/41CF response is observed.",
+    "branch_hits": {
+      "4323": 2,
+      "4368": 0,
+      "3986": 4,
+      "41C1": 0,
+      "41CF": 0
+    },
+    "mode_sequence": "The sampled jump begins at x=1401,y=257, after the target structure; this run is an ordinary-corridor control and does not prove a ceiling response."
+  },
+  "conclusion": {
+    "status": "negative_for_sampled_authored_x1040_route",
+    "confirmed": [
+      "The unpatched route does not reach the 4368 blocked-ascent predecessor in this corridor.",
+      "The existing static blocked-ascent implementation remains unvalidated against a natural ceiling.",
+      "No descriptor semantic or one-way name is promoted by this experiment."
+    ],
+    "still_open": [
+      "A natural reachable ceiling that enters 4326 or 4368.",
+      "General descriptor floor/ceiling/one-way classification.",
+      "Second-position held-out natural ceiling validation."
+    ],
+    "evidence_policy": "Retain as a negative control; do not use it to rename 0x20 or 0x40 descriptor bits."
+  }
+}

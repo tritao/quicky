@@ -1,4 +1,6 @@
 import copy
+import contextlib
+import io
 import json
 import sys
 import tempfile
@@ -8,7 +10,7 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
-from w1l1_session_compare import compare  # noqa: E402
+from w1l1_session_compare import compare, main  # noqa: E402
 
 
 def record(seed: str) -> str:
@@ -73,6 +75,20 @@ class W1L1SessionCompareTests(unittest.TestCase):
         mismatches, coverage = compare(left, right)
         self.assertEqual(mismatches, [])
         self.assertTrue(any(item["field"] == "probes" for item in coverage))
+
+    def test_require_complete_fails_on_coverage_gap(self):
+        payload = {"samples": [sample()]}
+        payload["samples"][0]["player_callback"].pop("collisions")
+        left, right = self.write_pair(payload, copy.deepcopy(payload))
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            result = main([
+                "--original", str(left),
+                "--candidate", str(right),
+                "--require-complete",
+            ])
+        self.assertEqual(result, 2)
+        self.assertIn("INCOMPLETE", stdout.getvalue())
 
 
 if __name__ == "__main__":

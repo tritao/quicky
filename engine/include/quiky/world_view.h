@@ -47,6 +47,11 @@ public:
                                       std::int32_t y) const;
     bool alignsEightPixelsConfirmed(std::int32_t x,
                                     std::int32_t y) const;
+    // Exact low-nibble descriptor probe used by 01F7:1BD1.  It has the same
+    // quadrant selection as the player probe, but retains the helper's
+    // address-qualified name because its callers include object transitions.
+    bool transitionDescriptorProbeConfirmed(std::int32_t x,
+                                            std::int32_t y) const;
     // Exact raw MAP contract of 01F7:1C6E: test word bit 0x4000 at the
     // 16-pixel cell selected by (x,y), independent of player descriptors.
     bool mapRawBit4000Confirmed(std::int32_t x, std::int32_t y) const;

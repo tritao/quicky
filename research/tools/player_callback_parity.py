@@ -38,6 +38,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--keep-manifest", type=Path)
     parser.add_argument("--max-report", type=int, default=8)
+    parser.add_argument(
+        "--require-complete", action="store_true",
+        help="fail when either trace omits a comparable callback field",
+    )
     args = parser.parse_args(argv)
 
     try:
@@ -79,7 +83,8 @@ def main(argv: list[str] | None = None) -> int:
                 print(completed.stderr, end="", file=sys.stderr)
             return completed.returncode
 
-        mismatches = compare(args.original, candidate)
+        mismatches = compare(args.original, candidate,
+                             require_complete=args.require_complete)
         if mismatches:
             print(f"MISMATCH callbacks={len(mismatches)}")
             for item in mismatches[:args.max_report]:

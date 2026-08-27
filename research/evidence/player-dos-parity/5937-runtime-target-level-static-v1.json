@@ -1,0 +1,137 @@
+{
+  "schema": "quiky.player-5937-runtime-target-level-static.v1",
+  "purpose": "Focused Protected Mode static expansion of one runtime-loaded 01F7:0598 target selected at ordinary startup in W1L1 through W5L1.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "static_runner": "research/tools/run_runtime_target_static.py",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "dispatch": "01F7:5937 -> 386F -> 0442 -> 0598 with DS:60D8=0x0001 and DS:60DA=0x0000",
+    "static_method": "Each captured 0x400-byte target window was padded at its recorded entry offset and imported into two independent Ghidra projects."
+  },
+  "common_body": {
+    "body_size_bytes": 321,
+    "body_sha256": "cc62630b9a9f0e0ecc714dfdbd4e20692497373e0bd93e2f535176af7352d34b",
+    "terminator": "PUSH SI; PUSH AX ... POP AX; POP SI; RETF",
+    "calls": [],
+    "conditional_branches": [],
+    "calling_convention": "far; AX/BX/CX/DX/SI live inputs; AX and SI preserved; no caller-consumed return flags established",
+    "reads": ["AX low byte", "AX high byte", "BX low/high bytes", "CX high byte", "DX as I/O port", "SI as DS-relative base"],
+    "writes": [
+      "four OUT DX,AL operations",
+      "fixed DS:SI-relative byte/word stores in four blocks",
+      "SI-relative row adjustments using CH:AH, CH:BL, and CH:BH"
+    ],
+    "probes": [],
+    "object_creation": [],
+    "player_reads": [],
+    "player_writes": [],
+    "named_global_reads": [],
+    "named_global_writes": [],
+    "scheduler_position": "nested inside 01F7:5937 -> 386F -> 0442 -> 0598, before the player movement path",
+    "simulation_feedback": "none observed in any five entry/return snapshots; DS:SI destination remains address-named",
+    "classification": "contract",
+    "confidence": "confirmed_static_body_and_five_target_entry_return_traces"
+  },
+  "targets": [
+    {
+      "level": "W1L1",
+      "address": "14EF:0218",
+      "name": "address_named_loaded_callback_14EF_0218",
+      "runtime_selector": "0x14EF",
+      "trace": "research/build/traces/w1l1-5937-target-code-v3.json",
+      "trace_sha256": "46c38e7260852984db156c120901de9871241000ed690ca8a6e9397b0839ca2f",
+      "raw_image": "research/build/runtime-target-w1l1-5937.bin",
+      "raw_sha256": "952719f1cfb535ae04877055752323b955ede5c2281a803c03525f47616dba25",
+      "static_export": "research/build/runtime-target-w1l1-5937-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "654f7bc5e4ec1a323ad3d0a9caba81ae12887d82d9a76d6896dea07abf13af44",
+        "disasm_sha256": "5867fa592b2ae25d56a45b5e11307295becc3d00fa7d6178efd2f9eccdbbecab"
+      },
+      "return": "14EF:0358 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W2L1",
+      "address": "128F:0424",
+      "name": "address_named_loaded_callback_128F_0424",
+      "runtime_selector": "0x128F",
+      "trace": "research/build/traces/w2l1-5937-target-code-v3.json",
+      "trace_sha256": "4b866fdde0d789c847c9b7eac1f3bb57afa32402768bb61878b6d186104d3625",
+      "raw_image": "research/build/runtime-target-w2l1-5937.bin",
+      "raw_sha256": "95f6b2735a793841b5c7354f69b9833c9e577da1ce11860b903b85ce339e8509",
+      "static_export": "research/build/runtime-target-w2l1-5937-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "95e8ddecaff8783f1edce96cd191c2acbf6c3575757bce5bfa0549114018a4e6",
+        "disasm_sha256": "44b37d5f29bb9db3a02e462d15d7eff10191e98009785d78391de1b16ed0698f"
+      },
+      "return": "128F:0564 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W3L1",
+      "address": "13D7:1E94",
+      "name": "address_named_loaded_callback_13D7_1E94",
+      "runtime_selector": "0x13D7",
+      "trace": "research/build/traces/w3l1-5937-target-code-v3.json",
+      "trace_sha256": "149fcfe484a2a73b74e43c4f6f641ba337f916e0c9aa5999ad1bb44dbe0bf82f",
+      "raw_image": "research/build/runtime-target-w3l1-5937.bin",
+      "raw_sha256": "c290713a10ff7984c71e7744665d58d44088bcae468cb75a86a05c0ad5a3af55",
+      "static_export": "research/build/runtime-target-w3l1-5937-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "2541e4d141aebd8a4426baad948f724c80811a7378eee4ca2cfc3c0615bfa8de",
+        "disasm_sha256": "9096ecc62cc60a29fa7ffeff780ec82a3a7fc8f501eebcf75e1daa4c02ae84ec"
+      },
+      "return": "13D7:1FD4 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W4L1",
+      "address": "13C7:13FC",
+      "name": "address_named_loaded_callback_13C7_13FC",
+      "runtime_selector": "0x13C7",
+      "trace": "research/build/traces/w4l1-5937-target-code-v3.json",
+      "trace_sha256": "b1b76f8d4bc4ba1142bd1a6ee071a70aee2ef229d5314de7aa5f0f02669caee6",
+      "raw_image": "research/build/runtime-target-w4l1-5937.bin",
+      "raw_sha256": "54d8a169f5e4808e4a002ff327383b4fdd05da633c94f4b087cd98759b08a448",
+      "static_export": "research/build/runtime-target-w4l1-5937-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "41fe5904e26b7fe7763b7edf533a8078795aa967605a3ba0a55140d11d95a346",
+        "disasm_sha256": "50756334a19448b9ad315f4fbe3c0b99fd5dfd43ed3fd75e6e53667238a4dfd3"
+      },
+      "return": "13C7:153C -> 01F7:059B",
+      "simulation_before_equals_after": true
+    },
+    {
+      "level": "W5L1",
+      "address": "167F:1C10",
+      "name": "address_named_loaded_callback_167F_1C10",
+      "runtime_selector": "0x167F",
+      "trace": "research/build/traces/w5l1-5937-target-code-v3.json",
+      "trace_sha256": "8c0ce5cba8d8eb215c17dfe4631892fd2f9c76e9833de85857c42d1d7160ef95",
+      "raw_image": "research/build/runtime-target-w5l1-5937.bin",
+      "raw_sha256": "77a66661f33829e87aa589bd819b851d63d1a403e63a6886b546b1ca1b59b08e",
+      "static_export": "research/build/runtime-target-w5l1-5937-static-v1/manifest.json",
+      "static_export_hashes": {
+        "decomp_sha256": "ffcea502d945b537e45ba043ea16d885eca4d3f7024148bf2ab32fb0895a9768",
+        "disasm_sha256": "e2a58c5f81e47da6c7b7e04afc4885e42d6654b6396379f9706d84a8c48a2127"
+      },
+      "return": "167F:1D50 -> 01F7:059B",
+      "simulation_before_equals_after": true
+    }
+  ],
+  "interpretation": {
+    "confirmed": [
+      "Five runtime-loaded callbacks selected by the changed-bit 0x01 dispatch share the same recovered 321-byte far-leaf body.",
+      "Each body has no CALL or conditional branch and returns to 01F7:059B after fixed table and port side effects.",
+      "For all five traces, the complete captured simulation snapshot and dispatched target object record are unchanged across target entry and return."
+    ],
+    "does_not_prove": [
+      "The behavior of callbacks selected by other DS:60D8 bits, later runtime states, or records not captured here.",
+      "The semantic identity of the DS:SI-relative table or I/O port.",
+      "That runtime callbacks outside this five-target set cannot feed back into player simulation."
+    ],
+    "closure_effect": "The changed-bit 0x01 five-level edge is reduced to an explicit address-named non-simulation contract; the generic 01F7:0598 target edge remains unresolved outside the captured target set."
+  }
+}

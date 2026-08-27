@@ -1,0 +1,233 @@
+{
+  "schema": "quiky.boss-static-closure-export.v1",
+  "source_executable": "game/QUIKY.EXE",
+  "source_executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+  "ghidra_language": "x86:LE:16:Protected Mode",
+  "runner": "research/tools/run_boss_static_closure.py",
+  "decomp_script": "research/tools/DumpBossDecomp.java",
+  "listing_script": "research/tools/DumpFocusedDisasm.java",
+  "segments": "raw NE segments from ghidra_ne_segments.py --pad-to-memory",
+  "exports": {
+    "seg3_decomp": "decomp-seg3-a/QUIKY_SEG03.bin-boss.c",
+    "seg1_decomp": "decomp-seg1-a/QUIKY_SEG01.bin.c",
+    "seg2_decomp": "decomp-seg2-a/QUIKY_SEG02.bin.c",
+    "seg5_decomp": "decomp-seg5-a/QUIKY_SEG05.bin.c",
+    "seg3_listing": "listing-seg3-a/QUIKY_SEG03.bin.asm",
+    "seg1_listing": "listing-seg1-a/QUIKY_SEG01.bin.asm"
+  },
+  "sha256": {
+    "seg3_decomp": "e1f4aa5881d5444f9c39b097ab25de71e75f518437efdd53f38d159bd96dd6e9",
+    "seg1_decomp": "38f28aa94e1c5697926ba87ce664057a8b474722a543bd831c9104b58c1dbc1d",
+    "seg2_decomp": "a8456679b1ff7d02edd434e3829edb21223df54d7137bcbeefe95288ee3b0efd",
+    "seg5_decomp": "60bf44b83f8cb6e78471c32025904a2d34252418ac00f59b13b6fde34135e3f4",
+    "seg3_listing": "4baa7aa44d89b1d000b22957d034f2a4a0938a70cc263cd469c5823e03be07d7",
+    "seg1_listing": "3d97198e752f0192e36b2f1ca2a7b2aed777f3865dee3abfcadd739cf9a6bdfb"
+  },
+  "independent_export_sha256": {
+    "seg3_decomp": "e1f4aa5881d5444f9c39b097ab25de71e75f518437efdd53f38d159bd96dd6e9",
+    "seg1_decomp": "38f28aa94e1c5697926ba87ce664057a8b474722a543bd831c9104b58c1dbc1d",
+    "seg2_decomp": "a8456679b1ff7d02edd434e3829edb21223df54d7137bcbeefe95288ee3b0efd",
+    "seg5_decomp": "60bf44b83f8cb6e78471c32025904a2d34252418ac00f59b13b6fde34135e3f4",
+    "seg3_listing": "4baa7aa44d89b1d000b22957d034f2a4a0938a70cc263cd469c5823e03be07d7",
+    "seg1_listing": "3d97198e752f0192e36b2f1ca2a7b2aed777f3865dee3abfcadd739cf9a6bdfb"
+  },
+  "targets": {
+    "segment_3_listing": [
+      [
+        "B142",
+        192
+      ],
+      [
+        "B25D",
+        224
+      ],
+      [
+        "B33B",
+        768
+      ],
+      [
+        "B84D",
+        64
+      ],
+      [
+        "B87B",
+        64
+      ],
+      [
+        "B9F3",
+        192
+      ],
+      [
+        "BB0E",
+        224
+      ],
+      [
+        "BBEC",
+        640
+      ],
+      [
+        "C1A0",
+        224
+      ],
+      [
+        "BAD7",
+        224
+      ],
+      [
+        "C28A",
+        192
+      ],
+      [
+        "C328",
+        224
+      ],
+      [
+        "C40B",
+        768
+      ],
+      [
+        "CB11",
+        256
+      ],
+      [
+        "CC68",
+        192
+      ],
+      [
+        "CDA3",
+        224
+      ],
+      [
+        "CE81",
+        640
+      ],
+      [
+        "CD40",
+        224
+      ],
+      [
+        "D2F6",
+        192
+      ],
+      [
+        "D55A",
+        224
+      ],
+      [
+        "D63D",
+        768
+      ],
+      [
+        "D3EE",
+        256
+      ],
+      [
+        "D4D9",
+        256
+      ],
+      [
+        "D438",
+        256
+      ],
+      [
+        "E0F5",
+        256
+      ],
+      [
+        "E2BF",
+        256
+      ],
+      [
+        "0E06",
+        64
+      ],
+      [
+        "0E96",
+        192
+      ],
+      [
+        "0FA2",
+        96
+      ],
+      [
+        "1036",
+        128
+      ],
+      [
+        "1B77",
+        192
+      ],
+      [
+        "393C",
+        192
+      ],
+      [
+        "44FF",
+        64
+      ],
+      [
+        "4519",
+        128
+      ],
+      [
+        "45AB",
+        256
+      ],
+      [
+        "470C",
+        64
+      ],
+      [
+        "4C74",
+        256
+      ],
+      [
+        "5C11",
+        96
+      ],
+      [
+        "5C27",
+        128
+      ],
+      [
+        "5D38",
+        96
+      ],
+      [
+        "5D60",
+        128
+      ]
+    ],
+    "segment_1_listing": [
+      [
+        "4EA0",
+        192
+      ],
+      [
+        "4F10",
+        176
+      ],
+      [
+        "5010",
+        112
+      ],
+      [
+        "4BA4",
+        192
+      ],
+      [
+        "4CB1",
+        512
+      ]
+    ],
+    "segment_2": [
+      "0CAA"
+    ],
+    "segment_5": [
+      "05CD",
+      "1B7E",
+      "0271"
+    ]
+  },
+  "static_boundary": "Five world-specific pooled boss constructors, damage/main callbacks, phase/effect children, pool insertion, and completion handoff. Runtime authored timing and presentation-only leaves remain separate."
+}

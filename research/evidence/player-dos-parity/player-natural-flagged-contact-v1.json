@@ -1,0 +1,87 @@
+{
+  "schema": "quiky.player-natural-flagged-contact.v1",
+  "purpose": "Record a natural W1L1 jump through the authored descriptor tile 0x28/40 and its subsequent landing, including the descriptor word consumed by the landing correction.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-natural-flagged-contact-v2.json",
+    "trace_sha256": "dba9590a170051c7ab0c0a0ab96f05bae811e98ea04aeb62f0b57ff3388f4b02",
+    "control_trace": "research/build/traces/player-w1l1-flagged-descriptor-route-v1.json",
+    "control_trace_sha256": "d8dbd33e27867635e4def642268168e9acd2dae76f7862eb0bf877d581c688db",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "f0f00bb8e8e96b3f37458012060b2661aa20502b9ada136228b00fe35bd37126",
+    "map": "research/build/early-assets/W1L1.MAP",
+    "map_sha256": "3d88892d9842c15fb6f860a2d84f3ede0a897175924ea42b2468022182299956"
+  },
+  "method": {
+    "level": "W1L1",
+    "coordinate_patch": null,
+    "route": "20 KBD_right:30 phases, then KBD_right+KBD_space+KBD_up:30, then WAIT:1 phases",
+    "focus": "01F7:3FF8 with complete 0x78-byte record capture",
+    "execute_watches": ["01F7:41C1", "01F7:41CF", "01F7:3D02", "01F7:5CC3"],
+    "collision_event_limit": 8,
+    "collision_repeat_limit": 1
+  },
+  "observations": {
+    "approach_sample": {
+      "sequence": 21,
+      "frame": 620,
+      "position": {"x": 994, "y": 400},
+      "mode": 0,
+      "velocity_y_fixed_signed": 0
+    },
+    "ascent_samples": [
+      {"sequence": 22, "frame": 651, "position": {"x": 1039, "y": 321}, "mode": -1, "velocity_y_fixed_signed": -73728},
+      {"sequence": 26, "frame": 659, "position": {"x": 1047, "y": 316}, "mode": -1, "velocity_y_fixed_signed": -16384}
+    ],
+    "natural_41c1_control": {
+      "sequence": 30,
+      "frame": 659,
+      "watch_order": ["01F7:41C1", "01F7:41CF"],
+      "registers_41c1": {"eax": 0, "ebx": 9310, "ecx": 9310, "edx": 0, "esi": 751, "es": 639, "flags": 12870},
+      "registers_41cf": {"eax": 0, "ebx": 9310, "ecx": 9310, "edx": 0, "esi": 751, "es": 639, "flags": 12870},
+      "interpretation": "The generic 41C1/41CF path is naturally reachable on this route before the later descent; this observation alone is not classified as a ceiling hit."
+    },
+    "landing": {
+      "pre_sample": {
+        "sequence": 43,
+        "frame": 693,
+        "position": {"x": 1049, "y": 391},
+        "mode": 1,
+        "velocity_y_fixed_signed": 262144
+      },
+      "post_sample": {
+        "sequence": 44,
+        "frame": 695,
+        "position": {"x": 1049, "y": 395},
+        "mode": 0,
+        "velocity_y_fixed_signed": 0,
+        "velocity_x_fixed_signed": 0
+      },
+      "watch_order": ["01F7:3D02", "01F7:5CC3"],
+      "registers_3d02": {"eax": 68747659, "ebx": 1054, "ecx": 13090, "edx": 16, "esi": 751, "es": 639, "flags": 12802},
+      "registers_5cc3": {"eax": 68747659, "ebx": 1049, "ecx": 13056, "edx": 16, "esi": 751, "es": 639, "flags": 12934},
+      "descriptor_word": "0x0010",
+      "map_cell": {"x": 65, "y": 24, "raw_word": "0x2028", "tile_id": 40},
+      "map_byte_offset": 13100,
+      "descriptor_table_entry": {"tile_id": 40, "word": "0x0010", "offset": 162},
+      "writes_observed": {"mode_after": 0, "velocity_y_fixed_signed_after": 0}
+    }
+  },
+  "interpretation": {
+    "confirmed": [
+      "An unpatched W1L1 route crosses the authored tile 40/0x28 from below during ascent and later lands at x=1049,y=395 on the same map cell.",
+      "The landing correction path executes 3D02 and reads descriptor word 0x0010 through 5CC3 before the player is grounded with zero vertical velocity.",
+      "The authored tile 40/0x28 is traversable from below on this route and supports a descending contact response."
+    ],
+    "not_yet_proven": [
+      "A general one-way rule for every descriptor with bit 0x20 or 0x40.",
+      "Natural ceiling behavior for the 41C1/41CF response.",
+      "The semantic names floor, ceiling, or one-way for descriptor bits in other table entries."
+    ]
+  },
+  "status": "natural_tile40_landing_and_descriptor_word_confirmed",
+  "next": "Use a second authored descriptor route or a normal reachable low ceiling to distinguish the remaining descriptor polarity and ceiling cases."
+}

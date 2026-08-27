@@ -8,7 +8,11 @@ TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from player_parity_compare import compare  # noqa: E402
-from player_replay_manifest import build_manifest, write_tsv  # noqa: E402
+from player_replay_manifest import (  # noqa: E402
+    ReplayManifestError,
+    build_manifest,
+    write_tsv,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,6 +54,25 @@ class PlayerParityWorkflowTests(unittest.TestCase):
             manifest = build_manifest(path)
         self.assertEqual(manifest["rows"][0][1], "36")
 
+    def test_dispatch_bearing_fixture_uses_complete_v2_schema(self):
+        source = ROOT / "research/build/traces/player-w1l1-callback-aligned-properties-v4.json"
+        manifest = build_manifest(source)
+        self.assertEqual(manifest["schema"], "quiky.player-replay-v2")
+        self.assertEqual(len(manifest["fields"]), 34)
+        self.assertEqual(len(manifest["rows"][0]), 34)
+        self.assertEqual(manifest["rows"][0][31], "1")
+        self.assertFalse(manifest["unmapped_globals"])
+
+    def test_dispatch_bearing_fixture_fails_closed_when_one_field_is_missing(self):
+        source = ROOT / "research/build/traces/player-w1l1-callback-aligned-properties-v4.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        del payload["events"][0]["samples"][0]["globals"]["dispatch_aux_4ff8"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "missing-dispatch.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaises(ReplayManifestError):
+                build_manifest(path)
+
     def test_probe_coordinates_and_occupancy_are_compared(self):
         source = ROOT / "research/build/player-followup-side-rising-falling-v2.json"
         payload = json.loads(source.read_text(encoding="utf-8"))
@@ -89,6 +112,23 @@ class PlayerParityWorkflowTests(unittest.TestCase):
             path.write_text(json.dumps(candidate), encoding="utf-8")
             mismatches = compare(source, path)
         self.assertTrue(any(item["field"] == "probes" for item in mismatches))
+
+    def test_complete_mode_rejects_missing_effect_and_global_arrays(self):
+        source = ROOT / "research/build/player-followup-standing-v1.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        sample = payload["events"][0]["samples"][0]
+        sample["player_callback"].pop("global_writes", None)
+        candidate = json.loads(json.dumps(payload))
+        with tempfile.TemporaryDirectory() as directory:
+            original_path = Path(directory) / "original.json"
+            candidate_path = Path(directory) / "candidate.json"
+            original_path.write_text(json.dumps(payload), encoding="utf-8")
+            candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+            mismatches = compare(original_path, candidate_path,
+                                 require_complete=True)
+        self.assertTrue(any(item["field"] == "global_writes"
+                            and "missing" in item.get("error", "")
+                            for item in mismatches))
 
 
 if __name__ == "__main__":

@@ -86,6 +86,20 @@ bool WorldCollisionView::alignsEightPixelsConfirmed(std::int32_t x,
                descriptor.descriptorWord);
 }
 
+bool WorldCollisionView::transitionDescriptorProbeConfirmed(
+    std::int32_t x, std::int32_t y) const {
+    const MapCell cell = cellAt(floorTile(x), floorTile(y));
+    const TileDescriptor descriptor = descriptorFor(cell);
+    if (!descriptor.valid) {
+        return false;
+    }
+    // 01F7:1BD1 selects the low-nibble bit using the original pixel-word
+    // low bit-3 quadrant and returns CF when that selected bit is set.
+    return PlayerDescriptorRules::blocksProbe(
+        descriptor.descriptorWord, static_cast<std::uint16_t>(x),
+        static_cast<std::uint16_t>(y));
+}
+
 bool WorldCollisionView::mapRawBit4000Confirmed(std::int32_t x,
                                                 std::int32_t y) const {
     const MapCell cell = cellAt(floorTile(x), floorTile(y));

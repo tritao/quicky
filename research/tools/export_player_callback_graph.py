@@ -32,6 +32,11 @@ def export(manifest: dict) -> dict:
     for source in manifest["functions"]:
         source_segment, source_offset = address(source["address"])
         for callee in source["callees"]:
+            # Opaque runtime-selected targets are retained in the closure
+            # ledger as address-named metadata, but have no static call-site
+            # edge to export.
+            if isinstance(callee, str):
+                continue
             target_segment, target_offset = address(callee["address"])
             for raw_site in callee["site"].split(","):
                 call_site = int(raw_site, 16)

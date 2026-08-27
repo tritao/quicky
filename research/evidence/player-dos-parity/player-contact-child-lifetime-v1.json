@@ -1,0 +1,57 @@
+{
+  "schema": "quiky.player-contact-child-lifetime.v1",
+  "purpose": "Protected-mode lifetime trace for pooled 01F7:6328 children created by the player contact probe.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "/tmp/player-contact-child-lifetime-v16.json",
+    "trace_sha256": "a19ee2721a41d24646eb8ab2e49fda4e120d26feea76ba7179db48d4912f36fb",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "c1005916f774a6c7fed48b9ddb6317a1edd491569c84633822cce08c3f35e0e5"
+  },
+  "method": {
+    "level": "W1L1",
+    "focus": "01F7:6328 pooled callback; object focus without a fixed offset",
+    "trigger": "one live 01F7:3FF8 callback with MAP cell (8,25) temporarily changed to tile 5",
+    "patch_scope": "the MAP patch was restored at the player callback near return before lifetime sampling",
+    "samples": 40,
+    "scheduler_capture": "both 0x7566 and 0x7766 banks at each focused callback",
+    "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --timeout 120 --player-trace --player-object-focus 0x6328 --player-persistent-map-patch --player-map-patch-cell 8,25=5 --player-capture-record --player-minimal-callback-capture --player-scheduler-only --player-samples 40 --player-frames-between 0 --output /tmp/player-contact-child-lifetime-v16.json"
+  },
+  "observations": {
+    "children": [
+      {
+        "pool_offset": "0x78",
+        "callback": "01F7:6328",
+        "initial_state": {"0x2e": 0, "0x32": 0},
+        "terminal_sample": {"pre_0x2e": 3, "pre_0x32": 0, "post_0x2e": 4, "post_0x32": 8, "post_0x18": 0},
+        "callback_invocations_observed": 28
+      },
+      {
+        "pool_offset": "0xf0",
+        "callback": "01F7:6328",
+        "initial_state": {"0x2e": 1, "0x32": 8},
+        "terminal_sample": {"pre_0x2e": 3, "pre_0x32": 0, "post_0x2e": 4, "post_0x32": 8, "post_0x18": 0},
+        "callback_invocations_observed": 12
+      }
+    ],
+    "countdown": "Each callback decrements +0x32; a negative result reloads +0x32=8 and increments +0x2e.",
+    "scheduler": "The two live children are published in the alternating scheduler banks; dispatch order can interleave them, but neither slot is cleared before +0x2e reaches 4.",
+    "terminal_release": "The callback writes +0x18=0 when +0x2e becomes 4; the pool slot is then eligible for reuse.",
+    "child_side_effect": "The focused child reaches 01F7:16CE on its periodic state transition; the child itself performs no solid-collision probe or direct player/global movement write."
+  },
+  "interpretation": {
+    "confirmed": [
+      "The 01F7:6328 pooled callback lifetime and terminal callback-clear condition match the protected-mode static body.",
+      "Object focus must treat 01F7:6328 as a pooled callback distinct from the direct player contact-probe callsite.",
+      "Scheduler-bank alternation changes observation order but not the callback state machine."
+    ],
+    "does_not_prove": [
+      "retail descriptor classification or one-way semantics",
+      "whether the 01F7:16CE MAP rewrite can later change a solid descriptor in normal gameplay",
+      "lifetime behavior of unrelated 0E06-selected callback families"
+    ]
+  }
+}

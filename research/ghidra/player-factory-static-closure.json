@@ -1,0 +1,145 @@
+{
+  "schema": "quiky.player-factory-static-closure.v1",
+  "purpose": "Focused protected-mode Ghidra audit of 01F7:0E06 caller-selected object families reachable from the player callback or player lifecycle.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "pipeline": "research/tools/run_player_external_closure.py using Ghidra raw NE segment import, no-analysis annotation/decompiler/listing export, and research/tools/ne_relocs.py for far-call identity",
+    "runner": "research/tools/run_player_external_closure.py",
+    "external_ledger": "research/ghidra/player-external-state-closure.json"
+  },
+  "allocator": {
+    "address": "01F7:0E06",
+    "name": "object_pool_factory_0E06",
+    "calling_convention": "far; AX=requested callback offset; DX preserved but unused by allocator body; ES:DI=first free pooled record on success",
+    "record_stride": "0x78",
+    "scan_count": 64,
+    "common_writes": [
+      "+0x18=AX",
+      "+0x1C=0x1997",
+      "+0x28=1",
+      "+0x17=1",
+      "+0x12=0xFFFF",
+      "+0x1A=0xFFFF",
+      "+0x14=0"
+    ],
+    "callees": ["01F7:1036"],
+    "return_flags": "no caller-consumed flags proven; allocation failure enters the VGA error loop",
+    "evidence": [
+      "ghidra:0E06-0E65",
+      "ghidra:1036",
+      "research/notes/player-factory-static-decomp.cpp",
+      "research/ghidra/player-external-state-closure.json"
+    ]
+  },
+  "reachable_factory_calls": [
+    {
+      "address": "01F7:0B6F",
+      "caller": "01F7:0B56",
+      "caller_name": "player_object_reinitialize_0B56",
+      "callback_ax": "0x3F27",
+      "callback_dx": "0x0000",
+      "post_allocation_writes": ["DS:881A=DI", "object +0x17=2"],
+      "player_global_writes": ["DS:881A", "DS:7966=0", "DS:7566=FFFF", "DS:7766=FFFF"],
+      "next_callback": "01F7:3FF8",
+      "simulation_feedback": "direct player object publication and phase-2 scheduler membership",
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:0B56-0B7D", "reloc:01F7:0B6F->01F7:0E06", "research/notes/selector-handoff-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:1717",
+      "caller": "01F7:16CE",
+      "caller_name": "map_effect_tile_rewrite_16CE",
+      "callback_ax": "0x10B5",
+      "callback_dx": "0x11B2",
+      "post_allocation_writes": ["object +0x2C=3", "object +0x12=FFFF", "object +0x02=AX<<16", "object +0x06=BX<<16", "object +0x2E=CX"],
+      "player_global_writes": ["selected MAP cell low nine bits", "pooled object through 0E06"],
+      "next_callback": "01F7:10B5 -> 01F7:1693",
+      "simulation_feedback": "MAP rewrite can affect later descriptor queries; 10B5 body has no solid probe",
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:16CE-1747", "reloc:01F7:1717->01F7:0E06", "research/notes/player-factory-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:1E89",
+      "caller": "01F7:1E04",
+      "caller_name": "instantiate_are_declaration_1E04",
+      "callback_ax": "runtime: DS:81D2 + 4*type",
+      "callback_dx": "0x0000",
+      "post_allocation_writes": ["object +0x17=DS:81D2[type]+2", "object +0x1A=FS ARE record offset", "object +0x06=(record Y+DS:3716)<<16", "object +0x02=(record X+DS:3714)<<16"],
+      "player_global_writes": ["FS ARE claim byte", "pooled object through 0E06"],
+      "next_callback": "runtime-selected callback",
+      "simulation_feedback": "object scheduler membership and callback state are published; callback meaning remains runtime data",
+      "confidence": "confirmed_static_data_driven_target",
+      "evidence": ["ghidra:1E04-1EC3", "reloc:01F7:1E89->01F7:0E06", "research/notes/selector-handoff-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:390E",
+      "caller": "01F7:38EC",
+      "caller_name": "callback_contact_effect_dispatch_38EC",
+      "callback_ax": "0x4519",
+      "callback_dx": "0x0000",
+      "post_allocation_writes": ["object +0x29=player +0x28", "object +0x17=1", "object +0x06=player Y", "object +0x02=player X"],
+      "player_global_writes": ["player +0x3C latch", "pooled object through 0E06"],
+      "next_callback": "01F7:4519 -> 45AB -> 470C",
+      "simulation_feedback": "no direct player movement, descriptor, or callback-global simulation write",
+      "confidence": "confirmed_static_effect_boundary",
+      "evidence": ["ghidra:38EC-393B", "reloc:01F7:390E->01F7:0E06", "research/evidence/player-dos-parity/player-contact-effect-route-v1.json"]
+    },
+    {
+      "address": "01F7:6432",
+      "caller": "01F7:6370",
+      "caller_name": "probe_contact_tile_offset_6370",
+      "callback_ax": "0x6328",
+      "callback_dx": "0x0000",
+      "post_allocation_writes": ["object +0x38=DS:5000", "object +0x2A=DS:5001", "object +0x02=owner X+(DS:5003<<16)", "negative mode: object +0x06=DS:4FFE<<16", "ordinary mode: object +0x06=0 and +0x08=DS:4FFE", "object +0x32/+0x2E/+0x36=0"],
+      "player_global_writes": ["DS:4FFE", "DS:5000", "DS:5001", "DS:612E=7", "pooled object through 0E06"],
+      "next_callback": "01F7:6328 -> 16CE",
+      "simulation_feedback": "contact child can rewrite MAP through 16CE; no direct player-record write",
+      "confidence": "confirmed_static_runtime_frequency_open",
+      "evidence": ["ghidra:6370-6483", "reloc:01F7:6432->01F7:0E06", "research/notes/player-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:654E",
+      "caller": "01F7:648E",
+      "caller_name": "probe_contact_right_648E",
+      "callback_ax": "0x6328",
+      "callback_dx": "0x0000",
+      "post_allocation_writes": ["object +0x38=DS:5000", "object +0x2A=DS:5001", "object +0x02=owner X+5 pixels", "object +0x08=DS:4FFE", "object +0x06=0", "object +0x32/+0x2E/+0x36=0"],
+      "player_global_writes": ["DS:4FFE", "DS:5000", "DS:5001", "DS:612E=7", "pooled object through 0E06"],
+      "next_callback": "01F7:6328 -> 16CE",
+      "simulation_feedback": "same MAP-writing contact-child route, with fixed +5 X placement",
+      "confidence": "confirmed_static_runtime_frequency_open",
+      "evidence": ["ghidra:648E-659B", "reloc:01F7:654E->01F7:0E06", "research/notes/player-static-decomp.cpp"]
+    }
+  ],
+  "wrapper_contracts": [
+    {
+      "address": "01F7:6484",
+      "name": "probe_contact_plus5_6484",
+      "inputs_outputs": "writes DS:5003=5, calls 6370, forwards CF",
+      "factory_edge": "01F7:6432 through 6370"
+    },
+    {
+      "address": "01F7:648E",
+      "name": "probe_contact_right_648E",
+      "inputs_outputs": "duplicates the fixed +5 probe and owns the 654E factory edge",
+      "factory_edge": "01F7:654E"
+    }
+  ],
+  "out_of_scope_rule": "All other 0E06 relocations are caller-owned families outside this player/lifecycle closure. They are not required to classify the player callback unless a held-out parity mismatch attributes a player/global divergence to one of them.",
+  "stopping_rule": "Stop after the caller-selected callback, post-allocation writes, scheduler publication, and any MAP/player/global feedback are explicit. Do not assign semantic family names to runtime DS:81D2 callbacks or expand sound/renderer-only descendants.",
+  "independent_ghidra_check": {
+    "status": "passed",
+    "method": "run_player_external_closure.py exports two independent protected-mode Ghidra projects; NE relocation audit confirms all six focused 0E06 edges",
+    "fresh_output": "/tmp/quiky-player-external-v56",
+    "decomp_sha256": "9e8e22aed0001e54107eb041234e62eadf69b9362773939994c7a5fec6dbc48d",
+    "listing_sha256": "fe8f9169e8d3534d3b612ad0b5a3e0a48c33ac73a930a9f979b9c1def419a871",
+    "decomp_sha256_equal": true,
+    "listing_sha256_equal": true
+  },
+  "note": {
+    "path": "research/notes/player-factory-static-decomp.cpp",
+    "sha256": "c658daf5805f7960a25414a0b8e7c5c7b5c97a3a4ffca90d58479a7f6de80d0e"
+  }
+}

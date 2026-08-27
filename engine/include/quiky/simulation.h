@@ -57,10 +57,11 @@ struct RenderObjectState {
 
 // Narrow ordering trace for callbacks that can feed player simulation. It is
 // separate from schedulerCallbacks because the player callback is invoked by
-// the simulation boundary while moving-platform callbacks are currently
-// executed by LevelSession before that boundary.
+// the simulation boundary while moving-platform and selected gameplay-object
+// callbacks are executed by LevelSession before that boundary.
 enum class SimulationCallbackPhase {
     MovingPlatformBeforePlayer,
+    GameplayObjectBeforePlayer,
     PlayerUpdate,
 };
 

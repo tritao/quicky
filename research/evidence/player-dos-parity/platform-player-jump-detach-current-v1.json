@@ -1,0 +1,96 @@
+{
+  "schema": "quiky.player-platform-jump-detach-current.v1",
+  "purpose": "Controlled protected-mode platform/player handoff showing carry consumption and jump detachment at the real scheduler boundary.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "research/build/entity-3d-real-w4l1/baseline/game/NESTLE.DAT",
+    "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85",
+    "trace": "research/build/platform-player-jump-current-v2.json",
+    "trace_sha256": "64f8062157f522bfe20a8e7815edf8bd3b534e003def1ce7d8e80146d4a84013",
+    "trace_script": "research/automation/quiky_object_behavior_trace.lua",
+    "trace_script_sha256": "403c2ec31102294955da6f36ae54900ae836deb303a87bb281d4a48e8c532ddf",
+    "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae",
+    "ghidra_language": "x86:LE:16:Protected Mode"
+  },
+  "method": {
+    "level": "W4L1",
+    "platform_record_offset": "0x1898",
+    "platform_type": "0x3D",
+    "platform_callback": "01F7:9DC7",
+    "player_callback": "01F7:3FF8",
+    "controls": [
+      "platform aligned to the live player at x=-8, y=-8 before the first callback",
+      "KBD_space held through the first platform/player handoff",
+      "no executable or MAP mutation"
+    ],
+    "record_capture": "The nested player boundary captures the complete 0x78-byte player record before and after each callback, plus carry and input globals."
+  },
+  "observations": [
+    {
+      "sample": 1,
+      "scheduler_order": ["01F7:9DC7", "01F7:A075", "01F7:A0B2", "01F7:3FF8"],
+      "platform_position": {"before": [504, 392], "after": [504, 392]},
+      "platform_writes": [
+        {"offset": "0x2A", "before": "0x0000", "after": "0x00F8"},
+        {"offset": "0x2C", "before": "0x0000", "after": "0x0188"},
+        {"offset": "0x59", "before": "0x01", "after": "0x00"},
+        {"offset": "0x5A", "before": "0x00", "after": "0xFF"}
+      ],
+      "globals_before_player": {
+        "keyboard_flags": "0x0020",
+        "DS:5006": "0xFFFF",
+        "DS:8816": "0x00000001",
+        "DS:8812": "0xFFF80001"
+      },
+      "globals_after_player": {
+        "keyboard_flags": "0x0020",
+        "DS:5006": "0xFFFF",
+        "DS:8816": "0x00000000",
+        "DS:8812": "0x00000000"
+      },
+      "player_before": {
+        "record_size": "0x78",
+        "record_sha256": "d27c8810f6025ecc78294f2c70a77c2396c57ccd498b66631c63fa197e567bb6",
+        "position_fixed": ["0x02000000", "0x01900000"],
+        "velocity_fixed": ["0x00000000", "0x00000000"],
+        "mode_0x37": "0x00"
+      },
+      "player_after": {
+        "record_size": "0x78",
+        "record_sha256": "048b7845b88d82d82c57f12f782c95076a407210a0de5932c1be450b482bc204",
+        "position_fixed": ["0x02000001", "0x01880002"],
+        "velocity_fixed": ["0x00000000", "0xFFFEC800"],
+        "mode_0x37": "0xFF"
+      },
+      "interpretation": "A075/A0B2 publishes the platform carry before 3FF8; 3FF8 consumes and clears both carry words while held jump input selects the airborne mode and upward velocity."
+    },
+    {
+      "sample": 2,
+      "scheduler_order": ["01F7:9DC7", "01F7:3FF8"],
+      "platform_position": {"before": [504, 392], "after": [504, 392]},
+      "platform_writes": [
+        {"offset": "0x52", "before": "0x0014", "after": "0x0013"},
+        {"offset": "0x58", "before": "0x0000", "after": "0x0014"},
+        {"offset": "0x5A", "before": "0xFF", "after": "0x00"}
+      ],
+      "carry_before_player": {"DS:8816": "0x00000000", "DS:8812": "0x00000000"},
+      "player_mode_before_after": ["0xFF", "0xFF"],
+      "interpretation": "The platform enters the 0x14-tick recontact cooldown; the player remains airborne with no new platform carry."
+    }
+  ],
+  "conclusion": {
+    "confirmed": [
+      "The scheduler invokes the platform callback before the player callback at the combined handoff.",
+      "Published platform carry is consumed in the same player callback and cleared before its return.",
+      "Held jump input can transition an ordinary player from mode 0x00 to mode 0xFF while detaching from the platform carry path.",
+      "The platform callback itself does not directly write the player record."
+    ],
+    "not_proven": [
+      "Natural authored platform landing or inherited velocity.",
+      "Side/ceiling crushing.",
+      "Attached-player behavior after platform culling."
+    ],
+    "confidence": "confirmed_controlled_scheduler_carry_consumption_and_jump_detachment"
+  }
+}

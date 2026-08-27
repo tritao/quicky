@@ -1,0 +1,55 @@
+{
+  "schema": "quiky.w1l2-wurm2-target-tail-native-evidence.v1",
+  "scope": "01F7:707B target-row consumer after 01F7:6DC4",
+  "source": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_listing": "research/build/bump-static-closure-v4/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+    "ghidra_listing_sha256": "f6e9fe2ab09f45f95a1e5ded750dc63b33eb7a8aace3567c901733364c98c6ef",
+    "static_note": "research/notes/wurm2-static-decomp.cpp",
+    "static_note_sha256": "624859cee562c1f6a70d0aea33f02a9346e9d36d5d315138f2c25a945566bdf6",
+    "native_source": "engine/src/level.cpp",
+    "native_source_sha256": "d621fb9e23f01c4d6eee721809fd32c6bd75f057f2cd92c1871a18030bd0e418",
+    "native_test_source": "engine/tests/test_formats_faithful.cpp",
+    "native_test_source_sha256": "04f92ae32551321e9e8df33fd41911bb80054abbb691aa579f65c1cb373d49ec"
+  },
+  "static_contract": {
+    "entry": "01F7:707B",
+    "input": "ES:DI WURM2 pooled record; DS:8806 active count; DS:8808 capacity; DS:87DE four-byte X/Y rows",
+    "cursor": "object +0x30; if signed cursor >= signed capacity, write zero before selecting row",
+    "window": {
+      "x": "target_x in (object_x - 0x19, object_x + 0x19)",
+      "y": "target_y in (object_y - 0x0F, object_y + 5)"
+    },
+    "writes": [
+      "matching row X word := 0",
+      "object +0x18 := 0x4AB3 on strict overlap",
+      "object +0x30 := selected index + 1",
+      "5D60 advances the renderer-owned descriptor after the target scan"
+    ],
+    "feedback": "The row clear and callback publication can affect the next object callback; 4AB3 child/effect lifetime is a separate contract."
+  },
+  "native_contract": {
+    "level_state": "LevelGameplayState.sharedTargetActiveCount8806/sharedTargetCapacity8808/sharedTargetRows87de",
+    "object_state": "LevelEntity.targetCursor30 and contactCallback",
+    "missing_ring": "active count zero skips the tail",
+    "presentation_boundary": "5D60 and the 4AB3 response object are not synthesized"
+  },
+  "validation": {
+    "test": "testRecoveredWurm2TargetTailContract",
+    "command": "cmake --build build/engine -j2 && ctest --test-dir build/engine --output-on-failure",
+    "result": "8/8 CTest targets passed",
+    "coverage": [
+      "non-matching row leaves X/Y unchanged",
+      "strict overlap clears X only",
+      "cursor advances after both match and non-match",
+      "cursor equal to capacity wraps to row zero",
+      "4AB3 callback address is published"
+    ]
+  },
+  "unresolved": [
+    "Natural DOS W1L2 sample with DS:8806 nonzero and a WURM2 target overlap",
+    "Player 4519 producer publication into the native shared ring",
+    "4AB3 -> 4C5D child/effect allocation and lifetime"
+  ],
+  "confidence": "confirmed_static_and_native_contract_regression"
+}

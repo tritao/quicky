@@ -1,0 +1,40 @@
+{
+  "schema": "quiky.player-w1l2-session-parity.v1",
+  "purpose": "Record the first real W1L2 DOS-to-native player callback replay with complete player records and ordered probes.",
+  "source": {
+    "dos_trace": "research/build/player-w1l2-session-probes-v1.json",
+    "held_out_dos_trace": "research/build/player-w1l2-session-probes-v2.json",
+    "dos_command": "python3 research/tools/quikytrace.py --launch --headless --runtime-dir game --select-level W1L2 --selector-frames 60 --output research/build/player-w1l2-session-probes-v1.json --player-trace --player-focus-callback --player-samples 4 --player-frames-between 1 --player-capture-record --player-collision-focus --player-property-focus",
+    "parity_command": "python3 research/tools/player_callback_parity.py --original research/build/player-w1l2-session-probes-v1.json --archive game/NESTLE.DAT --map W1L2.MAP --binary build/engine/quiky-player-trace --keep-manifest research/build/player-w1l2-session-probes-v1.replay.tsv",
+    "comparator": "research/tools/player_parity_compare.py"
+  },
+  "coverage": {
+    "callbacks": 4,
+    "complete_player_records": true,
+    "ordered_collision_probes": true,
+    "callback_global_writes": true,
+    "effects": false,
+    "factory_objects": false
+  },
+  "result": {
+    "diagnostic_parity": "pass",
+    "post_record_mismatches": 0,
+    "probe_mismatches": 0,
+    "global_write_mismatches": 0,
+    "first_divergence": "none within captured callback fields",
+    "held_out_validation": {
+      "callbacks": 8,
+      "trace": "research/build/player-w1l2-session-probes-v2.json",
+      "diagnostic_parity": "pass",
+      "post_record_mismatches": 0,
+      "probe_mismatches": 0,
+      "global_write_mismatches": 0
+    }
+  },
+  "unresolved_boundaries": [
+    "DOS trace did not publish factory_objects or effect lists for these ordinary callbacks; --require-complete remains intentionally fail-closed.",
+    "W1L2 object scheduler/session parity beyond the player callback",
+    "WURM2 target-ring rows and contact tail when a natural target/contact is reached"
+  ],
+  "status": "four real W1L2 player callbacks match C++ exactly for complete records, ordered probes, and callback-global writes"
+}

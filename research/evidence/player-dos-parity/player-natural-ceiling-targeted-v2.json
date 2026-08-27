@@ -1,0 +1,58 @@
+{
+  "schema": "quiky.player-natural-ceiling-targeted.v2",
+  "purpose": "Unpatched W1L1 ascent control aimed at the authored descriptor structures near x=1040..1168; tests whether a jump begun before that corridor reaches the statically identified blocked-ascent predecessor.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-natural-ceiling-targeted-v2.json",
+    "trace_sha256": "6228199f4f1ed3b9b44de4556a60203fd1757f7cacb8ac9a1d720674f770f168",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "static_contract": "research/ghidra/player-callback-focused-audit.json"
+  },
+  "method": {
+    "level": "W1L1",
+    "archive_or_executable_patches": false,
+    "input": "KBD_right sampled for 30 guest frames; KBD_right+KBD_space begins at sample 23, after the baseline reaches x=1029",
+    "samples": 45,
+    "watched_addresses": [
+      "01F7:4323",
+      "01F7:4368",
+      "01F7:3986",
+      "01F7:41C1",
+      "01F7:41CF"
+    ]
+  },
+  "observations": {
+    "trajectory": [
+      {"sample": 22, "position": [1029, 400], "mode": 0, "velocity_y_fixed_signed": 0},
+      {"sample": 23, "position": [1074, 321], "mode": -1, "velocity_y_fixed_signed": -73728},
+      {"sample": 24, "position": [1120, 356], "mode": 1, "velocity_y_fixed_signed": 225280},
+      {"sample": 25, "position": [1165, 338], "mode": 0, "velocity_y_fixed_signed": -49152}
+    ],
+    "target_structure_crossing": "The jump begins before the authored x=1040..1168 structure and reaches x=1074,y=321 while in negative mode. The sampled route then leaves the negative-mode path without reaching 4368.",
+    "branch_hits": {
+      "4323": 1,
+      "4368": 0,
+      "3986": 1,
+      "41C1": 0,
+      "41CF": 0
+    },
+    "mode_sequence": "The sampled ascent enters mode -1 at x=1074 and the next sampled callback is mode +1 at x=1120; no blocked-ascent response or landing response is observed in the watched addresses."
+  },
+  "conclusion": {
+    "status": "negative_for_sampled_authored_x1040_ascent_route",
+    "confirmed": [
+      "The unpatched route can initiate a jump before the authored x=1040..1168 corridor and reach the 01F7:4323 negative-mode entry.",
+      "This sampled route does not reach the statically identified 01F7:4368 blocked-ascent predecessor.",
+      "The trace does not justify a floor, ceiling, or one-way semantic name for descriptor bits 0x20 or 0x40."
+    ],
+    "still_open": [
+      "A natural authored ceiling trajectory that enters 4326 or 4368.",
+      "General descriptor floor/ceiling/one-way classification.",
+      "Second-position held-out natural ceiling validation."
+    ],
+    "evidence_policy": "Retain as a natural ascent negative control; do not promote the static blocked-ascent response or rename descriptor bits from this route."
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "schema": "quiky.player-5937-runtime-target-w1l1.v1",
+  "purpose": "Target-inclusive Protected Mode entry/return trace for the runtime callback selected by 01F7:0598 during an ordinary W1L1 player callback.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "trace": "/tmp/player-5937-runtime-target-v3.json",
+    "trace_sha256": "4b67593418dad24cb9a0b3dccb42491334bf15cac744ab4c039c97614225234d",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "8ae7890efea1e0b68573da944fb5e0f5e300f9ef11b6549e31a4f42ec8274124",
+    "ghidra_language": "x86:LE:16:Protected Mode"
+  },
+  "method": {
+    "level": "W1L1",
+    "focus": "01F7:3FF8 player callback with execute watches on 5937, 386F, 0442, and the resolved target",
+    "stack_argument_rule": "At 01F7:0442 entry, [BP+06] is read from SS:(ESP+4) before the callee prologue; EBX is the middle argument at [BP+08] and is not the selector.",
+    "ordinary_sample": "one unpatched callback sample; no coordinate or MAP patch",
+    "return_capture": "the target far return address is read from SS:ESP, validated against the protected-mode selector, and armed before continuing"
+  },
+  "dispatch": {
+    "caller": "01F7:0442",
+    "selector_argument_bp_06": "0x01FF",
+    "caller_registers": {"AX": "0x0074", "BX": "0x0006", "CX": "0x01FF"},
+    "record_table_index": 189,
+    "record": {"selector": "0x028F", "offset": "0x207C", "size": "0x2C"},
+    "record_callback": {"segment": "0x14A7", "offset": "0x1258"},
+    "target_return": {"segment": "0x01F7", "offset": "0x059B"}
+  },
+  "target_contract": {
+    "address": "14A7:1258",
+    "name": "address_named_loaded_callback_14A7_1258",
+    "calling_convention": "runtime-loaded far callback; entry uses the dispatched ES:DI object and returns far to 01F7:059B",
+    "entry_registers": {"EAX": "0x00000011", "EBX": "0x00000000", "ECX": "0x00000000", "EDX": "0x001C03C5", "ESI": "0x0000022D", "EDI": "0x0000207C", "ES": "0x028F", "DS": "0x014F"},
+    "dispatched_object": {"selector": "0x028F", "offset": "0x207C", "record_size": "0x78", "record_differences": []},
+    "player_context": {"selector": "0x027F", "offset": "0x0000", "record_size": "0x78", "record_differences": []},
+    "original_data_selector": "0x0237",
+    "original_data_differences": [],
+    "return_registers": {"CS": "0x01F7", "EIP": "0x059B", "DS": "0x014F", "ES": "0x028F", "DI": "0x207C"},
+    "classification": "contract",
+    "confidence": "confirmed_for_one_ordinary_W1L1_runtime_target",
+    "feeds_back_into_player_simulation": false
+  },
+  "interpretation": {
+    "confirmed": [
+      "The actual 0442 selector is [BP+06]=0x01FF, not EBX=0x0006.",
+      "The ordinary W1L1 record resolves to loaded far callback 14A7:1258.",
+      "The target returns to 01F7:059B and leaves the dispatched object, complete player record, and recovered original-DS simulation words unchanged.",
+      "The archived selector-5/selector-6 and 04DF/0517 target attributions were caused by indexing with the wrong 0442 argument and are superseded, not deleted."
+    ],
+    "does_not_prove": [
+      "Behavior of other runtime DS:6D8A records or targets selected by other levels, actions, or state.",
+      "That every loaded callback is presentation-only outside this ordinary W1L1 target."
+    ]
+  }
+}

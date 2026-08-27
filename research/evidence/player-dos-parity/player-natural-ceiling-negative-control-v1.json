@@ -1,0 +1,58 @@
+{
+  "schema": "quiky.player-natural-ceiling-negative-control.v1",
+  "purpose": "Unpatched W1L3 contact control distinguishing the ordinary 41CF path from the still-unproven 4368 ceiling predecessor.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l3-natural-ceiling-approach-v4.json",
+    "trace_sha256": "dcb811f116e45814bc3b868d673606ecfbde3295e120f9c4906ee317c432efc3",
+    "automation_script": "research/automation/quiky_player_trace.lua",
+    "automation_script_sha256": "39c96e3852d17d58833ae2b99bf8d5f9a7ef38578fcabbe2bfec286a95c1c32c"
+  },
+  "method": {
+    "level": "W1L3",
+    "map_or_executable_patches": false,
+    "input_phases": [
+      "KBD_right:40",
+      "KBD_right+KBD_space+KBD_up:1",
+      "KBD_right:1 (repeated)"
+    ],
+    "watched_addresses": [
+      "01F7:4323",
+      "01F7:3986",
+      "01F7:4363",
+      "01F7:4366",
+      "01F7:4368",
+      "01F7:41C1",
+      "01F7:41CF"
+    ]
+  },
+  "observations": {
+    "samples": 32,
+    "ordinary_contact": {
+      "address": "01F7:41CF",
+      "sample": 3,
+      "frame": 43,
+      "position_fixed": [12945408, 32505856],
+      "mode_after": 0,
+      "vertical_velocity_after": 0
+    },
+    "ceiling_predecessor_4368_hits": 0,
+    "shared_response_41C1_hits": 0,
+    "ascent_probe_pairs": 0,
+    "post_contact": "The following samples enter mode +1 with positive vertical velocity and increasing Y; this is the ordinary falling route, not a blocked-ascent response."
+  },
+  "conclusion": {
+    "confirmed": [
+      "This unpatched route is a non-ceiling control.",
+      "41CF is reachable during an ordinary contact/transition route without 4368 or 41C1."
+    ],
+    "not_proven": [
+      "Natural authored ceiling behavior at 4368 -> 41C1/41CF.",
+      "General descriptor one-way or polarity classification."
+    ],
+    "confidence": "confirmed_negative_control_only"
+  }
+}

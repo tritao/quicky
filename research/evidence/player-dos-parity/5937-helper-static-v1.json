@@ -1,0 +1,58 @@
+{
+  "schema": "quiky.player-5937-helper-static.v1",
+  "purpose": "Mechanically audited Protected Mode contract for the complete direct 01F7:5937 body, excluding the runtime-selected nested callback at 01F7:0598.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "listing": "/tmp/quiky-player-external-targeted-v65/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+    "listing_range": "01F7:5937-5BED",
+    "independent_exports": "A/B protected-mode exports matched",
+    "note": "research/notes/player-helper-5937-static-decomp.cpp"
+  },
+  "contract": {
+    "address": "01F7:5937",
+    "name": "update_auxiliary_player_dispatch_5937",
+    "classification": "contract",
+    "calling_convention": "far; called from 01F7:3FF8 with ES:DI object context and no stack arguments; RETF at 5BED; caller consumes neither AX nor flags",
+    "inputs": ["DS:85DA", "DS:60D8", "DS:60DA", "DS:881C", "DS:8822", "DS:880A", "DS:880C", "DS:4FF2", "DS:4FF6", "DS:4FF8", "DS:4FFA"],
+    "outputs": "No player-record output. Direct writes are DS:60DA, DS:4FF2, DS:4FF8, and DS:4FFA. DS:4FF6 is read but not written by 5937.",
+    "player_reads": [],
+    "player_writes": [],
+    "global_reads": ["DS:85DA", "DS:60D8", "DS:60DA", "DS:881C", "DS:8822", "DS:880A", "DS:880C", "DS:4FF2", "DS:4FF6", "DS:4FF8", "DS:4FFA"],
+    "global_writes": ["DS:60DA", "DS:4FF2", "DS:4FF8", "DS:4FFA"],
+    "probe_coordinates": [],
+    "scheduler_position": "First operation in the player callback, before the DS:89EA transition gate and before movement/collision work",
+    "object_effects": "Calls 01F7:386F for changed dispatch bits and auxiliary score/count/lives/ammo records; any pooled object or renderer effect is selected by the nested 0442/0598 resource callback",
+    "feeds_back_into_simulation": "The direct body has no player or callback-global simulation write. The only unresolved feedback edge is the runtime-selected far callback reached through 0442:0598.",
+    "changed_bit_dispatch": [
+      {"bit": "0x01", "ax": "0x0109", "bx": "0x0006", "cx": "0x026D", "site": "01F7:5959-5965"},
+      {"bit": "0x02", "ax": "0x0113", "bx": "0x0006", "cx": "0x026E", "site": "01F7:5972-597E"},
+      {"bit": "0x04", "ax": "0x011A", "bx": "0x0006", "cx": "0x026F", "site": "01F7:598B-5997"},
+      {"bit": "0x08", "ax": "0x0121", "bx": "0x0006", "cx": "0x0270", "site": "01F7:59A4-59B0"},
+      {"bit": "0x10", "ax": "0x0128", "bx": "0x0006", "cx": "0x0271", "site": "01F7:59BD-59C9"},
+      {"bit": "0x20", "ax": "0x012F", "bx": "0x0006", "cx": "0x0272", "site": "01F7:59D6-59E2"},
+      {"bit": "0x40", "ax": "0x0132", "bx": "0x0006", "cx": "0x0273", "site": "01F7:59EF-59FB"}
+    ],
+    "secondary_dispatch": {
+      "score": "When DS:881C != DS:4FF2, writes DS:4FF2 and dispatches AX=0x00CE/0x00D7/0x00E0/0x00E9/0x00F2/0x00FB, BX=0x0008, CX=successive quotient+0x01F4 for divisors 100000/10000/1000/100/10/1",
+      "display_count": "Compares DS:4FF8 with DS:8822; signed JL selects CX=0x0200 and decrements the published count, otherwise increments and selects CX=0x01FF; AX=0x0062+9*selected_count, BX=0x0006",
+      "lives": "Clamps negative DS:880A to zero for the comparison/write, writes DS:4FFA on change, then dispatches AX=0x00FE/BX=0x0005/CX=0x0031 and AX=0x005A/BX=0x0008/CX=min(raw_DS:880A,9)+0x01F4",
+      "unconditional": "Always dispatches AX=0x003A, BX=0x0005, CX=0x0030",
+      "ammo": "If DS:880C != DS:4FF6, dispatches AX=0x00B4 and 0x00BD, BX=0x0008, CX=quotient/remainder digits+0x01F4; 4FF6 remains a read-only comparison in this body"
+    },
+    "callees": [
+      {"address": "01F7:386F", "name": "publish_view_state_386F", "classification": "contract", "flags": "AX/BX/CX forwarded; nested flags not consumed"},
+      {"address": "01F7:0442 -> 01F7:0598", "name": "address_named_record_callback_call_0598", "classification": "unresolved", "flags": "runtime DS:6D8A record +0x18/+0x1A far callback may have external side effects"}
+    ],
+    "known_callers": ["01F7:3FF8"],
+    "confidence": "direct_body_and_dispatch_matrix_closed_runtime_0598_target_unresolved",
+    "evidence": ["ghidra:5937-5BED", "ghidra:DumpFocusedDisasm:SEG3 5937/5BED", "reloc:01F7:5937 call from 3FF8", "research/notes/player-helper-5937-static-decomp.cpp"]
+  },
+  "unresolved_boundary": {
+    "address": "01F7:0598",
+    "question": "Can a runtime DS:6D8A record callback write player simulation state?",
+    "static_conclusion": "No direct 5937/386F/0442 body write reaches player state; only runtime callback code can change that conclusion.",
+    "next": "Retain the runtime target address-named and attribute any held-out parity mismatch to it only after a complete target-inclusive trace."
+  }
+}

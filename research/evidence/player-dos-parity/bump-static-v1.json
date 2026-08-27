@@ -1,0 +1,142 @@
+{
+  "schema": "quiky.bump-static.v1",
+  "purpose": "Mechanically audited Protected-Mode Ghidra contract for ARE type 0x34 and its player contact helper.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "pipeline": "research/tools/run_player_external_closure.py --output research/build/player-external-state-closure-recovery-v48",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "independent_projects": "project-a and project-b decompilation/listing outputs matched"
+  },
+  "functions": [
+    {
+      "address": "01F7:9BEE",
+      "name": "initialize_bump_9BEE",
+      "classification": "contract",
+      "calling_convention": "far ARE initializer; ES:DI is the pooled object; no caller-consumed return flags",
+      "inputs_outputs": "Installs callback 01F7:9C0C, performs one word ADD +0x0010 at object +0x04 and two word ADD +0x0010 operations at object +0x08, then calls 01F7:5D38 with SI=0x3568 and returns at 9C0B.",
+      "player_reads": [],
+      "player_writes": [],
+      "global_reads": ["DS:3568 through 01F7:5D38"],
+      "global_writes": ["pooled object +0x04 word", "pooled object +0x08 word", "pooled object +0x18 callback offset"],
+      "probe_coordinates": [],
+      "scheduler_position": "ARE initializer before the object is dispatched as callback 9C0C",
+      "object_effects": "Publishes the BUMP callback, shifts raw object words, and loads the animation descriptor selected by DS:3568.",
+      "feeds_back_into_simulation": "indirectly; callback 9C0C can call the player-state helper 1B5D",
+      "callees": [
+        {"address": "01F7:5D38", "name": "load_animation_descriptor", "classification": "contract", "flags": "SI=0x3568"}
+      ],
+      "callers": [
+        {"address": "address-named ARE dispatcher", "name": "address_named_bump_initializer_caller", "classification": "unresolved"}
+      ],
+      "confidence": "confirmed_static_independent_ghidra_export",
+      "evidence": [
+        "ghidra:player-external-state-closure-recovery-v48/decomp-a/QUIKY_SEG03.bin.c",
+        "ghidra:player-external-state-closure-recovery-v48/decomp-b/QUIKY_SEG03.bin.c",
+        "ghidra:player-external-state-closure-recovery-v48/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+        "ghidra:player-external-state-closure-recovery-v48/disasm-seg3-b/QUIKY_SEG03.bin.asm",
+        "research/notes/bump-static-decomp.cpp"
+      ]
+    },
+    {
+      "address": "01F7:9C0C",
+      "name": "update_bump_9C0C",
+      "classification": "contract",
+      "calling_convention": "far pooled-object callback; ES:DI is the BUMP object; no caller-consumed return flags",
+      "inputs_outputs": "For DS:85DA < 0x32, calls 1DCA and removes the object through 1DEE when CF is set; otherwise advances the object descriptor through 5D60. It then reads AX=player X, BX=player Y, and signed CL=player +0x37 from 39FE. A qualifying strict overlap reloads DS:3568, calls 1B5D, writes DS:612E=4, and calls 01E7:0FCF.",
+      "player_reads": ["persistent player +0x04/+0x08/+0x37 through 01F7:39FE", "DS:89EA through 01F7:39FE"],
+      "player_writes": ["indirect through 01F7:1B5D: +0x0E/+0x2B/+0x37/+0x3A/+0x3B/+0x3E and conditional +0x20/+0x22/+0x24 through 01F7:1B07/5D38"],
+      "global_reads": ["DS:85DA", "DS:3568 through 01F7:5D38", "DS:881A through 01F7:39FE/1B5D", "DS:89EA through 01F7:39FE", "DS:8950 through 01F7:1B07"],
+      "global_writes": ["DS:612E=0x0004", "DS:8950 &= 0xffcf through 01F7:1B07"],
+      "probe_coordinates": ["39FE returns player X/Y; strict object_x-0x19 < player_x < object_x+0x19", "strict object_y-0x08 < player_y < object_y"],
+      "scheduler_position": "Pooled callback pass; under DS:85DA < 0x32, camera cull and animation advancement precede the player overlap path.",
+      "object_effects": "Camera cull clears object +0x18 through 1DEE; qualifying contact reloads object animation descriptor 3568 and dispatches the pending sound/effect sink 0FCF.",
+      "feeds_back_into_simulation": "yes; 1B5D changes persistent player movement/response fields and 612E feeds the effect dispatcher",
+      "callees": [
+        {"address": "01F7:1DCA", "name": "object_camera_visibility_gate_1DCA", "classification": "contract", "flags": "CF selects 1DEE"},
+        {"address": "01F7:1DEE", "name": "deactivate_object_outside_camera_1DEE", "classification": "contract", "flags": "object lifetime"},
+        {"address": "01F7:5D60", "name": "advance_animation_descriptor", "classification": "contract", "flags": "none consumed"},
+        {"address": "01F7:39FE", "name": "read_player_position_and_mode_39FE", "classification": "contract", "flags": "AX/BX/CL"},
+        {"address": "01F7:5D38", "name": "load_animation_descriptor", "classification": "contract", "flags": "SI=0x3568"},
+        {"address": "01F7:1B5D", "name": "apply_bump_player_response_1B5D", "classification": "contract", "flags": "no stable return flags"},
+        {"address": "01E7:0FCF", "name": "dispatch_pending_sound_effect", "classification": "contract", "flags": "presentation/event boundary"}
+      ],
+      "callers": [
+        {"address": "01F7:9BEE", "name": "initialize_bump_9BEE", "classification": "contract"}
+      ],
+      "confidence": "confirmed_static_with_runtime_overlap_and_animation_evidence",
+      "evidence": [
+        "ghidra:player-external-state-closure-recovery-v48/decomp-a/QUIKY_SEG03.bin.c",
+        "ghidra:player-external-state-closure-recovery-v48/decomp-b/QUIKY_SEG03.bin.c",
+        "ghidra:player-external-state-closure-recovery-v48/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+        "ghidra:player-external-state-closure-recovery-v48/disasm-seg3-b/QUIKY_SEG03.bin.asm",
+        "reloc:01F7:9C13->1DCA; 9C1A->1DEE; 9C20->5D60; 9C29->39FE; 9C5A->5D38; 9C5F->1B5D; 9C6A->01E7:0FCF",
+        "research/evidence/entity-bump-evidence.json",
+        "research/entity-action-dispatch-evidence.json",
+        "research/notes/bump-static-decomp.cpp"
+      ]
+    },
+    {
+      "address": "01F7:1B07",
+      "name": "apply_tile_transition_1B07",
+      "classification": "contract",
+      "calling_convention": "far helper; resolves the persistent player through DS:881A; no caller-consumed return flags",
+      "inputs_outputs": "Clears DS:8950 mask bits 0x30, writes player +0x3B=0/+0x3E=0x3E8/+0x37=0xFF/+0x3A=0, copies player +0x64 to +0x0E, and calls 5D38 with SI=0x3160 when DS:8950 bit 0x4 is clear.",
+      "player_reads": ["DS:881A-selected +0x64"],
+      "player_writes": ["+0x0E", "+0x37", "+0x3A", "+0x3B", "+0x3E", "animation fields through 5D38 when enabled"],
+      "global_reads": ["DS:881A", "DS:8950"],
+      "global_writes": ["DS:8950 &= 0xffcf"],
+      "probe_coordinates": [],
+      "scheduler_position": "Synchronous player transition helper reached by special-tile and BUMP contact paths.",
+      "object_effects": "May load player animation descriptor 0x3160; no object allocation.",
+      "feeds_back_into_simulation": "yes; writes the player mode, response, timer, and vertical velocity fields",
+      "callees": [
+        {"address": "01F7:5D38", "name": "load_animation_descriptor", "classification": "contract", "flags": "SI=0x3160 when DS:8950 bit 0x4 is clear"}
+      ],
+      "callers": [
+        {"address": "01F7:3AAE", "name": "dispatch_special_tile_contact_3A8A", "classification": "contract"},
+        {"address": "01F7:1B62", "name": "apply_bump_player_response_1B5D", "classification": "contract"}
+      ],
+      "confidence": "confirmed_static_independent_ghidra_export",
+      "evidence": [
+        "ghidra:player-external-state-closure-recovery-v48/decomp-a/QUIKY_SEG03.bin.c",
+        "ghidra:player-external-state-closure-recovery-v48/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+        "reloc:01F7:1B48->1B07",
+        "research/notes/bump-static-decomp.cpp",
+        "research/notes/player-collision-semantics.md"
+      ]
+    },
+    {
+      "address": "01F7:1B5D",
+      "name": "apply_bump_player_response_1B5D",
+      "classification": "contract",
+      "calling_convention": "far helper with no explicit arguments; resolves DS:881A internally; no caller-consumed return flags",
+      "inputs_outputs": "Calls 1B07, writes persistent player +0x2B=0xFF, then subtracts wrapping dword 0x0001B000 from persistent player +0x0E.",
+      "player_reads": ["DS:881A-selected +0x0E through the read-modify-write", "all fields read by 1B07"],
+      "player_writes": ["+0x0E -= 0x0001B000 modulo 32 bits", "+0x2B=0xFF", "all 1B07 writes"],
+      "global_reads": ["DS:881A through 1B07", "DS:8950 through 1B07"],
+      "global_writes": ["DS:8950 through 1B07"],
+      "probe_coordinates": [],
+      "scheduler_position": "Contact response inside BUMP 9C0C after object animation reload and before DS:612E dispatch.",
+      "object_effects": "None directly; the nested 1B07 call can load player animation descriptor 0x3160.",
+      "feeds_back_into_simulation": "yes; changes the persistent player record before the next callback/player pass",
+      "callees": [
+        {"address": "01F7:1B07", "name": "apply_tile_transition_1B07", "classification": "contract", "flags": "no stable return flags"}
+      ],
+      "callers": [
+        {"address": "01F7:9C5F", "name": "update_bump_9C0C", "classification": "contract"}
+      ],
+      "confidence": "confirmed_static_independent_ghidra_export",
+      "evidence": [
+        "ghidra:player-external-state-closure-recovery-v48/decomp-a/QUIKY_SEG03.bin.c",
+        "ghidra:player-external-state-closure-recovery-v48/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+        "reloc:01F7:1B62->1B07",
+        "research/notes/bump-static-decomp.cpp"
+      ]
+    }
+  ],
+  "runtime_boundary": {
+    "closed": ["9BEE word-width initializer writes", "9C0C branch and strict overlap order", "1B07 player/global writes", "1B5D player writes"],
+    "unresolved": ["runtime DS:3568 descriptor words and BOB resource values", "1DCA camera-state inputs", "39FE runtime player snapshot values", "01E7:0FCF presentation/audio internals", "normal-level frequency of qualifying BUMP contacts"]
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "schema": "quiky.biene-state-zero-polarity-static.v1",
+  "purpose": "Record the focused Ghidra resolution and native regression for BIENE state-zero MAP-latch polarity.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "listing": "research/build/bump-static-closure-v4/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+    "listing_sha256": "f6e9fe2ab09f45f95a1e5ded750dc63b33eb7a8aace3567c901733364c98c6ef",
+    "static_note": "research/notes/biene-static-decomp.cpp",
+    "static_note_sha256": "a2526f5144c53c538160153b0d5aaf689fc261cb1b6b08eeca2c6bbb938b4724"
+  },
+  "function": {
+    "address": "01F7:68C0",
+    "entry": "01F7:68F0",
+    "latch_offset": "+0x2F",
+    "probe": "01F7:1C4D -> 01F7:1C6E, object X +/- 20 and Y - 20",
+    "branch": "68F9 CMP byte [+0x2F],0; 68FE JLE 69DD",
+    "nonpositive": {
+      "path": "69DD",
+      "effect": "integrate existing dword velocity at +0x0A; increment +0x2A; after >0x96 reset +0x2A and write +0x2F=1"
+    },
+    "positive": {
+      "path": "6902",
+      "effect": "select +0x2C signed patrol response; subtract orientation<<12 for negative selector or add orientation<<10 otherwise; clamp and integrate"
+    },
+    "confidence": "confirmed_static"
+  },
+  "native_regression": {
+    "test": "testRecoveredBieneStateZeroMapPolarityContract",
+    "file": "engine/tests/test_formats_faithful.cpp",
+    "command": "cmake --build build/engine -j2 && ctest --test-dir build/engine --output-on-failure",
+    "result": "8/8 tests passed",
+    "cases": [
+      "raw MAP 0x4000 present -> mapBlocked=1 and patrol/contact velocity adjustment",
+      "raw MAP 0x4000 absent -> mapBlocked=0 and unchanged velocity with phase counter increment"
+    ]
+  },
+  "boundary": "BIENE states 1-8 still require the startup-built DS:7974 table; its software-float/DOS-time producer remains address-qualified."
+}

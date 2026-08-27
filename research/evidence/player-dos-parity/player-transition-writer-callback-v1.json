@@ -1,0 +1,71 @@
+{
+  "schema": "quiky.player-transition-writer-callback.v1",
+  "purpose": "Targeted natural W1L1 trace connecting a normal gameplay damage writer to the player callback transition branch.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace": "research/build/traces/player-w1l1-transition-writer-callback-v2.json",
+    "trace_sha256": "7f24f6757b66eb78fe54a9741b278bb3232b06e70b8e2ad9ecc6df985d1a8f72",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "host_tool": "research/tools/quikytrace.py"
+  },
+  "method": {
+    "level": "W1L1",
+    "input": "KBD_right held for 1520 warmup frames, then one frame before each callback sample",
+    "samples": 32,
+    "watched_addresses": ["01F7:19E6", "01F7:4416", "01F7:44DC"],
+    "callback": "01F7:3FF8",
+    "coordinate_patch": null,
+    "question": "Does a natural damage write feed 4416, and does 4416 proceed to the 44DC decrement tail?"
+  },
+  "observation": {
+    "frame": 1536,
+    "order": ["01F7:19E6", "01F7:4416", "01F7:44DC"],
+    "damage_writer": {
+      "address": "01F7:19E6",
+      "health_before": 1,
+      "lives_before": 4,
+      "transition_gate_before": 0,
+      "caller_callback": "01F7:6DC4",
+      "caller_object_offset": "0x0528"
+    },
+    "transition_entry": {
+      "address": "01F7:4416",
+      "health_after": 0,
+      "lives_after": 3,
+      "player_position_pixels": [2130, 368],
+      "player_mode_37": -1,
+      "player_velocity_y_fixed_signed": -131072,
+      "animation_selector_at_static_call": "01F7:31A4",
+      "player_timer_3e": 1000,
+      "callback_return": "01D7:0F26"
+    },
+    "transition_tail": {
+      "address": "01F7:44DC",
+      "player_velocity_y_fixed_signed": -124928,
+      "player_mode_37": -1,
+      "transition_gate_is_nonzero": true,
+      "transition_gate_observed_nonzero_at_entry": true
+    }
+  },
+  "static_crosscheck": {
+    "gate_writer": ["01F7:19E6", "01F7:199D"],
+    "gate_clearers": ["01F7:1AAA", "01F7:1AE6"],
+    "callback_gate": "01F7:3FFD tests DS:89EA and branches to 01F7:4416 when nonzero",
+    "tail": "01F7:44DC decrements DS:89EA and publishes DS:89EC below the terminal threshold",
+    "evidence": ["ghidra:3FF8-44FE", "research/ghidra/player-external-state-closure.json"]
+  },
+  "conclusion": {
+    "status": "normal_gameplay_transition_branch_confirmed",
+    "closed": [
+      "A natural W1L1 hazard contact through 6DC4 reaches 19E6.",
+      "The resulting nonzero DS:89EA enters 4416 on the next player callback path.",
+      "4416 proceeds to 44DC in the same callback frame.",
+      "The branch is therefore required for ordinary damage/death gameplay and is not only a scripted level-transition path."
+    ],
+    "still_open": [
+      "Whether any separate level-exit callback also writes DS:89EA or uses 4416.",
+      "Delayed death-hold and recovery scheduler behavior after the sampled callback window."
+    ]
+  }
+}

@@ -152,6 +152,10 @@
       "19E6",
       "1A95"
     ],
+    "3:5937": [
+      "5937",
+      "5BED"
+    ],
     "3:F17F": [
       "F17F",
       "F1A8"
@@ -171,12 +175,17 @@
       "offset": "0CE3",
       "kind": "label",
       "name": "dispatch_transition_effect_0CE3",
-      "confidence": "unresolved",
+      "confidence": "confirmed",
       "closures": [
         "player-callback"
       ],
       "evidence": [
-        "reloc:199D call target"
+        "reloc:199D call target",
+        "reloc:0CE8->0227:05CD",
+        "reloc:0D03->01E7:33D5",
+        "ghidra:v60 decomp-lifecycle-seg2",
+        "ghidra:v60 disasm-seg2",
+        "research/notes/player-transition-effect-static-decomp.cpp"
       ]
     },
     {
@@ -750,15 +759,21 @@
     {
       "segment": 3,
       "offset": "5937",
-      "kind": "label",
+      "kind": "function",
       "name": "player_helper_5937",
-      "confidence": "unresolved",
+      "confidence": "mechanical",
       "closures": [
         "player-callback"
       ],
       "evidence": [
         "reloc:3FF8 call target",
-        "dynamic:callback-entry barrier only"
+        "ghidra:5937-5BED",
+        "research/notes/player-helper-5937-static-decomp.cpp",
+        "research/evidence/player-dos-parity/5937-runtime-target-level-matrix-v1.json"
+      ],
+      "range": [
+        "5937",
+        "5BED"
       ]
     },
     {

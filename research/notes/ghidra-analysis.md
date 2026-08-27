@@ -896,13 +896,22 @@ The statically decoded lookup grid is:
 | 10 | `object+0x08 + 0x30` | `+0x10, +0x20, +0x30, +0x40, +0x50` |
 
 At state 10 the callback clears `object+0x18`, ending the state-machine
-object, and publishes `object+0x04 + 0x19` and `object+0x08 + 0x46` at
-`DS:8828` and `DS:882A`. The transition routine at `01F7:1AAA` reads the
-published pair as an indexed coordinate row (`DS:85D2 * 4`), writes it into
-the persistent player record, reinstalls callback `01F7:3F27`, clears
-`DS:89EA`, and rebuilds the camera/MAP state. Their engine-level role is
-therefore a terminal/respawn-position table; which authored selector state
-populates each indexed row remains open.
+object, and publishes `object+0x04 + 0x19` and `object+0x08 + 0x46` into row
+zero of the coordinate table at `DS:8828`/`DS:882A`. The transition routine at
+`01F7:1AAA` reads the row selected by `DS:85D2 * 4`, writes that pair into the
+persistent player record, reinstalls callback `01F7:3F27`, clears `DS:89EA`,
+and rebuilds the camera/MAP state. `DS:8828` is therefore the base of 32
+interleaved little-endian coordinate rows, not an independent terminal-X
+scalar.
+
+The targeted `DS` reference census also closes the table's code-side owner:
+`01D7:34C7`, called from `01D7:3861` after selecting the resource row at
+`DS:3574 + 5*DS:85D4`, writes all 32 rows. Each X word is the address-named
+resource reader result plus `0x20`, and each Y word is the corresponding
+result plus `0x30`, with 16-bit wrapping. Direct `DS:85D2` assignments found
+at `01D7:4603`, `01D7:4B6B`, `01D7:4BD5`, and `01F7:1AFB` all store zero. The
+remaining unknowns are the resource/DOS values and any indirect writes, not
+an unidentified authored row-population callback.
 
 The MAP helper at `01F7:3376` is correspondingly:
 
@@ -1075,7 +1084,9 @@ write in the raw segments. Besides `393C`, the executable code around `69FF`
 also loads the offset-zero object's X/Y words before comparing them with the
 current object's position; its higher-level behavior is not assigned yet.
 The `DS:8828/882A` pair is published by the state-10 path through a pointer
-loaded from `DS:8828`, so a literal `DS:882A` byte-reference is not expected.
+loaded from `DS:8828`, so a literal `DS:882A` byte-reference is not expected;
+the table-base interpretation above is confirmed by the `34C7` loop and the
+`1AAA` indexed load.
 The other `DS:89EA` users are real control flow: the segment-3 routine at
 `44DC` decrements the word and tests signed thresholds, while the segment-1
 main loop tests it at `4BA4`, `4C43`, and `4CB8`. Its exact gameplay role is

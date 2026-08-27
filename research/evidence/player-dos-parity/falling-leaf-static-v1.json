@@ -1,0 +1,54 @@
+{
+  "schema": "quiky.falling-leaf-static.v1",
+  "purpose": "Focused Ghidra closure for the W1L1 falling-leaf callback.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "language": "x86:LE:16:Protected Mode:default",
+    "runner": "research/tools/run_player_external_closure.py",
+    "export": "research/build/player-external-state-closure-recovery-v43",
+    "listing": "disasm-seg3-a/QUIKY_SEG03.bin.asm"
+  },
+  "contract": {
+    "initializer": {
+      "address": "01F7:4727",
+      "inputs": "ES:DI pooled object; DS:6468 cursor and DS:646C signed-byte ring",
+      "writes": ["DS:6468 incremented/masked twice", "object+0x18=0x47E7", "object+0x0E=0x13000-(signed ring byte<<7)", "object+0x2A=object+0x02", "object+0x2E=object+0x06", "object+0x32=0x000C"],
+      "callees": ["01F7:5D38 with SI=0x3312 or 0x3326"],
+      "return": "no caller-consumed flags"
+    },
+    "callback": {
+      "address": "01F7:47E7",
+      "inputs": "ES:DI pooled object",
+      "return": "RETF through scheduler; no callback return flags are consumed",
+      "ordered_path": [
+        "47E7 -> 01F7:1DCA; CF=1 -> 01F7:1DEE and return",
+        "47F4 sets CX=DX=0; 47FA -> 01F7:1BD1; CF=1 selects timer/blink/reseed path",
+        "CF=0 subtracts 0x012C from +0x0E only when velocity > 0x4000, then integrates +0x06",
+        "4879 -> 01F7:5D60 animation descriptor advancement"
+      ],
+      "player_writes": [],
+      "global_reads": ["camera state through 1DCA", "MAP/descriptor tables through 1BD1", "animation tables through 5D60", "DS:6468/DS:646C on timer reseed"],
+      "global_writes": ["DS:6468 increment/mask on timer reseed"],
+      "object_writes": ["+0x02/+0x06 restore from +0x2A/+0x2E when timer reaches zero", "+0x0E reseed", "+0x12 toggle/clear bit 0x8000", "+0x32 decrement/reset", "+0x18 cleared by 1DEE when outside camera"],
+      "probe_coordinates": "1BD1 receives CX=DX=0 and probes the leaf object's current (+0x08,+0x04) pixel position through the MAP and descriptor tables",
+      "simulation_feedback": "No direct player or callback-global simulation write; only object lifetime, MAP-dependent branch choice, and animation state can affect later scheduling",
+      "callees": ["01F7:1DCA", "01F7:1DEE", "01F7:1BD1", "01F7:5D60"]
+    },
+    "animation": {
+      "address": "01F7:5D60",
+      "inputs": "ES:DI object descriptor cursor",
+      "writes": ["decrement +0x20 when nonzero", "otherwise advance +0x24 by two and follow signed descriptor skip entries", "+0x12=descriptor frame plus 0x32 when +0x28 is 0xFF", "+0x20=+0x1E"],
+      "return": "near return; no flags consumed",
+      "player_or_global_writes": "none"
+    }
+  },
+  "evidence": [
+    "research/build/player-external-state-closure-recovery-v43/disasm-seg3-a/QUIKY_SEG03.bin.asm:47E7-48E2",
+    "research/build/player-external-state-closure-recovery-v43/disasm-seg3-a/QUIKY_SEG03.bin.asm:1DCA-1E03",
+    "research/build/player-external-state-closure-recovery-v43/disasm-seg3-a/QUIKY_SEG03.bin.asm:1BD1-1C4C",
+    "research/build/player-external-state-closure-recovery-v43/decomp-a/QUIKY_SEG03.bin.c:47E7/5D60",
+    "research/notes/w1l1-object-callbacks-static-decomp.cpp"
+  ],
+  "confidence": "confirmed_static_callee_identity_and_field_writes; runtime_map_branch_frequency_open"
+}

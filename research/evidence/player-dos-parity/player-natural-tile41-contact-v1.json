@@ -1,0 +1,74 @@
+{
+  "schema": "quiky.player-natural-tile41-contact.v1",
+  "purpose": "Record the natural W1L1 contact case for authored tile 0x29/41, whose descriptor word includes the 0x40 alignment bit.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-natural-tile41-contact-v1.json",
+    "trace_sha256": "b2f7e208f80a50c79f898cad7e5c35a75f4dc97fd0092b620847175cc9d00d02",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "f0f00bb8e8e96b3f37458012060b2661aa20502b9ada136228b00fe35bd37126",
+    "map": "research/build/early-assets/W1L1.MAP",
+    "map_sha256": "3d88892d9842c15fb6f860a2d84f3ede0a897175924ea42b2468022182299956"
+  },
+  "method": {
+    "level": "W1L1",
+    "coordinate_patch": null,
+    "route": "21 KBD_right:30 phases, then KBD_right+KBD_space+KBD_up:30, then WAIT:1 phases",
+    "focus": "01F7:3FF8 with complete 0x78-byte record capture",
+    "execute_watches": ["01F7:41C1", "01F7:41CF", "01F7:3D02", "01F7:5CC3"],
+    "collision_event_limit": 8,
+    "collision_repeat_limit": 1
+  },
+  "observation": {
+    "ascent_crossing": {
+      "sequence": 23,
+      "frame": 682,
+      "position": {"x": 1086, "y": 319},
+      "mode": -1,
+      "velocity_y_fixed_signed": -73728,
+      "interpretation": "The player has passed upward through the tile-41 structure; the route was unpatched and no blocked-ascent response occurred at this crossing."
+    },
+    "landing": {
+      "pre_sample": {
+        "sequence": 42,
+        "frame": 720,
+        "position": {"x": 1095, "y": 373},
+        "mode": 1,
+        "velocity_y_fixed_signed": 262144
+      },
+      "post_sample": {
+        "sequence": 43,
+        "frame": 722,
+        "position": {"x": 1095, "y": 372},
+        "mode": 0,
+        "velocity_y_fixed_signed": 0,
+        "velocity_x_fixed_signed": 0
+      },
+      "watch_order": ["01F7:3D02", "01F7:5CC3"],
+      "registers_3d02": {"eax": 71762292, "ebx": 1100, "ecx": 1364275468, "edx": 80, "esi": 751, "es": 639, "flags": 12802},
+      "registers_5cc3": {"eax": 71762292, "ebx": 1095, "ecx": 1364275456, "edx": 80, "esi": 751, "es": 639, "flags": 12934},
+      "descriptor_word": "0x0050",
+      "map_cell": {"x": 68, "y": 23, "raw_word": "0x2029", "tile_id": 41},
+      "map_byte_offset": 12566,
+      "descriptor_table_entry": {"tile_id": 41, "word": "0x0050", "offset": 166},
+      "writes_observed": {"mode_after": 0, "velocity_y_fixed_signed_after": 0}
+    }
+  },
+  "interpretation": {
+    "confirmed": [
+      "An unpatched W1L1 route crosses authored tile 0x29/41 upward and later lands on the same tile family during descent.",
+      "The landing correction reads descriptor word 0x0050 through 5CC3 and leaves the player grounded with zero vertical velocity.",
+      "The authored tile-41 case is traversable from below and supports a descending contact response while the descriptor 0x40 alignment bit is present."
+    ],
+    "not_yet_proven": [
+      "A general one-way rule for every descriptor with bit 0x20 or 0x40.",
+      "Natural ceiling behavior for the 41C1/41CF response.",
+      "Whether the 0x40 bit alone, rather than the authored tile geometry, determines the observed landing coordinate."
+    ]
+  },
+  "status": "natural_tile41_landing_and_alignment_case_confirmed",
+  "next": "Capture the tile-42/43 cases with descriptor words 0x70/0x30 or a natural ceiling to isolate the remaining 0x20 response polarity."
+}

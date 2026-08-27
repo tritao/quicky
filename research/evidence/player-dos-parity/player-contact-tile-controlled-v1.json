@@ -1,0 +1,79 @@
+{
+  "schema": "quiky.player-contact-tile-controlled.v1",
+  "purpose": "Controlled W1L1 tile patch used to confirm the statically recovered contact-child callback chain; this is diagnostic runtime evidence, not natural descriptor classification.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "/tmp/player-contact-tile-controlled-5-long.json",
+    "trace_sha256": "fda6bde16e3e56eaa6abc7193abd6da2d139635f8290babf75ba356c5be114bb",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "edcde7340d9e0d0069698e04645c6a5716034ac67bbfaf35d7d8b1baf2bb8093"
+  },
+  "method": {
+    "level": "W1L1",
+    "samples": 12,
+    "frames_between": 1,
+    "map_patch_cell": "(8,25)=tile 5",
+    "focus": "01F7:3FF8 with player record capture",
+    "execute_watches": [
+      "01F7:648E",
+      "01F7:6484",
+      "01F7:6370",
+      "01F7:6328",
+      "01F7:16CE",
+      "01F7:10B5"
+    ],
+    "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-focus-callback --player-capture-record --player-samples 12 --player-frames-between 1 --player-map-patch-cell 8,25=5 --player-watch-execute 0x1f7:0x648e --player-watch-execute 0x1f7:0x6484 --player-watch-execute 0x1f7:0x6370 --player-watch-execute 0x1f7:0x6328 --player-watch-execute 0x1f7:0x16ce --player-watch-execute 0x1f7:0x10b5 --output /tmp/player-contact-tile-controlled-5-long.json"
+  },
+  "observations": {
+    "status": "controlled_tile_patch_reached_contact_child_chain",
+    "watch_order_by_sample": [
+      ["648E", "6484", "6370"],
+      ["648E", "6484", "6370"],
+      ["6328", "16CE"],
+      ["648E", "6484", "6370"],
+      ["6328", "10B5"],
+      ["16CE", "648E", "6484", "6370"],
+      ["6328", "10B5"],
+      ["16CE", "648E", "6484", "6370"],
+      ["6328", "10B5"],
+      ["16CE", "648E", "6484", "6370"],
+      ["6328", "10B5"],
+      ["648E", "6484", "6370"]
+    ],
+    "execution_counts": {
+      "01F7:648E": 7,
+      "01F7:6484": 7,
+      "01F7:6370": 7,
+      "01F7:6328": 3,
+      "01F7:16CE": 3,
+      "01F7:10B5": 4
+    },
+    "observed_children": [
+      {
+        "callback": "01F7:6328",
+        "phase": 1,
+        "x": 133,
+        "y": 400,
+        "count": "at least two pooled records observed"
+      }
+    ],
+    "chain": "648E/6484/6370 -> 0E06(6328) -> 6328 -> 16CE -> 10B5"
+  },
+  "interpretation": {
+    "confirmed": [
+      "The controlled tile path allocates a callback-6328 pooled child through the recovered 0E06 factory.",
+      "The child callback can invoke 16CE and later 10B5 in the observed scheduler sequence.",
+      "The watched execution order is consistent with the static 6370/6484/648E contracts and the phase scheduler."
+    ],
+    "does_not_prove": [
+      "natural W1L1 contact frequency",
+      "descriptor bits 0x20 or 0x40 meaning one-way, floor, or ceiling",
+      "that the MAP rewrite is gameplay-relevant for the retail path",
+      "all caller-specific 0E06 object families or exact despawn semantics"
+    ]
+  },
+  "next": "Use an unpatched natural contact or a minimally controlled geometry that preserves retail descriptor data, then compare child allocation, MAP words before/after 16CE, and player parity."
+}

@@ -48,6 +48,15 @@ void writeGlobal32(std::uint16_t address,
                       static_cast<std::uint32_t>(field));
 }
 
+void writeGlobalU32(std::uint16_t address,
+                    std::uint32_t &field,
+                    std::uint32_t value,
+                    PlayerTraceSink *trace) {
+    const std::uint32_t before = field;
+    field = value;
+    reportGlobalWrite(trace, address, 4, before, field);
+}
+
 void writeGlobal16Signed(std::uint16_t address,
                          std::int16_t &field,
                          std::int16_t value,
@@ -97,17 +106,23 @@ struct AnimationSequenceWords {
     std::size_t count;
 };
 
+// Static Ghidra data export from QUIKY_SEG06, where DS points at runtime in
+// the player callback.  These are selected by the 3AB9 speed/turn paths.
+const std::int16_t kAnimation3142[] = {4, 0, 1, 2, 3, 4, 5, 6};
 const std::int16_t kAnimation3156[] = {4, 0, 0, 0, -3};
 const std::int16_t kAnimation3160[] = {8, 10, 11, 12, -1};
 const std::int16_t kAnimation316a[] = {
     14, 0, 16, 17, 18, 18, 19, 19, 19, 18, 17, 16, 0, -1};
 const std::int16_t kAnimation3186[] = {20, 13, 14, 15, -1};
+const std::int16_t kAnimation3190[] = {2, 0, 1, 2, 3, 4, 5, 6};
 const std::int16_t kAnimation31a4[] = {
     14, 20, 21, 22, 23, 24, 25, 26, 27, 28, -3};
 const std::int16_t kAnimation31ba[] = {
     15, 30, 31, 32, 33, 33, 33, 33, 34, 34, 34, 35, 36, 37};
 
 const AnimationSequenceWords kAnimationSequences[] = {
+    {0x3142, kAnimation3142,
+     sizeof(kAnimation3142) / sizeof(kAnimation3142[0])},
     {0x3156, kAnimation3156,
      sizeof(kAnimation3156) / sizeof(kAnimation3156[0])},
     {0x3160, kAnimation3160,
@@ -116,6 +131,8 @@ const AnimationSequenceWords kAnimationSequences[] = {
      sizeof(kAnimation316a) / sizeof(kAnimation316a[0])},
     {0x3186, kAnimation3186,
      sizeof(kAnimation3186) / sizeof(kAnimation3186[0])},
+    {0x3190, kAnimation3190,
+     sizeof(kAnimation3190) / sizeof(kAnimation3190[0])},
     {0x31a4, kAnimation31a4,
      sizeof(kAnimation31a4) / sizeof(kAnimation31a4[0])},
     {0x31ba, kAnimation31ba,
@@ -193,7 +210,18 @@ PlayerCallbackGlobals::PlayerCallbackGlobals()
       activationState85DA(0),
       specialSpeedCapMode88B6(0),
       actionSuppressor89E6(0),
-      collisionTransitionMode89EA(0) {
+      collisionTransitionMode89EA(0),
+      dispatchWord60D8(0),
+      dispatchPreviousWord60DA(0),
+      dispatchScoreLow881C(0),
+      dispatchScoreHigh881E(0),
+      dispatchLives880A(0),
+      dispatchAmmo880C(0),
+      dispatchDisplayCount8822(0),
+      dispatchPublishedScore4FF2(0),
+      dispatchPublishedAmmo4FF6(0),
+      dispatchPublishedCount4FF8(0),
+      dispatchPublishedLives4FFA(0) {
 }
 
 PlayerUpdateTrace::PlayerUpdateTrace()
@@ -712,6 +740,7 @@ void integrateHorizontalMotion(PlayerRecord &player,
             player.velocityX.raw, player.acceleration4C.raw);
         player.velocityX.raw = next > cap ? cap : next;
         if (player.animationState36 != 0 && player.mode37 == 0) {
+            loadAnimationDescriptor(player, 0x3142, trace);
             player.animationState36 = 0;
         }
     } else if ((player.actionWord & 0x0008) != 0) {
@@ -721,6 +750,7 @@ void integrateHorizontalMotion(PlayerRecord &player,
                                    ? Fixed16::wrapNegRaw(cap)
                                    : next;
         if (player.animationState36 != 0 && player.mode37 == 0) {
+            loadAnimationDescriptor(player, 0x3142, trace);
             player.animationState36 = 0;
         }
     } else {
@@ -770,10 +800,12 @@ void integrateHorizontalMotion(PlayerRecord &player,
         if (speed < 0x28000 && (player.statusWord12 & 0xff00U) != 0) {
             player.statusWord12 = static_cast<std::uint16_t>(
                 player.statusWord12 & 0x00ffU);
+            loadAnimationDescriptor(player, 0x3142, trace);
         }
         if (speed >= 0x28000 && (player.statusWord12 & 0xff00U) != 0xff00U) {
             player.statusWord12 = static_cast<std::uint16_t>(
                 (player.statusWord12 & 0x00ffU) | 0xff00U);
+            loadAnimationDescriptor(player, 0x3190, trace);
         }
     }
 }
@@ -821,8 +853,78 @@ void actionContactSideEffect(PlayerRecord &player) {
     }
 }
 
+void updateAuxiliaryPlayerDispatch5937(PlayerCallbackGlobals &globals,
+                                       PlayerTraceSink *trace) {
+    // Static 01F7:5937-5BED. The first compare is byte-sized even though the
+    // same DS:85DA word is consumed as a signed word by the input path.
+    if (static_cast<std::uint8_t>(globals.activationState85DA) != 0) {
+        return;
+    }
+
+    const std::uint16_t currentWord = globals.dispatchWord60D8;
+    if (globals.dispatchPreviousWord60DA != currentWord) {
+        const std::uint16_t changed = static_cast<std::uint16_t>(
+            currentWord ^ globals.dispatchPreviousWord60DA);
+        writeGlobal16(0x60da, globals.dispatchPreviousWord60DA,
+                      currentWord, trace);
+
+        // 5954-5A02 calls the external 386F/0442 resource dispatcher once
+        // for each changed low-byte bit. Those calls are presentation-owned;
+        // their selected far callback remains an explicit external contract
+        // and is intentionally not synthesized here.
+        (void)changed;
+    }
+
+    const std::uint32_t score =
+        static_cast<std::uint32_t>(globals.dispatchScoreLow881C) |
+        (static_cast<std::uint32_t>(globals.dispatchScoreHigh881E) << 16);
+    if (globals.dispatchPublishedScore4FF2 != score) {
+        writeGlobalU32(0x4ff2, globals.dispatchPublishedScore4FF2,
+                       score, trace);
+        // 5A03-5AF4 dispatches the six score digits through 386F. The
+        // nested resource callbacks cannot feed player simulation in the
+        // closed contract, so only the direct publication is represented.
+    }
+
+    // 5AF5-5B39. The source uses a signed comparison for the published and
+    // current display counts, then stores exactly one 16-bit step.
+    std::uint16_t publishedCount = globals.dispatchPublishedCount4FF8;
+    const std::int16_t signedPublished =
+        static_cast<std::int16_t>(publishedCount);
+    const std::int16_t signedCurrent =
+        static_cast<std::int16_t>(globals.dispatchDisplayCount8822);
+    if (publishedCount != globals.dispatchDisplayCount8822) {
+        if (signedPublished > signedCurrent) {
+            writeGlobal16(0x4ff8, globals.dispatchPublishedCount4FF8,
+                          static_cast<std::uint16_t>(publishedCount - 1),
+                          trace);
+        } else {
+            publishedCount = static_cast<std::uint16_t>(publishedCount + 1);
+            writeGlobal16(0x4ff8, globals.dispatchPublishedCount4FF8,
+                          publishedCount, trace);
+        }
+    }
+
+    // 5B3A-5B61. Negative lives are clamped only for the comparison and
+    // stored publication; the visible digit uses the raw source word and is
+    // capped at nine by the original unsigned compare.
+    std::int16_t lives = static_cast<std::int16_t>(globals.dispatchLives880A);
+    if (lives < 0) {
+        lives = 0;
+    }
+    if (static_cast<std::uint16_t>(lives) !=
+        globals.dispatchPublishedLives4FFA) {
+        writeGlobal16(0x4ffa, globals.dispatchPublishedLives4FFA,
+                      static_cast<std::uint16_t>(lives), trace);
+    }
+
+    // 5B96-5BEC compares ammo against 4FF6 and dispatches digits, but does
+    // not write 4FF6. Keep the comparison state typed for future target
+    // traces; no direct simulation state is changed by this body.
+}
+
 void commonCallbackTail(PlayerRecord &player,
-                        const WorldCollisionView &world,
+                         const WorldCollisionView &world,
                         PlayerCallbackGlobals &globals,
                         PlayerTraceSink *trace) {
     // Static 01F7:4384-4415: common timer, horizontal, effect, and idle tail.
@@ -928,6 +1030,12 @@ void TraceClosedPlayerUpdate::updatePlayer(
         trace->onPreState(preState);
     }
 
+    // Static 01F7:3FF8 calls 5937 before testing DS:89EA. Its direct body
+    // publishes only address-qualified auxiliary state; the nested 386F and
+    // runtime-selected 0598 callbacks remain outside this player simulation
+    // implementation until a trace demonstrates feedback into the record.
+    updateAuxiliaryPlayerDispatch5937(_globals, trace);
+
     if (_globals.collisionTransitionMode89EA != 0) {
         stage(trace, PlayerUpdateStage::UnresolvedBoundary);
         player.syncToRaw();
@@ -987,10 +1095,10 @@ void TraceClosedPlayerUpdate::updatePlayer(
     }
     stage(trace, PlayerUpdateStage::ActionCounterUpdate);
 
-    // Static 01F7:4006-401D: 648E/6484/3A8A are retained as a mechanical
-    // boundary until their runtime
-    // contact-object initialization is integrated. No synthetic contact is
-    // created here.
+    // Static 01F7:4006-401D: 648E/6484/3A8A have a recovered
+    // contact-object contract (6370 -> 3376 -> 0E06). The native scheduler
+    // does not yet publish that runtime child/effect path, so no synthetic
+    // contact is created here until a retail-contact parity fixture closes it.
     stage(trace, PlayerUpdateStage::UnresolvedBoundary);
 
     if (player.gate38 != 0 && player.mode37 != 0) {
@@ -1133,6 +1241,16 @@ void TraceClosedPlayerUpdate::publishPlatformCarry(
     std::int32_t xDelta8816, std::int32_t yDelta8812) {
     _globals.externalXDelta8816 = xDelta8816;
     _globals.deferredY8812 = yDelta8812;
+}
+
+void TraceClosedPlayerUpdate::publishTransitionGate(
+    std::uint16_t transitionGate89ea) {
+    _globals.collisionTransitionMode89EA =
+        static_cast<std::int16_t>(transitionGate89ea);
+}
+
+std::int16_t TraceClosedPlayerUpdate::activationState85DA() const {
+    return _globals.activationState85DA;
 }
 
 } // namespace quiky

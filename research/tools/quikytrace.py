@@ -266,14 +266,17 @@ class PlayerTraceConfig:
     secondary_end_sample: int = 0
     input_frames: int = 0
     input_samples: int = 0
+    input_warmup_frames: int = 0
     input_hold_key: str | None = None
     input_hold_frames: int = 0
     input_phase_through_callback: bool = False
     input_phase_hold_callbacks: int = 1
     minimal_callback_capture: bool = False
+    scheduler_only: bool = False
     map_patch_cell: tuple[int, int, int] | None = None
     map_patch_descriptor: int | None = None
     map_patch_word: int | None = None
+    persistent_map_patch: bool = False
     capture_player_record: bool = False
     collision_event_limit: int = 96
     collision_repeat_limit: int = 3
@@ -400,14 +403,17 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "secondary_end_sample": config.secondary_end_sample,
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
+        "input_warmup_frames": config.input_warmup_frames,
         "input_hold_key": config.input_hold_key or "",
         "input_hold_frames": config.input_hold_frames,
         "input_phase_through_callback": config.input_phase_through_callback,
         "input_phase_hold_callbacks": config.input_phase_hold_callbacks,
         "minimal_callback_capture": config.minimal_callback_capture,
+        "scheduler_only": config.scheduler_only,
         "map_patch_cell": list(config.map_patch_cell) if config.map_patch_cell else None,
         "map_patch_descriptor": config.map_patch_descriptor,
         "map_patch_word": config.map_patch_word,
+        "persistent_map_patch": config.persistent_map_patch,
         "capture_player_record": config.capture_player_record,
         "collision_event_limit": config.collision_event_limit,
         "collision_repeat_limit": config.collision_repeat_limit,
@@ -809,6 +815,15 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
             scheduler["entries"] = ordered_lua_array(
                 scheduler.get("entries", [])
             )
+            if "banks" in scheduler:
+                scheduler["banks"] = ordered_lua_array(
+                    scheduler.get("banks", [])
+                )
+                for bank in scheduler["banks"]:
+                    if isinstance(bank, dict):
+                        bank["entries"] = ordered_lua_array(
+                            bank.get("entries", [])
+                        )
         if "related_breakpoints" in sample:
             sample["related_breakpoints"] = ordered_lua_array(
                 sample.get("related_breakpoints", [])
@@ -1064,6 +1079,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="guest frames to hold --player-input-key before each post-baseline sample")
     parser.add_argument("--player-input-samples", type=int, default=0,
                         help="number of post-baseline samples that receive the input hold (0 means all)")
+    parser.add_argument("--player-input-warmup-frames", type=int, default=0,
+                        help="guest frames to hold --player-input-key before the first sampled callback")
     parser.add_argument("--player-input-hold-key",
                         help="keep one or more '+'-separated DOSBox keys physically held while sampling callbacks")
     parser.add_argument("--player-input-hold-frames", type=int, default=0,
@@ -1077,12 +1094,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-map-patch-word", type=lambda value: int(value, 0),
                         metavar="RAW",
                         help="temporarily replace the complete raw MAP cell word")
+    parser.add_argument(
+        "--player-persistent-map-patch", action="store_true",
+        help="keep the MAP patch active for an object-focus lifetime trace",
+    )
     parser.add_argument("--player-input-phase", action="append", type=parse_input_phase,
                         default=[], metavar="KEY[+KEY...]:FRAMES",
                         help="per-sample input phase; repeat in order, or use WAIT:FRAMES")
     parser.add_argument(
         "--player-input-phase-through-callback", action="store_true",
-        help="hold each input phase through its sampled callback barrier",
+        help="hold :0 phases through callback barriers; wait nonzero phases normally",
     )
     parser.add_argument(
         "--player-input-phase-hold-callbacks", type=int, default=1,
@@ -1090,7 +1111,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--player-minimal-callback-capture", action="store_true",
-        help="omit diagnostic global/pool snapshots while retaining full callback records",
+        help="omit diagnostic global/pool snapshots; enables long lean callback discovery traces",
+    )
+    parser.add_argument(
+        "--player-scheduler-only", action="store_true",
+        help="capture scheduler banks without the unrelated 64-record object-pool walk",
     )
     parser.add_argument("--player-capture-record", action="store_true",
                         help="capture the complete 0x78-byte player record before/after each callback")
@@ -1173,6 +1198,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-input-frames cannot be negative")
     if args.player_input_samples < 0:
         raise TraceError("--player-input-samples cannot be negative")
+    if args.player_input_warmup_frames < 0:
+        raise TraceError("--player-input-warmup-frames cannot be negative")
     if args.player_input_hold_frames < 0:
         raise TraceError("--player-input-hold-frames cannot be negative")
     if args.player_input_hold_frames and not args.player_input_hold_key:
@@ -1195,6 +1222,10 @@ def main(argv: list[str] | None = None) -> int:
             raise TraceError("--player-map-patch-word requires --player-map-patch-cell")
         if not 0 <= args.player_map_patch_word <= 0xffff:
             raise TraceError("--player-map-patch-word must be between 0 and 65535")
+    if args.player_persistent_map_patch and args.player_map_patch_cell is None:
+        raise TraceError(
+            "--player-persistent-map-patch requires --player-map-patch-cell"
+        )
     if args.player_input_key_2 and not args.player_input_key:
         raise TraceError("--player-input-key-2 requires --player-input-key")
     if args.player_input_key_switch and not args.player_input_key:
@@ -1228,6 +1259,8 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-transition-warmup-frames cannot be negative")
     if args.player_input_frames and not args.player_input_key:
         raise TraceError("--player-input-frames requires --player-input-key")
+    if args.player_input_warmup_frames and not args.player_input_key:
+        raise TraceError("--player-input-warmup-frames requires --player-input-key")
     if args.player_input_phase and (
             args.player_input_key or args.player_input_key_switch or
             args.player_input_key_2 or args.player_input_frames or
@@ -1241,16 +1274,13 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-frames-between-after-sample requires --player-frames-between-after")
     if args.player_input_phase_through_callback and not args.player_input_phase:
         raise TraceError("--player-input-phase-through-callback requires --player-input-phase")
-    if (args.player_input_phase_through_callback and
-            any(phase.frames for phase in args.player_input_phase)):
-        raise TraceError(
-            "--player-input-phase-through-callback requires :0 phases"
-        )
     if args.player_input_phase_hold_callbacks < 1:
         raise TraceError("--player-input-phase-hold-callbacks must be positive")
     if args.player_capture_record and not (
-            args.player_focus_callback or args.player_object_focus):
-        raise TraceError("--player-capture-record requires player callback or object focus")
+            args.player_focus_callback or args.player_object_focus or args.player_watch_execute):
+        raise TraceError(
+            "--player-capture-record requires player callback, object focus, or execute watch"
+        )
     if args.player_collision_event_limit < 1:
         raise TraceError("--player-collision-event-limit must be positive")
     if args.player_collision_repeat_limit < 1:
@@ -1446,14 +1476,17 @@ def main(argv: list[str] | None = None) -> int:
                 secondary_end_sample=args.player_secondary_end_sample,
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
+                input_warmup_frames=args.player_input_warmup_frames,
                 input_hold_key=args.player_input_hold_key,
                 input_hold_frames=args.player_input_hold_frames,
                 input_phase_through_callback=args.player_input_phase_through_callback,
                 input_phase_hold_callbacks=args.player_input_phase_hold_callbacks,
                 minimal_callback_capture=args.player_minimal_callback_capture,
+                scheduler_only=args.player_scheduler_only,
                 map_patch_cell=args.player_map_patch_cell,
                 map_patch_descriptor=args.player_map_patch_descriptor,
                 map_patch_word=args.player_map_patch_word,
+                persistent_map_patch=args.player_persistent_map_patch,
                 capture_player_record=args.player_capture_record,
                 patches=tuple(args.player_patch),
                 input_phases=tuple(args.player_input_phase),

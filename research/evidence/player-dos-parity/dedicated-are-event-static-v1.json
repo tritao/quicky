@@ -1,0 +1,28 @@
+{
+  "schema": "quiky.dedicated-are-event-static-v1",
+  "source_executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+  "ghidra_language": "x86:LE:16:Protected Mode:default",
+  "runner": "research/tools/run_player_external_closure.py",
+  "export": "research/build/player-external-state-closure-recovery-v28",
+  "independent_export": {
+    "status": "passed",
+    "decomp_sha256": "e2d8d859595439544eae910d2b595014c93334a5a35dfb20b87c868e423a7165",
+    "listing_sha256": "11ab8f180c73b2fa4d7291cfbe3301f56b80cf566ff657c0de876a3568c44ed3"
+  },
+  "static_contracts": {
+    "01F7:178D": "Writes DS:36EE=0x00 and forwards EDX/BX to 1749; RETF, no stable flags.",
+    "01F7:1798": "Writes DS:36EE=0x08 and forwards EDX/BX to 1749; RETF, no stable flags.",
+    "01F7:17A3": "Writes DS:36EE=0x10 and forwards EDX/BX to 1749; RETF, no stable flags.",
+    "01F7:1749": "If DS:895E < 0x80, increments the pending count, selects a slot through DS:8960, writes normalized packed EDX position, BX source record, (5C11() & 7) animation, and DS:36EE subtype into DS:6586 + slot*8.",
+    "01F7:5C11": "Returns sign-extended DS:646C[DS:6468] in AX and advances DS:6468 modulo 256.",
+    "01F7:1892": "For visible event records, increments animation modulo 8 and calls 16CE with AX/BX coordinates and CX=DX=animation+subtype+0x1D6; culls off-camera records and publishes DS:36F0 next-offset/zero."
+  },
+  "runtime_use": {
+    "level": "W1L1",
+    "record": "The three dedicated bytes were independently exercised at the reachable record offset 0x1792 in controlled one-variable archives.",
+    "observed_handlers": ["01F7:178D", "01F7:1798", "01F7:17A3"],
+    "observed_effect_consumer": "01F7:16CE",
+    "evidence": ["research/entity-types.json", "research/entity-targeted-decompile-evidence.json", "research/notes/ghidra-analysis.md", "research/notes/descriptor-construction-evidence.json"]
+  },
+  "boundary": "The path does not directly write the player record. Its remaining effect/render child behavior is outside the closure once 16CE/10B5 contracts are applied; semantic human-facing names for the three visual subtypes remain intentionally conservative."
+}

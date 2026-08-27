@@ -21,6 +21,7 @@ local trace_overlap = trace_config.trace_overlap or false
 local trace_collision = trace_config.trace_collision or false
 local trace_platform = trace_config.trace_platform or false
 local trace_platform_player = trace_config.trace_platform_player or false
+local platform_trace_compact = trace_config.platform_trace_compact or false
 local player_input_phases = trace_config.player_input_phases or {}
 local player_input_phase_index = 0
 local player_input_before_platform = trace_config.player_input_before_platform or false
@@ -29,6 +30,8 @@ local trace_contact = trace_config.trace_contact or false
 local trace_effect_table = trace_config.trace_effect_table or false
 local effect_table_attempts = trace_config.effect_table_attempts or 64
 local trace_stream_lifecycle = trace_config.trace_stream_lifecycle or false
+local trace_lifecycle_player = trace_config.trace_lifecycle_player or false
+local force_lifecycle_cull_path = trace_config.force_lifecycle_cull_path or false
 local lifecycle_return_camera_x = trace_config.lifecycle_return_camera_x or 700
 local lifecycle_return_camera_y = trace_config.lifecycle_return_camera_y or 350
 local force_active_player_bounds = trace_config.force_active_player_bounds or false
@@ -47,6 +50,10 @@ local align_y_offset = trace_config.align_y_offset or 0
 local force_velocity_x = trace_config.force_velocity_x
 local force_velocity_y = trace_config.force_velocity_y
 local force_platform_ready = trace_config.force_platform_ready or false
+local force_level_loop_ready = trace_config.force_level_loop_ready or false
+local trace_level_loop_timer = trace_config.trace_level_loop_timer or false
+local trace_selector_handoff = trace_config.trace_selector_handoff or false
+local selector_handoff_trace = nil
 local reload_after_collect = trace_config.reload_after_collect or false
 local reload_level = trace_config.reload_level
 if reload_level == nil or reload_level == "" then reload_level = select_level end
@@ -84,7 +91,21 @@ end
 
 local function wait_hit(label)
     local hit, err = dosbox.wait_for_breakpoint(timeout_ms)
-    if not hit then error(label .. ": " .. (err or "timeout")) end
+    if not hit then
+        local cpu = dosbox.cpu_state()
+        local checkpoints = dosbox.output.checkpoints or {}
+        local launch = checkpoints.launch
+        local launch_text = launch and string.format(
+            "%04x:%04x", launch.segment or 0, launch.offset or 0) or "none"
+        error(string.format(
+            "%s: %s (CS:%04x EIP:%08x DS:%04x 85D4:%04x 85D6:%04x 89F2:%04x 88BC:%04x 819e:%04x launch:%s)",
+            label, err or "timeout", cpu.cs or 0, cpu.eip or 0, cpu.ds or 0,
+            dosbox.mem_read_word("ds", 0x85d4) or 0,
+            dosbox.mem_read_word("ds", 0x85d6) or 0,
+            dosbox.mem_read_word("ds", 0x89f2) or 0,
+            dosbox.mem_read_word("ds", 0x88bc) or 0,
+            dosbox.mem_read_word("ds", 0x819e) or 0, launch_text))
+    end
     return hit
 end
 
@@ -404,6 +425,46 @@ static_globals = function(object_selector)
     local carry_y_raw = dosbox.mem_read("ds", 0x8812, 4) or ""
     local carry_x_raw = dosbox.mem_read("ds", 0x8816, 4) or ""
     local action_selector = dosbox.mem_read_word("ds", 0x504e)
+    if platform_trace_compact then
+        local bounds_offset = dosbox.mem_read_word("ds", 0x881a)
+        local globals = {
+            snapshot_mode = "platform-compact",
+            camera_x = dosbox.mem_read_word("ds", 0x81c0),
+            camera_y = dosbox.mem_read_word("ds", 0x81c4),
+            action_flags = dosbox.mem_read_word("ds", 0x8196),
+            keyboard_flags = dosbox.mem_read_word("ds", 0x88bc),
+            input_source_656c = dosbox.mem_read_word("ds", 0x656c),
+            input_gate_85da = dosbox.mem_read_word("ds", 0x85da),
+            action_low_copy_4ff0 = dosbox.mem_read_word("ds", 0x4ff0),
+            bounds_object_offset = bounds_offset,
+            bounds_object_flag = dosbox.mem_read_word("ds", 0x89ea),
+            tile_flag_word = dosbox.mem_read_word("ds", 0x60d8),
+            action_word = dosbox.mem_read_word("ds", 0x612e),
+            action_table_selector = action_selector,
+            platform_overlap_latch = dosbox.mem_read_word("ds", 0x5006),
+            player_carry_y_fixed = dword(carry_y_raw, 1),
+            player_carry_x_fixed = dword(carry_x_raw, 1),
+            deferred_y_8812_fixed = dword(carry_y_raw, 1),
+            object_global_880c = dosbox.mem_read_word("ds", 0x880c),
+            object_global_8806 = dosbox.mem_read_word("ds", 0x8806),
+            object_global_8808 = dosbox.mem_read_word("ds", 0x8808),
+            object_global_88ae = string.byte(
+                dosbox.mem_read("ds", 0x88ae, 1) or "\0", 1) or 0,
+            object_global_880a = dosbox.mem_read_word("ds", 0x880a),
+            contact_player_x = dosbox.mem_read_word("ds", 0x87de),
+            contact_player_y = dosbox.mem_read_word("ds", 0x87e0),
+            object_global_881c = dosbox.mem_read_word("ds", 0x881c),
+            object_global_8822 = dosbox.mem_read_word("ds", 0x8822),
+            object_global_8824 = dosbox.mem_read_word("ds", 0x8824),
+            cloud_global_89e6 = dosbox.mem_read_word("ds", 0x89e6),
+        }
+        if object_selector and bounds_offset ~= nil then
+            local state = dosbox.mem_read_selector(
+                object_selector, bounds_offset + 0x37, 1)
+            globals.player_state_byte = string.byte(state, 1) or 0
+        end
+        return globals
+    end
     local globals = {
         camera_x = dosbox.mem_read_word("ds", 0x81c0),
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
@@ -483,21 +544,218 @@ local function choose_level(level)
                      string.char(selector_index & 0xff, selector_index >> 8))
     dosbox.breakpoint_set(0x01d7, 0x4b18, {once = true})
     dosbox.mem_write("ds", 0x88bc, "\x20\x00")
-    -- The first ARE declaration can execute in the same resumed slice as the
-    -- selector dispatch, so arm it before leaving the selector breakpoint.
+    -- 4B18 is the selector dispatch boundary. The declaration breakpoint
+    -- must already be live when the selector is
+    -- resumed. The selector and first ARE handoff can occur in the same
+    -- resumed slice; the older successful platform traces rely on this
+    -- ordering.
     dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
     dosbox.debug_continue()
-    dosbox.output.checkpoints.launch = wait_hit("selector Space dispatch")
-    -- Leave the launch breakpoint and let the polling loop consume the first
-    -- declaration hit, mirroring the resource tracer lifecycle.
-    dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
-    dosbox.debug_continue()
-    return true
+    local launch = wait_hit("selector Space dispatch")
+    dosbox.output.checkpoints.launch = launch
+    if launch.segment == 0x01f7 and launch.offset == 0x1e04 then
+        -- The selector and first ARE handoff can execute in one resumed
+        -- slice. Preserve the consumed declaration for the outer search;
+        -- waiting for another 1E04 would lose the first matching record.
+        return launch
+    end
+    if trace_selector_handoff then
+        -- Static 4A39-4B7B closes the selector dispatch, but the first ARE
+        -- declaration is later in the 504F/48BB lifecycle.  Observe the
+        -- handoff edges and the native timer owner without publishing or
+        -- forcing DS:819E.  This trace is deliberately diagnostic and stops
+        -- after the first declaration or a bounded sequence of timer/gate
+        -- observations.
+        local selector_points = {
+            {segment = 0x01d7, offset = 0x4b55, name = "buffer_copy"},
+            {segment = 0x01d7, offset = 0x4b6e, name = "player_recovery"},
+            {segment = 0x01d7, offset = 0x4b78, name = "world_dispatch"},
+            {segment = 0x01d7, offset = 0x504f, name = "main_loop_return"},
+            {segment = 0x01d7, offset = 0x48bb, name = "frame_gate"},
+            {segment = 0x01f7, offset = 0xf049, name = "timer_irq"},
+            {segment = 0x01f7, offset = 0x1e04, name = "are_declaration"},
+        }
+        local selector_handoff_hits = {}
+        for _, point in ipairs(selector_points) do
+            dosbox.breakpoint_set(point.segment, point.offset, {once = true})
+        end
+        local declaration = nil
+        local selector_handoff_timeout = nil
+        for attempt = 1, 256 do
+            dosbox.debug_continue()
+            local hit_ok, hit_or_error = pcall(wait_hit, "selector handoff trace")
+            if not hit_ok then
+                -- Once the one-shot timer IRQ has exposed the native gate,
+                -- allow the IRQ to run normally.  A timeout now identifies
+                -- the actual main CPU location instead of another timer hit.
+                selector_handoff_timeout = {
+                    error = tostring(hit_or_error),
+                    cpu = dosbox.cpu_state(),
+                    selector_index = dosbox.mem_read_word("ds", 0x85d4),
+                    selector_state = dosbox.mem_read_word("ds", 0x85d6),
+                    transition_row = dosbox.mem_read_word("ds", 0x85d2),
+                    transition_pending = dosbox.mem_read_word("ds", 0x89e0),
+                    transition_event = dosbox.mem_read_word("ds", 0x89ec),
+                    action_suppressor = dosbox.mem_read_word("ds", 0x89e6),
+                    transition_counter = dosbox.mem_read_word("ds", 0x89f0),
+                    frame_gate = dosbox.mem_read_word("ds", 0x819e),
+                    completion_mark = dosbox.mem_read_word("ds", 0x85db),
+                }
+                break
+            end
+            local hit = hit_or_error
+            local point_name = "unknown"
+            for _, point in ipairs(selector_points) do
+                if hit.segment == point.segment and hit.offset == point.offset then
+                    point_name = point.name
+                    break
+                end
+            end
+            selector_handoff_hits[#selector_handoff_hits + 1] = {
+                sequence = #selector_handoff_hits + 1,
+                point = point_name,
+                hit = hit,
+                selector_index = dosbox.mem_read_word("ds", 0x85d4),
+                selector_state = dosbox.mem_read_word("ds", 0x85d6),
+                transition_row = dosbox.mem_read_word("ds", 0x85d2),
+                transition_pending = dosbox.mem_read_word("ds", 0x89e0),
+                transition_event = dosbox.mem_read_word("ds", 0x89ec),
+                action_suppressor = dosbox.mem_read_word("ds", 0x89e6),
+                transition_counter = dosbox.mem_read_word("ds", 0x89f0),
+                frame_gate = dosbox.mem_read_word("ds", 0x819e),
+                completion_mark = dosbox.mem_read_word("ds", 0x85db),
+            }
+            if hit.segment == 0x01f7 and hit.offset == 0x1e04 then
+                declaration = hit
+                break
+            end
+            -- Re-arm only recurring lifecycle edges.  The 4B55/4B6E/4B78
+            -- calls and the first 504F handoff are one-shot evidence.
+            if hit.segment == 0x01d7 and hit.offset == 0x48bb then
+                dosbox.breakpoint_set(0x01d7, 0x48bb, {once = true})
+            elseif hit.segment == 0x01f7 and hit.offset == 0xf049 then
+                -- Deliberately do not re-arm F049.  Native timer execution
+                -- continues after this one observation; repeatedly stopping
+                -- at the IRQ masks the helper that owns the wait.
+            end
+        end
+        dosbox.output.checkpoints.selector_handoff_hits = selector_handoff_hits
+        selector_handoff_trace = {
+            trace_schema_version = 1,
+            trace_kind = "selector-handoff",
+            declaration_reached = declaration ~= nil,
+            selector_handoff_hits = selector_handoff_hits,
+            selector_handoff_timeout = selector_handoff_timeout,
+            declaration = declaration,
+            checkpoints = dosbox.output.checkpoints,
+        }
+        if declaration ~= nil then
+            dosbox.output.checkpoints.selector_declaration = declaration
+            -- The declaration breakpoint was consumed while completing this
+            -- diagnostic boundary.  This mode is explicitly a handoff
+            -- diagnostic, so publish the trace now instead of returning to
+            -- the outer ARE search, which would wait behind 01D7:48BB and
+            -- lose the only useful evidence for this selector slice.
+            dosbox.output.behavior_trace = selector_handoff_trace
+            return
+        end
+        -- A bounded no-declaration result is still useful evidence: it records
+        -- whether the selector reached 4B55/4B6E/4B78/504F and which external
+        -- timer/gate boundary remained open.  Do not discard it as a generic
+        -- object-trace failure.
+        dosbox.output.behavior_trace = selector_handoff_trace
+        return
+    elseif trace_level_loop_timer then
+        -- Native timer observation boundary: F049 is the file-backed IRQ
+        -- writer of DS:819E. Stop before the instruction, record the IRQ,
+        -- then continue so F049 itself publishes the gate. This mode never
+        -- writes DS:819E and is intended to unblock natural object traces.
+        local timer_hits = {}
+        local timer_breakpoint_armed = false
+        for attempt = 1, 256 do
+            -- After the first IRQ breakpoint fires, the debugger is stopped
+            -- on F049 itself.  Re-arming that same one-shot at the current
+            -- EIP would immediately trap forever and prevent the timer from
+            -- publishing DS:819E.  The declaration breakpoint installed
+            -- above remains active while the native IRQ and level loop run.
+            if not timer_breakpoint_armed then
+                dosbox.breakpoint_set(0x01f7, 0xf049, {once = true})
+                timer_breakpoint_armed = true
+            end
+            dosbox.debug_continue()
+            local hit = wait_hit("selector timer/declaration")
+            if hit.segment == 0x01f7 and hit.offset == 0x1e04 then
+                dosbox.output.checkpoints.level_loop_timer_hits = timer_hits
+                -- This branch consumed the declaration breakpoint. Preserve
+                -- it for the outer search instead of waiting for a second
+                -- declaration that may never occur.
+                return hit
+            end
+            if hit.segment ~= 0x01f7 or hit.offset ~= 0xf049 then
+                error(string.format(
+                    "unexpected selector timer hit CS:%04x:%04x",
+                    hit.segment or 0, hit.offset or 0))
+            end
+            timer_hits[#timer_hits + 1] = {
+                sequence = #timer_hits + 1,
+                hit = hit,
+                wait_gate_before = dosbox.mem_read_word("ds", 0x819e),
+            }
+            timer_breakpoint_armed = true
+        end
+        error("native selector timer did not reach ARE declaration")
+    elseif force_level_loop_ready then
+        -- Controlled harness boundary only: 4BA4 clears 819E and waits for
+        -- the native frame/level-loop owner.  Stop at the compare and publish
+        -- the gate explicitly so object tracing can proceed without claiming
+        -- that this external scheduler state is part of player behavior.
+        local gate_hits = {}
+        local declaration = nil
+        for attempt = 1, 256 do
+            dosbox.breakpoint_set(0x01d7, 0x48bb, {once = true})
+            dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+            dosbox.debug_continue()
+            local hit = wait_hit("selector level-loop gate")
+            if hit.segment == 0x01f7 and hit.offset == 0x1e04 then
+                declaration = hit
+                break
+            end
+            gate_hits[#gate_hits + 1] = hit
+            dosbox.mem_write("ds", 0x819e, little_word(1))
+            -- The CPU is stopped at the wait-loop compare.  Execute exactly
+            -- that compare with the published gate before arming 48BB again;
+            -- otherwise the next loop can either re-catch the current EIP or
+            -- run back into the wait loop with no breakpoint installed.
+            dosbox.breakpoint_remove(0x01d7, 0x48bb)
+            dosbox.breakpoint_set(0x01d7, 0x48c2, {once = true})
+            dosbox.debug_continue()
+            local gate_step = wait_hit("selector level-loop gate release")
+            assert(gate_step.segment == 0x01d7 and gate_step.offset == 0x48c2,
+                   "selector gate release did not pass 48BB")
+            dosbox.breakpoint_remove(0x01d7, 0x48c2)
+        end
+        dosbox.output.checkpoints.level_loop_gates = gate_hits
+        if declaration ~= nil then
+            -- The declaration was consumed while releasing the controlled
+            -- level-loop gate. Preserve it for the outer search rather than
+            -- arming a fresh breakpoint after the only matching record.
+            return declaration
+        end
+        error("selector level-loop gate did not reach ARE declaration")
+    else
+        dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
+        dosbox.debug_continue()
+        -- Return the first declaration explicitly. The caller can inspect its
+        -- FS:EBX record and continue looking for the requested runtime offset
+        -- without relying on a debugger event that was consumed inside this
+        -- selector helper.
+        return wait_hit("first ARE declaration")
+    end
 end
 
 dosbox.output.awaiting_startup_replay = true
 dosbox.wait_frames(350)
-local first_declaration = false
+local first_declaration = nil
 if select_level ~= "" then
     first_declaration = choose_level(select_level)
 else
@@ -525,26 +783,97 @@ end
 -- object. The player record is never selected by this path unless explicitly
 -- requested by its type/record, which is outside this tracer's intended use.
 local target_declaration = nil
+local selector_timer_seen = false
+local declaration_search = {}
 for attempt = 1, 4096 do
-    if first_declaration then
+    local entry = nil
+    if type(first_declaration) == "table" then
+        -- choose_level already consumed this declaration while the selector
+        -- handoff was stopped. It is the same breakpoint record the normal
+        -- path below would have returned.
+        entry = first_declaration
+        first_declaration = nil
+    elseif first_declaration then
+        -- Kept for compatibility with older callers that returned a boolean
+        -- after arming 1E04. The current selector path returns the actual hit.
         first_declaration = false
     else
         dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
     end
-    local entry = wait_hit("ARE declaration")
-    local record = dosbox.mem_read("fs", entry.registers.ebx & 0xffff, 6)
-    local entity_type = word(record, 1) & 0xff
-    if (entry.registers.ebx & 0xffff) == runtime_offset then
-        assert(entity_type == expected_type,
-               string.format("record type %02x, expected %02x",
-                             entity_type, expected_type))
-        target_declaration = {entry = entry, record = record}
-        break
+    if trace_level_loop_timer and not selector_timer_seen then
+        -- A non-target declaration returns to the same level-loop gate.  Keep
+        -- the native timer boundary armed until the first F049 observation so
+        -- later declarations do not stall at 48BB/48C0.
+        dosbox.breakpoint_set(0x01f7, 0xf049, {once = true})
     end
-    dosbox.debug_continue()
-    dosbox.wait_frames(1)
+    if force_level_loop_ready then
+        -- The selector may leave the CPU at 01D7:48BB after consuming the
+        -- recovery/player declaration.  Release that explicitly named
+        -- external gate on every subsequent search iteration, while keeping
+        -- 1E04 armed for the actual target record.
+        dosbox.breakpoint_set(0x01d7, 0x48bb, {once = true})
+    end
+    if entry == nil then
+        dosbox.debug_continue()
+        entry = wait_hit(force_level_loop_ready
+                                and "ARE declaration or frame gate"
+                                or "ARE declaration")
+        if #declaration_search < 64 then
+            declaration_search[#declaration_search + 1] = {
+                sequence = #declaration_search + 1,
+                segment = entry.segment,
+                offset = entry.offset,
+                record_pointer = entry.registers and entry.registers.ebx,
+                record_offset = entry.registers and
+                    ((entry.registers.ebx or 0) & 0xffff) or nil,
+            }
+        end
+    end
+    local timer_hit = trace_level_loop_timer and
+        entry.segment == 0x01f7 and entry.offset == 0xf049
+    local frame_gate_hit = force_level_loop_ready and
+        entry.segment == 0x01d7 and entry.offset == 0x48bb
+    if timer_hit then
+        selector_timer_seen = true
+        -- The timer breakpoint was consumed at the current EIP.  Resume from
+        -- F049 with only 1E04 armed; the IRQ has now published DS:819E.
+        dosbox.breakpoint_remove(0x01f7, 0xf049)
+        first_declaration = false
+    elseif frame_gate_hit then
+        dosbox.mem_write("ds", 0x819e, little_word(1))
+        -- The current EIP is 48BB. Execute the compare once with the gate
+        -- published, then return to the search loop with a fresh 48BB
+        -- breakpoint.  This keeps the controlled release deterministic.
+        dosbox.breakpoint_remove(0x01d7, 0x48bb)
+        dosbox.breakpoint_set(0x01d7, 0x48c2, {once = true})
+        dosbox.debug_continue()
+        local gate_step = wait_hit("ARE declaration gate release")
+        assert(gate_step.segment == 0x01d7 and gate_step.offset == 0x48c2,
+               "ARE declaration gate release did not pass 48BB")
+        dosbox.breakpoint_remove(0x01d7, 0x48c2)
+        first_declaration = false
+    else
+        local record = dosbox.mem_read("fs", entry.registers.ebx & 0xffff, 6)
+        local entity_type = word(record, 1) & 0xff
+        if (entry.registers.ebx & 0xffff) == runtime_offset then
+            assert(entity_type == expected_type,
+                   string.format("record type %02x, expected %02x",
+                                 entity_type, expected_type))
+            target_declaration = {entry = entry, record = record}
+            break
+        end
+        dosbox.debug_continue()
+        dosbox.wait_frames(1)
+    end
 end
-assert(target_declaration ~= nil, "target ARE declaration was not found")
+if target_declaration == nil then
+    local last = declaration_search[#declaration_search]
+    error(string.format(
+        "target ARE declaration was not found (wanted 0x%04x; observed %d declarations; last=%s)",
+        runtime_offset, #declaration_search,
+        last and string.format("%04x:%04x record=0x%04x", last.segment,
+                               last.offset, last.record_offset) or "none"))
+end
 
 local entry = target_declaration.entry
 local record = target_declaration.record
@@ -747,8 +1076,17 @@ if trace_stream_lifecycle then
     }
     local initial_record_state = record_state(runtime_selector, runtime_record_offset)
 
-    dosbox.mem_write("ds", 0x81c0, little_word(0))
-    dosbox.mem_write("ds", 0x81c4, little_word(0))
+    -- A horizontal platform's 9DC7 camera rejection is based on Y.  The
+    -- aligned W4L1 platform is at Y=392, which is still inside the native
+    -- window when camera Y is zero.  Use a deliberately outside-map camera
+    -- for the optional attached-player experiment; retain the historical
+    -- zero/zero lifecycle setup for all other callers.
+    local off_camera_x = trace_lifecycle_player and 0x400 or 0
+    local off_camera_y = trace_lifecycle_player and 0x400 or 0
+    if not trace_lifecycle_player then
+        dosbox.mem_write("ds", 0x81c0, little_word(off_camera_x))
+        dosbox.mem_write("ds", 0x81c4, little_word(off_camera_y))
+    end
     dosbox.breakpoint_set(0x01f7, callback_offset, {once = true})
     dosbox.debug_continue()
     local callback_hit = nil
@@ -765,21 +1103,102 @@ if trace_stream_lifecycle then
     end
     assert(callback_hit ~= nil, "lifecycle probe did not find the selected callback")
 
+    if trace_lifecycle_player then
+        -- Stop at the live callback entry before changing the camera.  This
+        -- ensures the platform is still scheduled, and the following
+        -- A06F->1DEE call is caused by the callback's own camera test.
+        dosbox.mem_write("ds", 0x81c0, little_word(off_camera_x))
+        dosbox.mem_write("ds", 0x81c4, little_word(off_camera_y))
+        if force_lifecycle_cull_path then
+            -- 01F7:9C70 publishes +0x59 from the raw MAP word.  Authored
+            -- platform cells in the selected fixture commonly set it, and
+            -- 9DC7 then takes the early A06B/A0B2 path instead of testing
+            -- camera-relative motion.  Clear only this debugger-controlled
+            -- latch to exercise the statically recovered A06F->1DEE edge;
+            -- this is not a gameplay interpretation of the latch.
+            dosbox.mem_write_selector(object_selector, object_offset + 0x59,
+                                      string.char(0x00))
+        end
+    end
+
+    dosbox.breakpoint_set(0x01f7, 0xa06f, {once = true})
     dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
     dosbox.debug_continue()
+    local cull_dispatch_hit = nil
     local removal_hit = nil
+    local cull_branch_hits = {}
+    local cull_branch_points = {
+        [0x9e1c] = "latch_gate",
+        [0x9e20] = "motion_axis_gate",
+        [0x9e3a] = "horizontal_cull_jump",
+        [0x9f66] = "vertical_cull_path",
+        [0x9f76] = "vertical_cull_jump",
+    }
+    for offset, _ in pairs(cull_branch_points) do
+        dosbox.breakpoint_set(0x01f7, offset, {once = true})
+    end
+    dosbox.breakpoint_set(0x01f7, 0xa06f, {once = true})
+    dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
     for attempt = 1, 512 do
         local hit = wait_hit("lifecycle removal helper")
-        if hit.segment == 0x01f7 and hit.offset == 0x1dee and
+        if hit.segment == 0x01f7 and hit.offset == 0xa06f and
+                hit.registers.es == object_selector and
+                (hit.registers.edi & 0xffff) == object_offset then
+            cull_dispatch_hit = hit
+            dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
+            dosbox.debug_continue()
+        elseif hit.segment == 0x01f7 and hit.offset == 0x1dee and
                 hit.registers.es == object_selector and
                 (hit.registers.edi & 0xffff) == object_offset then
             removal_hit = hit
             break
+        elseif hit.segment == 0x01f7 and cull_branch_points[hit.offset] ~= nil and
+                hit.registers.es == object_selector and
+                (hit.registers.edi & 0xffff) == object_offset then
+            local raw = dosbox.mem_read_selector(object_selector,
+                                                 object_offset, 0x5b) or ""
+            cull_branch_hits[#cull_branch_hits + 1] = {
+                point = cull_branch_points[hit.offset],
+                segment = hit.segment,
+                offset = hit.offset,
+                registers = hit.registers,
+                object_latch = (#raw >= 0x5b and string.byte(raw, 0x59 + 1) or nil),
+                object_axis = (#raw >= 0x4b and string.byte(raw, 0x4a + 1) or nil),
+            }
         end
-        dosbox.breakpoint_set(0x01f7, 0x1dee, {once = true})
         dosbox.debug_continue()
     end
-    assert(removal_hit ~= nil, "lifecycle probe did not reach 1DEE for the selected object")
+    if removal_hit == nil then
+        -- Preserve a negative control as data: the selected callback did not
+        -- reach its cull/removal edge under the requested camera mutation.
+        -- This is useful for diagnosing scheduler/camera ordering and must
+        -- not be reported as a successful lifecycle trace.
+        dosbox.output.behavior_trace = {
+            trace_schema_version = 1,
+            trace_kind = "object-stream-lifecycle-negative",
+            type = expected_type,
+            record_offset = record_offset,
+            runtime_record = {selector = runtime_selector,
+                              offset = runtime_record_offset},
+            object = {selector = object_selector, offset = object_offset},
+            callback = {segment = callback_hit.segment,
+                        offset = callback_hit.offset,
+                        registers = callback_hit.registers},
+            off_camera = {x = off_camera_x, y = off_camera_y},
+            initial_object = initial_object,
+            initialized_object = initialized_object,
+            cull_branch_hits = cull_branch_hits,
+            cull_dispatch = cull_dispatch_hit and {
+                segment = cull_dispatch_hit.segment,
+                offset = cull_dispatch_hit.offset,
+                registers = cull_dispatch_hit.registers,
+            } or nil,
+            removal = nil,
+            observation = "selected callback returned or stalled without matching A06F->1DEE",
+        }
+        dosbox.debug_continue()
+        return
+    end
 
     local callback_return = stack_return(callback_hit)
     assert(callback_return ~= nil, "lifecycle callback has no near return address")
@@ -788,6 +1207,65 @@ if trace_stream_lifecycle then
     local removal_return = wait_hit("lifecycle callback return")
     local removed_object = object_snapshot(object_selector, object_offset)
     local removed_record = record_state(runtime_selector, runtime_record_offset)
+    local lifecycle_player = nil
+    if trace_lifecycle_player then
+        -- The cull helper has no direct player write.  Observe the next
+        -- matching player callback at the scheduler boundary so an attached
+        -- player's post-release behavior is separated from the helper's
+        -- own object/declaration mutation.
+        local player_offset = dosbox.mem_read_word("ds", 0x881a) or 0
+        lifecycle_player = {
+            requested = true,
+            selector = object_selector,
+            offset = player_offset,
+            before = player_snapshot(object_selector, player_offset),
+            globals_before = static_globals(object_selector),
+        }
+        dosbox.breakpoint_set(0x01f7, 0x3ff8, {once = true})
+        dosbox.debug_continue()
+        for attempt = 1, 512 do
+            local ok, hit_or_error = pcall(wait_hit, "lifecycle player callback")
+            if not ok then
+                lifecycle_player.error = tostring(hit_or_error)
+                break
+            end
+            local hit = hit_or_error
+            if hit.segment == 0x01f7 and hit.offset == 0x3ff8 and
+                    hit.registers.es == object_selector and
+                    (hit.registers.edi & 0xffff) == player_offset then
+                local returned_player = stack_return(hit)
+                lifecycle_player.entry = {
+                    segment = hit.segment,
+                    offset = hit.offset,
+                    registers = hit.registers,
+                }
+                lifecycle_player.before = player_snapshot(
+                    object_selector, player_offset)
+                lifecycle_player.globals_before = static_globals(object_selector)
+                if returned_player == nil then
+                    lifecycle_player.error = "player callback return unavailable"
+                    break
+                end
+                dosbox.breakpoint_set(returned_player.segment,
+                                      returned_player.offset, {once = true})
+                dosbox.debug_continue()
+                local returned_hit = wait_hit("lifecycle player callback return")
+                lifecycle_player.return_hit = {
+                    segment = returned_hit.segment,
+                    offset = returned_hit.offset,
+                    registers = returned_hit.registers,
+                }
+                lifecycle_player.after = player_snapshot(
+                    object_selector, player_offset)
+                lifecycle_player.globals_after = static_globals(object_selector)
+                lifecycle_player.return_address = returned_player
+                lifecycle_player.observed = true
+                break
+            end
+            dosbox.breakpoint_set(0x01f7, 0x3ff8, {once = true})
+            dosbox.debug_continue()
+        end
+    end
 
     -- Reset the stream-region cache as well as the camera so the next main-loop
     -- pass must revisit the target's 64-pixel cell rather than treating it as
@@ -879,6 +1357,12 @@ if trace_stream_lifecycle then
                 offset = removal_hit.offset,
                 registers = removal_hit.registers,
             },
+            cull_dispatch = cull_dispatch_hit and {
+                segment = cull_dispatch_hit.segment,
+                offset = cull_dispatch_hit.offset,
+                registers = cull_dispatch_hit.registers,
+            } or nil,
+            cull_branch_hits = cull_branch_hits,
             removal_return = {
                 segment = removal_return.segment,
                 offset = removal_return.offset,
@@ -903,6 +1387,7 @@ if trace_stream_lifecycle then
             declaration_record_after = declaration_record_after,
             reconstructed_object = reconstructed_object,
             re_streamed = declaration_hit ~= nil and declaration_return_hit ~= nil,
+            player_after_removal = lifecycle_player,
         },
         samples = {},
     }
@@ -1490,14 +1975,10 @@ if reload_after_collect then
     -- of the first object's cleared callback.
     dosbox.debug_continue()
     dosbox.wait_frames(reload_wait_frames)
-    local second_declaration = choose_level(reload_level)
+    choose_level(reload_level)
     local second_target = nil
     for attempt = 1, 4096 do
-        if second_declaration then
-            second_declaration = false
-        else
-            dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
-        end
+        dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})
         local declaration = wait_hit("reload ARE declaration")
         local declaration_record = dosbox.mem_read("fs", declaration.registers.ebx & 0xffff, 6)
         local declaration_type = word(declaration_record, 1) & 0xff
@@ -1854,6 +2335,7 @@ dosbox.output.behavior_trace = {
     cloud_hardware_renderer_probe = cloud_hardware_renderer_probe,
     effect_table_probe = effect_table_probe,
     reload_probe = reload_probe,
+    selector_handoff_trace = selector_handoff_trace,
     samples = samples,
 }
 dosbox.debug_continue()

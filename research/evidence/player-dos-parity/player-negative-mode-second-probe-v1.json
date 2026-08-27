@@ -1,0 +1,84 @@
+{
+  "schema": "quiky.player-negative-mode-second-probe.v1",
+  "purpose": "Pin the protected-mode control flow that distinguishes a blocked negative-mode vertical probe from the ordinary ascent-to-fall 41C1 join.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace": "research/build/traces/player-w1l1-natural-ceiling-return-v3.json",
+    "trace_sha256": "1678dc30e6082057cc71e87a117def5da09eefa764d0683a6eec3251f7ff7b54",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "f0f00bb8e8e96b3f37458012060b2661aa20502b9ada136228b00fe35bd37126",
+    "ghidra_language": "x86:LE:16:Protected Mode:default"
+  },
+  "method": {
+    "level": "W1L1",
+    "coordinate_patch": null,
+    "callback": "01F7:3FF8",
+    "execute_watches": [
+      "01F7:4323", "01F7:4363", "01F7:4366",
+      "01F7:3986", "01F7:1C92", "01F7:3997",
+      "01F7:41C1", "01F7:41CF"
+    ],
+    "route": "7 KBD_right:30 phases, then KBD_right+KBD_space+KBD_up:30, then WAIT:1 phases",
+    "collision_event_limit": 20,
+    "collision_repeat_limit": 4
+  },
+  "static_contract": {
+    "entry": "01F7:4323 CALL 01F7:3986; JNZ 01F7:41C1",
+    "integrate": "01F7:432A computes +0x0e + +0x58, clamps only the signed negative lower bound, and 01F7:4350 branches to 41C1 when the result is nonnegative",
+    "second_probe": "01F7:4359 writes +0x0e and adds it to +0x06; 01F7:4363 calls 3986; 01F7:4366 JZ goes to 4384 and the opposite path goes to 41C1",
+    "response": "01F7:41C1/41CF writes +0x3e=0x03e7, +0x37=1, +0x0e=0, and selects animation descriptor 0x3186 before 4384"
+  },
+  "observation": {
+    "ordinary_apex_join": {
+      "sequence": 13,
+      "frame": 256,
+      "pre": {
+        "x": 457,
+        "y": 316,
+        "mode": -1,
+        "velocity_y_fixed_signed": -8192
+      },
+      "order": [
+        "01F7:4323", "01F7:3986", "01F7:1C92", "01F7:3997", "01F7:41C1", "01F7:41CF"
+      ],
+      "post": {
+        "mode": 1,
+        "velocity_y_fixed_signed": 0,
+        "player_byte_0x3e": 999
+      },
+      "interpretation": "The pre-state vertical velocity is -0x2000 and the callback's +0x58 integration reaches zero, so the 4350 nonnegative join explains 41C1. The second-probe site 4363 is not executed in this sample."
+    },
+    "continuing_ascent_control": {
+      "sequence": 9,
+      "frame": 248,
+      "pre": {
+        "x": 448,
+        "y": 321,
+        "mode": -1,
+        "velocity_y_fixed_signed": -73728
+      },
+      "order": [
+        "01F7:4323", "01F7:3986", "01F7:1C92", "01F7:3997", "01F7:4363", "01F7:4366"
+      ],
+      "second_probe_return_flags": {
+        "flags": 12870,
+        "zf": true,
+        "meaning": "the 4366 JZ path reaches common tail"
+      }
+    }
+  },
+  "conclusion": {
+    "status": "negative_mode_second_probe_and_apex_join_static_closed",
+    "proves": [
+      "The full protected-mode callback listing contains both 4326/4356/4368 joins to 41C1 and the 4366 clear-probe join to 4384.",
+      "41C1 is not by itself a ceiling classification; an ordinary apex can reach it through 4356.",
+      "A natural-ceiling experiment must capture the 4326 or 4368 probe-caused path, not merely the shared 41C1 response."
+    ],
+    "does_not_prove": [
+      "general descriptor floor/ceiling/one-way semantic names",
+      "natural ceiling behavior in an authored reachable ceiling",
+      "the runtime cause of a future 41C1 event without its preceding callback branch"
+    ]
+  }
+}

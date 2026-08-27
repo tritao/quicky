@@ -202,7 +202,9 @@ def callback_offsets(items: Any) -> list[int]:
         if not isinstance(item, dict):
             result.append(-1)
             continue
-        callback_value = item.get("callback")
+        callback_value = item.get("phase_callback_offset")
+        if callback_value is None:
+            callback_value = item.get("callback")
         if isinstance(callback_value, dict):
             value = callback_value.get("offset")
         else:
@@ -236,27 +238,29 @@ def scheduler_offsets(sample: dict[str, Any]) -> list[int] | None:
     return None
 
 
-def active_objects(sample: dict[str, Any]) -> list[tuple[Any, ...]] | None:
+def active_objects(sample: dict[str, Any]) -> list[dict[str, Any]] | None:
     if isinstance(sample.get("entities"), list):
         values = sample["entities"]
         result = []
         for item in values:
             if not isinstance(item, dict):
-                result.append((item,))
+                result.append({"value": item})
                 continue
             cb = item.get("callback")
             offset = cb.get("offset") if isinstance(cb, dict) else cb
             if offset in (None, 0, 16376, 0xffff):
                 continue
-            values = [offset, item.get("x"), item.get("y"),
-                      item.get("sprite_slot")]
+            record = {"callback": offset, "x": item.get("x"),
+                      "y": item.get("y"),
+                      "sprite_slot": item.get("sprite_slot")}
             if offset == 0x47E7:
-                values.extend([
-                    item.get("ambient_velocity_y_fixed"),
-                    item.get("ambient_animation_delay"),
-                    item.get("ambient_animation_cursor"),
-                ])
-            result.append(tuple(values))
+                for source, target in (
+                        ("ambient_velocity_y_fixed", "velocity_y_fixed"),
+                        ("ambient_animation_delay", "animation_delay"),
+                        ("ambient_animation_cursor", "animation_cursor")):
+                    if source in item:
+                        record[target] = item[source]
+            result.append(record)
         return sorted(result, key=repr)
     pool = sample.get("pool")
     if not isinstance(pool, dict) or not isinstance(pool.get("objects"), list):
@@ -264,7 +268,7 @@ def active_objects(sample: dict[str, Any]) -> list[tuple[Any, ...]] | None:
     result = []
     for item in pool["objects"]:
         if not isinstance(item, dict):
-            result.append((item,))
+            result.append({"value": item})
             continue
         callback_value = item.get("callback")
         # The native callback trace's player object is represented separately
@@ -272,18 +276,68 @@ def active_objects(sample: dict[str, Any]) -> list[tuple[Any, ...]] | None:
         if callback_value == 16376:
             continue
         position = item.get("position")
-        values = [callback_value,
-                  position.get("x") if isinstance(position, dict) else None,
-                  position.get("y") if isinstance(position, dict) else None,
-                  item.get("sprite_slot")]
+        record = {
+            "callback": callback_value,
+            "x": position.get("x") if isinstance(position, dict) else None,
+            "y": position.get("y") if isinstance(position, dict) else None,
+            "sprite_slot": item.get("sprite_slot"),
+        }
         if callback_value == 0x47E7:
-            values.extend([
-                item.get("velocity_y_fixed"),
-                item.get("animation_delay"),
-                item.get("animation_cursor"),
-            ])
-        result.append(tuple(values))
+            for source, target in (
+                    ("velocity_y_fixed", "velocity_y_fixed"),
+                    ("animation_delay", "animation_delay"),
+                    ("animation_cursor", "animation_cursor")):
+                if source in item:
+                    record[target] = item[source]
+        result.append(record)
     return sorted(result, key=repr)
+
+
+def compare_active_objects(expected: list[dict[str, Any]],
+                           actual: list[dict[str, Any]],
+                           sequence: int) -> tuple[list[dict[str, Any]],
+                                                    list[dict[str, Any]]]:
+    """Compare object identity and only fields present on both captures.
+
+    Object identity remains fail-closed. Optional per-object fields are
+    reported as coverage gaps when one side did not capture them; a missing
+    field is never converted to a synthetic null that can create a false
+    behavioral mismatch.
+    """
+    mismatches: list[dict[str, Any]] = []
+    coverage: list[dict[str, Any]] = []
+    if len(expected) != len(actual):
+        return ([{"sequence": sequence, "field": "active_objects",
+                  "original": expected, "candidate": actual}], coverage)
+
+    identity = ("callback", "x", "y", "sprite_slot")
+    for expected_item, actual_item in zip(expected, actual):
+        expected_identity = tuple(expected_item.get(key) for key in identity)
+        actual_identity = tuple(actual_item.get(key) for key in identity)
+        if expected_identity != actual_identity:
+            mismatches.append({"sequence": sequence, "field": "active_objects",
+                               "original": expected, "candidate": actual})
+            return mismatches, coverage
+        for key in sorted(set(expected_item) | set(actual_item)):
+            if key in identity or key == "value":
+                continue
+            expected_present = key in expected_item
+            actual_present = key in actual_item
+            if not expected_present or not actual_present:
+                coverage.append({
+                    "sequence": sequence,
+                    "field": f"active_objects.{key}",
+                    "original_present": expected_present,
+                    "candidate_present": actual_present,
+                })
+            elif expected_item[key] != actual_item[key]:
+                mismatches.append({
+                    "sequence": sequence,
+                    "field": f"active_objects.{key}",
+                    "original": expected_item[key],
+                    "candidate": actual_item[key],
+                })
+    return mismatches, coverage
 
 
 def compare(original: Path, candidate: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -318,9 +372,7 @@ def compare(original: Path, candidate: Path) -> tuple[list[dict[str, Any]], list
         fields = (("input_flags", input_flags(expected), input_flags(actual)),
                   ("camera", camera(expected), camera(actual)),
                   ("scheduler_callbacks", scheduler_offsets(expected),
-                   scheduler_offsets(actual)),
-                  ("active_objects", active_objects(expected),
-                   active_objects(actual)))
+                   scheduler_offsets(actual)))
         for field, expected_value, actual_value in fields:
             if expected_value is None or actual_value is None:
                 coverage.append({"sequence": sequence, "field": field,
@@ -330,6 +382,18 @@ def compare(original: Path, candidate: Path) -> tuple[list[dict[str, Any]], list
                 mismatches.append({"sequence": sequence, "field": field,
                                    "original": expected_value,
                                    "candidate": actual_value})
+
+        expected_objects = active_objects(expected)
+        actual_objects = active_objects(actual)
+        if expected_objects is None or actual_objects is None:
+            coverage.append({"sequence": sequence, "field": "active_objects",
+                             "original_present": expected_objects is not None,
+                             "candidate_present": actual_objects is not None})
+        else:
+            object_mismatches, object_coverage = compare_active_objects(
+                expected_objects, actual_objects, sequence)
+            mismatches.extend(object_mismatches)
+            coverage.extend(object_coverage)
 
         for field, normalizer in (("probes", probes),
                                   ("global_writes", global_writes),
@@ -352,6 +416,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--original", type=Path, required=True)
     parser.add_argument("--candidate", type=Path, required=True)
     parser.add_argument("--max-report", type=int, default=8)
+    parser.add_argument(
+        "--require-complete", action="store_true",
+        help="fail when either trace omits a comparable field",
+    )
     args = parser.parse_args(argv)
     try:
         mismatches, coverage = compare(args.original, args.candidate)
@@ -367,6 +435,11 @@ def main(argv: list[str] | None = None) -> int:
             for item in coverage[:args.max_report]:
                 print(json.dumps(item, sort_keys=True))
         return 1
+    if coverage and args.require_complete:
+        print(f"INCOMPLETE fields=0 coverage_gaps={len(coverage)}")
+        for item in coverage[:args.max_report]:
+            print(json.dumps(item, sort_keys=True))
+        return 2
     print(f"OK: W1L1 session parity fields; coverage_gaps={len(coverage)}")
     for item in coverage[:args.max_report]:
         print(json.dumps(item, sort_keys=True))

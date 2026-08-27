@@ -1,0 +1,61 @@
+{
+  "schema": "quiky.player-scheduler-membership.v1",
+  "purpose": "Fresh 01F7:0FA2 entry capture proving the W1L1 player entry in the selected scheduler bank.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "trace": "/tmp/player-scheduler-0fa2-v1.json",
+    "trace_sha256": "91e06638fe311164d688af3d9364158736bf1106ae7edeaf35755147bcb75cd7",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "4b9b4f728ebf2f9166497191ebb9a013f43426549474b42eeaf97ef3bbce58a9",
+    "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae"
+  },
+  "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-capture-record --player-samples 2 --player-frames-between 1 --timeout 60 --player-watch-execute 0x1f7:0x0fa2 --output /tmp/player-scheduler-0fa2-v1.json",
+  "static_contract": {
+    "entry_function": "01F7:0FA2",
+    "selected_bank": "DS:7566 + (DS:7966 & 0x0200)",
+    "entry_stride_bytes": 8,
+    "entry_words": ["callback_offset", "callback_context", "object_offset", "object_context"],
+    "terminator": "callback_offset == 0xffff",
+    "evidence": ["ghidra:0FA2-0FCF", "ghidra:0E96-0F38"]
+  },
+  "observations": [
+    {
+      "sample": 1,
+      "watch": "01F7:0FA2",
+      "insert_cursor": "0x0250",
+      "selected_bank_base": "0x7766",
+      "player_entry": {
+        "index": 9,
+        "callback_offset": "0x3ff8",
+        "callback_context": "0x1997",
+        "object_offset": "0x0000",
+        "object_context": "0x0000"
+      },
+      "interpretation": "The active nonzero-state bank contains the persistent player record at entry 9 and dispatches callback 01F7:3FF8 for object offset zero."
+    },
+    {
+      "sample": 2,
+      "watch": "01F7:0FA2",
+      "insert_cursor": "0x0040",
+      "selected_bank_base": "0x7566",
+      "player_entries": [
+        {"bank_base": "0x7566", "index": 7, "callback_offset": "0x3ff8", "object_offset": "0x0000"},
+        {"bank_base": "0x7766", "index": 9, "callback_offset": "0x3ff8", "object_offset": "0x0000"}
+      ],
+      "interpretation": "The callback entry is duplicated across the rotated banks in this pass; its append index is not a stable identity, while object offset zero is stable."
+    }
+  ],
+  "conclusion": {
+    "status": "static_selection_and_current_w1l1_membership_confirmed",
+    "closed": [
+      "01F7:0FA2 selects the bank using DS:7966 bit 0x0200.",
+      "The W1L1 persistent player is represented by callback offset 0x3FF8 and object offset zero.",
+      "Bank rotation can change the physical append index; the index must not be hard-coded in the engine."
+    ],
+    "still_open": [
+      "membership rebuild timing after player death, reload, jump detachment, or platform culling",
+      "whether every main-loop callsite uses the same bank contents outside this W1L1 startup window"
+    ]
+  }
+}

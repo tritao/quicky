@@ -1,0 +1,156 @@
+{
+  "schema": "quiky.boss-static-closure.v1",
+  "purpose": "Focused Ghidra closure for the five pooled world-boss/end-stage families and the completion edges that can feed back into gameplay.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "segment1": "research/build/ghidra-segments/QUIKY_SEG01.bin",
+    "segment1_sha256": "7c29106dbf4f6dd316f4631aeccc4b294ff71237a79acc44b09a6c85097a9af6",
+    "segment3": "research/build/ghidra-segments/QUIKY_SEG03.bin",
+    "segment3_sha256": "8d6c9554a0715935cf50b0fd6f1624941eaaf202cd5ed8f060f8f34f69f790cf",
+    "ghidra_language": "x86:LE:16:Protected Mode",
+    "pipeline": "research/tools/run_boss_static_closure.py; raw NE segments from ghidra_ne_segments.py --pad-to-memory; Ghidra -noanalysis; DumpBossDecomp.java, DumpExternalClosure.java, and DumpFocusedDisasm.java; no external x86 disassembler"
+  },
+  "export": {
+    "runner": "research/tools/run_boss_static_closure.py",
+    "rerun": "python3 research/tools/run_boss_static_closure.py --output research/build/boss-static-closure-v1",
+    "manifest": "research/build/boss-static-closure-v1/manifest.json",
+    "decomp_a": "research/build/boss-static-closure-v1/decomp-seg3-a/QUIKY_SEG03.bin-boss.c",
+    "decomp_b": "research/build/boss-static-closure-v1/decomp-seg3-b/QUIKY_SEG03.bin-boss.c",
+    "listing_a": "research/build/boss-static-closure-v1/listing-seg3-a/QUIKY_SEG03.bin.asm",
+    "listing_b": "research/build/boss-static-closure-v1/listing-seg3-b/QUIKY_SEG03.bin.asm",
+    "independent_exports_equal": true,
+    "address_names_are_preserved": true
+  },
+  "note_sha256": "5cab0b48d92523b53317c7f6390d4510d92d8b668159ce6bb041988a86ad7ef9",
+  "pool_contract": {
+    "allocator": "01F7:0E06",
+    "scheduler_insert": "01F7:1036",
+    "stride": "0x78",
+    "callback_order": "Boss records are inserted into the pooled phase scheduler; 01F7:0E96 dispatches phase 0/1/2 records and 01F7:0FA2 dispatches the selected nonzero-state list.",
+    "callback_return": "Constructors and callbacks are far ES:DI object procedures. The scheduler does not consume a callback return flag. Nested helper flags remain address-named where the caller consumes CF/ZF directly.",
+    "player_writes": [],
+    "global_writes": ["DS:8806", "DS:8808", "DS:880C", "DS:87DE", "DS:88AE", "DS:6468", "DS:646C"]
+  },
+  "shared_contracts": [
+    {
+      "address": "01F7:0E06/1036",
+      "name": "boss_pool_allocate_and_insert",
+      "inputs_outputs": "0E06 allocates a 0x78-byte pooled record; constructors fill ES:DI and 1036 publishes it to the phase scheduler; exact allocator failure flags are not consumed by the boss callbacks.",
+      "player_writes": [],
+      "global_writes": ["pool active count/list membership"],
+      "probe_coordinates": [],
+      "scheduler_position": "constructor before the next phase pass",
+      "object_effects": "allocates/inserts boss, helper, child, and effect records",
+      "feeds_back_into_simulation": "yes through callback membership and object lifetime",
+      "callees": [],
+      "confidence": "confirmed_static",
+      "evidence": ["Ghidra boss export 0E06/1036", "research/entity-boss-stage-evidence.json"]
+    },
+    {
+      "address": "01F7:0E96/0FA2",
+      "name": "boss_scheduler_phase_passes",
+      "inputs_outputs": "global pooled-bank/list state; dispatches indirect far callbacks in stable phase/list order",
+      "player_writes": [],
+      "global_writes": ["active-bank/list cursors"],
+      "probe_coordinates": [],
+      "scheduler_position": "0E96 precedes 0FA2 in the main loop; player 3FF8 is in the later nonzero-state pass",
+      "object_effects": "callback execution, deferred release, and child publication",
+      "feeds_back_into_simulation": "yes through object state and ordering",
+      "callees": ["address-named indirect callback targets"],
+      "confidence": "confirmed_static_relocation_order",
+      "evidence": ["Ghidra boss export 0E96/0FA2", "research/ghidra/player-external-state-closure.json"]
+    },
+    {
+      "address": "01F7:B25D/BB0E/C328/CDA3/D55A",
+      "name": "boss_damage_row_consumer",
+      "inputs_outputs": "ES:DI boss object; scans one DS:87DE row selected by object+0x2A, clears a matching row X, increments object+0x2C, and returns through an opaque callback tail; no scheduler flag is consumed",
+      "player_writes": [],
+      "global_writes": ["DS:87DE[row].x=0", "DS:612E=0x000D on accepted hit", "DS:88AE at world threshold"],
+      "probe_coordinates": ["strict boss_x-15 < row_x < boss_x+15", "strict boss_y-25 < row_y < boss_y+5"],
+      "scheduler_position": "boss callback pass before the world-specific stage transition",
+      "object_effects": ["damage counter +0x2C", "row cursor +0x2A", "hit latch +0x2E", "cooldown +0x2F", "spawn world-specific child/effect record"],
+      "feeds_back_into_simulation": "yes through stage gate, child callbacks, effect rows, and boss callback replacement; no direct player write",
+      "callees": ["01F7:0E06", "address-named hit/effect callback"],
+      "confidence": "confirmed_static_and_controlled_runtime",
+      "evidence": ["Ghidra boss export B25D/BB0E/C328/CDA3/D55A", "research/entity-boss-stage-evidence.json"]
+    },
+    {
+      "address": "01F7:44FF/4519/45AB/470C",
+      "name": "shared_boss_effect_table",
+      "inputs_outputs": "44FF resets the DS:87DE effect rows; 4519 allocates a row only when DS:88AE or DS:880C is nonzero and capacity permits; 45AB updates active rows; 470C removes them",
+      "player_writes": [],
+      "global_writes": ["DS:87DE", "DS:8806", "DS:8808", "DS:880C"],
+      "probe_coordinates": ["row coordinates compared by world damage callbacks"],
+      "scheduler_position": "producer/consumer edges interleave with pooled object callbacks",
+      "object_effects": "allocates, updates, and releases effect/projectile rows",
+      "feeds_back_into_simulation": "yes when a row is consumed by a boss damage callback; presentation-only leaves stop at their closed contract",
+      "callees": ["01F7:0E06", "address-named effect callback"],
+      "confidence": "confirmed_static",
+      "evidence": ["Ghidra boss export 44FF/4519/45AB/470C", "research/entity-targeted-decompile-evidence.json"]
+    },
+    {
+      "address": "01F7:1B77/393C/5C27/5D38/5D60",
+      "name": "boss_overlap_map_animation_edges",
+      "inputs_outputs": "shared object/player overlap, descriptor/map query, descriptor-cell decode, and animation-delay helpers; direct CF/ZF contracts are preserved in the listing",
+      "player_writes": [],
+      "global_writes": ["address-named animation/map cursors where selected"],
+      "probe_coordinates": ["caller-supplied object/player bounds and map coordinates"],
+      "scheduler_position": "called inside boss phase/contact callbacks",
+      "object_effects": "animation cursor/timing and descriptor-dependent child/effect branches",
+      "feeds_back_into_simulation": "only through caller branch decisions; sound-only leaves are outside the closure",
+      "callees": [],
+      "confidence": "confirmed_static_contract",
+      "evidence": ["Ghidra boss listing 1B77/393C/5C27/5D38/5D60", "research/ghidra/player-external-state-closure.json"]
+    }
+  ],
+  "worlds": [
+    {
+      "world": "W1",
+      "constructor": {"address": "01F7:B142", "name": "initialize_w1_boss_B142", "inputs_outputs": "far ES:DI pooled object; no caller-consumed flags", "player_writes": [], "global_writes": [], "object_writes": ["+0x17=1", "+0x18=B33B", "+0x12=0x3B7", "+0x28/+0x29=FF", "+0x38=0", "+0x44=0", "+0x34=0", "+0x0A=0xFFFF9000", "+0x40=FF", "+0x42=0x14", "+0x3E=FF", "child links +0x2A/+0x36"], "callees": ["01F7:0E06", "01F7:1036", "address-named child constructors"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export B142", "research/entity-boss-stage-evidence.json"]},
+      "damage_callback": {"address": "01F7:B25D", "name": "consume_w1_boss_damage_B25D", "player_writes": [], "global_writes": ["DS:87DE", "DS:612E", "DS:88AE=2 after five consumed hits"], "threshold": "object+0x2C > 4", "callees": ["01F7:0E06", "address-named hit effect"], "confidence": "confirmed_static_and_controlled_runtime", "evidence": ["Ghidra boss export B25D", "research/entity-boss-stage-evidence.json"]},
+      "main_callback": {"address": "01F7:B33B", "name": "update_w1_boss_B33B", "inputs_outputs": "far ES:DI pooled object; state machine keyed by DS:88AE and object+0x34/+0x3E", "player_writes": [], "global_writes": ["DS:88AE=3/4/5", "DS:6468/646C", "DS:87DE effect rows"], "object_writes": ["fixed-point X/Y/VX/VY", "phase +0x2A", "timers +0x34/+0x38/+0x44", "child callbacks/positions", "+0x18 clear on exit"], "callees": ["01F7:0E06", "01F7:1036", "address-named PRNG/effect/child helpers"], "confidence": "confirmed_static_and_controlled_runtime", "evidence": ["Ghidra boss export B33B", "research/entity-boss-stage-evidence.json"]},
+      "child_callbacks": ["01F7:B84D", "01F7:B87B", "01F7:4C74", "01F7:4A5E", "01F7:49F2", "01F7:489C", "01F7:9627", "01F7:9313", "01F7:993B"]
+    },
+    {
+      "world": "W2",
+      "constructor": {"address": "01F7:B9F3", "name": "initialize_w2_boss_B9F3", "inputs_outputs": "far ES:DI pooled object; no caller-consumed flags", "player_writes": [], "global_writes": [], "object_writes": ["+0x17=1", "+0x18=BBEC", "+0x12=0x10E", "+0x28/+0x29=FF", "+0x38/+0x44/+0x34=0", "+0x0A=0xFFFF7000", "+0x40=FF", "+0x42=0x14", "+0x3E=FF", "child links +0x2A/+0x36"], "callees": ["01F7:0E06", "01F7:1036", "address-named child constructors"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export B9F3", "research/entity-boss-stage-evidence.json"]},
+      "damage_callback": {"address": "01F7:BB0E", "name": "consume_w2_boss_damage_BB0E", "player_writes": [], "global_writes": ["DS:87DE", "DS:612E", "DS:88AE=2 after six consumed hits"], "threshold": "object+0x2C > 5", "callees": ["01F7:0E06", "address-named hit effect"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export BB0E", "research/entity-boss-stage-evidence.json"]},
+      "main_callback": {"address": "01F7:BBEC", "name": "update_w2_boss_BBEC", "inputs_outputs": "far ES:DI pooled object; stage machine keyed by DS:88AE", "player_writes": [], "global_writes": ["DS:88AE=3/4/5", "DS:6468/646C", "DS:87DE effect rows"], "object_writes": ["fixed-point movement", "phase/timers", "child callbacks/positions", "+0x18 clear on exit"], "callees": ["01F7:0E06", "01F7:1036", "address-named PRNG/effect/child helpers"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export BBEC", "research/entity-boss-stage-evidence.json"]},
+      "child_callbacks": ["01F7:C1A0", "01F7:BAD7", "01F7:E6A4", "01F7:E836"]
+    },
+    {
+      "world": "W3",
+      "constructor": {"address": "01F7:C28A", "name": "initialize_w3_boss_C28A", "inputs_outputs": "far ES:DI pooled object; no caller-consumed flags", "player_writes": [], "global_writes": [], "object_writes": ["+0x17=1", "+0x18=C40B", "+0x12=0x3B7", "+0x28/+0x29=FF", "+0x38/+0x46/+0x44/+0x34=0", "+0x0A=0xFFFED000", "+0x40=FF", "+0x42=0x14", "+0x3E=FF", "child link +0x36"], "callees": ["01F7:0E06", "01F7:1036", "address-named child constructors"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export C28A", "research/entity-boss-stage-evidence.json"]},
+      "damage_callback": {"address": "01F7:C328", "name": "consume_w3_boss_damage_C328", "player_writes": [], "global_writes": ["DS:87DE", "DS:612E", "DS:88AE=4 after five consumed hits", "object+0x2C reset after transition"], "threshold": "object+0x2C > 4", "callees": ["01F7:0E06", "address-named hit effect"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export C328", "research/entity-boss-stage-evidence.json"]},
+      "main_callback": {"address": "01F7:C40B", "name": "update_w3_boss_C40B", "inputs_outputs": "far ES:DI pooled object; stages 0..6 with a distinct stage-3-to-4 increment", "player_writes": [], "global_writes": ["DS:88AE=4/5/6", "DS:6468/646C", "DS:87DE effect rows"], "object_writes": ["fixed-point movement", "phase/timers", "child callbacks/positions", "+0x18 clear on exit"], "callees": ["01F7:0E06", "01F7:1036", "address-named PRNG/effect/child helpers"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export C40B", "research/entity-boss-stage-evidence.json"]},
+      "child_callbacks": ["01F7:CB11", "01F7:CD40", "01F7:EB1F", "01F7:ECB1", "01F7:EBE8"]
+    },
+    {
+      "world": "W4",
+      "constructor": {"address": "01F7:CC68", "name": "initialize_w4_boss_CC68", "inputs_outputs": "far ES:DI pooled object; no caller-consumed flags", "player_writes": [], "global_writes": [], "object_writes": ["+0x17=1", "+0x18=CE81", "+0x12=0x3B7", "+0x28/+0x29=FF", "+0x38/+0x44/+0x34=0", "+0x0A=0xFFFF9000", "+0x0E=0xFFFF9000", "+0x40=FF", "+0x42=0x14", "+0x3E=FF", "child links +0x2A/+0x36"], "callees": ["01F7:0E06", "01F7:1036", "address-named child constructors"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export CC68", "research/entity-boss-stage-evidence.json"]},
+      "damage_callback": {"address": "01F7:CDA3", "name": "consume_w4_boss_damage_CDA3", "player_writes": [], "global_writes": ["DS:87DE", "DS:612E", "DS:88AE=2 after six consumed hits"], "threshold": "object+0x2C > 5", "callees": ["01F7:0E06", "address-named hit effect"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export CDA3", "research/entity-boss-stage-evidence.json"]},
+      "main_callback": {"address": "01F7:CE81", "name": "update_w4_boss_CE81", "inputs_outputs": "far ES:DI pooled object; stages 0..5 keyed by DS:88AE", "player_writes": [], "global_writes": ["DS:88AE=3/4/5", "DS:6468/646C", "DS:87DE effect rows"], "object_writes": ["fixed-point movement", "phase/timers", "child callbacks/positions", "+0x18 clear on exit"], "callees": ["01F7:0E06", "01F7:1036", "address-named PRNG/effect/child helpers"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export CE81", "research/entity-boss-stage-evidence.json"]},
+      "child_callbacks": ["01F7:CD40"]
+    },
+    {
+      "world": "W5",
+      "constructor": {"address": "01F7:D2F6", "name": "initialize_w5_boss_D2F6", "inputs_outputs": "far ES:DI pooled object; no caller-consumed flags", "player_writes": [], "global_writes": [], "object_writes": ["+0x17=1", "+0x18=D63D", "+0x12=0x3B6", "+0x28/+0x29=FF", "+0x38/+0x46/+0x44=0", "+0x0A=0xFFFED000", "+0x0E=0xFFFC9000", "+0x40=FF", "+0x42=0x14", "+0x3E=FF", "child links +0x2A/+0x36/+0x48"], "callees": ["01F7:0E06", "01F7:1036", "address-named child constructors"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export D2F6", "research/entity-boss-stage-evidence.json"]},
+      "damage_callback": {"address": "01F7:D55A", "name": "consume_w5_boss_damage_D55A", "player_writes": [], "global_writes": ["DS:87DE", "DS:612E", "DS:88AE=4 after four consumed hits", "object+0x2C reset after transition"], "threshold": "object+0x2C > 3", "callees": ["01F7:0E06", "address-named hit effect"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export D55A", "research/entity-boss-stage-evidence.json"]},
+      "main_callback": {"address": "01F7:D63D", "name": "update_w5_boss_D63D", "inputs_outputs": "far ES:DI pooled object; stages 0..6 with a distinct stage-3-to-4 increment", "player_writes": [], "global_writes": ["DS:88AE=4/5/6", "DS:6468/646C", "DS:87DE effect rows"], "object_writes": ["fixed-point movement", "phase/timers", "child callbacks/positions", "+0x18 clear on exit"], "callees": ["01F7:0E06", "01F7:1036", "address-named PRNG/effect/child helpers"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export D63D", "research/entity-boss-stage-evidence.json"]},
+      "child_callbacks": ["01F7:D3EE", "01F7:D4D9", "01F7:D438", "01F7:E0F5", "01F7:E2BF"]
+    }
+  ],
+  "completion_edges": [
+    {"address": "01D7:4EA0", "name": "boss_transition_consumer_4EA0", "inputs_outputs": "consumes completion gate/word and dispatches the relocated wait/effect sequence", "player_writes": [], "global_writes": ["completion counters and transition words"], "callees": ["01F7:14E1", "01D7:4F10", "01D7:5010"], "confidence": "confirmed_static", "evidence": ["Ghidra boss export SEG01 4EA0", "research/entity-boss-stage-evidence.json"]},
+    {"address": "01D7:4F10/5010", "name": "boss_completion_selector_reload_edges", "inputs_outputs": "selector/reentry continuation after completion consumer", "player_writes": [], "global_writes": ["address-named progression/reload state"], "callees": ["address-named 01F7:1AAA/321F reload edges"], "confidence": "confirmed_static_boundary", "evidence": ["Ghidra boss export SEG01 4F10/5010", "research/ghidra/player-external-state-closure.json"]}
+  ],
+  "unresolved": [
+    {"address": "01F7:func_0x0000ffff", "question": "Raw protected-mode import cannot assign a stable target to several far calls; retain address-qualified unknowns until relocations/resource-selected targets or a parity mismatch identify them.", "simulation_feedback": "unknown per-call; do not replace with guessed boss behavior", "confidence": "unresolved_static"},
+    {"address": "01F7:B25D/BB0E/C328/CDA3/D55A", "question": "Retail producer/timing for repeated DS:87DE rows and authored boss progression is not closed by the callback body.", "simulation_feedback": "damage consumer and thresholds are closed; authored delivery remains runtime-boundary", "confidence": "static_consumer_closed_runtime_producer_open"},
+    {"address": "01D7:4EA0-5010", "question": "Completion producer and post-selector authored resource values remain open.", "simulation_feedback": "handoff boundary is classified; no boss-specific C++ transition is inferred", "confidence": "confirmed_boundary"}
+  ],
+  "note": "research/notes/boss-static-decomp.cpp",
+  "evidence": ["research/entity-boss-stage-evidence.json", "research/entity-targeted-decompile-evidence.json"],
+  "static_stop": "Stop at sound-only, renderer-only, and resource-selected leaves unless a held-out parity mismatch reaches them. Native boss implementation remains a later W1L1/W1L3 progression task because callback state machines are closed statically but retail damage timing and completion production are not."
+}

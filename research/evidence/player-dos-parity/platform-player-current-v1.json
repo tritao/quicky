@@ -1,0 +1,70 @@
+{
+  "schema": "quiky.platform-player-current.v1",
+  "purpose": "Hash-pinned combined moving-platform/player callback trace for scheduler order and carry consumption.",
+  "source": {
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "runtime_artifacts": {
+      "QUIKY.EXE": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+      "NESTLE.DAT": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85"
+    },
+    "dos_trace": "research/build/platform-player-followup-v7.json",
+    "dos_trace_sha256": "ecf74e44f3c5afa4a0e0d0b6a015e435160b61a0a4ae39a1562d7a63f1f19fd4",
+    "automation_script": "research/automation/quiky_object_behavior_trace.lua",
+    "automation_script_sha256": "826bfedca168e33cce4cc123d51a990575c448b88f86545102d071eb5535141d"
+  },
+  "configuration": {
+    "level": "W4L1",
+    "record_offset": "0x1898",
+    "entity_type": "0x3D",
+    "runtime_record_offset": "0x1738",
+    "platform_callback": "01F7:9DC7",
+    "player_callback": "01F7:3FF8",
+    "samples": 8,
+    "camera": [640, 100],
+    "sprite_initializer": "01F7:9D18",
+    "alignment": [-8, -8]
+  },
+  "observations": {
+    "scheduler_order": ["platform_callback", "player_callback"],
+    "platform_position_pixels": [504, 392],
+    "player_record_size": "0x78",
+    "platform_helpers_observed": ["01F7:A075", "01F7:A0B2"],
+    "first_sample": {
+      "carry_before": {
+        "DS:8816": 1,
+        "DS:8812": "0xFFF80001",
+        "DS:5006": "0xFFFF"
+      },
+      "player_position_before_fixed": [33554432, 26214400],
+      "player_position_after_fixed": [33554433, 25690114],
+      "carry_after": {
+        "DS:8816": 0,
+        "DS:8812": 0,
+        "DS:5006": "0xFFFF"
+      },
+      "player_return": "01D7:0F26"
+    },
+    "all_samples": {
+      "scheduler_order_matches": true,
+      "platform_callback": "01F7:9DC7",
+      "player_callback": "01F7:3FF8",
+      "carry_consumed_before_player_return": true,
+      "platform_position_changed": false
+    }
+  },
+  "static_interpretation": {
+    "confirmed": [
+      "The main-loop relocation pairs invoke 01F7:0E96 before 01F7:0FA2.",
+      "The platform callback publishes carry before the later player callback consumes DS:8812/DS:8816.",
+      "A075 and A0B2 are the observed overlap/publication helpers.",
+      "The player callback consumes and clears the published carry in the first combined sample."
+    ],
+    "not_closed": [
+      "Natural landing on a moving platform and inherited launch velocity.",
+      "Side or ceiling crushing.",
+      "Attached-player behavior when the platform callback is culled or the object bank is rebuilt.",
+      "Platform motion in this fixture; the selected platform remains stationary during the eight samples."
+    ]
+  },
+  "confidence": "confirmed_scheduler_order_and_carry_consumption; platform_edge_runtime_open"
+}

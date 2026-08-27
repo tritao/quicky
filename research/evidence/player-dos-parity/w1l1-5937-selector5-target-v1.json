@@ -1,0 +1,54 @@
+{
+  "schema": "quiky.player-5937-selector5-target.v1",
+  "purpose": "Targeted selector-5 dispatch capture for the remaining 5937 indirect-callback boundary; callback offsets remain address-named.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "/tmp/player-5937-selector5-v1.json",
+    "trace_sha256": "3ff1c94b8405c0f34f5cac7c550eaac5d016d0c34b1236c028bf19b7fd16b74e",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "edcde7340d9e0d0069698e04645c6a5716034ac67bbfaf35d7d8b1baf2bb8093"
+  },
+  "method": {
+    "level": "W1L1",
+    "samples": 4,
+    "frames_between": 1,
+    "patch": "DS:60D8=u16(0x0005)",
+    "execute_watches": ["01F7:5937", "01F7:0442", "01F7:04DF", "01F7:0517"],
+    "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-focus-callback --player-capture-record --player-samples 4 --player-frames-between 1 --player-patch ds:0x60d8:u16=0x0005 --player-watch-execute 0x1f7:0x5937 --player-watch-execute 0x1f7:0x0442 --player-watch-execute 0x1f7:0x04df --player-watch-execute 0x1f7:0x0517 --output /tmp/player-5937-selector5-v1.json"
+  },
+  "observations": [
+    {
+      "samples": "0-1",
+      "selector_index": "0x0006",
+      "table_index": "0x000c",
+      "callback_offset": "0x0517",
+      "callback_dword": "0x05170000",
+      "callback_execute_watch": "01F7:0517 observed"
+    },
+    {
+      "samples": "2-3",
+      "selector_index": "0x0005",
+      "table_index": "0x000a",
+      "callback_offset": "0x04DF",
+      "callback_dword": "0x04DF0000",
+      "callback_execute_watch": "01F7:04DF not observed in this window"
+    }
+  ],
+  "common_observations": {
+    "dispatch_entry_order": ["01F7:5937", "01F7:0442"],
+    "address_named_target_watch": "01F7:0517 was observed; the selector-5 record reported 01F7:04DF but did not produce an execute hit at that segment/offset during the four samples.",
+    "direct_5937_aliases": "The trace exposes the expected DS:60DA publication and auxiliary aliases; no target-specific player-record write can be attributed from this capture alone.",
+    "static_consequence": "The 0442/04DF/0517 bodies and their shared return contract are statically decompiled; the resource-selected far callback remains an address-qualified unresolved edge."
+  },
+  "status": "passed_selector5_target_capture_only",
+  "does_not_prove": [
+    "that 01F7:04DF executed in the selected selector-5 path",
+    "the body or side effects of the resource-selected far callback",
+    "absence of target-specific simulation writes outside the sampled aliases",
+    "semantic names for selector indices or callback offsets"
+  ],
+  "next": "Keep the callback address-qualified and expand it only if a held-out player parity mismatch attributes a state change to this indirect edge."
+}

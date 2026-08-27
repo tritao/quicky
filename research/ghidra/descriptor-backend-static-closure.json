@@ -1,0 +1,107 @@
+{
+  "schema": "quiky.descriptor-backend-static-closure.v1",
+  "purpose": "Focused protected-mode Ghidra contract for the MAP and descriptor helpers used by player contact and platform motion.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "pipeline": "research/tools/run_player_external_closure.py using Ghidra raw NE segment import, no-analysis annotation/decompiler/listing export, and address-qualified protected-mode assembly",
+    "runner": "research/tools/run_player_external_closure.py",
+    "external_ledger": "research/ghidra/player-external-state-closure.json"
+  },
+  "shared_indexing": {
+    "map_word_helpers": ["01F7:1C6E", "01F7:1C92", "01F7:5DC3"],
+    "map_coordinates": "AX=Y pixels, BX=X pixels",
+    "map_index": "(uint16_t)((uint16_t)(Y>>4) * DS:657E + (uint16_t)((X>>4)<<1))",
+    "map_base": "FS loaded from DS:657C; word read at DS:657A + map_index",
+    "descriptor_coordinates": "AX=Y pixels, BX=X pixels",
+    "descriptor_index": "(uint16_t)((uint16_t)(Y>>4) * DS:657E + ((X>>3)&0xFFFE))",
+    "descriptor_bank": "map_word & 0x01FF is retained by AND AH,1 as the tile ID, multiplied by DS:30D4, then DS:6582 + low16(tile_id*stride + 2) is read under FS loaded from DS:6584",
+    "writes": "none of the five helpers writes the player record or callback globals"
+  },
+  "contracts": [
+    {
+      "address": "01F7:1C6E",
+      "name": "probe_map_word_bit_4000_1C6E",
+      "classification": "contract",
+      "inputs": "AX=Y pixels; BX=X pixels",
+      "outputs": "AX=MAP word; ZF=1 iff (MAP word & 0x4000)==0; BX/CX/DX are scratch",
+      "player_global_reads": ["DS:657A", "DS:657C", "DS:657E"],
+      "player_global_writes": [],
+      "callees": [],
+      "known_callers": ["01F7:4218", "01F7:3AB9"],
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:1C6E-1C91", "research/notes/descriptor-backend-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:1C92",
+      "name": "probe_map_word_bit_1000_1C92",
+      "classification": "contract",
+      "inputs": "AX=Y pixels; BX=X pixels",
+      "outputs": "AX=MAP word; ZF=1 iff (MAP word & 0x1000)==0; BX/CX/DX are scratch",
+      "player_global_reads": ["DS:657A", "DS:657C", "DS:657E"],
+      "player_global_writes": [],
+      "callees": [],
+      "known_callers": ["01F7:3971", "01F7:3986", "01F7:3DF2", "01F7:3A1F", "01F7:16CE"],
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:1C92-1CB5", "research/notes/descriptor-backend-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:5C27",
+      "name": "probe_descriptor_quadrant_5C27",
+      "classification": "contract",
+      "inputs": "AX=Y pixels; BX=X pixels; original AX/BX low bit-3 quadrant selects the tested descriptor bit",
+      "outputs": "DX=raw descriptor word; ZF=1 iff selected low-nibble bit is clear; AX/BX/CX restored; final TEST gives caller condition",
+      "player_global_reads": ["DS:657A", "DS:657C", "DS:657E", "DS:6582", "DS:6584", "DS:30D4"],
+      "player_global_writes": [],
+      "callees": [],
+      "known_callers": ["01F7:3A1F", "01F7:3DF2", "01F7:41F7", "01F7:4209", "01F7:3AB9"],
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:5C27-5C9B", "research/notes/descriptor-backend-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:5CC3",
+      "name": "read_descriptor_word_5CC3",
+      "classification": "contract",
+      "inputs": "AX=Y pixels; BX=X pixels",
+      "outputs": "DX=raw descriptor word; no caller-consumed flag contract",
+      "player_global_reads": ["DS:657A", "DS:657C", "DS:657E", "DS:6582", "DS:6584", "DS:30D4"],
+      "player_global_writes": [],
+      "callees": [],
+      "known_callers": ["01F7:3D02", "01F7:4416"],
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:5CC3-5CFF", "research/notes/descriptor-backend-static-decomp.cpp"]
+    },
+    {
+      "address": "01F7:5DC3",
+      "name": "probe_map_word_bit_0800_5DC3",
+      "classification": "contract",
+      "inputs": "AX=Y pixels; BX=X pixels",
+      "outputs": "AX=MAP word; ZF=1 iff (MAP word & 0x0800)==0; BX/CX/DX are scratch",
+      "player_global_reads": ["DS:657A", "DS:657C", "DS:657E"],
+      "player_global_writes": [],
+      "callees": [],
+      "known_callers": ["01F7:9DC7"],
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:5DC3-5DE6", "research/notes/descriptor-backend-static-decomp.cpp"]
+    }
+  ],
+  "semantic_boundary": {
+    "closed": ["coordinate conventions", "map/descriptor address arithmetic", "return registers", "TEST-derived ZF polarity", "absence of player/global writes"],
+    "unresolved": ["authored meaning of descriptor bits 0x1/0x2/0x4/0x8", "natural one-way classification", "level-selected MAP and descriptor contents"],
+    "stopping_rule": "Do not expand beyond these readers unless a parity mismatch attributes a player or platform simulation divergence to an unmodeled descriptor-table writer. Sound, renderer, and presentation consumers remain outside this closure."
+  },
+  "independent_ghidra_check": {
+    "status": "passed",
+    "method": "run_player_external_closure.py exports two independent protected-mode Ghidra projects; focused listings include all five descriptor helpers",
+    "fresh_output": "/tmp/quiky-player-external-v56",
+    "decomp_sha256": "9e8e22aed0001e54107eb041234e62eadf69b9362773939994c7a5fec6dbc48d",
+    "listing_sha256": "fe8f9169e8d3534d3b612ad0b5a3e0a48c33ac73a930a9f979b9c1def419a871",
+    "decomp_sha256_equal": true,
+    "listing_sha256_equal": true
+  },
+  "note": {
+    "path": "research/notes/descriptor-backend-static-decomp.cpp",
+    "sha256": "e79ddf41d31d1c8d79b1663e29edc92b40fe27a8f42aea75bd87d3c38c5cc41d"
+  }
+}

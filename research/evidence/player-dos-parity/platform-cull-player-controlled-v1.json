@@ -1,0 +1,50 @@
+{
+  "schema": "quiky.player-dos-parity.platform-cull-player-controlled.v1",
+  "purpose": "Bounded platform-cull closure experiment; separates the statically closed A06F/1DEE lifetime mutation from the next player callback.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "runtime_archive": "research/build/entity-3d-real-w4l1/baseline/game/NESTLE.DAT",
+    "runtime_archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85",
+    "callback": "01F7:3FF8",
+    "platform_callback": "01F7:9DC7",
+    "cull_dispatch": "01F7:A06F",
+    "removal_helper": "01F7:1DEE"
+  },
+  "configuration": {
+    "level": "W4L1",
+    "record_offset": "0x1898",
+    "runtime_record_offset": "0x1738",
+    "entity_type": "0x3d",
+    "camera_after_callback": ["0x0400", "0x0400"],
+    "object_alignment": [-8, -8],
+    "forced_control": "clear platform object +0x59 at 9DC7 entry so the 9E3A -> A06F camera branch is reachable",
+    "natural_geometry": false
+  },
+  "runs": [
+    {
+      "trace": "research/build/entity-platform-cull-player-v10.json",
+      "sha256": "389eec5ee93def6574fca582d2b592b916f9b280f0c059479921e2d069662142",
+      "alignment_y": -8
+    },
+    {
+      "trace": "research/build/entity-platform-cull-player-v12.json",
+      "sha256": "57e05bbd5a759465c0b34402cc2b7223f00ff8cbabd3b6c4a724b3c182e6e5da",
+      "alignment_y": -16
+    }
+  ],
+  "observations": {
+    "platform_branch_order": ["01F7:9DC7", "01F7:9E1C", "01F7:9E20", "01F7:9E3A", "01F7:A06F", "01F7:1DEE"],
+    "platform_object_writes": ["+0x18 = 0", "FS:[+0x1A+1] = 0"],
+    "record_claim": "runtime ARE record byte +1 changes 0x01 -> 0x00",
+    "player_callback": "next observed callback is 01F7:3FF8 with ES:DI = 0x027f:0x0000",
+    "player_motion": "both runs preserve position, velocity, and mode; no carry globals are published by 1DEE",
+    "player_record_diff_offsets": ["0x20", "0x2e", "0x2f", "0x38", "0x40", "0x46", "0x47", "0x4b"],
+    "diff_interpretation": "The changed bytes are animation/state/common-tail fields in this standing callback, not a cull-specific displacement, velocity, or mode transition."
+  },
+  "static_boundary": {
+    "confirmed": "01F7:1DEE has no player-record or carry-global write; culling is an object/declaration lifetime mutation.",
+    "not_confirmed": "This forced latch experiment does not establish natural attached-player detachment, landing, inherited velocity, side/ceiling crushing, or platform-cull behavior under retail geometry.",
+    "next": "Use a natural platform/player trace or a platform-specific attachment state that reaches the same A06F edge without clearing +0x59."
+  }
+}

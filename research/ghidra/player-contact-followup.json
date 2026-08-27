@@ -2,6 +2,7 @@
   "schema": "quiky.player-contact-followup.v1",
   "purpose": "Focused static and dynamic closure audit for player contact, helper 5937, factory 0E06, input dispatch, moving platforms, and held-out parity.",
   "external_state_ledger": "research/ghidra/player-external-state-closure.json",
+  "descriptor_backend_static_ledger": "research/ghidra/descriptor-backend-static-closure.json",
   "source": {
     "executable": "game/QUIKY.EXE",
     "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
@@ -12,10 +13,10 @@
   },
   "status": {
     "contact_semantics": "static_closed_with_runtime_polarity_gaps",
-    "helper_5937": "direct_contract_closed_dispatch_view_contract_closed_indirect_callback_unresolved",
-    "factory_0E06": "allocator_contract_closed_family_selection_is_caller_owned",
+    "helper_5937": "direct_body_and_observed_level_startup_targets_non_simulation_other_runtime_targets_unresolved",
+    "factory_0E06": "allocator_and_focused_caller_matrix_closed_6328_lifetime_closed_other_runtime_families_open",
     "input_dispatch": "normalized_word_closed_callback_precedence_closed",
-    "moving_platform": "carry_contract_scheduler_order_full_player_return_and_controlled_jump_detachment_runtime_confirmed_crushing_culling_open",
+    "moving_platform": "carry_contract_scheduler_order_full_player_return_and_controlled_jump_detachment_runtime_confirmed_cull_lifetime_and_next_player_tick_controlled_retail_attachment_open",
     "full_cpp_parity": "partial_runtime_callback_implemented_animation_boundary_closed_probe_and_external_data_gates_open"
   },
   "contracts": [
@@ -83,22 +84,23 @@
       "address": "01F7:5937",
       "name": "player_helper_5937",
       "classification": "contract",
-      "inputs": "DS:85DA gate; DS:60D8/60DA change word; DS:881C, DS:880A, DS:880C, DS:4FF2, DS:4FF6, DS:4FF8, DS:4FFA auxiliary state",
-      "outputs": "far return to 01F7:5BED; no player-record return value is consumed by 3FF8; external dispatches receive event-specific AX/BX/CX",
+      "inputs": "DS:85DA gate; DS:60D8/60DA change word; DS:881C, DS:8822, DS:880A, DS:880C, DS:4FF2, DS:4FF6, DS:4FF8, DS:4FFA auxiliary state",
+      "outputs": "far return to 01F7:5BED; no player-record return value or flags are consumed by 3FF8; changed bits dispatch the statically enumerated AX/BX/CX matrix through 386F",
       "player_writes": [],
-      "global_reads": ["DS:85DA", "DS:60D8", "DS:60DA", "DS:881C", "DS:881A", "DS:880A", "DS:880C", "DS:4FF2", "DS:4FF6", "DS:4FF8", "DS:4FFA"],
-      "global_writes": ["DS:60DA", "DS:4FF2", "DS:4FF8", "DS:4FFA", "DS:4FF6"],
+      "global_reads": ["DS:85DA", "DS:60D8", "DS:60DA", "DS:881C", "DS:8822", "DS:880A", "DS:880C", "DS:4FF2", "DS:4FF6", "DS:4FF8", "DS:4FFA"],
+      "global_writes": ["DS:60DA", "DS:4FF2", "DS:4FF8", "DS:4FFA"],
       "callees": ["address-named external dispatches in 594B-5BEA"],
-      "relation_to_transition_gate": "3FF8 calls 5937 before testing DS:89EA; 5937 has no direct read/write of DS:89EA. Indirect dispatch effects remain unproven.",
-      "ordinary_gameplay": "ordinary callback entry and return are observed; no direct player or transition-global mutation was observed in the ordinary trace window",
-      "confidence": "contract_with_indirect_caveat",
-      "evidence": ["raw:5937-5BED", "dynamic:player-followup-5937-entry-return-v1"]
+      "relation_to_transition_gate": "3FF8 calls 5937 before testing DS:89EA; 5937 has no direct read/write of DS:89EA. Its direct body is closed, and ordinary W1L1 resolves 0598 to 14A7:1258, which is bounded non-simulation by target entry/return snapshots; other runtime targets remain unresolved.",
+      "ordinary_gameplay": "ordinary callback entry and return are observed; the direct body has no player-record or callback-global simulation write",
+      "dispatch_matrix": "bits 01/02/04/08/10/20/40 select AX 0109/0113/011A/0121/0128/012F/0132, BX=6, CX=26D..273 in ascending order",
+      "confidence": "direct_body_and_w1l1_target_non_simulation_other_runtime_targets_unresolved",
+      "evidence": ["raw:5937-5BED", "ghidra:reloc-5965..5BEC->386F", "dynamic:player-followup-5937-entry-return-v1", "research/evidence/player-dos-parity/5937-helper-static-v1.json", "research/evidence/player-dos-parity/5937-runtime-target-w1l1-v1.json"]
     },
     {
       "address": "01F7:0E06",
       "name": "object_pool_factory_0E06",
       "classification": "contract",
-      "inputs": "AX=requested callback offset; DX caller-supplied initializer word (contact call uses AX=0x6328, DX=0)",
+      "inputs": "AX=requested callback offset; DX is preserved but unused by the allocator body (contact call uses AX=0x6328, DX=0)",
       "outputs": "ES:DI first free object or allocator failure; scheduler insertion through 01F7:1036",
       "player_writes": [],
       "global_reads": ["DS:755E pool base", "DS:30CE object stride"],
@@ -108,8 +110,34 @@
       "family_selection": "the caller selects the callback; 0E06 itself supplies common defaults and does not select a gameplay kind. Contact callers request 0x6328; leaf/entity callers request their own callback.",
       "ownership_lifetime": "pooled first-free ownership; callback clear makes a slot reusable; stale bytes are not cleared by this allocator edge; phase +0x17=1 is inserted into the scheduler bank",
       "collision_effect": "the player contact caller uses the created child as a contact/effect callback. No evidence shows the child entering solid collision queries; collision response is performed by the player before/around the factory call.",
-      "confidence": "mechanical_allocator_contract",
-      "evidence": ["raw:0E06-0E35", "research/notes/ghidra-analysis.md:pool-factory", "dynamic:player-factory-focus"]
+      "confidence": "mechanical_allocator_and_focused_caller_contract",
+      "evidence": ["raw:0E06-0E35", "research/notes/ghidra-analysis.md:pool-factory", "dynamic:player-factory-focus", "research/ghidra/player-factory-static-closure.json"]
+    },
+    {
+      "address": "01F7:3376",
+      "name": "map_tile_id_at_pixel_3376",
+      "classification": "contract",
+      "inputs": "AX=Y pixels; BX=X pixels; DS:657A MAP base; DS:657E row stride",
+      "outputs": "AX=MAP cell word & 0x01FF; upper return word is not consumed",
+      "player_writes": [],
+      "global_writes": [],
+      "callees": [],
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:3376-338A", "ghidra:data-657A-657E"]
+    },
+    {
+      "address": "01F7:6370/6484/648E",
+      "name": "player_contact_tile_effect_probes",
+      "classification": "contract",
+      "inputs": "ES:DI player; 6370 consumes DS:5003 X offset, 6484 supplies +5, 648E supplies +5 directly",
+      "outputs": "CF clear on no match; negative-mode match sets CF after child creation; matching tile IDs select child type/orientation and publish DS:612E=7",
+      "player_writes": ["contact child allocation only; no direct player-record write"],
+      "global_writes": ["DS:4FFE", "DS:5000", "DS:5001", "DS:5003", "DS:612E"],
+      "callees": ["01F7:3376", "01E7:0FCF", "01F7:0E06"],
+      "probe_coordinates": ["negative mode: (X+offset,Y-+0x72)", "mode zero: (X+offset,Y)"],
+      "object_effects": "Allocates AX=0x6328 with tile IDs 8/9/A -> types 0x1F4/0x1F9/0x1FE and mode-zero IDs 5/6/7 -> orientation 0xFF, types 0x1F2/0x1F7/0x1FC",
+      "confidence": "confirmed_static_runtime_child_frequency_open",
+      "evidence": ["ghidra:6370-659B", "ghidra:DumpFocusedDisasm:6370-659B", "reloc:6426/6432/6542/654E"]
     },
     {
       "address": "01F7:6328",
@@ -120,11 +148,47 @@
       "player_writes": [],
       "global_writes": [],
       "object_writes": ["+0x32 countdown/state", "+0x2E state/index", "+0x18 callback clear at terminal"],
-      "callees": ["address-named contact/effect subhelper"],
-      "collision_role": "no solid-collision read is present in the recovered child contract; it consumes the contact/effect position and is presentation/effect-side until an indirect subhelper proves otherwise",
+      "callees": ["01F7:16CE"],
+      "collision_role": "every eighth update reaches 16CE; the child itself has no solid-collision read, but 16CE rewrites one MAP low-nine-bit tile before creating the visual child",
       "ownership_lifetime": "owned by the shared pool; allocator defaults are inherited from 0E06 and terminal callback clear makes the slot reusable",
-      "confidence": "mechanical_partial",
-      "evidence": ["static:6328 callback slice", "dynamic:contact-object-creation"]
+      "confidence": "static_and_runtime_lifetime_closed_runtime_map_feedback_open",
+      "evidence": ["static:6328 callback slice", "static:16CE-1747", "reloc:6359->16CE", "dynamic:contact-object-creation", "research/evidence/player-dos-parity/player-contact-child-lifetime-v1.json"]
+    },
+    {
+      "address": "01F7:16CE",
+      "name": "map_effect_tile_rewrite_16CE",
+      "classification": "contract",
+      "inputs": "AX=cell X pixels; BX=cell Y pixels; CX=effect/animation selector; DX=tile/effect word",
+      "outputs": "If DX bit 0x8000 is clear, MAP cell becomes (old_word & 0xfe00) | (DX & 0x01ff); a phase-1 10B5 object is allocated and initialized; no caller flags are consumed",
+      "player_writes": [],
+      "global_writes": ["selected MAP cell", "object pool through 0E06/1036"],
+      "callees": ["01F7:0E06"],
+      "confidence": "confirmed_static_runtime_contact_feedback_open",
+      "evidence": ["ghidra:16CE-1747", "reloc:1717->0E06", "research/notes/ghidra-analysis.md:16CE"]
+    },
+    {
+      "address": "01F7:10B5",
+      "name": "update_ico_effect_10B5",
+      "classification": "contract",
+      "inputs": "phase-1 pooled effect object; visibility flags from 1693",
+      "outputs": "decrements +0x2C and clears +0x18 at zero; otherwise writes camera-relative renderer globals and dispatches ICO/BOB planes",
+      "player_writes": [],
+      "global_writes": ["DS:36E8", "DS:8182", "DS:8184", "DS:8186", "DS:8188", "DS:8192"],
+      "callees": ["01F7:1693", "address-named renderer helper"],
+      "confidence": "confirmed_static_effect_only",
+      "evidence": ["ghidra:10B5-1157", "reloc:10C3->1693"]
+    },
+    {
+      "address": "01F7:1693",
+      "name": "effect_camera_visibility_1693",
+      "classification": "contract",
+      "inputs": "effect object +0x04/+0x08; camera DS:81C0/81C4",
+      "outputs": "visibility result through flags; accepts X in camera-0x10..camera+0x140 and Y in camera-0x0F..camera+0xAF",
+      "player_writes": [],
+      "global_writes": [],
+      "callees": [],
+      "confidence": "confirmed_static",
+      "evidence": ["ghidra:1693-16C0", "reloc:10C3->1693"]
     },
     {
       "address": "01F7:F21B/F21C",
@@ -213,11 +277,11 @@
     "one_way_platform": {"status":"unproven", "reason":"descriptor flags and player vertical probes are mechanically closed, but no direction-controlled natural traversal trace isolates a one-way rule"}
   },
   "moving_platform": {
-    "scheduler": {"static":"0E06 inserts into the current scheduler bank through 1036; 0E96 dispatches phases 0,1,2", "player_dependency":"player callback consumes DS:8812 and DS:8816 in the callback closure", "runtime_order":"combined W4L1 trace observes 9DC7 -> A075 -> A0B2 and then 3FF8 entry; the 3FF8 return barrier was not reached in that debugger pass"},
+    "scheduler": {"static":"0E06 inserts into the current scheduler bank through 1036; 0E96 dispatches phases 0,1,2", "player_dependency":"player callback consumes DS:8812 and DS:8816 in the callback closure", "runtime_order":"hash-pinned W4L1 trace observes 9DC7 -> A075 -> A0B2 -> 3FF8 entry and 0F26 near return across eight combined samples"},
     "carry": {"x":"DS:8816 is a fixed-point platform delta consumed by 3A8A/3B44 and cleared", "y":"DS:8812 is platform_y-player_y+1 in fixed point, consumed at 3FF8 and cleared", "subpixel":"fixed-point globals preserve subpixel carry; no integer rounding is present in the publication formula"},
     "contact_shape":"strict object_x < player_x < object_x+width and object_y <= player_y < object_y+12",
     "landing_jumping":"platform overlap/carry and controlled aligned-platform jump detachment are confirmed; natural platform landing, inherited velocity, and side/ceiling crushing remain unisolated",
-    "culling":"platform callback uses A06F -> 1DEE for off-camera removal; attached-player behavior after culling is unresolved"
+    "culling":"A06F -> 1DEE is statically closed and two forced-latch runs observe the next 3FF8 callback with unchanged position, velocity, and mode; natural attached-player detachment/crushing behavior remains unresolved"
   },
   "dynamic_checks": [
     {"id":"standing", "trace":"research/build/player-followup-standing-v1.json", "sha256":"c0a61ce924ea664c78dd9a7cebf68b1861929d401266ba642caf2d10d8f12823", "status":"passed", "observation":"mode 0, y 400, +0x0E 0; initialization writes are distinguishable from later callback writes"},
@@ -227,15 +291,33 @@
     {"id":"side_rising_falling", "trace":"research/build/player-followup-side-rising-falling-v2.json", "sha256":"b47d287f6acc4c2541a1fa95e002cb73d5d884d13148b60461ce40c185386b15", "status":"passed_for_order", "observation":"rising/falling samples preserve 648E>6484>3A8A>3A1F and landing adds 3DF2; no occupied-wall polarity claim"},
     {"id":"ceiling_boundary_control", "trace":"research/build/player-followup-ceiling-controlled-v2.json", "sha256":"56de79d0bd16d5e9be4a1cd1d0207c0884d55a538d818dde0e84136d128b123c", "status":"control_only", "observation":"patched Y reaches 41C1/4384 and 3D02/3DF1; not a natural ceiling trace"},
     {"id":"natural_ceiling_w1l1_route", "trace":"research/build/player-natural-ceiling-w1l1-coarse-route-v2.json", "sha256":"4657edede05cdb9b1a22de25b1d63f14dd29eb2bc79c50017b14dd3ff70d7730", "status":"negative_for_sampled_route_only", "observation":"unpatched W1L1 route travels from x=128 to x=736; its only 41C1/41CF response is the ordinary apex, so ceiling polarity remains open"},
+    {"id":"natural_ceiling_blocked_ascent_candidate_v1", "trace":"research/evidence/player-dos-parity/player-natural-ceiling-candidate-v1.json", "sha256":"063879a16b991cd9c5250a935293a935213bf742791565bcf4c3f8eb4844e89e", "status":"reclassified_ordinary_apex", "observation":"unpatched W1L1 route reaches x=1008,y=365 and changes mode -1 to +1; the adjacent 3D02 probe is tile 1 with descriptor 0, so this is an ordinary-apex control rather than ceiling evidence"},
+    {"id":"natural_ceiling_targeted_x1040_v1", "trace":"research/build/traces/player-w1l1-natural-ceiling-targeted-v1.json", "sha256":"e0f4873f7c8df9aad67b9de41843de7a11a4af7bd2963e2ea7835c3d94fc3f56", "status":"negative_corridor_control_only", "observation":"unpatched W1L1 crosses x=1040..1168 before the later jump begins near x=1401; it is an ordinary-corridor control and does not classify descriptor bits"},
+    {"id":"natural_ceiling_targeted_x1040_v2", "trace":"research/build/traces/player-w1l1-natural-ceiling-targeted-v2.json", "sha256":"6228199f4f1ed3b9b44de4556a60203fd1757f7cacb8ac9a1d720674f770f168", "status":"negative_for_sampled_authored_x1040_ascent_route", "observation":"unpatched W1L1 jump starts near x=1074 before the authored corridor and reaches 4323, but not 4368/41C1/41CF; natural ceiling polarity and descriptor semantic names remain open"},
+    {"id":"natural_41c1_apex_reclassification_v1", "trace":"research/evidence/player-dos-parity/player-natural-41c1-apex-v1.json", "sha256":"7a7eb87d76e803e438e10b8cb4f8cb4ab6ada4f4ff02b82258e4cf8fd4bdf521", "status":"reclassified_ordinary_apex", "observation":"unpatched W1L1 41C1 event at x=1039,y=365 is followed by 3D02 on tile 1/descriptor 0 in the same frame; it does not close natural ceiling behavior"},
+    {"id":"natural_ceiling_w1l2_apex_control_v2", "trace":"research/build/traces/player-w1l2-natural-ceiling-targeted-v2.json", "sha256":"fa77bf23bca8277c0238241904235632e07e10c4055a9f6702d77cee6ebb08ea", "status":"reclassified_ordinary_apex", "observation":"unpatched W1L2 route reaches 4326 at x=86,y=428 with vy=-0x2000, then reaches 4356 before 41C1; 4368 is absent, so the mode-1 response is the ordinary apex join rather than a blocked ceiling"},
     {"id":"descriptor_20_control", "trace":"research/build/player-followup-descriptor-20-v1.json", "sha256":"cd502de4633e885eecd76d38ba6908d6100ed27ba393e79d306f3f38d526d306", "status":"negative_control", "observation":"ordinary baseline takes 3D44; no one-way interpretation"},
     {"id":"descriptor_60_control", "trace":"research/build/player-followup-descriptor-60-v1.json", "sha256":"f6c19f9468174683d3c8268af3e8edc8225c2607e0cfe98eb5826051385343ab", "status":"negative_control", "observation":"ordinary baseline takes 3D44; direct descriptor matrix remains the positive 3D02 evidence"},
     {"id":"helper_5937_entry_return", "trace":"research/build/player-followup-5937-entry-return-v1.json", "sha256":"c86d7ff68c6117fb39f4f04f9605e656ecb8e7490fbb69a3fa71485dd2fd13d2", "status":"passed_direct_contract", "observation":"5937 is observed before 5BED return; direct player record and transition aliases remain unchanged in ordinary samples"},
-    {"id":"helper_5937_0442_selector_capture", "trace":"research/evidence/player-dos-parity/w1l1-5937-0442-dispatch-v1.json", "sha256":"52cddf4f4bcc257d419e97aab66d10cb71eb587a4672ade6429404732a88014a", "status":"passed_selector_and_record_capture_only", "observation":"W1L1 samples select DS:6D8E indices 6->12 and 5->10; the corresponding 0x2C-byte records expose raw +0x18/+0x1A words 0000:0517 and 0000:04DF. Static closure recovers both address-qualified dispatcher bodies; 0517 executes in the target watch, while indirect callback effects remain unresolved."},
-    {"id":"factory_0E06", "trace":"research/build/player-factory-focus.json", "sha256":"89b2d6b627f94d15825446fbde98e85e3f211014b7bf852fc0fad0bbc29e861c", "status":"passed_allocator_observation", "observation":"factory entry/tail and first-free pool insertion are observable; created callback is caller-selected"},
+    {"id":"helper_5937_0442_selector_capture", "trace":"research/evidence/player-dos-parity/w1l1-5937-0442-dispatch-v1.json", "sha256":"52cddf4f4bcc257d419e97aab66d10cb71eb587a4672ade6429404732a88014a", "status":"superseded_misindexed_selector_capture", "observation":"The archived trace indexed DS:6D8E from EBX, the middle 0442 argument, so its reported selector-6/selector-5 targets are not target proof. The corrected trace reads the actual [BP+06] stack selector and supersedes this attribution; the raw artifact remains retained for audit."},
+    {"id":"helper_5937_low_byte_matrix", "trace":"research/evidence/player-dos-parity/w1l1-5937-dispatch-matrix-v1.json", "sha256":"57396ffc9a0276d4569e047c900709f8d4daea22c021efdd0f35feed4997c18b", "status":"passed_direct_matrix_only_target_attribution_superseded", "observation":"The debugger-controlled low-byte runs still support the direct 5937 bit matrix and DS:60DA publication. Their selector-6/shared-0517 target attribution used EBX and is superseded by the corrected stack-argument capture; no bit-specific player or relevant-global simulation write was observed."},
+    {"id":"helper_5937_selector5_target", "trace":"research/evidence/player-dos-parity/w1l1-5937-selector5-target-v1.json", "sha256":"ab7e6dfb74bb78e03e7c699c90b024ca6d33922efefc904110d9e6d4df05dd96", "status":"superseded_misindexed_selector5_capture", "observation":"The archived DS:60D8=0x0005 run used EBX-derived indexing and therefore does not prove a 04DF target. The corrected ordinary W1L1 run resolves the actual [BP+06]=0x01FF selector to loaded callback 14A7:1258."},
+    {"id":"helper_5937_runtime_target_w1l1", "trace":"research/evidence/player-dos-parity/5937-runtime-target-w1l1-v1.json", "sha256":"d3ef7b8c16f2644c21b3c36f20e15027835fa853b07b1ecc97d7e3e17fa7cf6b", "status":"passed_w1l1_target_entry_return_no_simulation_writes", "observation":"Corrected 0442 stack capture resolves selector [BP+06]=0x01FF to table index 189 and far target 14A7:1258. The target returns through 01F7:059B; the dispatched object, complete player 0x78 record, and recovered original-DS simulation words are identical before and after. This closes the observed ordinary W1L1 target only; other runtime records remain address-named."},
+    {"id":"helper_5937_runtime_target_level_startup_matrix", "trace":"research/evidence/player-dos-parity/5937-runtime-target-level-matrix-v1.json", "sha256":"b619b8ae1ecb96fc249e35ddddbf4de8acb176c5aad8000c0cf5d900f33013ad", "status":"passed_w2l1_w5l1_startup_targets_entry_return_no_simulation_writes", "observation":"Automatic target watches resolve the same [BP+06]=0x01FF dispatch during ordinary W2L1, W3L1, W4L1, and W5L1 startup samples to 1247:1470, 1397:1040, 1387:03FC, and 163F:0C10. All return through 01F7:059B with unchanged dispatched objects, complete player records, and recovered original-DS simulation words. This bounds those startup targets only; later/action-selected records remain address-named."},
+    {"id":"contact_effect_route_watch", "trace":"research/evidence/player-dos-parity/player-contact-effect-route-v1.json", "sha256":"cd6e2374f9dffeed443b44e83ac68b8c85e0b0bd0d76780c6b616483d990fc8c", "status":"negative_for_sampled_route_only", "observation":"An ordinary eight-sample W1L1 route reached two unrelated 10B5 effect callbacks and one 1693 visibility gate, but reached neither contact child 6328 nor MAP writer 16CE; no global contact-effect conclusion is drawn."},
+    {"id":"contact_tile_child_chain_controlled", "trace":"research/evidence/player-dos-parity/player-contact-tile-controlled-v1.json", "sha256":"f5fb06ae1ff0a86249cbd2a1ef1ebe2cc4ff79485a65cedf7c6227c04687395c", "status":"passed_controlled_child_chain_only", "observation":"A W1L1 map-cell patch reaches 648E>6484>6370, allocates callback-6328 children through 0E06, and observes the 6328>16CE>10B5 lifecycle. Because the descriptor cell was patched, this confirms the static route and scheduler publication only; it does not classify retail descriptor semantics or natural contact frequency."},
+    {"id":"contact_child_lifetime", "trace":"research/evidence/player-dos-parity/player-contact-child-lifetime-v1.json", "sha256":"d8d8a39dd79ed7256033b8be7c339d767315ab13717de6786824951bfcab6d2c", "status":"passed_6328_terminal_clear", "observation":"A one-shot controlled contact creates two 6328 pooled children. Across alternating scheduler banks, the trace observes the static countdown and terminal +0x18=0 write when +0x2e changes from 3 to 4; no child solid probe or direct player movement write occurs."},
+    {"id":"factory_0E06", "trace":"research/build/player-factory-focus.json", "sha256":"89b2d6b627f94d15825446fbde98e85e3f211014b7bf852fc0fad0bbc29e861c", "status":"passed_allocator_observation_static_caller_matrix_closed", "observation":"factory entry/tail and first-free pool insertion are observable; the protected-mode static matrix closes six player/lifecycle callsites and confirms that callback selection and post-allocation writes are caller-owned"},
     {"id":"moving_platform_carry", "trace":"research/build/entity-platform-player-followup-v2.json", "sha256":"4e046a13c349c2fae7369cb3682d406f495454bb7feeb43caa47c4feca26087e", "status":"passed_current_main_overlap_trace", "observation":"Current main-repository tracing reaches A075/A0B2 and records DS:5006=0xFFFF, DS:8816=1, DS:8812=0xFFF80001"},
     {"id":"moving_platform_scheduler_order", "trace":"research/evidence/entity-platform-scheduler-order-trace.json", "sha256":"3e21d6fbfc3884cbb21e3aa6eb77bbf85d8859261b4e5251e51d95f918066c86", "status":"passed_entry_order", "observation":"Combined W4L1 trace observes 9DC7 -> A075 -> A0B2 -> 3FF8 entry; full return capture is covered by moving_platform_player_return"},
+    {"id":"player_scheduler_membership_current_w1l1", "trace":"research/evidence/player-dos-parity/player-scheduler-membership-v1.json", "sha256":"268ba0507ea145127e0b0ce0c6177e067fd34fb8a1f96f02d881bb0b8665fade", "status":"passed_selected_bank_membership", "observation":"Fresh 01F7:0FA2 watches identify DS:7766 entry 9 with callback 01F7:3FF8 and object offset zero, then a rotated DS:7566 pass with the same persistent callback identity at entry 7; append indices are not stable."},
     {"id":"moving_platform_player_return", "trace":"research/evidence/entity-platform-player-return-v1.json", "sha256":"be18225f3e7e8729018dcc3e6ecef25afb57d709a9fc1f500da41adc1899db98", "status":"passed_full_record_return_capture", "observation":"Three successive W4L1 platform/player samples observe 01F7:3FF8 entry, 01F7:0F26 near return, and complete 0x78-byte player records before and after; jump detachment, crushing, and culling remain open"},
-    {"id":"moving_platform_jump_detachment_controlled", "trace":"research/evidence/entity-platform-player-jump-detach-v1.json", "sha256":"9b60c6a74d0abf47d203541587945254da15172e077e3bf98fbf7f35cac46387", "script_sha256":"ca9487f6c6273282bb87a19f8b59a14cdec73deb05e36eab2d21fe8bcc43a4dd", "archive_sha256":"651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85", "status":"passed_controlled_aligned_platform_with_natural_jump_input", "observation":"With the platform aligned to the live player before 01F7:9DC7 and KBD_space+KBD_up held through the first combined handoff, globals_before show keyboard_flags=0x22, DS:5006=0xFFFF, DS:8816=1, and DS:8812=0xFFF80001. The complete 0x78-byte record changes mode +0x37 from 0 to 0xFF and the next samples show carry globals cleared while mode remains 0xFF. This proves input/carry ordering and a controlled jump-detachment transition; retail platform geometry, natural landing, inherited velocity, crushing, and culling remain open."}
+    {"id":"moving_platform_player_current_hash_pinned", "trace":"research/evidence/player-dos-parity/platform-player-current-v1.json", "sha256":"ce38b979577e157d9a436ccc8c1466e0377bf890fb9d36b3e60082efeeebfa43", "status":"passed_hash_pinned_scheduler_and_carry_consumption", "observation":"Archived W4L1 runtime records QUIKY.EXE/NESTLE.DAT hashes, observes platform 01F7:9DC7 before player 01F7:3FF8 in all eight samples, captures A075/A0B2, and shows DS:8816=1 plus DS:8812=0xFFF80001 consumed and cleared before the 01D7:0F26 return. The platform remains stationary; natural landing, inherited velocity, crushing, and culling remain open"},
+    {"id":"moving_platform_horizontal_motion_controlled", "trace":"research/build/traces/platform-w4l1-player-controlled-horizontal-v3.json", "sha256":"7800edc0a8e1aed28e65d0bc07a7fef51a3bd06d348843ea86425be3623e00dd", "status":"passed_controlled_motion_and_first_carry", "observation":"Hash-pinned W4L1 runtime with debugger-only alignment and velocity seed observes 9DC7 -> A075/A0B2 -> 3FF8; platform x advances 504->506->509->511, the first carry is consumed and cleared by 3FF8, and later callbacks enter the native 0x14 recontact cooldown. Natural landing, inherited velocity, crushing, and culling remain open"},
+    {"id":"moving_platform_horizontal_motion_negative_controlled", "trace":"research/build/traces/platform-w4l1-player-controlled-horizontal-negative-v1.json", "sha256":"bae6f838e971de6e8b86301e37fa1e035076056973c085e8d4289e4db44be56c", "status":"passed_negative_motion_and_wrapped_carry", "observation":"Hash-pinned W4L1 runtime with velocity 0xFFFD8000 observes platform x 504->501->499->496->494 and first carry DS:8816=0xFFFD0001; 3FF8 consumes and clears it. Natural landing, inherited velocity, crushing, and culling remain open"},
+    {"id":"moving_platform_jump_detachment_controlled", "trace":"research/evidence/entity-platform-player-jump-detach-v1.json", "sha256":"9b60c6a74d0abf47d203541587945254da15172e077e3bf98fbf7f35cac46387", "script_sha256":"ca9487f6c6273282bb87a19f8b59a14cdec73deb05e36eab2d21fe8bcc43a4dd", "archive_sha256":"651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85", "status":"passed_controlled_aligned_platform_with_natural_jump_input", "observation":"With the platform aligned to the live player before 01F7:9DC7 and KBD_space+KBD_up held through the first combined handoff, globals_before show keyboard_flags=0x22, DS:5006=0xFFFF, DS:8816=1, and DS:8812=0xFFF80001. The complete 0x78-byte record changes mode +0x37 from 0 to 0xFF and the next samples show carry globals cleared while mode remains 0xFF. This proves input/carry ordering and a controlled jump-detachment transition; retail platform geometry, natural landing, inherited velocity, crushing, and culling remain open."},
+    {"id":"moving_platform_jump_detachment_current_trace", "trace":"research/evidence/player-dos-parity/platform-player-jump-detach-current-v1.json", "sha256":"f43106e6ef64caca57c95c89ef2c8a3598455f84962f7120c7de24e5ad0eb4f7", "script_sha256":"403c2ec31102294955da6f36ae54900ae836deb303a87bb281d4a48e8c532ddf", "archive_sha256":"651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85", "status":"passed_current_protected_mode_controlled_aligned_platform_with_space_input", "observation":"Current main-repository tracer independently reproduces the combined scheduler boundary: 9DC7 -> A075/A0B2 -> 3FF8. The first full-record sample has keyboard_flags=0x20, DS:5006=0xFFFF, DS:8816=1, and DS:8812=0xFFF80001 before 3FF8; 3FF8 clears both carry words and changes mode +0x37 from 0 to 0xFF with upward velocity. The next sample has no carry and keeps mode 0xFF. This is controlled jump detachment and carry consumption, not natural landing, inherited velocity, crushing, or culling."},
+    {"id":"moving_platform_cull_next_player_controlled", "trace":"research/evidence/player-dos-parity/platform-cull-player-controlled-v1.json", "sha256":"6820b4f47a10fc2228507773afdf2ff0e3a2d5056466d5d8536852e0632f7a59", "status":"passed_forced_cull_latch_next_player_tick", "observation":"Two hash-pinned controlled W4L1 runs reach 9DC7 -> 9E1C -> 9E20 -> 9E3A -> A06F -> 1DEE, clear the ARE claim byte, and observe the next 3FF8 callback. The complete player records preserve position, velocity, and mode; only animation/state/common-tail bytes advance. This closes the lifetime mutation and ordinary next-tick consequence under the explicit forced latch, not natural attachment or crushing."}
   ],
   "parity_gate": {
     "compare": ["complete 0x78 pre/post player bytes", "ordered collision probes with coordinates and return flags", "relevant global writes", "spawned object callback/position/effect events"],
@@ -244,10 +326,10 @@
     "implementation_gate": "do not promote natural ceiling/one-way labels or moving-platform detachment/crushing/culling behavior until targeted traces close those boundaries"
   },
   "unresolved": [
-    {"address":"01F7:5937", "question":"effects of its external dispatch callees on indirect player/global state", "next":"trace one dispatch target per changed DS:60D8 bit with full global aliases"},
+    {"address":"01F7:0598", "question":"whether runtime DS:6D8A targets other than the observed ordinary W1L1 14A7:1258 callback can write player/global simulation state", "next":"retain the observed target as a non-simulation contract; expand another loaded target only if held-out parity selects it or attributes a mismatch to it"},
     {"address":"01F7:3D02/3DF2", "question":"natural ceiling polarity and descriptor one-way semantics", "next":"capture unpatched controlled level geometry and approach from both vertical directions"},
-    {"address":"01F7:0E06", "question":"all caller-specific object families and exact child despawn callback semantics", "next":"trace 6328 callback lifetime and compare with non-contact 0E06 callers"},
-    {"address":"01F7:0E96/1036", "question":"exact scheduler-bank membership and attached-player behavior after jump, crushing, or culling", "next":"trace scheduler bank entries while forcing each one-at-a-time platform edge transition"},
+    {"address":"01F7:0E06", "question":"runtime behavior of 0E06-selected families beyond the now-closed 6328/contact-child lifetime", "next":"leave address-named; expand another family only if held-out parity reaches it, since the focused 6328 child has a closed terminal release contract"},
+    {"address":"01F7:0E96/1036", "question":"scheduler-bank membership rebuild timing and attached-player behavior after death, reload, jump detachment, crushing, or culling", "next":"capture both scheduler banks at each lifecycle boundary; use callback 3FF8/object offset zero as the stable player identity rather than append index"},
     {"address":"01F7:41C1", "question":"whether the early contact response is ceiling-specific or a generic vertical boundary", "next":"natural ascent impact trace without coordinate patch"}
   ],
   "authoritative_c_source": "research/notes/player-static-decomp.cpp"

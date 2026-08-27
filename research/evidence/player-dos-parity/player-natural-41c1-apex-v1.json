@@ -1,0 +1,50 @@
+{
+  "schema": "quiky.player-natural-41c1-apex.v1",
+  "purpose": "Disambiguate the natural 41C1 response from a ceiling hit using an unpatched W1L1 route and the following descriptor probe.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "/tmp/player-w1l1-natural-ceiling-fullwatch-v3.json",
+    "trace_sha256": "49b4c341d0df6cb412a2c3440f7cf55d6b1b6ffc510b64ed9e857189fd906b85",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "4b9b4f728ebf2f9166497191ebb9a013f43426549474b42eeaf97ef3bbce58a9"
+  },
+  "method": {
+    "level": "W1L1",
+    "coordinate_patch": null,
+    "callback_capture": "execute watches with complete player records and minimal pool/global snapshots",
+    "watched_addresses": ["01F7:41C1", "01F7:41CF", "01F7:3D02", "01F7:3DF2"],
+    "route": "20 KBD_right:30 phases, then KBD_right+KBD_space+KBD_up:5; post-jump callbacks sampled with zero frame spacing"
+  },
+  "observations": {
+    "early_response": {
+      "address": "01F7:41C1",
+      "event_index": 22,
+      "frame": 1175,
+      "position": {"x": 1039, "y": 365},
+      "mode": -1,
+      "velocity_y_fixed_signed": -8192
+    },
+    "following_descriptor_probe": {
+      "address": "01F7:3D02",
+      "event_index": 23,
+      "frame": 1175,
+      "position": {"x": 1039, "y": 365},
+      "mode": 1,
+      "velocity_y_fixed_signed": 0,
+      "tile_id": 1,
+      "raw_cell_word": 1,
+      "descriptor_word": 0
+    }
+  },
+  "interpretation": "This route demonstrates that 41C1 is reachable at an ordinary ascent-to-fall boundary with an empty descriptor probe. It is not evidence of a natural ceiling hit or of one-way polarity.",
+  "status": "ordinary_apex_reclassified",
+  "does_not_prove": [
+    "natural ceiling behavior",
+    "descriptor bits 0x20/0x40 semantic labels",
+    "that the 41C1 event was caused by a flagged MAP cell"
+  ],
+  "next": "Route to a flagged W1L1 descriptor tile (0x28/0x29 or 0x2A/0x2B) and capture 41C1 plus the descriptor probe at the actual contact boundary."
+}

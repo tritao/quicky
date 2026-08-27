@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
+ROOT = Path(__file__).resolve().parents[2] / "research"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from object_behavior_trace import (  # noqa: E402
@@ -121,6 +122,19 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertTrue(payload["force_contact_gate"])
         self.assertEqual(payload["align_x_offset"], -8)
 
+    def test_platform_compact_mode_is_serialized(self):
+        config = ObjectBehaviorConfig(
+            record_offset=0x1898,
+            entity_type=0x3D,
+            samples=60,
+            startup_recording=Path("startup.json"),
+            trace_platform_player=True,
+            platform_trace_compact=True,
+        )
+        payload = lua_config(config)
+        self.assertTrue(payload["trace_platform_player"])
+        self.assertTrue(payload["platform_trace_compact"])
+
     def test_effect_table_probe_options_are_serialized(self):
         config = ObjectBehaviorConfig(
             record_offset=0x1838,
@@ -162,6 +176,42 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             [1, 2],
         )
 
+    def test_normalizes_nested_selector_handoff_hits(self):
+        trace = normalize_behavior_trace({
+            "samples": [],
+            "selector_handoff_trace": {
+                "selector_handoff_hits": {
+                    "2": {"sequence": 2},
+                    "1": {"sequence": 1},
+                },
+            },
+        })
+        self.assertEqual(
+            [hit["sequence"] for hit in
+             trace["selector_handoff_trace"]["selector_handoff_hits"]],
+            [1, 2],
+        )
+
+    def test_selector_handoff_diagnostic_publishes_consumed_declaration(self):
+        source = (ROOT / "automation" / "quiky_object_behavior_trace.lua").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn(
+            "publish the trace now instead of returning to",
+            source,
+        )
+        self.assertIn(
+            "dosbox.output.behavior_trace = selector_handoff_trace",
+            source,
+        )
+
+    def test_launched_trace_records_runtime_artifact_hashes(self):
+        source = (Path(__file__).resolve().parents[1] / "tools" /
+                  "object_behavior_trace.py").read_text(encoding="utf-8")
+        self.assertIn('"runtime_artifacts": runtime_artifacts', source)
+        self.assertIn('"QUIKY.EXE": sha256(runtime_dir / "QUIKY.EXE")', source)
+        self.assertIn('"NESTLE.DAT": sha256(runtime_dir / "NESTLE.DAT")', source)
+
     def test_direct_callback_mode_and_inert_capture_are_present(self):
         source = (Path(__file__).resolve().parents[1] / "automation" /
                   "quiky_object_behavior_trace.lua").read_text()
@@ -172,9 +222,16 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
     def test_selector_declaration_breakpoint_is_armed_before_resume(self):
         source = (Path(__file__).resolve().parents[1] / "automation" /
                   "quiky_object_behavior_trace.lua").read_text()
-        self.assertIn("local first_declaration = false", source)
-        self.assertIn("first_declaration = choose_level(select_level)", source)
-        self.assertIn("if first_declaration then", source)
+        self.assertIn("local launch = wait_hit(\"selector Space dispatch\")", source)
+        self.assertIn("dosbox.output.checkpoints.launch = launch", source)
+        self.assertIn("4B18 is the selector dispatch boundary", source)
+        self.assertIn("force_level_loop_ready", source)
+        self.assertIn("trace_level_loop_timer", source)
+        self.assertIn("trace_selector_handoff", source)
+        self.assertIn("platform_trace_compact", source)
+        self.assertIn("platform-compact", source)
+        self.assertIn("01f7, 0xf049", source)
+        self.assertIn("local first_declaration = nil", source)
         self.assertIn("dosbox.wait_frames(1)", source)
         self.assertGreaterEqual(
             source.count("dosbox.breakpoint_set(0x01f7, 0x1e04, {once = true})"),

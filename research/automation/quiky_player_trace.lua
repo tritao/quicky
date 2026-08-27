@@ -42,6 +42,7 @@ local secondary_start_sample = trace_config.secondary_start_sample or 1
 local secondary_end_sample = trace_config.secondary_end_sample or 0
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
+local input_warmup_frames = trace_config.input_warmup_frames or 0
 local input_hold_key = trace_config.input_hold_key or ""
 local input_hold_frames = trace_config.input_hold_frames or 0
 local input_hold_keys = {}
@@ -51,17 +52,28 @@ end
 local map_patch_cell = trace_config.map_patch_cell
 local map_patch_descriptor = trace_config.map_patch_descriptor
 local map_patch_word = trace_config.map_patch_word
+local persistent_map_patch = trace_config.persistent_map_patch or false
+local persistent_map_patch_state = nil
 local input_phases = trace_config.input_phases or {}
 local input_phase_through_callback = trace_config.input_phase_through_callback or false
 local input_phase_hold_callbacks = trace_config.input_phase_hold_callbacks or 1
 local capture_player_record = trace_config.capture_player_record or false
 local minimal_callback_capture = trace_config.minimal_callback_capture or false
+local scheduler_only = trace_config.scheduler_only or false
 -- Full pool snapshots are useful for discovery, but they are expensive: each
 -- sample walks 64 records and decodes every field.  Once the callback has
 -- been focused and the 0x78-byte player record is requested, the callback
 -- itself is the authoritative target and the repeated pool walk only burns
 -- the automation Lua instruction budget.
-local lean_player_capture = focus_callback and capture_player_record
+-- Execute-watch-only runs do not need the 64-record pool walk either.  When
+-- the caller explicitly requests minimal capture, retain just the initial
+-- pool snapshot and the watched instruction/object state; this keeps a long
+-- approach trajectory below the Lua instruction budget while preserving the
+-- exact watched callback address and registers.
+local lean_player_capture = scheduler_only or
+                            (focus_callback and capture_player_record) or
+                            (minimal_callback_capture and
+                             (focus_callback or #execute_watches > 0))
 local transition_focus = trace_config.transition_focus or false
 local transition_steps = trace_config.transition_steps or 48
 local transition_hold_events = trace_config.transition_hold_events or 48
@@ -323,10 +335,12 @@ local function pool_snapshot()
     }
 end
 
-local function map_lookup_snapshot(hit)
+local function map_lookup_snapshot(hit, coordinate_x, coordinate_y)
     local registers = hit.registers or {}
-    local y = (registers.eax or 0) & 0xffff
-    local x = (registers.ebx or 0) & 0xffff
+    local y = coordinate_y ~= nil and coordinate_y or
+              ((registers.eax or 0) & 0xffff)
+    local x = coordinate_x ~= nil and coordinate_x or
+              ((registers.ebx or 0) & 0xffff)
     local map_base = dosbox.mem_read_word("ds", 0x657a)
     local map_selector = dosbox.mem_read_word("ds", 0x657c)
     local row_stride = dosbox.mem_read_word("ds", 0x657e)
@@ -349,10 +363,31 @@ end
 
 local function map_property_snapshot(hit)
     local registers = hit.registers or {}
-    local lookup = map_lookup_snapshot(hit)
+    -- 01F7:3986 receives its probe coordinates from the player record and
+    -- then calls 01F7:1C92.  At a breakpoint on 3986, EAX/EBX are scratch
+    -- values from the helper's preceding setup, not the original probe
+    -- coordinates.  Reconstruct the exact static contract (Y - +0x72, X)
+    -- from ES:DI so a negative-mode trace can prove whether the raw 0x1000
+    -- contact bit was set at the actual probe cell.
+    local coordinate_x = nil
+    local coordinate_y = nil
+    if hit.offset == 0x3986 and registers.es ~= nil and registers.edi ~= nil then
+        local ok, raw = pcall(
+            dosbox.mem_read_selector, registers.es,
+            (registers.edi or 0) & 0xffff, player_record_size
+        )
+        if ok and raw ~= nil and #raw >= player_record_size then
+            local x_fixed = signed32(dword(raw, 0x02 + 1))
+            local y_fixed = signed32(dword(raw, 0x06 + 1))
+            local vertical_step = word(raw, 0x72 + 1)
+            coordinate_x = math.floor(x_fixed / 65536) & 0xffff
+            coordinate_y = (math.floor(y_fixed / 65536) - vertical_step) & 0xffff
+        end
+    end
+    local lookup = map_lookup_snapshot(hit, coordinate_x, coordinate_y)
     local tile_id = lookup.tile_id or 0
-    local x = (registers.ebx or 0) & 0xffff
-    local y = (registers.eax or 0) & 0xffff
+    local x = lookup.x
+    local y = lookup.y
     local stack_raw = dosbox.mem_read(
         "ss", (registers.esp or 0) & 0xffff, 4
     ) or ""
@@ -386,7 +421,7 @@ local function map_property_snapshot(hit)
     local raw_map_mask = nil
     if hit.offset == 0x1c6e then
         raw_map_mask = 0x4000
-    elseif hit.offset == 0x1c92 then
+    elseif hit.offset == 0x1c92 or hit.offset == 0x3986 then
         raw_map_mask = 0x1000
     end
     local descriptor_flag_set = nil
@@ -400,6 +435,9 @@ local function map_property_snapshot(hit)
         breakpoint = {segment = hit.segment, offset = hit.offset},
         caller_return = caller_return,
         registers = registers,
+        coordinate_source = hit.offset == 0x3986 and
+            (coordinate_x ~= nil and "player_record_plus_0x72" or
+             "registers_unavailable") or "helper_registers",
         coordinates = {
             x = x,
             y = y,
@@ -473,6 +511,30 @@ local function static_globals()
         end
     end
     return {
+        -- 01F7:5937 dispatch/auxiliary aliases.  Keep these in the ordinary
+        -- callback snapshot so a callback-scoped DS:60D8 experiment can
+        -- distinguish the dispatcher's own writes from later movement.
+        dispatch_gate_85da = dosbox.mem_read_byte("ds", 0x85da),
+        dispatch_word_60d8 = dosbox.mem_read_word("ds", 0x60d8),
+        dispatch_previous_word_60da = dosbox.mem_read_word("ds", 0x60da),
+        dispatch_score_low_881c = dosbox.mem_read_word("ds", 0x881c),
+        dispatch_score_high_881e = dosbox.mem_read_word("ds", 0x881e),
+        dispatch_lives_880a = dosbox.mem_read_word("ds", 0x880a),
+        dispatch_ammo_880c = dosbox.mem_read_word("ds", 0x880c),
+        dispatch_health_8822 = dosbox.mem_read_word("ds", 0x8822),
+        -- 5937 compares the dword at 4FF2 against the score dword at
+        -- 881C. Preserve both words here instead of truncating the replay
+        -- input to the low word.
+        dispatch_aux_4ff2 = dword(dosbox.mem_read("ds", 0x4ff2, 4) or
+                                  "\0\0\0\0", 1),
+        dispatch_aux_4ff6 = dosbox.mem_read_word("ds", 0x4ff6),
+        dispatch_aux_4ff8 = dosbox.mem_read_word("ds", 0x4ff8),
+        dispatch_aux_4ffa = dosbox.mem_read_word("ds", 0x4ffa),
+        dispatch_view_page_817c = dosbox.mem_read_word("ds", 0x817c),
+        dispatch_view_state_81a6 = dosbox.mem_read_word("ds", 0x81a6),
+        dispatch_view_state_81aa = dosbox.mem_read_word("ds", 0x81aa),
+        dispatch_view_state_81be = dosbox.mem_read_word("ds", 0x81be),
+        dispatch_view_state_81c2 = dosbox.mem_read_word("ds", 0x81c2),
         input_action_flags = dosbox.mem_read_word("ds", 0x8196),
         keyboard_action_flags = dosbox.mem_read_word("ds", 0x88bc),
         last_scan_code = dosbox.mem_read_word("ds", 0x88ba),
@@ -484,6 +546,20 @@ local function static_globals()
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
         player_transition_word = dosbox.mem_read_word("ds", 0x89e6),
         player_vertical_adjust = dosbox.mem_read_word("ds", 0x8812),
+        -- Complete callback-global inputs used by the replay manifest.  Keep
+        -- the fixed-point carry as a signed dword and the signed mode words
+        -- in their two's-complement form; the C++ replay boundary otherwise
+        -- has to guess values that are present in the guest at every sample.
+        external_x_delta = signed32(dword(dosbox.mem_read("ds", 0x8816, 4) or "\0\0\0\0", 1)),
+        timer_clear = dosbox.mem_read_word("ds", 0x8810),
+        view_state_a = signed_word(dosbox.mem_read_word("ds", 0x4fe4)),
+        pending_event = dosbox.mem_read_word("ds", 0x612e),
+        camera_y_limit = dosbox.mem_read_word("ds", 0x81cc),
+        action_source = dosbox.mem_read_word("ds", 0x656c),
+        activation_state = signed_word(dosbox.mem_read_word("ds", 0x85da)),
+        speed_cap_mode = dosbox.mem_read_word("ds", 0x88b6),
+        action_suppressor = signed_word(dosbox.mem_read_word("ds", 0x89e6)),
+        transition_mode = signed_word(dosbox.mem_read_word("ds", 0x89ea)),
         player_reset_state = dosbox.mem_read_word("ds", 0x8810),
         horizontal_limit = dosbox.mem_read_word("ds", 0x4fe2),
         horizontal_aux = dosbox.mem_read_word("ds", 0x4fe6),
@@ -614,6 +690,13 @@ local function arm_callback_targets()
     end
 end
 
+local function release_callback_targets(callback_offset)
+    for _, segment in ipairs({0x01d7, 0x01e7, 0x01f7, 0x0207, 0x0227, 0x0237,
+                              0x1997}) do
+        breakpoint_controller:release("callback", segment, callback_offset)
+    end
+end
+
 local function arm_property_targets(blocked)
     if property_helper_offset == 0x1c6e or property_helper_offset == 0x1c92 or
        property_helper_offset == 0x5c27 or property_helper_offset == 0x5cc3 then
@@ -629,6 +712,29 @@ local function arm_property_targets(blocked)
                 arm_breakpoint("property", 0x01f7, offset)
             end
         end
+    end
+end
+
+-- A helper breakpoint can fire before the requested player callback when
+-- another object is being updated.  Once that happens, leave the helper
+-- breakpoints suspended until the callback barrier is reached.  The inner
+-- callback loop re-arms them and records only helper calls that occur in the
+-- player closure.  Without this separation a repeated property/collision
+-- hit can produce a property-only sample and prevent the complete 0x78
+-- callback record from being captured.
+local function suspend_side_probe_targets()
+    if property_focus then
+        for _, offset in ipairs({0x1c6e, 0x1c92, 0x5c27, 0x5cc3}) do
+            breakpoint_controller:release("property", 0x01f7, offset)
+        end
+    end
+    if collision_focus then
+        for _, offset in ipairs(collision_offsets) do
+            breakpoint_controller:release("collision", 0x01f7, offset)
+        end
+    end
+    if map_focus then
+        breakpoint_controller:release("map", 0x01f7, 0x3376)
     end
 end
 
@@ -782,7 +888,15 @@ local function arm_targets()
         patch_watch.arm_execute_watches(breakpoint_controller, execute_watches)
     end
     if focus_callback or map_focus or collision_focus or property_focus or branch_focus or
-       (descriptor_census and not descriptor_census_done) or #execute_watches > 0 then
+       (descriptor_census and not descriptor_census_done) then
+        return
+    end
+    -- A global execute-watch may be hit only once (for example 4BA4 at the
+    -- start of the death/recovery branch).  Keep 3FF8 as the ordinary sample
+    -- barrier in watch-only mode so the trace can advance after that hit and
+    -- cannot wait forever for another lifecycle address.
+    if #execute_watches > 0 then
+        arm_breakpoint("execute-watch-sample", 0x01f7, 0x3ff8)
         return
     end
     arm_breakpoint("default-pool", 0x01f7, 0x0e96)
@@ -1227,10 +1341,33 @@ end
 local function external_dispatch_snapshot(hit)
     if hit.offset ~= 0x0442 then return nil end
     local registers = hit.registers or {}
+    -- 386F pushes AX, BX, CX before CALLF 0442.  At the 0442 entry
+    -- breakpoint the callee prologue has not run yet, so the three words are
+    -- at SS:(SP+4), SS:(SP+6), and SS:(SP+8) after the far return address.
+    -- Once 0442 establishes BP, these are [BP+0x06], [BP+0x08], and
+    -- [BP+0x0A].  The first word is therefore the actual selector consumed
+    -- by 0442; EBX is merely the middle caller argument.
+    local stack_args = nil
+    if registers.ss ~= nil and registers.esp ~= nil then
+        local stack_base = (registers.esp & 0xffff) + 4
+        local ok_stack, stack_raw = pcall(
+            dosbox.mem_read_selector, registers.ss, stack_base, 6
+        )
+        if ok_stack and stack_raw ~= nil and #stack_raw >= 6 then
+            stack_args = {
+                bp_06 = word(stack_raw, 1),
+                bp_08 = word(stack_raw, 3),
+                bp_0a = word(stack_raw, 5),
+                stack_pointer = registers.esp & 0xffff,
+                stack_selector = registers.ss,
+            }
+        end
+    end
     local selector_raw = dosbox.mem_read("ds", 0x6d8a, 4) or ""
     local table_offset = #selector_raw >= 4 and word(selector_raw, 1) or nil
     local table_selector = #selector_raw >= 4 and word(selector_raw, 3) or nil
-    local selector_index = (registers.ebx or 0) & 0xffff
+    local selector_index = stack_args and stack_args.bp_06 or
+                           ((registers.ebx or 0) & 0xffff)
     local index_offset = 0x6d8e + selector_index * 2
     local ok_index, table_index = pcall(dosbox.mem_read_word, "ds", index_offset)
     if not ok_index then table_index = nil end
@@ -1255,6 +1392,12 @@ local function external_dispatch_snapshot(hit)
     end
     return {
         selector_index = selector_index,
+        caller_registers = {
+            ax = (registers.eax or 0) & 0xffff,
+            bx = (registers.ebx or 0) & 0xffff,
+            cx = (registers.ecx or 0) & 0xffff,
+        },
+        stack_args = stack_args,
         index_address = {segment = registers.ds,
                          offset = index_offset},
         table_index = table_index,
@@ -1267,10 +1410,111 @@ local function external_dispatch_snapshot(hit)
     }
 end
 
+-- 0442 can far-call a callback loaded into a resource segment.  That
+-- callback is allowed to change its own ES:DI object, but it may also reach
+-- the original player/data segment through aliases.  Keep the small set of
+-- simulation-facing words used by the recovered 5937 contract address-named
+-- and read them through the saved original DS selector.  Reading the live
+-- `ds` here would be wrong: the loaded callback changes DS before it runs.
+local dispatch_global_offsets = {
+    0x60d8, 0x60da, 0x85da, 0x881c, 0x881e, 0x880a, 0x880c, 0x8822,
+    0x4ff2, 0x4ff6, 0x4ff8, 0x4ffa, 0x89ea, 0x89e6, 0x8812, 0x8816,
+    0x881a, 0x8810, 0x89ec,
+}
+
+local function dispatch_object_state_snapshot(selector, offset)
+    if selector == nil or offset == nil then return nil end
+    local ok, raw = pcall(
+        dosbox.mem_read_selector, selector, offset, player_record_size
+    )
+    if not ok or raw == nil or #raw < player_record_size then return nil end
+    return {
+        selector = selector,
+        offset = offset,
+        record_hex = hex(raw),
+    }
+end
+
+local function dispatch_state_snapshot(context)
+    if context == nil or context.data_selector == nil or
+       context.player_selector == nil or context.player_offset == nil then
+        return nil
+    end
+    local globals = {}
+    for _, offset in ipairs(dispatch_global_offsets) do
+        local ok, raw = pcall(
+            dosbox.mem_read_selector, context.data_selector, offset, 2
+        )
+        if ok and raw ~= nil and #raw >= 2 then
+            globals[string.format("0x%04x", offset)] = word(raw, 1)
+        end
+    end
+    local ok_player, raw_player = pcall(
+        dosbox.mem_read_selector, context.player_selector,
+        context.player_offset, player_record_size
+    )
+    return {
+        data_selector = context.data_selector,
+        player = {
+            selector = context.player_selector,
+            offset = context.player_offset,
+            record_hex = ok_player and raw_player ~= nil and
+                         #raw_player >= player_record_size and hex(raw_player) or nil,
+        },
+        globals = globals,
+    }
+end
+
+local function dispatch_object_differences(before, after)
+    if before == nil or after == nil then return nil end
+    return hex_differences(before.record_hex, after.record_hex)
+end
+
+local function dispatch_state_differences(before, after)
+    if before == nil or after == nil then return nil end
+    local result = {
+        player = nil,
+        globals = {},
+    }
+    if before.player ~= nil and after.player ~= nil then
+        result.player = hex_differences(before.player.record_hex,
+                                         after.player.record_hex)
+    end
+    for address, value in pairs(before.globals or {}) do
+        if after.globals ~= nil and after.globals[address] ~= nil and
+           after.globals[address] ~= value then
+            result.globals[#result.globals + 1] = {
+                address = address,
+                before = value,
+                after = after.globals[address],
+            }
+        end
+    end
+    table.sort(result.globals, function(left, right)
+        return left.address < right.address
+    end)
+    return result
+end
+
+local function dispatch_target_return_location(hit)
+    local address, reason = far_return_location(hit)
+    if address == nil then return nil, reason end
+    local valid, validation_reason = validate_return_address(address)
+    if not valid then return nil, validation_reason end
+    return address
+end
+
 local function record_execute_watch(sample, hit)
     local index = patch_watch.is_execute_watch(
         execute_watches, hit.segment, hit.offset)
-    if index == nil then return false end
+    local context = sample.indirect_dispatch_context
+    local indirect_target = context ~= nil and
+        hit.segment == context.target_segment and
+        hit.offset == context.target_offset
+    if index == nil and not indirect_target then return false end
+    if indirect_target and index == nil then
+        index = "indirect-target"
+    end
     sample.execute_watches = sample.execute_watches or {}
     local event = {
         event_index = next_trace_event(),
@@ -1283,7 +1527,114 @@ local function record_execute_watch(sample, hit)
         object = callback_object_snapshot(hit),
         globals = minimal_callback_capture and nil or static_globals(),
     }
+    if indirect_target then
+        event.indirect_target = true
+        -- Preserve the loaded callback's instruction bytes at the target
+        -- entry.  These bytes are runtime resource code rather than part of
+        -- QUIKY.EXE, so they cannot be recovered by the EXE-only Ghidra
+        -- import.  The dump is evidence for a separate protected-mode
+        -- Ghidra import; it is never interpreted here as a semantic guess.
+        local ok_target_code, target_code = pcall(
+            dosbox.mem_read_selector, hit.segment, hit.offset, 0x0400
+        )
+        if ok_target_code and target_code ~= nil then
+            event.target_code_hex = hex(target_code)
+            event.target_code_size = #target_code
+        else
+            event.target_code_read_error = tostring(target_code)
+        end
+        event.stack_hex = hex(dosbox.mem_read(
+            "ss", (hit.registers.esp or 0) & 0xffff, 8
+        ) or "")
+        event.simulation_before = dispatch_state_snapshot(context)
+        event.target_object_before = dispatch_object_state_snapshot(
+            hit.registers and hit.registers.es,
+            hit.registers and ((hit.registers.edi or 0) & 0xffff)
+        )
+        local target_return, target_return_reason =
+            dispatch_target_return_location(hit)
+        event.return_expected = target_return
+        event.return_read_error = target_return == nil and target_return_reason or nil
+        if target_return ~= nil then
+            local armed = arm_validated_return(
+                sample, target_return, hit.offset, "indirect target return"
+            )
+            if armed then
+                sample.pending_indirect_target_return = {
+                    address = target_return,
+                    event = event,
+                }
+            end
+        end
+    end
     event.external_dispatch = external_dispatch_snapshot(hit)
+    if event.external_dispatch ~= nil and
+       event.external_dispatch.callback ~= nil and
+       event.external_dispatch.callback.word_0x18 ~= nil and
+       event.external_dispatch.callback.word_0x1a ~= nil then
+        sample.indirect_dispatch_context = sample.indirect_dispatch_context or {}
+        sample.indirect_dispatch_context.target_offset =
+            event.external_dispatch.callback.word_0x18
+        sample.indirect_dispatch_context.target_segment =
+            event.external_dispatch.callback.word_0x1a
+        -- The selected callback lives in a loaded resource segment and is
+        -- not knowable from the executable's static watch list.  Arm its
+        -- entry immediately after 0442 resolves the table record so the
+        -- target-inclusive trace remains useful for held-out levels without
+        -- guessing an address in the command line.
+        local target = {
+            segment = sample.indirect_dispatch_context.target_segment,
+            offset = sample.indirect_dispatch_context.target_offset,
+        }
+        local target_valid, target_reason = validate_return_address(target)
+        if target_valid then
+            arm_breakpoint("indirect-target", target.segment, target.offset,
+                           {once = true})
+            event.indirect_target_breakpoint_armed = true
+        else
+            event.indirect_target_breakpoint_error = target_reason
+        end
+    end
+    -- 3986 is the player negative-mode vertical probe, but its flag result
+    -- comes from the 1C92 MAP helper.  Capture the live cell and descriptor
+    -- at the 3986 entry so a one-event execute watch carries the complete
+    -- probe input without rearming the repeated 1C92 breakpoint.
+    if hit.offset == 0x3986 or hit.offset == 0x1c92 then
+        event.map_property = map_property_snapshot(hit)
+    end
+    -- 3D02 receives the live player coordinates through the callback's
+    -- object record rather than stable AX/BX values at its entry.  Preserve
+    -- the descriptor lookup at that exact helper event when a full record is
+    -- requested, so the response polarity is auditable without a second
+    -- breakpoint pass.
+    if hit.offset == 0x3d02 and event.object ~= nil and
+       event.object.selector ~= nil and event.object.offset ~= nil then
+        local ok, raw = pcall(
+            dosbox.mem_read_selector, event.object.selector,
+            event.object.offset, player_record_size
+        )
+        if ok and raw ~= nil and #raw >= 0x0c then
+            local x_fixed = signed32(dword(raw, 0x02 + 1))
+            local y_fixed = signed32(dword(raw, 0x06 + 1))
+            local x = math.floor(x_fixed / 65536)
+            local y = math.floor(y_fixed / 65536)
+            local synthetic = {
+                offset = 0x5cc3,
+                segment = hit.segment,
+                registers = {
+                    eax = y & 0xffff,
+                    ebx = x & 0xffff,
+                    esp = hit.registers and hit.registers.esp or 0,
+                },
+            }
+            event.player_descriptor = {
+                player_position = {x = x, y = y,
+                                   x_fixed_signed = x_fixed,
+                                   y_fixed_signed = y_fixed},
+                helper = map_property_snapshot(synthetic),
+            }
+        end
+    end
     sample.execute_watches[#sample.execute_watches + 1] = event
     sample.execute_watch = event
     return true
@@ -1347,26 +1698,57 @@ local function begin_selected_level()
     dosbox.output.checkpoints.launch = wait_hit("selector Space dispatch")
 end
 
-local function scheduler_snapshot()
-    local raw = dosbox.mem_read("ds", 0x7566, 0x200) or ""
+local function scheduler_bank_snapshot(base)
+    local raw = dosbox.mem_read("ds", base, 0x200) or ""
     local entries = {}
     for index = 0, 63 do
         local base = index * 8 + 1
         if base + 7 > #raw then break end
-        local callback_offset = word(raw, base)
-        local callback_segment = word(raw, base + 2)
+        local phase_callback_offset = word(raw, base)
+        local secondary_callback_offset = word(raw, base + 2)
         local object_offset = word(raw, base + 4)
-        local object_segment = word(raw, base + 6)
-        if callback_offset == 0xffff and callback_segment == 0xffff then
+        local entry_word_06 = word(raw, base + 6)
+        if phase_callback_offset == 0xffff then
             break
         end
         entries[#entries + 1] = {
             index = index,
-            callback = {segment = callback_segment, offset = callback_offset},
-            object = {selector = object_segment, offset = object_offset},
+            -- The scheduler words are two independent near offsets, not a
+            -- far callback pointer. Keep the raw roles explicit so a trace
+            -- consumer cannot mistake +0x02 for a segment.
+            phase_callback_offset = phase_callback_offset,
+            secondary_callback_offset = secondary_callback_offset,
+            object_offset = object_offset,
+            entry_word_06 = entry_word_06,
+            -- Compatibility aliases for older report consumers. They carry
+            -- offsets only; no segment meaning is assigned here.
+            callback = {offset = phase_callback_offset},
+            secondary_callback = {offset = secondary_callback_offset},
+            object = {offset = object_offset},
         }
     end
-    return {base = 0x7566, stride = 8, entries = entries}
+    return {base = base, stride = 8, entries = entries}
+end
+
+local function scheduler_snapshot()
+    -- 0E96 flips DS:7966 before dispatching the old bank; 0FA2 then
+    -- selects the bank named by the post-flip cursor.  Capture both banks
+    -- so a callback entry cannot be mistaken for an inactive terminator in
+    -- the other bank.  The old `entries` field remains the bank-A view for
+    -- consumers that only need the historical shape.
+    local insert_cursor = dosbox.mem_read_word("ds", 0x7966) or 0
+    local banks = {
+        scheduler_bank_snapshot(0x7566),
+        scheduler_bank_snapshot(0x7766),
+    }
+    return {
+        base = 0x7566,
+        stride = 8,
+        insert_cursor = insert_cursor,
+        nonzero_state_bank = insert_cursor & 0x0200,
+        entries = banks[1].entries,
+        banks = banks,
+    }
 end
 
 dosbox.output.awaiting_startup_replay = true
@@ -1377,6 +1759,58 @@ else
     dosbox.key("KBD_space", true)
     dosbox.wait_frames(4)
     dosbox.key("KBD_space", false)
+end
+
+-- Object-focus lifetime experiments need the triggering MAP cell to remain
+-- patched before the first focused child callback.  The ordinary player
+-- trace applies and restores this mutation around each player callback;
+-- persistent mode is deliberately opt-in and is restored before capture.
+if persistent_map_patch then
+    assert(map_patch_cell ~= nil,
+           "persistent MAP patch requires map_patch_cell")
+    if object_focus ~= nil then
+        -- The selected-level launcher returns before the first live player
+        -- callback and its MAP pointer can still refer to the selector's
+        -- previous level.  Reach the live 3FF8 entry first, install the
+        -- mutation before its contact probes, then retarget the requested
+        -- pooled callback.  This also guarantees that exactly one triggering
+        -- child is created before the lifetime experiment begins.
+        local child_callback_offset = focus_callback_offset
+        focus_callback_offset = 0x3ff8
+        arm_callback_targets()
+        dosbox.debug_continue()
+        local warmup_hit = wait_hit("player MAP-patch warmup callback")
+        while warmup_hit.offset ~= 0x3ff8 do
+            arm_callback_targets()
+            dosbox.debug_continue()
+            warmup_hit = wait_hit("player MAP-patch warmup callback")
+        end
+        persistent_map_patch_state = apply_player_map_patch()
+        assert(persistent_map_patch_state ~= nil,
+               "persistent MAP patch could not resolve the live MAP cell")
+        -- Restore immediately after this triggering player callback returns;
+        -- leaving the cell patched would allocate one new 6328 child per
+        -- callback and make an exact pool-offset lifetime trace ambiguous.
+        local stack = dosbox.mem_read(
+            "ss", (warmup_hit.registers.esp or 0) & 0xffff, 2) or ""
+        assert(#stack >= 2, "player MAP-patch warmup return was not readable")
+        local warmup_return = word(stack, 1)
+        release_callback_targets(0x3ff8)
+        arm_breakpoint("persistent-map-patch-return", warmup_hit.segment,
+                       warmup_return)
+        dosbox.debug_continue()
+        local return_hit = wait_hit("player MAP-patch warmup return")
+        assert(return_hit.segment == warmup_hit.segment and
+                   return_hit.offset == warmup_return,
+               "player MAP-patch warmup returned through an unexpected address")
+        restore_player_map_patch(persistent_map_patch_state)
+        persistent_map_patch_state = nil
+        focus_callback_offset = child_callback_offset
+    else
+        persistent_map_patch_state = apply_player_map_patch()
+        assert(persistent_map_patch_state ~= nil,
+               "persistent MAP patch could not resolve the MAP cell")
+    end
 end
 
 if transition_focus then
@@ -1520,6 +1954,16 @@ local continuous_input_callbacks = 0
 local active_phase_keys = nil
 local active_phase_callbacks_remaining = 0
 
+-- Run the primary input before the first post-baseline sample.  This keeps
+-- long approach trajectories out of the per-sample input wait, so execute
+-- watches are armed on the natural contact window instead of after it.
+if input_warmup_frames > 0 and input_key ~= "" then
+    dosbox.key(input_key, true)
+    dosbox.wait_frames(input_warmup_frames)
+    dosbox.key(input_key, false)
+    experiment_frame = experiment_frame + input_warmup_frames
+end
+
 local function key_is_continuously_held(key)
     if input_hold_key == "" then return false end
     for _, held_key in ipairs(input_hold_keys) do
@@ -1577,7 +2021,11 @@ for sequence = 1, sample_count do
             if phase ~= nil then
                 local keys = phase.keys or {}
                 local phase_frames = phase.frames or 0
-                if input_phase_through_callback then
+                -- A through-callback phase is callback-stepped only when its
+                -- frame count is zero. Nonzero phases intentionally retain
+                -- the ordinary guest-frame wait so a long natural approach
+                -- can be followed by a short frame-resolution contact probe.
+                if input_phase_through_callback and phase_frames == 0 then
                     phase_through_callback_keys = keys
                 else
                     for _, key in ipairs(keys) do dosbox.key(key, true) end
@@ -1589,7 +2037,9 @@ for sequence = 1, sample_count do
         elseif phase ~= nil then
             local keys = phase.keys or {}
             local phase_frames = phase.frames or 0
-            if input_phase_through_callback then
+            -- See the corresponding branch above: :0 means one callback
+            -- step, while a nonzero phase remains an unsampled guest wait.
+            if input_phase_through_callback and phase_frames == 0 then
                 phase_through_callback_keys = keys
             else
                 for _, key in ipairs(keys) do dosbox.key(key, true) end
@@ -1641,7 +2091,10 @@ for sequence = 1, sample_count do
             active_phase_keys = phase_through_callback_keys
             active_phase_callbacks_remaining = input_phase_hold_callbacks
         end
-        local map_patch = apply_player_map_patch()
+        local map_patch = nil
+        if not persistent_map_patch then
+            map_patch = apply_player_map_patch()
+        end
         arm_targets()
         dosbox.debug_continue()
     local hit = wait_hit("player/object update breakpoint")
@@ -1677,8 +2130,23 @@ for sequence = 1, sample_count do
             ignored_callbacks = ignored_object_callbacks,
         }
     end
+    -- Preserve the original callback DS and player ES:DI before 5937 can
+    -- dispatch into a loaded resource segment.  The target may switch DS and
+    -- ES, so its entry snapshot alone cannot establish player side effects.
+    if focus_callback and hit.offset == focus_callback_offset then
+        local player = callback_object_snapshot(hit)
+        if player ~= nil and hit.registers ~= nil then
+            sample.indirect_dispatch_context = {
+                data_selector = hit.registers.ds,
+                player_selector = player.selector,
+                player_offset = player.offset,
+            }
+        end
+    end
     record_execute_watch(sample, hit)
-    if not lean_player_capture or sequence == 1 then
+    if scheduler_only then
+        sample.scheduler = scheduler_snapshot()
+    elseif not lean_player_capture or sequence == 1 then
         sample.pool = pool_snapshot()
         sample.scheduler = scheduler_snapshot()
     end
@@ -1752,6 +2220,7 @@ for sequence = 1, sample_count do
     if focus_callback and initial_hit.offset ~= focus_callback_offset and
        initial_hit.offset ~= 0x3f27 and
        not (probe_release_emitter and initial_hit.offset == 0x470c) then
+        suspend_side_probe_targets()
         arm_callback_targets()
         dosbox.debug_continue()
         hit = wait_hit("player callback after related breakpoint")
@@ -1763,7 +2232,9 @@ for sequence = 1, sample_count do
         if not minimal_callback_capture then
             sample.globals = static_globals()
         end
-        if not lean_player_capture then
+        if scheduler_only then
+            sample.scheduler = scheduler_snapshot()
+        elseif not lean_player_capture then
             sample.pool = pool_snapshot()
             sample.scheduler = scheduler_snapshot()
         end
@@ -1874,9 +2345,65 @@ for sequence = 1, sample_count do
 
                 dosbox.debug_continue()
                 local candidate = wait_hit("player callback return")
-                event_count = event_count + 1
                 record_execute_watch(sample, candidate)
                 local candidate_key = address_key(candidate)
+                local pending_target = sample.pending_indirect_target_return
+                local indirect_target_returned = pending_target ~= nil and
+                    candidate.segment == pending_target.address.segment and
+                    candidate.offset == pending_target.address.offset
+                local candidate_is_callback_return =
+                    candidate.segment == return_segment and
+                    candidate.offset == return_offset
+                local candidate_is_property_return = property_return ~= nil and
+                    candidate.segment == property_return.segment and
+                    candidate.offset == property_return.offset
+                local candidate_is_collision_return = collision_return ~= nil and
+                    candidate.segment == collision_return.segment and
+                    candidate.offset == collision_return.offset
+                local candidate_is_map_return = map_return ~= nil and
+                    candidate.segment == map_return.segment and
+                    candidate.offset == map_return.offset
+                -- The guard is a limit on nested helper entries, not on the
+                -- return addresses used to unwind those helpers.  Counting
+                -- both halves made four helper calls consume an eight-event
+                -- budget and truncated the callback before its next probe.
+                if not indirect_target_returned and
+                   not candidate_is_callback_return and
+                   not candidate_is_property_return and
+                   not candidate_is_collision_return and
+                   not candidate_is_map_return then
+                    event_count = event_count + 1
+                end
+                if indirect_target_returned then
+                    pending_target.event.return_actual = {
+                        segment = candidate.segment,
+                        offset = candidate.offset,
+                        registers = candidate.registers,
+                    }
+                    pending_target.event.simulation_after =
+                        dispatch_state_snapshot(sample.indirect_dispatch_context)
+                    pending_target.event.target_object_after =
+                        dispatch_object_state_snapshot(
+                            pending_target.event.target_object_before and
+                            pending_target.event.target_object_before.selector,
+                            pending_target.event.target_object_before and
+                            pending_target.event.target_object_before.offset
+                        )
+                    pending_target.event.differences = dispatch_state_differences(
+                        pending_target.event.simulation_before,
+                        pending_target.event.simulation_after
+                    )
+                    pending_target.event.target_object_differences =
+                        dispatch_object_differences(
+                            pending_target.event.target_object_before,
+                            pending_target.event.target_object_after
+                        )
+                    sample.indirect_dispatch_return = {
+                        segment = candidate.segment,
+                        offset = candidate.offset,
+                    }
+                    sample.pending_indirect_target_return = nil
+                end
                 if candidate_key == last_breakpoint then
                     repeated_breakpoint_count = repeated_breakpoint_count + 1
                 else
@@ -1884,9 +2411,45 @@ for sequence = 1, sample_count do
                     repeated_breakpoint_count = 1
                 end
 
-                if candidate.segment == return_segment and
-                   candidate.offset == return_offset then
+                if indirect_target_returned then
+                    -- The loaded callback has returned to its dispatcher.
+                    -- Its before/after player and original-DS snapshots are
+                    -- already attached to the indirect-target event above.
+                elseif candidate_is_callback_return then
                     returned = candidate
+                elseif candidate_is_property_return then
+                    if property_return_event ~= nil then
+                        property_return_event.return_breakpoint = {
+                            segment = candidate.segment,
+                            offset = candidate.offset,
+                            registers = candidate.registers,
+                        }
+                        restore_property_patch(property_return_event)
+                    end
+                    property_return = nil
+                    property_return_event = nil
+                elseif candidate_is_collision_return then
+                    if collision_return_event ~= nil then
+                        collision_return_event.return_breakpoint = {
+                            segment = candidate.segment,
+                            offset = candidate.offset,
+                            registers = candidate.registers,
+                        }
+                        restore_collision_patch(collision_return_event)
+                    end
+                    collision_return = nil
+                    collision_return_event = nil
+                elseif candidate_is_map_return then
+                    if map_return_event ~= nil then
+                        map_return_event.return_breakpoint = {
+                            segment = candidate.segment,
+                            offset = candidate.offset,
+                            registers = candidate.registers,
+                        }
+                        restore_map_patch(map_return_event)
+                    end
+                    map_return = nil
+                    map_return_event = nil
                 elseif helper_tracing_aborted then
                     sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                         segment = candidate.segment, offset = candidate.offset,
@@ -1918,45 +2481,6 @@ for sequence = 1, sample_count do
                     mark_unresolved_target(candidate,
                                            "event-count guard")
                     helper_tracing_aborted = true
-                elseif property_return ~= nil and
-                       candidate.segment == property_return.segment and
-                       candidate.offset == property_return.offset then
-                    if property_return_event ~= nil then
-                        property_return_event.return_breakpoint = {
-                            segment = candidate.segment,
-                            offset = candidate.offset,
-                            registers = candidate.registers,
-                        }
-                        restore_property_patch(property_return_event)
-                    end
-                    property_return = nil
-                    property_return_event = nil
-                elseif collision_return ~= nil and
-                       candidate.segment == collision_return.segment and
-                       candidate.offset == collision_return.offset then
-                    if collision_return_event ~= nil then
-                        collision_return_event.return_breakpoint = {
-                            segment = candidate.segment,
-                            offset = candidate.offset,
-                            registers = candidate.registers,
-                        }
-                        restore_collision_patch(collision_return_event)
-                    end
-                    collision_return = nil
-                    collision_return_event = nil
-                elseif map_return ~= nil and
-                       candidate.segment == map_return.segment and
-                       candidate.offset == map_return.offset then
-                    if map_return_event ~= nil then
-                        map_return_event.return_breakpoint = {
-                            segment = candidate.segment,
-                            offset = candidate.offset,
-                            registers = candidate.registers,
-                        }
-                        restore_map_patch(map_return_event)
-                    end
-                    map_return = nil
-                    map_return_event = nil
                 else
                     sample.related_breakpoints[#sample.related_breakpoints + 1] = {
                         segment = candidate.segment, offset = candidate.offset,
@@ -2116,6 +2640,11 @@ if continuous_input_active then
     for index = #input_hold_keys, 1, -1 do
         dosbox.key(input_hold_keys[index], false)
     end
+end
+
+if persistent_map_patch_state ~= nil then
+    restore_player_map_patch(persistent_map_patch_state)
+    persistent_map_patch_state = nil
 end
 
 local capture = stop_for_capture()

@@ -1,0 +1,62 @@
+{
+  "schema": "quiky.player-w1l2-wurm2-native-bridge.v1",
+  "purpose": "Record the focused native promotion of the statically closed W1L2 WURM2 type-0x02 closure.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "static_ledger": "research/ghidra/player-external-state-closure.json",
+    "static_note": "research/notes/wurm2-static-decomp.cpp",
+    "native_source": "engine/src/level.cpp",
+    "native_test": "engine/tests/test_formats_faithful.cpp:testRecoveredWurm2DescriptorProbeContract",
+    "ghidra_export": "research/build/bump-static-closure-v4/decomp-a/QUIKY_SEG03.bin.c"
+  },
+  "static_contract": {
+    "initializer": "01F7:6DB1 -> 01F7:6D5F",
+    "callback": "01F7:6DC4",
+    "scheduler": "01F7:0E96 phase-1 primary callback before 01F7:3FF8",
+    "initializer_words": {
+      "x": "+0x10 unchanged from ARE word width",
+      "y": "+0x20 with 16-bit wrap/sign conversion",
+      "velocity_x": "+0x15000 after type-0x02 wrapper negation",
+      "orientation": "+0x29=1, +0x28=1",
+      "callback": "+0x18=0x6DC4"
+    },
+    "probe_order": [
+      "01F7:1B77 with (-10,-10,+20,+20), return flags not consumed",
+      "01F7:1C4D at object (+0x28,-0x28), CF publishes +0x2F=1",
+      "01F7:5C27 at object (X+0x26,Y) for orientation +1, JZ publishes +0x2F=1"
+    ],
+    "movement": "state-0 branch consumes signed +0x2F and integrates wrapped fixed-point X with the recovered clamps and timers",
+    "player_feedback": "01F7:1B77 can reach 01F7:19E6; direct player writes are not made by 6DC4"
+  },
+  "native_scope": {
+    "implemented": [
+      "type-0x02 callback identity and phase ordering",
+      "descriptor-backed 1C4D/5C27 polarity",
+      "state-0 fixed-point movement and timer branches",
+      "existing WURM2/BIENE 1B77 -> 19E6 player damage bridge"
+    ],
+    "external_boundaries": [
+      "01F7:707B target-ring storage DS:8806/DS:8808/DS:79DE",
+      "01F7:5D38/5D60 renderer-owned object animation cursor",
+      "01F7:4AB3 response object and opaque 0FCF/audio internals"
+    ]
+  },
+  "validation": {
+    "w1l2_trace": {
+      "command": "build/engine/quiky-w1l1-trace game/NESTLE.DAT W1L2.MAP /tmp/w1l2-1400-v2.json --frames 32 --action-flags 0 --camera-x 1400 --camera-y 400",
+      "observed": "BUMP and WURM2 type-0x01/type-0x02 callbacks are published before the player callback; type-0x02 moves right and BUMP cycles independently."
+    },
+    "native_tests": [
+      "all faithful format tests passed",
+      "debug CTest suite passed before this focused test and the focused test passed"
+    ],
+    "static_verifiers": [
+      "verify_normal_enemy_static_closure.py",
+      "verify_normal_enemy_native_bridge.py",
+      "verify_player_external_closure.py",
+      "verify_closure_index.py"
+    ]
+  },
+  "status": "focused W1L2 type-0x02 descriptor probe bridge implemented; target-ring and renderer boundaries remain explicit"
+}

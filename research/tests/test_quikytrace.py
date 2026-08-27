@@ -128,6 +128,35 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(payload["input_phase_hold_callbacks"], 8)
         self.assertTrue(payload["minimal_callback_capture"])
         self.assertEqual(payload["input_phases"][0]["keys"], ["KBD_space", "KBD_up"])
+        source = (Path(__file__).resolve().parents[1] /
+                  "automation/quiky_player_trace.lua").read_text(encoding="utf-8")
+        self.assertIn("input_phase_through_callback and phase_frames == 0", source)
+
+    def test_minimal_focused_trace_uses_lean_pool_capture_without_watches(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        source = compose_player_trace_source(
+            Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua",
+            PlayerTraceConfig(
+                startup_recording=recording,
+                focus_callback=True,
+                minimal_callback_capture=True,
+            ),
+        )
+        self.assertIn(
+            "minimal_callback_capture and\n                             (focus_callback or #execute_watches > 0)",
+            source,
+        )
+
+    def test_player_trace_exports_complete_replay_callback_globals(self):
+        source = (Path(__file__).resolve().parents[1] /
+                  "automation/quiky_player_trace.lua").read_text(encoding="utf-8")
+        for field in (
+                "external_x_delta", "timer_clear", "view_state_a",
+                "pending_event", "camera_y_limit", "action_source",
+                "activation_state", "speed_cap_mode", "action_suppressor",
+                "transition_mode"):
+            with self.subTest(field=field):
+                self.assertIn(field + " =", source)
 
     def test_input_phase_parser_rejects_invalid_specs(self):
         for value in ("KBD_right", "KBD_right:-1", "A+B+C+D:1", ":3"):
@@ -195,6 +224,21 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual([item["offset"] for item in sample["execute_watches"]],
                          [0x5D38, 0x5D60])
         self.assertEqual(sample["related_breakpoints"][0]["owners"], ["return"])
+
+    def test_player_trace_normalizes_scheduler_banks(self):
+        trace = normalize_player_trace({"samples": {"1": {
+            "scheduler": {
+                "entries": {"1": {"index": 0}},
+                "banks": {
+                    "2": {"base": 0x7766, "entries": {"2": {"index": 1}}},
+                    "1": {"base": 0x7566, "entries": {"1": {"index": 0}}},
+                },
+            },
+        }}})
+        scheduler = trace["samples"][0]["scheduler"]
+        self.assertEqual([item["index"] for item in scheduler["entries"]], [0])
+        self.assertEqual([bank["base"] for bank in scheduler["banks"]], [0x7566, 0x7766])
+        self.assertEqual(scheduler["banks"][1]["entries"][0]["index"], 1)
 
     def test_player_trace_normalizes_factory_window(self):
         trace = normalize_player_trace({"samples": {"1": {
@@ -422,6 +466,7 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertEqual(player_trace_lua_config(config)["frames_between"], 4)
         self.assertEqual(player_trace_lua_config(config)["input_frames"], 0)
         self.assertEqual(player_trace_lua_config(config)["input_samples"], 0)
+        self.assertEqual(player_trace_lua_config(config)["input_warmup_frames"], 0)
         self.assertEqual(player_trace_lua_config(config)["focus_callback_offset"], 0x3FF8)
         self.assertFalse(player_trace_lua_config(config)["capture_player_record"])
         self.assertFalse(player_trace_lua_config(config)["collision_focus"])
@@ -552,6 +597,14 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("collision-patch-tile requires --player-focus-callback", host_source)
         self.assertIn("collision_patch_side=args.player_collision_patch_side", host_source)
 
+    def test_negative_probe_trace_reconstructs_3986_coordinates(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn("local function map_lookup_snapshot(hit, coordinate_x, coordinate_y)", source)
+        self.assertIn("hit.offset == 0x3986", source)
+        self.assertIn("player_record_plus_0x72", source)
+        self.assertIn("local vertical_step = word(raw, 0x72 + 1)", source)
+
     def test_player_collision_trace_has_bounded_return_guard(self):
         script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
         source = script.read_text(encoding="utf-8")
@@ -576,6 +629,14 @@ class QuikyTraceTests(unittest.TestCase):
         self.assertIn("0x6d8e + selector_index * 2", source)
         self.assertIn("record_hex = record_raw ~= nil and hex(record_raw)", source)
         self.assertIn("event.external_dispatch = external_dispatch_snapshot(hit)", source)
+        self.assertIn('arm_breakpoint("indirect-target", target.segment, target.offset', source)
+        self.assertIn('if indirect_target and index == nil then', source)
+
+    def test_lifecycle_execute_watches_keep_a_player_sample_barrier(self):
+        script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
+        source = script.read_text(encoding="utf-8")
+        self.assertIn('if #execute_watches > 0 then', source)
+        self.assertIn('arm_breakpoint("execute-watch-sample", 0x01f7, 0x3ff8)', source)
 
     def test_player_record_capture_has_full_state_delta_path(self):
         script = Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua"
@@ -591,6 +652,17 @@ class QuikyTraceTests(unittest.TestCase):
         )
         self.assertIn("--player-capture-record", host_source)
         self.assertIn("--player-input-key-2", host_source)
+        self.assertIn("--player-input-warmup-frames", host_source)
+
+    def test_player_input_warmup_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording,
+            input_key="KBD_right",
+            input_warmup_frames=37,
+        )
+        payload = player_trace_lua_config(config)
+        self.assertEqual(payload["input_warmup_frames"], 37)
 
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

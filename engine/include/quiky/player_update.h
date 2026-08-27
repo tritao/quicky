@@ -98,6 +98,21 @@ struct PlayerCallbackGlobals {
     std::int16_t actionSuppressor89E6;
     std::int16_t collisionTransitionMode89EA;
 
+    // Address-qualified auxiliary state consumed by 01F7:5937. The
+    // 881C/881E and 4FF2/4FF4 pairs are retained as a low/high word split at
+    // the replay boundary; 5937 compares their reconstructed dwords.
+    std::uint16_t dispatchWord60D8;
+    std::uint16_t dispatchPreviousWord60DA;
+    std::uint16_t dispatchScoreLow881C;
+    std::uint16_t dispatchScoreHigh881E;
+    std::uint16_t dispatchLives880A;
+    std::uint16_t dispatchAmmo880C;
+    std::uint16_t dispatchDisplayCount8822;
+    std::uint32_t dispatchPublishedScore4FF2;
+    std::uint16_t dispatchPublishedAmmo4FF6;
+    std::uint16_t dispatchPublishedCount4FF8;
+    std::uint16_t dispatchPublishedLives4FFA;
+
     PlayerCallbackGlobals();
 };
 
@@ -194,6 +209,18 @@ public:
         (void)xDelta8816;
         (void)yDelta8812;
     }
+
+    // 01F7:3FF8 reads DS:89EA after phase-1 gameplay callbacks have run.
+    // Session owners publish the recovered gate at that same callback
+    // boundary; implementations that do not model the global may ignore it.
+    virtual void publishTransitionGate(std::uint16_t transitionGate89ea) {
+        (void)transitionGate89ea;
+    }
+
+    // 01F7:9C0C reads the low byte of DS:85DA to decide whether its camera
+    // and animation prefix runs. This accessor exposes that already-typed
+    // callback global without assigning a broader transition meaning to it.
+    virtual std::int16_t activationState85DA() const { return 0; }
 };
 
 class TraceClosedPlayerUpdate : public PlayerUpdateCallback {
@@ -209,6 +236,8 @@ public:
                       PlayerUpdateTrace *trace) override;
     void publishPlatformCarry(std::int32_t xDelta8816,
                               std::int32_t yDelta8812) override;
+    void publishTransitionGate(std::uint16_t transitionGate89ea) override;
+    std::int16_t activationState85DA() const override;
 
 private:
     PlayerCallbackGlobals _globals;

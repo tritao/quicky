@@ -48,6 +48,7 @@ class ObjectBehaviorConfig:
     trace_collision: bool = False
     trace_platform: bool = False
     trace_platform_player: bool = False
+    platform_trace_compact: bool = False
     player_input_phases: tuple[dict[str, Any], ...] = ()
     player_input_before_platform: bool = False
     trace_bump: bool = False
@@ -55,6 +56,8 @@ class ObjectBehaviorConfig:
     trace_effect_table: bool = False
     effect_table_attempts: int = 64
     trace_stream_lifecycle: bool = False
+    trace_lifecycle_player: bool = False
+    force_lifecycle_cull_path: bool = False
     lifecycle_return_camera_x: int = 700
     lifecycle_return_camera_y: int = 350
     force_active_player_bounds: bool = False
@@ -72,6 +75,9 @@ class ObjectBehaviorConfig:
     force_velocity_x: int | None = None
     force_velocity_y: int | None = None
     force_platform_ready: bool = False
+    force_level_loop_ready: bool = False
+    trace_level_loop_timer: bool = False
+    trace_selector_handoff: bool = False
     reload_after_collect: bool = False
     reload_level: str | None = None
     reload_wait_frames: int = 30
@@ -103,6 +109,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_collision": config.trace_collision,
         "trace_platform": config.trace_platform,
         "trace_platform_player": config.trace_platform_player,
+        "platform_trace_compact": config.platform_trace_compact,
         "player_input_phases": list(config.player_input_phases),
         "player_input_before_platform": config.player_input_before_platform,
         "trace_bump": config.trace_bump,
@@ -110,6 +117,8 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "trace_effect_table": config.trace_effect_table,
         "effect_table_attempts": config.effect_table_attempts,
         "trace_stream_lifecycle": config.trace_stream_lifecycle,
+        "trace_lifecycle_player": config.trace_lifecycle_player,
+        "force_lifecycle_cull_path": config.force_lifecycle_cull_path,
         "lifecycle_return_camera_x": config.lifecycle_return_camera_x,
         "lifecycle_return_camera_y": config.lifecycle_return_camera_y,
         "force_active_player_bounds": config.force_active_player_bounds,
@@ -127,6 +136,9 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "force_velocity_x": config.force_velocity_x,
         "force_velocity_y": config.force_velocity_y,
         "force_platform_ready": config.force_platform_ready,
+        "force_level_loop_ready": config.force_level_loop_ready,
+        "trace_level_loop_timer": config.trace_level_loop_timer,
+        "trace_selector_handoff": config.trace_selector_handoff,
         "reload_after_collect": config.reload_after_collect,
         "reload_level": config.reload_level or "",
         "reload_wait_frames": config.reload_wait_frames,
@@ -196,6 +208,15 @@ def normalize_behavior_trace(trace: dict[str, Any]) -> dict[str, Any]:
             if isinstance(sample, dict):
                 sample["hits"] = ordered_lua_array(sample.get("hits", []))
         cloud_probe["samples"] = cloud_samples
+    if "selector_handoff_hits" in trace:
+        trace["selector_handoff_hits"] = ordered_lua_array(
+            trace.get("selector_handoff_hits", [])
+        )
+    selector_handoff = trace.get("selector_handoff_trace")
+    if isinstance(selector_handoff, dict):
+        selector_handoff["selector_handoff_hits"] = ordered_lua_array(
+            selector_handoff.get("selector_handoff_hits", [])
+        )
     return trace
 
 
@@ -309,6 +330,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="after each platform callback, capture the following player callback and full player record",
     )
     parser.add_argument(
+        "--platform-trace-compact", action="store_true",
+        help="omit repeated action-descriptor blobs while retaining full player records and carry globals",
+    )
+    parser.add_argument(
         "--player-input-phase", action="append", type=parse_player_input_phase,
         default=[],
         help="input phase before each nested player callback, e.g. KBD_space:6 or WAIT:1",
@@ -336,6 +361,14 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--trace-stream-lifecycle", action="store_true",
         help="capture off-camera removal followed by re-stream of the same ARE record",
+    )
+    parser.add_argument(
+        "--trace-lifecycle-player", action="store_true",
+        help="after off-camera removal, capture the next matching player callback",
+    )
+    parser.add_argument(
+        "--force-lifecycle-cull-path", action="store_true",
+        help="debugger-only: clear the platform map latch after callback entry so 9DC7 reaches A06F->1DEE",
     )
     parser.add_argument(
         "--lifecycle-return-camera-x", type=int, default=700,
@@ -400,6 +433,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--force-platform-ready", action="store_true",
         help="debugger-only: clear the platform carry latch before its first callback",
+    )
+    parser.add_argument(
+        "--force-level-loop-ready", action="store_true",
+        help="debugger-only: release 01D7:48BB's DS:819E selector/load wait; this is a controlled harness gate, not gameplay state",
+    )
+    parser.add_argument(
+        "--trace-level-loop-timer", action="store_true",
+        help="observe the native 01F7:F049 timer IRQ while waiting for the ARE declaration; does not write DS:819E",
+    )
+    parser.add_argument(
+        "--trace-selector-handoff", action="store_true",
+        help="observe the static 01D7:4B18 -> 4B55/4B6E/4B78/504F handoff and timer gate; does not write transition state",
     )
     parser.add_argument(
         "--reload-after-collect", action="store_true",
@@ -502,6 +547,7 @@ def main(argv: list[str] | None = None) -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     process = None
     log_stream = None
+    runtime_artifacts: dict[str, str] | None = None
 
     if args.launch:
         port = reserve_local_port()
@@ -512,6 +558,10 @@ def main(argv: list[str] | None = None) -> int:
             runtime_dir = args.runtime_dir.resolve()
             if not (runtime_dir / "QUIKY.EXE").is_file() or not (runtime_dir / "NESTLE.DAT").is_file():
                 raise TraceError("--runtime-dir must contain QUIKY.EXE and NESTLE.DAT")
+            runtime_artifacts = {
+                "QUIKY.EXE": sha256(runtime_dir / "QUIKY.EXE"),
+                "NESTLE.DAT": sha256(runtime_dir / "NESTLE.DAT"),
+            }
             env["QUIKY_AUTOMATION_TARGET"] = str(runtime_dir / "QUIKY.EXE")
             env["DOSBOX_AUTOMATION_DATA_HOME"] = str(runtime_dir.parent)
         if args.headless:
@@ -563,6 +613,7 @@ def main(argv: list[str] | None = None) -> int:
         trace_collision=args.trace_collision,
         trace_platform=args.trace_platform,
         trace_platform_player=args.trace_platform_player,
+        platform_trace_compact=args.platform_trace_compact,
         player_input_phases=tuple(args.player_input_phase),
         player_input_before_platform=args.player_input_before_platform,
         trace_bump=args.trace_bump,
@@ -570,6 +621,8 @@ def main(argv: list[str] | None = None) -> int:
         trace_effect_table=args.trace_effect_table,
         effect_table_attempts=args.effect_table_attempts,
         trace_stream_lifecycle=args.trace_stream_lifecycle,
+        trace_lifecycle_player=args.trace_lifecycle_player,
+        force_lifecycle_cull_path=args.force_lifecycle_cull_path,
         lifecycle_return_camera_x=args.lifecycle_return_camera_x,
         lifecycle_return_camera_y=args.lifecycle_return_camera_y,
         force_active_player_bounds=args.force_active_player_bounds,
@@ -587,6 +640,9 @@ def main(argv: list[str] | None = None) -> int:
         force_velocity_x=args.force_velocity_x,
         force_velocity_y=args.force_velocity_y,
         force_platform_ready=args.force_platform_ready,
+        force_level_loop_ready=args.force_level_loop_ready,
+        trace_level_loop_timer=args.trace_level_loop_timer,
+        trace_selector_handoff=args.trace_selector_handoff,
         reload_after_collect=args.reload_after_collect,
         reload_level=args.reload_level,
         reload_wait_frames=args.reload_wait_frames,
@@ -606,6 +662,7 @@ def main(argv: list[str] | None = None) -> int:
             "script_sha256": sha256(script_path),
             "startup_recording": str(startup_recording),
             "startup_recording_sha256": sha256(startup_recording),
+            "runtime_artifacts": runtime_artifacts,
             "config": lua_config(config),
             "events": [trace],
         }

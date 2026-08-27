@@ -1,0 +1,67 @@
+{
+  "schema": "quiky.platform-player-jump-arc-compact.v1",
+  "purpose": "Hash-pinned controlled W4L1 platform/player arc used to separate platform motion and carry behavior from natural landing.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "research/build/entity-3d-real-w4l1/baseline/game/NESTLE.DAT",
+    "archive_sha256": "651e487a026e49e07b440e5d6cdec09f3d10aa1199f509f8e80ede242bc67f85",
+    "trace": "research/build/traces/platform-w4l1-player-jump-arc-compact-v1.json",
+    "trace_sha256": "875109200dda1cda3313ca6e697b6c95120996b296ba42a7c55f079eb75be1d1",
+    "trace_script": "research/automation/quiky_object_behavior_trace.lua",
+    "trace_script_sha256": "b0bf12d75a7678804b14f34f817bf64f6161cd4698bf0b00d14c123e548395f2",
+    "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae",
+    "ghidra_language": "x86:LE:16:Protected Mode"
+  },
+  "method": {
+    "level": "W4L1",
+    "platform_record_offset": "0x1898",
+    "runtime_record_offset": "0x1738",
+    "platform_type": "0x3D",
+    "platform_callback": "01F7:9DC7",
+    "player_callback": "01F7:3FF8",
+    "samples": 60,
+    "alignment": [-8, -8],
+    "input": ["KBD_space+KBD_up:0", "no input thereafter"],
+    "capture_mode": "platform_trace_compact; complete 0x78-byte player records retained; repeated action-descriptor blobs omitted",
+    "map_or_executable_mutation": false
+  },
+  "observations": {
+    "scheduler_order": ["platform_callback", "player_callback"],
+    "initial_platform_position": [504, 392],
+    "platform_position_at_sample_60": [600, 392],
+    "platform_wait_phase": "The platform remains at x=504 for its initial 0x14 counter, then advances right through the 9DC7 motion path.",
+    "jump_transition": {
+      "sample": 1,
+      "mode_before_after": ["0x00", "0xFF"],
+      "carry_before": {"DS:8816": "0x00000001", "DS:8812": "0xFFF80001", "DS:5006": "0xFFFF"},
+      "carry_after": {"DS:8816": "0x00000000", "DS:8812": "0x00000000", "DS:5006": "0xFFFF"},
+      "player_position_before_fixed": ["0x02000000", "0x01900000"],
+      "player_position_after_fixed": ["0x02000001", "0x01880002"]
+    },
+    "arc_end": {
+      "player_position_before_fixed": ["0x01EE8001", "0x0190519F"],
+      "player_position_after_fixed": ["0x01EE8001", "0x0190519F"],
+      "mode_before_after": ["0xFF", "0xFF"],
+      "velocity_y_fixed": "0x00020000",
+      "platform_overlap_latch": "0"
+    },
+    "full_player_record_samples": 60
+  },
+  "interpretation": {
+    "confirmed": [
+      "The real W4L1 platform declaration is reachable when the initial stream camera is left native; the post-initializer camera override must remain separate.",
+      "The scheduler continues to invoke 9DC7 before 3FF8 across the full arc.",
+      "The first platform carry is consumed and cleared by the same player callback that enters mode 0xFF.",
+      "The platform's 0x14 wait phase is followed by rightward fixed-point motion in 9DC7.",
+      "The unassisted controlled arc leaves the platform overlap band before descending, so its lack of landing is a geometric miss rather than evidence against the landing branch."
+    ],
+    "not_proven": [
+      "Natural authored moving-platform landing.",
+      "Inherited velocity at a moving-platform landing.",
+      "Side or ceiling crushing.",
+      "Attached-player behavior after platform culling."
+    ],
+    "confidence": "confirmed_scheduler_carry_and_platform_motion; landing_runtime_open"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "schema": "quiky.platform-static-closure-v1",
+  "purpose": "Focused Ghidra expansion for the remaining platform/player simulation boundary.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "language": "x86:LE:16:Protected Mode:default",
+    "runner": "research/tools/run_player_external_closure.py",
+    "output": "research/build/player-external-state-closure-recovery-v29",
+    "independent_project_check": "passed",
+    "decomp_sha256": "e2d8d859595439544eae910d2b595014c93334a5a35dfb20b87c868e423a7165",
+    "listing_sha256": "9c1791716eee6ced138f8f7929d2c47a2f9fc9f5f50f2f1ae09fe5be353ae044",
+    "scheduler_relocations_sha256": "f20880b3ddfc090f46fdfbeca1449c1559cffa1f9acaf28fab28f5b60fe24a95"
+  },
+  "static_contracts": {
+    "scheduler_order": [
+      ["01D7:44FA", "01F7:0E96"],
+      ["01D7:4518", "01F7:0FA2"],
+      ["01D7:47FC", "01F7:0E96"],
+      ["01D7:481A", "01F7:0FA2"],
+      ["01D7:4872", "01F7:0E96"],
+      ["01D7:4890", "01F7:0FA2"]
+    ],
+    "platform_cull": "01F7:9DC7 -> A06F -> 1DEE; A06F has no player/global write and 1DEE clears object+0x18 plus the ARE claim byte.",
+    "descriptor_backends": {
+      "01F7:1C6E": "indexes the descriptor table and leaves ZF from TEST word,0x4000",
+      "01F7:1C92": "indexes the raw MAP word and leaves ZF from TEST word,0x1000",
+      "01F7:5C27": "returns the selected descriptor low-nibble occupancy through TEST DX,0xF",
+      "01F7:5CC3": "returns the raw descriptor word for callers that need its bits",
+      "01F7:5DC3": "returns ZF from TEST MAP-word,0x0800 for platform motion"
+    },
+    "platform_carry": "9DC7 clears DS:5006, calls A075 before motion, records +0x2A/+0x2C, and calls A0B2 after motion; A0B2 publishes DS:8816 and DS:8812 only when DS:5006 is nonzero.",
+    "vertical_response": "3D02 retries the vertical descriptor probe at Y-8, uses bit 0x20 for half/reverse velocity and bit 0x40 for boundary alignment; 3DF2 performs the side-contact X probes and Y snap. Natural ceiling/one-way labels remain runtime questions."
+  },
+  "runtime_boundary": {
+    "closed": [
+      "scheduler call order",
+      "descriptor helper flag polarity",
+      "platform off-camera removal writes",
+      "platform carry publication ordering",
+      "controlled aligned-platform jump detachment and same-callback carry consumption"
+    ],
+    "still_open": [
+      "landing and inherited velocity on a naturally moving platform",
+      "side/ceiling crushing",
+      "attached-player behavior after platform culling",
+      "resource-selected callback below 01F7:0442"
+    ]
+  },
+  "evidence": [
+    "research/notes/platform-static-decomp.cpp",
+    "research/ghidra/player-external-state-closure.json",
+    "research/evidence/entity-platform-scheduler-order-trace.json",
+    "research/evidence/entity-platform-player-return-v1.json",
+    "research/evidence/entity-platform-player-jump-detach-v1.json",
+    "research/evidence/player-dos-parity/platform-player-jump-detach-current-v1.json"
+  ]
+}

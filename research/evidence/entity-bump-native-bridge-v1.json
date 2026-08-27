@@ -1,0 +1,57 @@
+{
+  "schema": "quiky.entity-bump-native-bridge.v1",
+  "purpose": "Evidence ledger for the native implementation of the statically closed ARE type-0x34 BUMP callback.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "static_pipeline": "research/tools/run_player_external_closure.py",
+    "static_note": "research/notes/bump-static-decomp.cpp"
+  },
+  "native_contract": {
+    "initializer": "engine/src/level.cpp:initializeBump",
+    "callback": "engine/src/level.cpp:updateBump",
+    "scheduler_phase": "GameplayObjectBeforePlayer",
+    "callback_identity": "01F7:9C0C",
+    "initializer_identity": "01F7:9BEE",
+    "initializer_writes": [
+      "object +0x04 word += 0x0010",
+      "object +0x08 word += 0x0010 twice",
+      "object +0x18 callback = 0x9C0C"
+    ],
+    "animation": {
+      "timer_offset": "object +0x20",
+      "reload": 6,
+      "slots": [400, 402, 403, 401],
+      "advance_order": "decrement timer; advance on the following callback after zero"
+    },
+    "contact_gate": "object_x-0x19 < player_x < object_x+0x19 and object_y-0x08 < player_y < object_y, with signed player +0x37 > 0",
+    "player_writes": [
+      "+0x2B = 0xFF",
+      "+0x37 = 0xFF",
+      "+0x3A = 0",
+      "+0x3B = 0",
+      "+0x3E = 0x03E8",
+      "+0x0E = +0x64 - 0x1B000 modulo 32 bits",
+      "5D38(0x3160) fields when DS:8950 bit 0x0004 is clear"
+    ],
+    "global_writes": [
+      "DS:8950 &= 0xFFCF",
+      "DS:612E = 4"
+    ],
+    "excluded_paths": [
+      "generic hazard death/reset tail",
+      "runtime DS:3568 descriptor contents",
+      "01F7:1DCA camera-state inputs",
+      "01E7:0FCF audio voice internals"
+    ]
+  },
+  "validation": {
+    "native_test": "engine/tests/test_formats_faithful.cpp:testRecoveredBumpCallbackContract",
+    "required_checks": [
+      "cmake --build build/engine --target all -j2",
+      "ctest --test-dir build/engine --output-on-failure",
+      "python3 research/tools/run_player_external_closure.py --output research/build/bump-static-closure-v4"
+    ],
+    "result": "native BUMP contract and complete debug CTest suite pass; independent protected-mode export remains reproducible"
+  }
+}

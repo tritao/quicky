@@ -1,0 +1,44 @@
+{
+  "schema": "quiky.w1l1-leaf-prng-replay-derivation.v1",
+  "purpose": "Replay-only derivation of the first shared leaf PRNG bytes from captured DOS leaf post-state; not a claim about the startup ring beyond the observed prefix.",
+  "source": {
+    "dos_trace": "research/build/player-frame-full-v1.json",
+    "dos_trace_sha256": "8e6d8c56c3e2829678e63c5548a2386ebaf30e30b954c0d87e7e06b45d9091e9",
+    "initializer_note": "research/notes/w1l1-object-callbacks-static-decomp.cpp",
+    "native_trace": "/tmp/w1l1-session-leaf-seeded-final.json",
+    "comparator": "research/tools/w1l1_session_compare.py",
+    "comparator_sha256": "67a3f76805654e29a1270c028cee271bad1af225c8eb72136866ea0316cf25f1"
+  },
+  "method": {
+    "formula": "initial_velocity = 0x13000 - signed_ring_byte * 0x80; callback subtracts 300 when velocity > 0x4000",
+    "selector": "signed first byte > 0 selects DS:3312/sprite 700; otherwise DS:3326/sprite 703",
+    "publication_order": "camera stream order: descending region X, ascending region Y",
+    "unknown_bytes": "ring bytes after the first twelve remain zero in this diagnostic replay"
+  },
+  "derived_prefix": [
+    {"object_x": 272, "selector_byte": "0x00", "velocity_byte": "0x98", "signed_velocity_byte": -104},
+    {"object_x": 288, "selector_byte": "0x00", "velocity_byte": "0x41", "signed_velocity_byte": 65},
+    {"object_x": 192, "selector_byte": "0x00", "velocity_byte": "0x5b", "signed_velocity_byte": 91},
+    {"object_x": 224, "selector_byte": "0x01", "velocity_byte": "0x9a", "signed_velocity_byte": -102},
+    {"object_x": 144, "selector_byte": "0x01", "velocity_byte": "0x4e", "signed_velocity_byte": 78},
+    {"object_x": 128, "selector_byte": "0x00", "velocity_byte": "0x4b", "signed_velocity_byte": 75}
+  ],
+  "result": {
+    "known_fields_match": [
+      "leaf callback identity",
+      "leaf integer position",
+      "leaf sprite selector",
+      "leaf fixed-point vertical velocity",
+      "player records",
+      "scheduler order"
+    ],
+    "remaining_coverage_gaps": [
+      "DOS leaf animation delay",
+      "DOS leaf animation cursor",
+      "DOS callback probe arrays",
+      "DOS callback-global write arrays",
+      "DOS effect arrays"
+    ],
+    "native_default_changed": false
+  }
+}

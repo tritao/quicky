@@ -13,6 +13,10 @@ struct Flags {
     bool cf;                             // true when x86 CF=1
 };
 
+struct CarryOnly {
+    bool cf;                             // ZF/other flags are not consumed
+};
+
 struct ViewDelta {
     int32_t eax;
     int32_t ebx;
@@ -59,6 +63,15 @@ struct Globals {
     Fixed16 published_view_x;             // DS:60dc
     Fixed16 published_view_y;             // DS:60e0
     uint16_t pending_event;              // DS:612e
+
+    // Temporary view/object dispatch state saved by 01f7:386f.  These are
+    // deliberately not aliased to the player-camera globals above: the
+    // addresses are distinct and the runtime 0442 callback is opaque.
+    uint16_t dispatch_word_817c;          // DS:817c
+    Fixed16 dispatch_value_81a6;          // DS:81a6
+    Fixed16 dispatch_value_81aa;          // DS:81aa
+    Fixed16 dispatch_value_81be;          // DS:81be
+    Fixed16 dispatch_value_81c2;          // DS:81c2
 
     int16_t contact_y_scratch;           // DS:4ffe
     uint8_t contact_subtype;             // DS:5000
@@ -107,10 +120,11 @@ extern void far_write_word(uint16_t selector, uint16_t offset, uint16_t value);
 
 // Relocated targets outside the primary closure.  The names are mechanical;
 // their exact offsets are in player-callback-closure.json.
-extern void player_helper_5937();                   // 5937; unresolved input-side helper
+extern void update_auxiliary_player_dispatch_5937(PlayerRecord*); // 5937; direct body closed; 0598 target remains address-named
 extern int16_t animation_sequence_word(uint16_t sequence_offset); // raw DS:SI word
 extern void dispatch_transition_effect_0CE3();       // 01e7:0ce3 contract
-extern Flags probe_transition_descriptor(uint16_t cx, uint16_t dx); // 1bd1
+extern CarryOnly probe_transition_descriptor(PlayerRecord* p, uint16_t cx,
+                                             uint16_t dx); // 1bd1
 extern Flags probe_map_word_bit_4000(int16_t y, int16_t x); // 1c6e
 extern Flags probe_map_word_bit_1000(int16_t y, int16_t x); // 1c92
 extern void dispatch_pending_sound_effect();        // 01e7:0fcf
@@ -125,6 +139,38 @@ extern PlayerRecord* spawn_contact_effect_entry(PlayerRecord* owner); // 4519 co
 extern uint16_t player_pool_offset(PlayerRecord*);  // representation of DI
 extern PlayerRecord* player_from_pool_offset(uint16_t); // DS:881a -> ES:DI
 
+// Far entry 01f7:0442 is the resource-selected dispatch body.  Its nested
+// callback pointer is intentionally address-named: the raw executable stores
+// the target in the runtime table record at +0x18/+0x1a.
+extern void dispatch_view_object_0442(uint16_t selector_index,
+                                      uint16_t argument_b,
+                                      uint16_t argument_c);
+
+// Far entry 01f7:386f.  Static fact: 5937 enters with AX/BX/CX supplied by
+// the changed display-state bit, temporarily clears the five view words,
+// calls 0442, and restores every saved word.  No return flags are consumed.
+// The wrapper cannot write the player record; only the runtime-selected 0442
+// callback remains an unresolved possible feedback edge.
+void publish_view_state_386F(uint16_t ax, uint16_t bx, uint16_t cx) {
+    const uint16_t saved_817c = DS.dispatch_word_817c;
+    const Fixed16 saved_81a6 = DS.dispatch_value_81a6;
+    const Fixed16 saved_81aa = DS.dispatch_value_81aa;
+    const Fixed16 saved_81be = DS.dispatch_value_81be;
+    const Fixed16 saved_81c2 = DS.dispatch_value_81c2;
+
+    DS.dispatch_value_81a6 = 0;
+    DS.dispatch_value_81aa = 0;
+    DS.dispatch_value_81be = 0;
+    DS.dispatch_value_81c2 = 0;
+    DS.dispatch_word_817c = 0;
+    dispatch_view_object_0442(ax, bx, cx);
+    DS.dispatch_value_81c2 = saved_81c2;
+    DS.dispatch_value_81be = saved_81be;
+    DS.dispatch_value_81aa = saved_81aa;
+    DS.dispatch_value_81a6 = saved_81a6;
+    DS.dispatch_word_817c = saved_817c;
+}
+
 // --------------------------- MAP / descriptors --------------------------
 
 // Far entry 01f7:3376.  The raw helper takes AX=y and BX=x.
@@ -134,6 +180,70 @@ uint16_t map_tile_id_at_pixel(uint16_t y, uint16_t x) {
         + (static_cast<uint16_t>(x) >> 4) * 2);
     uint16_t cell = far_read_word(DS.map_selector, address);
     return cell & 0x01ff;
+}
+
+struct ContactBounds {
+    int16_t ax;                         // returned AX
+    int16_t bx;                         // returned BX
+    int16_t cx;                         // returned CX
+    int16_t dx;                         // returned DX
+};
+
+static int16_t add_word(int16_t left, int16_t right) {
+    return static_cast<int16_t>(static_cast<uint16_t>(left) +
+                                static_cast<uint16_t>(right));
+}
+
+// Far entry 01f7:393c.  This is a register contract, not a boolean query:
+// AX/BX/CX/DX are the four player bounds consumed by 01f7:1b77.  The raw
+// helper zeros all four words while DS:89ea is nonzero.
+ContactBounds player_bounds_for_contact_393C() {
+    if (DS.collision_transition_mode != 0)
+        return {};
+
+    PlayerRecord* player = player_from_pool_offset(DS.player_offset);
+    return {
+        add_word(player->i16(0x04), player->i16(0x2c)),
+        add_word(player->i16(0x08), player->i16(0x2e)),
+        add_word(player->i16(0x04), player->i16(0x30)),
+        add_word(player->i16(0x08), player->i16(0x32)),
+    };
+}
+
+// Far entry 01f7:1b77.  The incoming words are the candidate object's
+// rectangle offsets.  The JGE/JLE tests are signed 16-bit comparisons and
+// deliberately retain their x86 wrap at each addition.
+uint16_t player_contact_damage_overlap_1B77(
+    PlayerRecord* candidate, int16_t ax, int16_t bx,
+    int16_t cx, int16_t dx) {
+    ContactBounds bounds = player_bounds_for_contact_393C();
+
+    int16_t candidate_x = candidate->i16(0x04);
+    int16_t candidate_y = candidate->i16(0x08);
+    int16_t right = add_word(candidate_x, ax);
+    if (right >= bounds.cx)
+        return 0;
+    right = add_word(right, cx);
+    if (right <= bounds.ax)
+        return 0;
+
+    int16_t bottom = add_word(candidate_y, bx);
+    if (bottom >= bounds.dx)
+        return 0;
+    bottom = add_word(bottom, dx);
+    if (bottom <= bounds.bx)
+        return 0;
+
+    if (DS.timer_clear != 0)
+        return 1;
+
+    // 01f7:1bc4->19e6 consumes BX as the candidate X reference.  Preserve
+    // that register fact explicitly; the far helper has no source-level
+    // argument in this representation.
+    uint16_t BX = static_cast<uint16_t>(candidate_x);
+    (void)BX;
+    apply_transition_reset_19E6();
+    return 2;
 }
 
 uint16_t descriptor_word_at(uint16_t tile_id) {
@@ -167,6 +277,27 @@ Flags probe_map_word_bit_1000(int16_t y, int16_t x) {
 uint16_t read_descriptor_word(int16_t y, int16_t x) {
     uint16_t cell = map_word_at_pixel(y, x);
     return descriptor_word_at(cell & 0x01ff);
+}
+
+// Far entry 01f7:1bd1.  This is the transition branch's final collision
+// helper, not a generic boolean descriptor query.  CX is the Y offset and DX
+// is the X offset relative to the player record.  The helper preserves the
+// original coordinates for the quadrant tests and publishes only CF.
+CarryOnly probe_transition_descriptor(PlayerRecord* p, uint16_t cx, uint16_t dx) {
+    const int16_t y = static_cast<int16_t>(
+        static_cast<uint16_t>(p->y_pixel()) + cx);
+    const int16_t x = static_cast<int16_t>(
+        static_cast<uint16_t>(p->x_pixel()) + dx);
+    const uint16_t descriptor = read_descriptor_word(y, x);
+    const uint8_t low_nibble = static_cast<uint8_t>(descriptor & 0x000f);
+    if (low_nibble == 0)
+        return {false};                                // 1c1b: CLC
+
+    const uint16_t mask =
+        (static_cast<uint16_t>(y) & 8) != 0
+            ? (((static_cast<uint16_t>(x) & 8) != 0) ? 0x0002 : 0x0001)
+            : (((static_cast<uint16_t>(x) & 8) != 0) ? 0x0004 : 0x0008);
+    return {(descriptor & mask) != 0};                 // 1c22..1c4c
 }
 
 // Far entry 01f7:5c27.  The low descriptor nibble is selected by coordinate
@@ -602,19 +733,28 @@ static bool is_contact_tile_5_to_7(uint16_t tile) {
 
 // The common write sequence in 6370/648e.  It is intentionally separate so
 // the two entry points can retain their different probe coordinates and CF.
-static void commit_contact(PlayerRecord* p, bool negative_mode) {
+static PlayerRecord* commit_contact(PlayerRecord* owner, bool negative_mode) {
     DS.pending_event = 7;
     dispatch_pending_sound_effect();
-    object_pool_factory_0E06(0x6328, 0);
-    p->u8(0x38, DS.contact_subtype);
-    p->u8(0x2a, DS.contact_code);
-    p->x(p->x() + (static_cast<Fixed16>(DS.contact_x_offset) << 16));
-    p->y(static_cast<Fixed16>(DS.contact_y_scratch) << 16);
-    p->u16(0x32, 0);
-    p->i16(0x2e, 0);
-    p->u8(0x36, 0);
-    if (negative_mode)
-        ; // original sets CF immediately before returning
+    PlayerRecord* child = object_pool_factory_0E06(0x6328, 0);
+    child->u8(0x38, DS.contact_subtype);
+    child->u16(0x2a, DS.contact_code);
+    child->x(owner->x() + (static_cast<Fixed16>(DS.contact_x_offset) << 16));
+    if (negative_mode) {
+        // 6370/648E: dword write at +0x06, with the probed pixel Y in
+        // the high word and zero fractional bits.
+        child->y(static_cast<Fixed16>(
+            static_cast<uint16_t>(DS.contact_y_scratch)) << 16);
+    } else {
+        // 6370/648E ordinary path: the dword at +0x06 is zero, followed by
+        // a separate integer-word write at +0x08.
+        child->y(0);
+        child->u16(0x08, static_cast<uint16_t>(DS.contact_y_scratch));
+    }
+    child->u16(0x32, 0);
+    child->u16(0x2e, 0);
+    child->u16(0x36, 0);
+    return child;
 }
 
 // Near entry 01f7:6370.  6484 sets DS:5003=5 and forwards here.
@@ -848,7 +988,7 @@ static void common_player_tail(PlayerRecord* p) {
 // Near entry 01f7:3ff8.  This is the complete recovered branch ordering.
 void update_player(PlayerRecord* p) {
     uint16_t action = 0;
-    player_helper_5937();                   // 5937; unresolved
+    update_auxiliary_player_dispatch_5937(p); // 5937; direct body closed; nested 0598 target remains address-named
 
     if (DS.collision_transition_mode != 0)
         goto transition_block_4416;
@@ -1024,7 +1164,7 @@ transition_block_4416:
         uint16_t d1 = read_descriptor_word(
             static_cast<int16_t>(p->y_pixel() - 16), p->x_pixel());
         if ((d0 & 0x0070) == 0 && (d1 & 0x0070) == 0) {
-            Flags transition = probe_transition_descriptor(0, 0);
+            Flags transition = probe_transition_descriptor(p, 0, 0); // 1bd1
             if (transition.cf)
                 goto transition_hit_44dc;
             p->y(p->y() + p->vy());
@@ -1040,7 +1180,7 @@ transition_block_4416:
             static_cast<int16_t>(p->y_pixel() - 16), p->x_pixel());
         if ((d0 & 0x0070) != 0 || (d1 & 0x0070) != 0)
             goto transition_hit_44dc;
-        Flags transition = probe_transition_descriptor(0, 0);
+        Flags transition = probe_transition_descriptor(p, 0, 0); // 1bd1
         if (transition.cf)
             goto transition_hit_44dc;
         p->y(p->y() + p->vy());

@@ -1,0 +1,89 @@
+{
+  "schema": "quiky.player-progression-static.v1",
+  "purpose": "Focused static expansion of the completion gate, accounting body, selector handoff, and reload boundary reachable from the player-facing transition signal.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "language": "x86:LE:16:Protected Mode:default",
+    "runner": "research/tools/run_player_external_closure.py",
+    "output": "research/build/player-external-state-closure-recovery-v52",
+    "decomp_mainloop_a": "research/build/player-external-state-closure-recovery-v52/decomp-mainloop-a/QUIKY_SEG01.bin.c",
+    "decomp_mainloop_sha256": "dcbd4203d9207e5f9357dfcf4c8c1db0e8d69a1f601a60e38b2fa729b764dccc",
+    "disasm_a": "research/build/player-external-state-closure-recovery-v52/disasm-a/QUIKY_SEG01.bin.asm",
+    "disasm_sha256": "f52354bf3a184ce0218df6544a4c6d4bc1361df2759b75a28cec98c08def034f",
+    "independent_project_check": "passed",
+    "independent_decomp_sha256": "dcbd4203d9207e5f9357dfcf4c8c1db0e8d69a1f601a60e38b2fa729b764dccc",
+    "independent_disasm_sha256": "f52354bf3a184ce0218df6544a4c6d4bc1361df2759b75a28cec98c08def034f"
+  },
+  "function_extent": {
+    "address": "01D7:14E1",
+    "last_instruction": "01D7:1733",
+    "next_function": "01D7:1734",
+    "listing_count": 595,
+    "return": "near RET; no caller-consumed return register or flags"
+  },
+  "static_contracts": [
+    {
+      "address": "01D7:4EA0-4F0D",
+      "name": "completion_gate_4EA0",
+      "calling_convention": "internal branch of 01D7:4BA4; no independent ABI",
+      "inputs": ["DS:89E6 transition signal", "DS:85D4 selector", "DS:5044 audio-ready byte"],
+      "outputs": ["direct writes listed below", "control transfers to 4F10/4FAF and 5010"],
+      "player_writes": [],
+      "global_writes": ["DS:89E0=FFFF when DS:85D4==0x000E"],
+      "callee_order": ["01E7:0D18", "0207:0002", "01E7:0CAA", "0207:022A", "0207:17A0", "0207:08D8", "01F7:F07B", "01F7:106A", "01D7:14E1"],
+      "branch_facts": ["DS:89E6==0 jumps to 504F", "DS:5044==0 waits 0x46 frames, otherwise waits 0x14F frames", "DS:85DB selects 4F10 versus 4FAF after 14E1"],
+      "feeds_back_into_simulation": "yes through selector/reload globals"
+    },
+    {
+      "address": "01D7:14E1",
+      "name": "completion_accounting_14E1",
+      "calling_convention": "near; no explicit arguments; RET at 1733",
+      "inputs": ["DS:880C cereal/count word", "DS:60D8 completion mask", "DS:85DB prior completion byte", "DS:85D4 selector"],
+      "outputs": ["DS:880C decremented once per accounting iteration", "DS:881C:DS:881E score dword incremented", "DS:612E and DS:85DB updated"],
+      "player_writes": [],
+      "global_reads": ["DS:60D8", "DS:60E4/DS:60E6", "DS:6118", "DS:880C", "DS:881C/DS:881E", "DS:85DB", "DS:85D4"],
+      "global_writes": ["DS:612E=0x000C when local tick is zero and in all-seven branch", "DS:880C-=1 per loop", "DS:881C:DS:881E += 0x0014 per loop with ADC", "DS:881C:DS:881E += 0x07D0 at 16DE when DS:60D8==0x007F", "DS:85DB=1 at 1704 for all-seven, otherwise DS:85DB=0 at 16BF"],
+      "callee_order": ["01D7:021D", "address-named presentation/resource calls in 14F3-1669", "01D7:03F4", "01D7:01F0", "01D7:01D6", "address-named presentation/resource calls in 1709-172D"],
+      "branch_facts": ["16C6 is an internal branch selected by CMP DS:60D8,0x007F at 1670", "16C6 is not a separately callable function", "word additions wrap at 16 bits and use ADC for the high score word"],
+      "feeds_back_into_simulation": "yes through completion score/count/event and selector handoff globals"
+    },
+    {
+      "address": "01D7:4F10-5010",
+      "name": "selector_handoff_4F10_and_reload_gate_5010",
+      "calling_convention": "internal continuation of 01D7:4BA4; no independent ABI",
+      "inputs": ["DS:85DB", "DS:85D4", "DS:85D6", "DS:89E0"],
+      "outputs": ["selector writes at 4F29-500A and 4FB2-500A", "reload calls or 504F bypass"],
+      "player_writes": ["indirect through 01F7:1AAA when 503D executes"],
+      "global_writes": ["DS:85D4 selector mapping", "DS:85D6=DS:85D4 at 4FB2", "DS:89EC=FFFF if 3FAD returns AL=0", "DS:89E6=0 at 504C"],
+      "callee_order": ["01F7:0908 at 5017", "01D7:3FAD at 501C", "0227:0D5A at 5038", "01F7:1AAA at 503D", "01F7:321F at 5042", "01D7:313D at 5047"],
+      "branch_facts": ["DS:89E0==FFFF bypasses 5017-504C to 504F", "DS:85DB!=0 enters 4FAF pair collapse", "normal mapping uses DS:85D6 to choose the odd/even selector"],
+      "feeds_back_into_simulation": "yes through player reinitialization, MAP rebuild, and transition gates"
+    }
+  ],
+  "relocations": [
+    {"instruction": "01D7:4EBA", "target": "01E7:0D18"},
+    {"instruction": "01D7:4EDD", "target": "0207:0002"},
+    {"instruction": "01D7:4EE6", "target": "0207:0002"},
+    {"instruction": "01D7:4EEB", "target": "01E7:0CAA"},
+    {"instruction": "01D7:4EF4", "target": "0207:022A"},
+    {"instruction": "01D7:4EF9", "target": "0207:17A0"},
+    {"instruction": "01D7:4EFE", "target": "0207:08D8"},
+    {"instruction": "01D7:4F03", "target": "01F7:F07B"},
+    {"instruction": "01D7:4F08", "target": "01F7:106A"},
+    {"instruction": "01D7:5017", "target": "01F7:0908"},
+    {"instruction": "01D7:5038", "target": "0227:0D5A"},
+    {"instruction": "01D7:503D", "target": "01F7:1AAA"},
+    {"instruction": "01D7:5042", "target": "01F7:321F"}
+  ],
+  "presentation_boundary": "Calls without direct writes to DS:880C, DS:881C/DS:881E, DS:612E, DS:85DB, DS:85D4, DS:85D6, DS:89E0, DS:89EC, or DS:89E6 remain address-named. Their visual/audio/timer effects are not promoted to simulation semantics.",
+  "unresolved_runtime_edges": [
+    "The exact runtime target and side effects behind the far calls rendered as 0x0000:FFFF in the raw segment import.",
+    "The natural frequency of the completion branch and the fully authored post-5010 transition resource values.",
+    "The meaning of DS:85DB beyond the statically proven all-seven selector-handoff control bit."
+  ],
+  "note": {
+    "path": "research/notes/progression-static-decomp.cpp",
+    "sha256": "5238daba70702e3ffed16cce7422eeccf49cbe551efac6945f1f37eae07a666d"
+  }
+}

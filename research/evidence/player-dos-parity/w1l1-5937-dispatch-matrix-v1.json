@@ -1,0 +1,56 @@
+{
+  "schema": "quiky.player-5937-dispatch-matrix.v1",
+  "purpose": "Exercise each low-byte DS:60D8 change bit immediately before the player callback and compare the 5937 dispatch path, full player record, and relevant globals.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "edcde7340d9e0d0069698e04645c6a5716034ac67bbfaf35d7d8b1baf2bb8093"
+  },
+  "method": {
+    "level": "W1L1",
+    "samples_per_run": 1,
+    "focus": "01F7:3FF8 with complete 0x78-byte callback capture",
+    "patches": [
+      "DS:60D8=u16 changed_bit",
+      "DS:60DA=u16 0",
+      "DS:85DA=u8 0"
+    ],
+    "execute_watches": ["01F7:386F", "01F7:0442", "01F7:04DF", "01F7:0517"],
+    "control": "/tmp/player-5937-control-v2.json",
+    "command_template": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-focus-callback --player-capture-record --player-samples 1 --player-frames-between 0 --player-patch ds:0x60d8:u16=<bit> --player-patch ds:0x60da:u16=0 --player-patch ds:0x85da:u8=0 --player-watch-execute 0x1f7:0x386f --player-watch-execute 0x1f7:0x0442 --player-watch-execute 0x1f7:0x04df --player-watch-execute 0x1f7:0x0517"
+  },
+  "runs": [
+    {"bit":"0x01","trace":"/tmp/player-5937-bit01-v2.json","sha256":"d0a2e1aa5defa37dcf27e483470b4266164bcd1c550182f415b857c7f7a77a35","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"},
+    {"bit":"0x02","trace":"/tmp/player-5937-bit02-v2.json","sha256":"d004d2539ad9623668061518db0b523815b8921362ca525c6859128cc906760f","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"},
+    {"bit":"0x04","trace":"/tmp/player-5937-bit04-v2.json","sha256":"ce527cb17b9a7eb2f7647a43a739ee558ac0187d3a232443ab3118d70a8d17d2","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"},
+    {"bit":"0x08","trace":"/tmp/player-5937-bit08-v2.json","sha256":"0a2ff042d56eeeea9cafe955696e8ed4d21b606c4a9d210c210afc8c37913188","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"},
+    {"bit":"0x10","trace":"/tmp/player-5937-bit10-v2.json","sha256":"167368530de736dbab3ecb5bcd56c6dd0eada36be7ae39249e1e384039f15553","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"},
+    {"bit":"0x20","trace":"/tmp/player-5937-bit20-v2.json","sha256":"9dc3e28180cd0e2bbb6fc114effcd04b8f47d819d90e87ee488d1c5e3e18c2c8","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"},
+    {"bit":"0x40","trace":"/tmp/player-5937-bit40-v2.json","sha256":"cbf57fca9ab1c000b6349f295c1406d2f664f221e60c0c5ecddfe7066fb185f5","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"},
+    {"bit":"0x80","trace":"/tmp/player-5937-bit80-v2.json","sha256":"484685e2e2b13c9f064848467aa066bd3d421515157ad7dfc66f021c22835","selector_index":6,"table_index":12,"indirect_words":["0x0000","0x0517"],"observed_entries":["01F7:386F","01F7:0442","01F7:0517"],"player_record_differences":"identical_to_other_matrix_runs"}
+  ],
+  "control_observation": {
+    "trace":"/tmp/player-5937-control-v2.json",
+    "sha256":"3051ac608161e25043b08dc9b9fc4617a8ac39cd565d8d467fdcd03c3ce0fbc9",
+    "observed_entries":["01F7:386F","01F7:0442","01F7:0517"],
+    "indirect_words":["0x0000","0x0517"]
+  },
+  "side_effects": {
+    "direct_player_record": "All eight patched runs produced the same complete 0x78-byte pre/post differences as the control; no bit-specific player simulation write was observed.",
+    "dispatch_previous_word_60da": "5937 copies the patched DS:60D8 word into DS:60DA for every tested bit.",
+    "dispatch_aux_4ff8": "The first callback changes DS:4FF8 from 1 to 2 in both control and matrix runs; it is not bit-specific in this experiment.",
+    "other_5937_aliases": "DS:4FF2, DS:4FF6, DS:4FFA, score/lives/ammo/health, and view-state aliases showed no bit-specific change in the captured callback window.",
+    "indirect_target": "The W1L1 selector-6 record is stable at raw callback words 0000:0517 for all tested bits. The selector-5/0000:04DF record is separately observed in the natural multi-sample trace but was not entered in this one-callback matrix."
+  },
+  "status": "low_byte_dispatch_matrix_passed_no_bit_specific_player_feedback",
+  "does_not_prove": [
+    "high-byte DS:60D8 dispatch behavior",
+    "side effects of table-selected callbacks in other levels or selector records",
+    "that presentation/view writes cannot affect later camera state",
+    "natural contact, ceiling, or platform behavior"
+  ],
+  "next": "Run the same matrix at a selector-5 state where the raw table record is 0000:04DF, then compare the shared callback frame and post-dispatch aliases."
+}

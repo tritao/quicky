@@ -37,6 +37,9 @@ enum class LevelEventType {
     AlternateActionObject,
     PooledObjectInteractionBurst,
     WorldObjectInteraction,
+    // 01F7:1B77 -> 19E6 damage state transition. The native 19FB effect
+    // dispatcher remains a separate presentation boundary.
+    PlayerDamaged,
     PlayerDied,
     LevelExit,
 };
@@ -68,6 +71,23 @@ struct LevelEvent {
           targetLevel(), stateWrites() {}
 };
 
+// 01F7:87DE is a four-byte shared target/contact row: signed 16-bit X/Y
+// words.  The ring is published by the player contact-effect path and
+// consumed by enemy callback tails such as 01F7:707B.
+struct TargetCoordinateRow {
+    std::uint16_t x;
+    std::uint16_t y;
+
+    TargetCoordinateRow(std::uint16_t xValue = 0,
+                        std::uint16_t yValue = 0)
+        : x(xValue), y(yValue) {}
+};
+
+struct SpawnCoordinateRow {
+    std::uint16_t x;
+    std::uint16_t y;
+};
+
 // The fields below are the confirmed external state writes made by the
 // shared 01F7:8D20 collectible callback. They remain separate from the
 // recovered 0x78 player record because the retail callback writes DS globals
@@ -82,16 +102,28 @@ struct LevelGameplayState {
     std::uint16_t pendingEvent612e;
     std::uint16_t playerTimer0034;
     std::uint16_t puzzleMask60d8;
-    // State-10 8E4B publication. These are int32 coordinates at DS:8828
-    // and DS:882A; the indexed row selection consumed by 1AAA remains an
-    // external transition contract.
-    std::int32_t terminalX8828;
-    std::int32_t terminalY882a;
+    // 01D7:34C7 publishes 32 interleaved word rows at DS:8828..DS:88A7;
+    // 01F7:1AAA consumes the row selected by DS:85D2. State-10 8E4B writes
+    // row zero. The scalar fields remain row-zero aliases for existing trace
+    // consumers until the outer transition path is implemented.
+    std::array<SpawnCoordinateRow, 0x20> spawnRows8828;
+    std::uint16_t terminalX8828;
+    std::uint16_t terminalY882a;
+    // 01F7:44FF initializes DS:8806/DS:8808 and clears DS:87DE. The player
+    // contact producer currently remains an explicit updater-side boundary;
+    // these fields let level callbacks consume captured or test-published
+    // rows without assigning semantics to absent runtime data.
+    std::uint16_t sharedTargetActiveCount8806;
+    std::uint16_t sharedTargetCapacity8808;
+    std::array<TargetCoordinateRow, 0x80> sharedTargetRows87de;
     // 01F7:9269 latches DS:89E6 when the cloud/endpoint gate succeeds.
     std::uint16_t cloudSignal89e6;
     // Input/transition gate consumed by the same callback; its outer state
     // machine remains outside this level closure.
     std::uint16_t transitionGate89ea;
+    // 01F7:19E6 clears bits 0x30 on terminal damage. The remaining bits are
+    // retained because the delayed death/recovery consumer is not yet native.
+    std::uint16_t transitionEffectBits8950;
     // Moving-platform publication boundary from 01F7:A075/A0B2.
     std::uint16_t platformLatch5006;
     std::int32_t platformCarryX8816;
@@ -116,6 +148,13 @@ struct LevelSessionConfig {
     bool hasLeafPrngState;
     std::uint16_t leafPrngIndex;
     std::array<std::uint8_t, 0x100> leafPrngRing;
+
+    // 01F7:0A43 builds DS:7974 at startup and BIENE state 1 consumes its
+    // first 0x400 signed bytes.  The generated values are intentionally an
+    // explicit replay input until the DOS-time/software-float initializer is
+    // ported; a zeroed/default config never enables this path.
+    bool hasBieneRuntimeTable;
+    std::array<std::int8_t, 0x400> bieneRuntimeTable;
 
     LevelSessionConfig();
 };
@@ -187,11 +226,35 @@ struct LevelEntity {
     std::uint16_t enemyPhaseTimer;
     std::uint16_t enemyTimer;
     std::int16_t enemyState;
+    std::int8_t enemyOrientation;
+    std::int8_t enemyPatrolDirection;
+    std::uint16_t enemyTransitionTimer;
+    // Address-qualified normal-object fields from the focused Ghidra
+    // closure. Keep the raw-width distinctions explicit; several families
+    // use the same offsets with different byte/word roles.
+    std::int32_t enemyPhase34;
+    std::int32_t enemySineOrProbe39;
+    std::int8_t enemyVerticalState36;
+    std::int8_t enemyTransitionState3d;
+    std::int8_t enemySourceOrKind2c;
+    std::int32_t enemyAux3e;
+    std::int32_t enemyVerticalOffset40;
+    std::int32_t enemyOriginY36;
+    std::int32_t enemySavedVelocity3a;
+    std::int8_t enemySavedDirection44;
     std::uint8_t mapBlocked;
+    // 01F7:707B uses object+0x30 as the shared DS:87DE row cursor.
+    std::uint16_t targetCursor30;
     std::uint16_t enemyAnimationDelay;
+    std::uint16_t enemyAnimationSequence;
     // 8E4B: object+0x2E variant selector and object+0x32 callback state.
     std::uint16_t environmentSelector;
     std::uint16_t environmentState;
+    // 01F7:9C0C / 01F7:5D38 BUMP descriptor state. The timer is object
+    // +0x20 and the cursor is retained separately from generic animation
+    // counters so the seven-tick 400/402/403/401 cycle is auditable.
+    std::uint16_t bumpAnimationDelay20;
+    std::uint16_t bumpAnimationCursor24;
     // 01F7:474D/47E7 initializer-visible state for pooled BLATT children.
     // The signed PRNG perturbation and source emission cadence remain
     // address-qualified; these fields retain the confirmed fixed-point
@@ -210,6 +273,15 @@ struct LevelEntity {
     std::uint16_t platformWait52;
     std::uint16_t platformWait54;
     std::uint16_t platformCooldown58;
+    // 01F7:9C70/9CF5/9D19/9D5E/9D82 state. These remain byte-shaped
+    // values because 9DC7 compares them against literal -1/0/1 values.
+    std::int8_t platformDirectionY4c;
+    std::int8_t platformEdgeLatch50;
+    std::int8_t platformDirectionX4e;
+    bool platformHorizontal4a;
+    std::uint8_t platformAxisMarker4b;
+    bool platformMotionGate59;
+    bool platformInitializerMapChecked;
     bool platformCarryActive;
     bool streamSuppressed;
     bool enemyContactPending;
@@ -229,14 +301,26 @@ struct LevelEntity {
           kind(EntityKind::Unknown), phase(EntityPhase::Dormant),
           spriteSlot(0xffff), spriteResource(), effectSlot(0xffff), effectResource(),
           updateCallback(), schedulerHandle(), contactSubtype(0), collectionBit(0),
-          enemyPhaseTimer(0), enemyTimer(0), enemyState(0), mapBlocked(0),
-          enemyAnimationDelay(0), environmentSelector(0),
-          environmentState(0), ambientVelocityY(), ambientOriginX(0),
+          enemyPhaseTimer(0), enemyTimer(0), enemyState(0),
+          enemyOrientation(-1), enemyPatrolDirection(-1),
+          enemyTransitionTimer(0), enemyPhase34(0), enemySineOrProbe39(0),
+          enemyVerticalState36(0), enemyTransitionState3d(0),
+          enemySourceOrKind2c(-1), enemyAux3e(0), enemyVerticalOffset40(0),
+          enemyOriginY36(0), enemySavedVelocity3a(0),
+          enemySavedDirection44(0), mapBlocked(0), targetCursor30(0),
+          enemyAnimationDelay(0),
+          enemyAnimationSequence(0), environmentSelector(0),
+          environmentState(0), bumpAnimationDelay20(0),
+          bumpAnimationCursor24(0), ambientVelocityY(), ambientOriginX(0),
           ambientOriginY(0), ambientTimer(0), ambientAnimationDelay(0),
           ambientAnimationCursor(0), ambientTable(0),
           ambientRuntimeInitialized(false), platformPreviousX(0),
           platformPreviousY(0), platformWait52(0), platformWait54(0),
-          platformCooldown58(0), platformCarryActive(false),
+          platformCooldown58(0), platformDirectionY4c(-1),
+          platformEdgeLatch50(-1), platformDirectionX4e(1),
+          platformHorizontal4a(false), platformAxisMarker4b(0),
+          platformMotionGate59(true), platformInitializerMapChecked(false),
+          platformCarryActive(false),
           streamSuppressed(false),
           enemyContactPending(false), contactCallback(), responseTimer(0),
           collisionWidth(0), collisionHeight(0),
@@ -291,6 +375,7 @@ private:
     static bool isNormalEnemyType(std::uint16_t type);
     static bool isWurm2Type(std::uint16_t type);
     static bool isBieneType(std::uint16_t type);
+    static std::int32_t normalEnemyYOffset(std::uint16_t type);
     static bool isCloudType(std::uint16_t type);
     static bool isLeafType(std::uint16_t type);
     static bool isDedicatedEventType(std::uint16_t type);
@@ -312,8 +397,9 @@ private:
     void dispatchCollectibleCallbacks(Simulation *simulation,
                                       PlayerRecord &player);
     void dispatchEnemyCallbacks(Simulation *simulation,
-                                const WorldCollisionView &world,
-                                const PlayerRecord &player);
+                                 const WorldCollisionView &world,
+                                 PlayerRecord &player,
+                                 std::vector<SimulationCallbackStep> &dependencyOrder);
     void dispatchCloudCallbacks(Simulation *simulation,
                                 const PlayerRecord &player);
     void dispatchMovingPlatformCallbacks(Simulation *simulation,
@@ -321,20 +407,41 @@ private:
                                          PlayerRecord &player,
                                          std::vector<SimulationCallbackStep>
                                              &dependencyOrder);
+    void publishMovingPlatformCarry(LevelEntity &entity,
+                                    PlayerRecord &player,
+                                    Simulation *simulation);
     bool dispatchWorldEffectCallbacks(Simulation *simulation);
     void initializeEnemy(LevelEntity &entity);
     void initializeCollectible(LevelEntity &entity);
     void initializeWorldEffect(LevelEntity &entity);
     void initializeAmbientVisual(LevelEntity &entity);
     void initializeAmbientVisualRuntime(LevelEntity &entity);
-    std::uint8_t nextLeafPrngByte();
+    // DS:6468/646C is shared by leaf, event, and normal-enemy paths. The
+    // configuration retains its historical leaf-facing names for replay
+    // compatibility, but this accessor names the recovered global contract.
+    std::uint8_t nextSharedPrngByte();
     void initializeMovingPlatform(LevelEntity &entity);
+    void initializeBump(LevelEntity &entity);
     bool updateWorldEffect(Simulation *simulation, LevelEntity &entity);
     void updateWurm2(LevelEntity &entity, const WorldCollisionView &world);
-    void updateBiene(LevelEntity &entity, const WorldCollisionView &world);
+    // 01F7:707B target/contact tail. The subsequent 4AB3 response callback
+    // remains an address-qualified external object contract.
+    void consumeWurm2TargetTail(LevelEntity &entity);
+    void updateBiene(LevelEntity &entity, const WorldCollisionView &world,
+                     const PlayerRecord &player);
+    void updateBump(Simulation *simulation, LevelEntity &entity,
+                    PlayerRecord &player);
+    void updateNormalEnemy(LevelEntity &entity,
+                           const WorldCollisionView &world);
     bool enemyMapBlocked(const LevelEntity &entity,
                          const WorldCollisionView &world) const;
     void beginEnemyContact(LevelEntity &entity);
+    // 01F7:1B77 -> 01F7:393C -> 01F7:19E6. This is the WURM2/BIENE
+    // damage route; it is deliberately separate from the 4AB3/4BA0 object
+    // response tail used by other normal-enemy families.
+    bool applyNormalEnemyDamage(const LevelEntity &entity,
+                                PlayerRecord &player,
+                                std::vector<LevelStateWrite> &writes);
     void advanceEnemyResponse(Simulation *simulation, LevelEntity &entity);
     void applyCollectibleCallback(LevelEntity &entity, PlayerRecord &player,
                                   std::vector<LevelStateWrite> &writes);
