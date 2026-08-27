@@ -33,6 +33,7 @@ void usage() {
     std::cerr << "usage: quiky-w1l1-trace ARCHIVE MAP-RESOURCE OUTPUT.JSON "
                  "[--frames N] [--action-flags N] [--input-tsv PATH] "
                  "[--camera-x N --camera-y N] "
+                 "[--startup-camera-sweep-from N --startup-camera-sweep-to N] "
                  "[--leaf-prng-index N --leaf-prng-ring-hex HEX]\n";
 }
 
@@ -404,6 +405,9 @@ void writeSample(std::ostream &output, const InputFrame &input,
            << ",\"y\":" << session.streamAnchorY()
            << ",\"active\":"
            << (session.hasStreamAnchor() ? "true" : "false") << "}"
+           << ",\"stream_cursor\":{\"x\":" << session.streamCursorX()
+           << ",\"y\":" << session.streamCursorY() << "}"
+           << ",\"shared_prng_index\":" << session.sharedPrngIndex()
            << ",\"player_record_hex\":\""
            << hexBytes(snapshot.player.toBytes()) << "\",\"player_callback\":";
     writePlayerTrace(output, trace);
@@ -491,6 +495,9 @@ int main(int argc, char **argv) {
         bool hasCamera = false;
         std::int32_t cameraX = 0;
         std::int32_t cameraY = 262;
+        bool hasStartupCameraSweep = false;
+        std::int32_t startupCameraFrom = 0;
+        std::int32_t startupCameraTo = 0;
         bool hasLeafPrngIndex = false;
         bool hasLeafPrngRing = false;
         std::uint16_t leafPrngIndex = 0;
@@ -515,6 +522,16 @@ int main(int argc, char **argv) {
                 cameraY = static_cast<std::int32_t>(
                     parseNumber(argv[++index], "camera Y"));
                 hasCamera = true;
+            } else if (option == "--startup-camera-sweep-from" &&
+                       index + 1 < argc) {
+                startupCameraFrom = static_cast<std::int32_t>(
+                    parseNumber(argv[++index], "startup camera from"));
+                hasStartupCameraSweep = true;
+            } else if (option == "--startup-camera-sweep-to" &&
+                       index + 1 < argc) {
+                startupCameraTo = static_cast<std::int32_t>(
+                    parseNumber(argv[++index], "startup camera to"));
+                hasStartupCameraSweep = true;
             } else if (option == "--leaf-prng-index" && index + 1 < argc) {
                 const long parsed = parseNumber(
                     argv[++index], "leaf PRNG index");
@@ -566,8 +583,23 @@ int main(int argc, char **argv) {
         quiky::Simulation simulation;
         quiky::TraceClosedPlayerUpdate updater;
         simulation.setExperimentalPlayerUpdater(&updater);
+        if (hasStartupCameraSweep) {
+            if (!hasCamera || startupCameraFrom < startupCameraTo) {
+                throw quiky::FormatError(
+                    "startup camera sweep requires camera Y and descending X bounds");
+            }
+            runtime->setStreamAnchor(startupCameraFrom, cameraY);
+        }
         runtime->reset(simulation);
-        if (hasCamera && !inputs.empty() && inputs[0].hasCamera) {
+        if (hasStartupCameraSweep) {
+            for (std::int32_t startupX = startupCameraFrom;
+                 startupX >= startupCameraTo; --startupX) {
+                runtime->setStreamAnchor(startupX, cameraY);
+                runtime->session().updateStreaming(
+                    simulation, startupX, cameraY);
+            }
+            runtime->setStreamAnchor(startupCameraTo, cameraY);
+        } else if (hasCamera && !inputs.empty() && inputs[0].hasCamera) {
             runtime->setStreamAnchor(inputs[0].cameraX, inputs[0].cameraY);
         }
 

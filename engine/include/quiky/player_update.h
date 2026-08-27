@@ -217,6 +217,22 @@ public:
         (void)transitionGate89ea;
     }
 
+    // 01F7:5937 consumes the persistent score/lives/ammo/health words from
+    // the level callback boundary. The boolean is true only at level reset,
+    // where the display-side publication words are rebuilt by the original
+    // setup path.
+    virtual void publishGameplayCounters(std::uint32_t score881c,
+                                          std::uint16_t lives880a,
+                                          std::uint16_t ammo880c,
+                                          std::uint16_t health8822,
+                                          bool resetPublications) {
+        (void)score881c;
+        (void)lives880a;
+        (void)ammo880c;
+        (void)health8822;
+        (void)resetPublications;
+    }
+
     // 01F7:9C0C reads the low byte of DS:85DA to decide whether its camera
     // and animation prefix runs. This accessor exposes that already-typed
     // callback global without assigning a broader transition meaning to it.
@@ -237,6 +253,11 @@ public:
     void publishPlatformCarry(std::int32_t xDelta8816,
                               std::int32_t yDelta8812) override;
     void publishTransitionGate(std::uint16_t transitionGate89ea) override;
+    void publishGameplayCounters(std::uint32_t score881c,
+                                  std::uint16_t lives880a,
+                                  std::uint16_t ammo880c,
+                                  std::uint16_t health8822,
+                                  bool resetPublications) override;
     std::int16_t activationState85DA() const override;
 
 private:

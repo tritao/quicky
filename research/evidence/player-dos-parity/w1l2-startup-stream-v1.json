@@ -1,0 +1,64 @@
+{
+  "schema": "quiky.w1l2-startup-stream.v1",
+  "purpose": "Focused Ghidra/static and natural DOS startup-stream evidence used to reproduce the W1L2 pre-player callback state.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "ghidra_language": "x86:LE:16:Protected Mode:default",
+    "static_runner": "research/tools/run_player_external_closure.py",
+    "static_export": "research/build/player-external-state-closure-recovery-v43",
+    "static_listing": "disasm-seg3-a/QUIKY_SEG03.bin.asm"
+  },
+  "static_contract": {
+    "01F7:1CDA": {
+      "inputs": "DS:81C0/81C4 camera words and DS:3710/3712 aligned stream cursor",
+      "writes": "DS:3714/3716 strip origin and DS:3710/3712 committed aligned cursor",
+      "ordering": "six row probes when X cursor changes, then eight column probes when Y cursor changes",
+      "callee": "01F7:1E04"
+    },
+    "01F7:1E04": {
+      "inputs": "FS declaration cursor BX and DS:3714/3716 region origin",
+      "writes": "sets the declaration high byte to 1 before dispatch and initializes pooled object coordinates",
+      "dedicated_types": "0x65/0x66/0x67 dispatch through the dedicated effect producer",
+      "ordinary_types": "dispatch through DS:81D2 + type*4 and the object-pool factory; phase-1 initializers consume shared state after the stream walk"
+    },
+    "01F7:1749": {
+      "effect": "publishes one bounded eight-byte dedicated-event record and calls 01F7:5C11 once; this consumes one shared-ring byte",
+      "feedback": "no direct player-record write; downstream presentation/event state only"
+    },
+    "01F7:4727": {
+      "effect": "1E04 allocates the generic object; its phase-1 4727 initializer calls 01F7:5D38 and consumes two DS:6468/646C bytes after the stream walk",
+      "feedback": "no direct player-record write; pooled leaf state can affect later scheduler state"
+    }
+  },
+  "natural_dos_capture": {
+    "trace": "research/build/player-w1l2-startup-stream-v6.json",
+    "level": "W1L2",
+    "camera_start": [591, 374],
+    "first_player_callback_camera": [80, 374],
+    "first_player_callback_stream_cursor": [64, 320],
+    "first_player_callback_region_origin": [0, 640],
+    "stream_entry_count": 513,
+    "cursor_transitions": [
+      {"attempt": 1, "camera": [591, 374], "cursor": [0, 0], "origin": [0, 576], "prng_index": 18},
+      {"attempt": 2, "camera": [590, 374], "cursor": [576, 320], "origin": [512, 512], "prng_index": 18},
+      {"attempt": 82, "camera": [510, 374], "cursor": [448, 320], "origin": [384, 640], "prng_index": 21},
+      {"attempt": 146, "camera": [446, 374], "cursor": [384, 320], "origin": [320, 640], "prng_index": 22},
+      {"attempt": 210, "camera": [382, 374], "cursor": [320, 320], "origin": [256, 640], "prng_index": 23},
+      {"attempt": 402, "camera": [190, 374], "cursor": [128, 320], "origin": [64, 640], "prng_index": 24},
+      {"attempt": 513, "camera": [80, 374], "cursor": [64, 320], "origin": [0, 640], "prng_index": 32}
+    ]
+  },
+  "native_replay": {
+    "tool": "build/engine/quiky-w1l1-trace",
+    "stream_replay": "--camera-x 80 --camera-y 374 --startup-camera-sweep-from 591 --startup-camera-sweep-to 80",
+    "prng_boundary": "--leaf-prng-index 18 --leaf-prng-ring-hex <captured DS:646C ring>",
+    "comparison": "research/tools/w1l1_session_compare.py",
+    "result": "exact player records, scheduler order, active W1L2 leaf position/velocity/animation fields, and shared-ring cursor (32 after startup) for the four captured callbacks"
+  },
+  "unresolved": {
+    "shared_prng_consumer": "none in the scanned W1L2 startup strips: six 0x65 records account for six bytes and four phase-1 leaf initializers account for eight bytes, matching 18->32. Other startup strips and later scheduler consumers remain outside this fixture.",
+    "coverage": "The DOS capture lacks complete later probe/effect arrays; the comparison reports those as coverage gaps rather than equal empty data."
+  },
+  "confidence": "confirmed Ghidra stream algorithm and natural cursor/camera sequence; player replay exact at the recorded pre-callback boundary; shared startup PRNG consumer unresolved"
+}

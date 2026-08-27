@@ -1249,6 +1249,29 @@ void TraceClosedPlayerUpdate::publishTransitionGate(
         static_cast<std::int16_t>(transitionGate89ea);
 }
 
+void TraceClosedPlayerUpdate::publishGameplayCounters(
+    std::uint32_t score881c,
+    std::uint16_t lives880a,
+    std::uint16_t ammo880c,
+    std::uint16_t health8822,
+    bool resetPublications) {
+    _globals.dispatchScoreLow881C = static_cast<std::uint16_t>(score881c);
+    _globals.dispatchScoreHigh881E = static_cast<std::uint16_t>(score881c >> 16);
+    _globals.dispatchLives880A = lives880a;
+    _globals.dispatchAmmo880C = ammo880c;
+    _globals.dispatchDisplayCount8822 = health8822;
+    if (resetPublications) {
+        // Natural W1L2 startup enters 3FF8 with these display-side words
+        // initialized by the outer setup path; 5937 then moves 4FF8 one
+        // 16-bit step toward the current health on each callback.
+        _globals.dispatchPreviousWord60DA = 0;
+        _globals.dispatchPublishedScore4FF2 = 0;
+        _globals.dispatchPublishedAmmo4FF6 = 0xffff;
+        _globals.dispatchPublishedCount4FF8 = 1;
+        _globals.dispatchPublishedLives4FFA = lives880a;
+    }
+}
+
 std::int16_t TraceClosedPlayerUpdate::activationState85DA() const {
     return _globals.activationState85DA;
 }

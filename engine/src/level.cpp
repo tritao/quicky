@@ -182,6 +182,9 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _streamAnchorActive(false),
       _streamAnchorX(0),
       _streamAnchorY(0),
+      _streamCursorX(0),
+      _streamCursorY(0),
+      _pendingStreamInitializers(),
       _leafPrngIndex(config.leafPrngIndex),
       _leafPrngRing(config.leafPrngRing) {
     if (!config.hasLeafPrngState) {
@@ -242,6 +245,12 @@ SpawnPoint LevelSession::spawnPoint() const {
     if (upperAscii(_mapName) == "W1L1.MAP") {
         return SpawnPoint(128, 400);
     }
+    // The natural W1L2 startup capture enters 01F7:3FF8 with the player at
+    // (240,512). This is a level-start declaration, not a camera-follow
+    // inference; explicit config spawns still take precedence above.
+    if (upperAscii(_mapName) == "W1L2.MAP") {
+        return SpawnPoint(240, 512);
+    }
 
     const std::int32_t mapWidth = static_cast<std::int32_t>(_map.width) * 16;
     const std::int32_t mapHeight = static_cast<std::int32_t>(_map.height) * 16;
@@ -260,6 +269,19 @@ void LevelSession::reset(Simulation &simulation) {
         // setup record.
         _gameplayState.currentHealth8822 = 3;
         _gameplayState.maximumHealth8824 = 3;
+    } else if (upperAscii(_mapName) == "W1L2.MAP") {
+        // The natural W1L2 startup callback reads the same 3/3 health setup
+        // from DS:8822/8824 before ordinary simulation begins.
+        _gameplayState.currentHealth8822 = 3;
+        _gameplayState.maximumHealth8824 = 3;
+    }
+    if (simulation.playerUpdater() != 0) {
+        simulation.playerUpdater()->publishGameplayCounters(
+            _gameplayState.score881c,
+            _gameplayState.lives880a,
+            _gameplayState.ammo880c,
+            _gameplayState.currentHealth8822,
+            true);
     }
     _alternateActionActive = false;
     if (_config.hasLeafPrngState) {
@@ -285,7 +307,11 @@ void LevelSession::reset(Simulation &simulation) {
         entity.updateCallback = callbackFor(entity.type);
         entity.contactSubtype = collectibleSubtypeFor(entity.type);
         entity.collectionBit = collectionBitFor(entity.type);
+        entity.streamClaimed = false;
+        entity.streamPublished = false;
         entity.streamSuppressed = false;
+        entity.eventAnimationState = 0;
+        entity.eventPrngInitialized = false;
         entity.enemyContactPending = false;
         entity.contactCallback = CallbackIdentity();
         entity.responseTimer = 0;
@@ -297,6 +323,9 @@ void LevelSession::reset(Simulation &simulation) {
         initializeBump(entity);
     }
     _effects.clear();
+    _streamCursorX = 0;
+    _streamCursorY = 0;
+    _pendingStreamInitializers.clear();
     resetPlayer(simulation);
 }
 
@@ -607,6 +636,27 @@ void LevelSession::initializeAmbientVisualRuntime(LevelEntity &entity) {
     entity.ambientOriginY = entity.y;
     entity.ambientTimer = 0x000c;
     entity.ambientRuntimeInitialized = true;
+}
+
+void LevelSession::initializePendingStreamObjects() {
+    // The generic 1E04 path allocates through 0E06 and leaves the object in
+    // phase 1. Its 4727 initializer is reached in the subsequent callback
+    // pass, after all declarations in the current 1CDA walk have published.
+    // This ordering is visible in W1L2: dedicated 1749/5C11 bytes are read
+    // before the four leaf 4727 pairs.
+    for (std::size_t order = 0; order < _pendingStreamInitializers.size();
+         ++order) {
+        const std::size_t index = _pendingStreamInitializers[order];
+        if (index >= _entities.size()) {
+            continue;
+        }
+        LevelEntity &entity = _entities[index];
+        if (entity.streamClaimed && isLeafType(entity.type) &&
+            !entity.ambientRuntimeInitialized) {
+            initializeAmbientVisualRuntime(entity);
+        }
+    }
+    _pendingStreamInitializers.clear();
 }
 
 void LevelSession::initializeMovingPlatform(LevelEntity &entity) {
@@ -1051,6 +1101,108 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
     const std::int32_t regionX = floorRegion(playerX);
     const std::int32_t regionY = floorRegion(playerY);
     bool spawnedTransient = false;
+
+    if (_streamAnchorActive) {
+        // 01F7:1CDA is an incremental scanner, not a geometric "activate all
+        // visible declarations" pass.  1E04 claims each six-byte ARE
+        // declaration by setting its high type byte to one, so the native
+        // record keeps the same one-shot claim and pooled lifetime separate.
+        const auto claimCell = [this](std::uint16_t cellX,
+                                      std::uint16_t cellY) {
+            if (cellX >= _area.layoutWidth || cellY >= _area.layoutHeight) {
+                return;
+            }
+            const std::size_t layoutIndex =
+                static_cast<std::size_t>(cellY) * _area.layoutWidth + cellX;
+            const std::uint16_t reference = _area.layout[layoutIndex];
+            if (reference == 0 || reference == 0xffff) {
+                return;
+            }
+
+            // Area::placements() is declaration-order within each layout
+            // cell, which is the order consumed by 1E04. The record offset
+            // is retained in each placement for the audit trail; the
+            // shipped ARE layouts use each reference once, so a per-entity
+            // claim is equivalent to the source high-byte marker here.
+            for (std::size_t index = 0; index < _entities.size(); ++index) {
+                LevelEntity &entity = _entities[index];
+                if (entity.regionX != cellX || entity.regionY != cellY ||
+                    entity.streamClaimed) {
+                    continue;
+                }
+                entity.streamClaimed = true;
+                entity.streamPublished = entity.active;
+                if (isLeafType(entity.type)) {
+                    entity.x = entity.initialX;
+                    entity.y = entity.initialY;
+                    entity.positionX = Fixed16::fromPixels(entity.x);
+                    entity.positionY = Fixed16::fromPixels(entity.y);
+                    _pendingStreamInitializers.push_back(index);
+                } else if (isDedicatedEventType(entity.type) &&
+                           _config.hasLeafPrngState) {
+                    // 01F7:1E04 -> 1749 calls 5C11 once before publishing
+                    // the dedicated event's animation byte. The dedicated
+                    // record has no player-facing callback, but this shared
+                    // cursor affects later streamed leaf initializers.
+                    entity.eventAnimationState = static_cast<std::uint8_t>(
+                        nextSharedPrngByte() & 0x07);
+                    entity.eventPrngInitialized = true;
+                } else if (entity.kind == EntityKind::MovingPlatform) {
+                    entity.x = entity.initialX;
+                    entity.y = entity.initialY;
+                    entity.positionX = Fixed16::fromPixels(entity.x);
+                    entity.positionY = Fixed16::fromPixels(entity.y);
+                    initializeMovingPlatform(entity);
+                } else if (entity.type == 0x34) {
+                    initializeBump(entity);
+                }
+            }
+        };
+
+        const std::uint16_t targetX = static_cast<std::uint16_t>(
+            playerX) & 0xffc0;
+        const std::uint16_t targetY = static_cast<std::uint16_t>(
+            playerY) & 0xffc0;
+        if (_streamCursorX != targetX) {
+            std::uint16_t originX = targetX;
+            if (static_cast<std::int16_t>(_streamCursorX) <
+                static_cast<std::int16_t>(targetX)) {
+                originX = static_cast<std::uint16_t>(originX + 0x180);
+            }
+            if (originX >= 0x40) {
+                originX = static_cast<std::uint16_t>(originX - 0x40);
+            }
+            std::uint16_t originY = _streamCursorY < 0x40
+                ? _streamCursorY
+                : static_cast<std::uint16_t>(_streamCursorY - 0x40);
+            for (std::uint16_t row = 0; row < 6; ++row) {
+                claimCell(static_cast<std::uint16_t>(originX / 0x40),
+                          static_cast<std::uint16_t>(originY / 0x40));
+                originY = static_cast<std::uint16_t>(originY + 0x40);
+            }
+        }
+        if (_streamCursorY != targetY) {
+            std::uint16_t originY = targetY;
+            if (static_cast<std::int16_t>(_streamCursorY) <
+                static_cast<std::int16_t>(targetY)) {
+                originY = static_cast<std::uint16_t>(originY + 0x100);
+            }
+            if (originY >= 0x40) {
+                originY = static_cast<std::uint16_t>(originY - 0x40);
+            }
+            std::uint16_t originX = _streamCursorX < 0x40
+                ? _streamCursorX
+                : static_cast<std::uint16_t>(_streamCursorX - 0x40);
+            for (std::uint16_t column = 0; column < 8; ++column) {
+                claimCell(static_cast<std::uint16_t>(originX / 0x40),
+                          static_cast<std::uint16_t>(originY / 0x40));
+                originX = static_cast<std::uint16_t>(originX + 0x40);
+            }
+        }
+        _streamCursorX = targetX;
+        _streamCursorY = targetY;
+    }
+
     std::vector<std::size_t> streamOrder;
     streamOrder.reserve(_entities.size());
     for (std::size_t index = 0; index < _entities.size(); ++index) {
@@ -1087,6 +1239,18 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
             continue;
         }
         const bool wasActive = entity.phase == EntityPhase::Active;
+        if (_streamAnchorActive && !entity.streamClaimed) {
+            // A camera pass cannot publish an ARE declaration that 1CDA has
+            // not reached yet. This also removes setup-only fallback objects
+            // when a caller switches to the camera-owned stream boundary.
+            entity.phase = EntityPhase::Dormant;
+            entity.active = false;
+            entity.streamPublished = false;
+            releaseScheduledEntity(scheduler, entity);
+            entity.pooledInteractionTriggered = false;
+            removeTransientEffectsFor(entity.id);
+            continue;
+        }
         bool visible = false;
         if (_streamAnchorActive) {
             // Static 01F7:1DCA: the object gate is pixel-relative to
@@ -1120,40 +1284,56 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
         }
         entity.phase = visible ? EntityPhase::Active : EntityPhase::Dormant;
         entity.active = visible;
-        if (visible && !wasActive) {
+        if (visible && !wasActive && !entity.streamPublished) {
             if (isLeafType(entity.type)) {
-                // 01F7:1CDA publishes the callback through the pooled object
-                // initializer. Re-entry therefore restores the ARE anchor
-                // before 01F7:4727 consumes the shared PRNG ring.
-                entity.x = entity.initialX;
-                entity.y = entity.initialY;
-                entity.positionX = Fixed16::fromPixels(entity.x);
-                entity.positionY = Fixed16::fromPixels(entity.y);
-                initializeAmbientVisualRuntime(entity);
+                if (!_streamAnchorActive) {
+                    // Coordinate-owned setup mode has no 1CDA claim pass and
+                    // retains the earlier direct publication contract.
+                    entity.x = entity.initialX;
+                    entity.y = entity.initialY;
+                    entity.positionX = Fixed16::fromPixels(entity.x);
+                    entity.positionY = Fixed16::fromPixels(entity.y);
+                    initializeAmbientVisualRuntime(entity);
+                }
             }
             if (entity.kind == EntityKind::MovingPlatform) {
-                // 01F7:1DEE clears the pooled callback and leaves the ARE
-                // declaration eligible for reconstruction. Re-entry therefore
-                // starts from the declaration anchor and the platform
-                // initializer state rather than from the culled object.
-                entity.x = entity.initialX;
-                entity.y = entity.initialY;
-                entity.positionX = Fixed16::fromPixels(entity.x);
-                entity.positionY = Fixed16::fromPixels(entity.y);
-                initializeMovingPlatform(entity);
+                if (!_streamAnchorActive) {
+                    // The coordinate-owned fallback retains the previous
+                    // direct initializer behavior.
+                    entity.x = entity.initialX;
+                    entity.y = entity.initialY;
+                    entity.positionX = Fixed16::fromPixels(entity.x);
+                    entity.positionY = Fixed16::fromPixels(entity.y);
+                    initializeMovingPlatform(entity);
+                }
             }
             if (entity.type == 0x34) {
-                // 01F7:1DEE clears the pooled callback off camera; a later
-                // ARE scan re-enters 9BEE and reapplies the initializer word
-                // shifts and descriptor start.
-                initializeBump(entity);
+                if (!_streamAnchorActive) {
+                    // As above, only the setup-only fallback can reach this
+                    // direct reinitialization path.
+                    initializeBump(entity);
+                }
+            }
+            if (isDedicatedEventType(entity.type) &&
+                _config.hasLeafPrngState && !entity.eventPrngInitialized) {
+                // Coordinate-owned setup has no 1CDA/1E04 claim phase, so
+                // publish the same 1749 -> 5C11 byte at first activation.
+                entity.eventAnimationState = static_cast<std::uint8_t>(
+                    nextSharedPrngByte() & 0x07);
+                entity.eventPrngInitialized = true;
             }
             if (scheduler != 0 && entity.updateCallback.offset != 0) {
                 entity.schedulerHandle = scheduler->queueSpawn(
                     entity.updateCallback, entity.id, false);
             }
+            entity.streamPublished = true;
             spawnedTransient = spawnTransientEffect(entity) || spawnedTransient;
         } else if (!visible) {
+            if (_streamAnchorActive && entity.streamClaimed && !entity.streamPublished) {
+                // 1E04 has already allocated/claimed this declaration even
+                // if its first 1DCA lifetime gate rejects the object.
+                entity.streamPublished = true;
+            }
             if (entity.kind == EntityKind::MovingPlatform) {
                 // The off-camera callback is gone before A0B2 can publish a
                 // new carry. Do not retain object-local carry phase or wait
@@ -2737,10 +2917,13 @@ bool LevelSession::spawnTransientEffect(const LevelEntity &entity) {
         0x01f7, 0x10b5, "dedicated_event_10b5");
     effect.eventSubtype = entity.type == 0x65
         ? 0x00 : (entity.type == 0x66 ? 0x08 : 0x10);
-    // 01F7:1749 stores the source event's animation byte from the PRNG
-    // helper. These are the confirmed first W1L1 values; other world seeds
-    // remain data-dependent and are intentionally not synthesized here.
-    if (worldForMap(_mapName) == "W1") {
+    // 01F7:1749 stores the source event's animation byte from 5C11. When the
+    // replay has the shared ring, use the recovered byte; the old W1 default
+    // remains only for setup callers that deliberately omit that external
+    // ring state.
+    if (entity.eventPrngInitialized) {
+        effect.eventAnimationState = entity.eventAnimationState;
+    } else if (worldForMap(_mapName) == "W1") {
         effect.eventAnimationState = entity.type == 0x66 ? 4 : 1;
     }
     // The event object is short-lived and advances its animation byte modulo
@@ -2854,6 +3037,7 @@ void LevelSession::tick(Simulation &simulation,
         ? _streamAnchorY : player.positionY.floorPixels();
     bool spawnedTransient = updateStreaming(
         simulation, streamX, streamY);
+    initializePendingStreamObjects();
     // 01D7/0E96 dispatches platform callbacks before the later player pass;
     // A0B2's carry globals must therefore be published before 3FF8 runs.
     std::vector<SimulationCallbackStep> dependencyOrder;
@@ -2869,6 +3053,12 @@ void LevelSession::tick(Simulation &simulation,
     if (simulation.playerUpdater() != 0) {
         simulation.playerUpdater()->publishTransitionGate(
             _gameplayState.transitionGate89ea);
+        simulation.playerUpdater()->publishGameplayCounters(
+            _gameplayState.score881c,
+            _gameplayState.lives880a,
+            _gameplayState.ammo880c,
+            _gameplayState.currentHealth8822,
+            false);
     }
     simulation.tick(input, world, output);
     if (simulation.playerUpdater() != 0) {
@@ -2883,6 +3073,7 @@ void LevelSession::tick(Simulation &simulation,
         _streamAnchorActive ? _streamAnchorX : player.positionX.floorPixels(),
         _streamAnchorActive ? _streamAnchorY : player.positionY.floorPixels()) ||
         spawnedTransient;
+    initializePendingStreamObjects();
     advanceActiveEntities();
     advanceActiveEffects();
     dispatchCloudCallbacks(&simulation, player);

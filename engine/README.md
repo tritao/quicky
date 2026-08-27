@@ -308,8 +308,16 @@ gate uses the recovered pixel window `X: camera-0x80..camera+0x1c0` and
 `Y: camera-0x80..camera+0x130`; direct setup callers still use the former
 player-coordinate fallback. W1L1 reset seeds the observed native startup
 anchor `(0,262)`, and the SDL frontend publishes its settled camera for the
-following tick. Camera-follow recomputation beyond that published boundary is
-not inferred here.
+following tick. The native session also replays the Ghidra-derived
+`01F7:1CDA -> 01F7:1E04` incremental stream cursor for camera-owned sessions;
+W1L1 reset reproduces the observed selector settle from `x=511` to `x=0`.
+The trace emitter accepts `--startup-camera-sweep-from/to` for a recorded
+startup history such as W1L2's `591 -> 80` settle. The scanner now accounts for
+the six dedicated `0x65` records (one `01F7:5C11` byte each) and the later
+phase-1 initialization of four leaf records (two bytes each), reproducing the observed W1L2 cursor
+`DS:6468: 18 -> 32` from the captured ring. The complete boundary is recorded in
+[`w1l2-startup-stream-v1.json`](../research/evidence/player-dos-parity/w1l2-startup-stream-v1.json);
+the ring remains replay input rather than a hardcoded simulation rule.
 
 The W1L1 session boundary is traceable with the dedicated native emitter:
 

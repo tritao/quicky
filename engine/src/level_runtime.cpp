@@ -116,6 +116,17 @@ void LevelRuntime::reset(Simulation &simulation) {
     _session.reset(simulation);
     const PlayerRecord &player = simulation.state().player;
     if (_session.hasStreamAnchor()) {
+        if (_mapName == "W1L1.MAP" || _mapName == "w1l1.map") {
+            // The selector trace shows W1L1's camera settling from x=511 to
+            // x=0 at y=262 before the first player callback. Replaying the
+            // stream cursor transitions here reproduces the 1CDA/1E04 claim
+            // state that a final-camera-only activation cannot recover.
+            for (std::int32_t cameraX = 511; cameraX >= 0; --cameraX) {
+                _session.setStreamAnchor(cameraX, 262);
+                _session.updateStreaming(simulation, cameraX, 262);
+            }
+            _session.setStreamAnchor(0, 262);
+        }
         _session.updateStreaming(simulation, _session.streamAnchorX(),
                                  _session.streamAnchorY());
     } else {

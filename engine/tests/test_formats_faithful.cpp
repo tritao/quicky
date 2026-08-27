@@ -334,6 +334,37 @@ void testW1L1NativeDefaultSpawn() {
     assert(simulation.state().player.positionY.floorPixels() == 400);
 }
 
+void testW1L2NativeStartupState() {
+    const quiky::Map map = makeMap(270, 40);
+    quiky::LevelSessionConfig config;
+    config.enableEdgeExit = false;
+    quiky::LevelSession session("w1l2.map", map, makeSingleArea(0), config);
+    quiky::Simulation simulation;
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::PlayerUpdateTrace trace;
+    simulation.setPlayerTraceSink(&trace);
+
+    session.reset(simulation);
+
+    // Natural DOS startup capture: player callback entry at (240,512),
+    // DS:8822=3 and DS:8824=3. Camera (80,374) remains an explicit stream
+    // anchor supplied by the trace/frontend boundary.
+    assert(simulation.state().player.positionX.floorPixels() == 240);
+    assert(simulation.state().player.positionY.floorPixels() == 512);
+    assert(session.gameplayState().currentHealth8822 == 3);
+    assert(session.gameplayState().maximumHealth8824 == 3);
+
+    quiky::SimulationOutput output;
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(trace.globalWrites.size() >= 1);
+    assert(trace.globalWrites[0].address == 0x4ff8);
+    assert(trace.globalWrites[0].before == 1);
+    assert(trace.globalWrites[0].after == 2);
+}
+
 void testRecoveredCollectibleStateContracts() {
     const quiky::Map map = makeMap(16, 8);
     const quiky::WorldCollisionView world(map);
@@ -1293,6 +1324,7 @@ int main() {
         testFaithfulRecordWorldAndAnimation();
         testLevelSessionUsesSimulationBoundary();
         testW1L1NativeDefaultSpawn();
+        testW1L2NativeStartupState();
         testRecoveredCollectibleStateContracts();
         testRecoveredCollectibleStrictBounds();
         testRecoveredW1L1EnemyFamilies();

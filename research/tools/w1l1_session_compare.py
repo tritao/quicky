@@ -170,7 +170,8 @@ def global_writes(sample: dict[str, Any]) -> list[Any] | None:
     # the address-qualified write. Normalize only already-closed fields; an
     # unknown address remains address-named and therefore cannot disappear
     # from parity reports.
-    names = {0x4FEE: "horizontal_timer"}
+    names = {0x4FEE: "horizontal_timer",
+             0x4FF8: "dispatch_aux_4ff8"}
     result = []
     for item in value:
         if not isinstance(item, dict):

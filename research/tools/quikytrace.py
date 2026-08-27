@@ -290,6 +290,7 @@ class PlayerTraceConfig:
     transition_warmup_frames: int = 0
     select_level: str | None = None
     selector_frames: int = 60
+    capture_startup_stream: bool = False
     screenshot: Path | None = None
     screenshot_mode: str = "rendered"
     patches: tuple[MemoryPatch, ...] = ()
@@ -427,6 +428,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "transition_warmup_frames": config.transition_warmup_frames,
         "select_level": config.select_level or "",
         "selector_frames": config.selector_frames,
+        "capture_startup_stream": config.capture_startup_stream,
         "patches": [
             {
                 "space": patch.space,
@@ -1125,6 +1127,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--player-watch-execute", action="append",
                         type=parse_execute_watch, default=[], metavar="SEGMENT:OFFSET",
                         help="sample an execute address, e.g. 0x1f7:0x3df2")
+    parser.add_argument(
+        "--player-capture-startup-stream", action="store_true",
+        help="capture the first 01F7:1CDA entry after level-selector launch",
+    )
     parser.add_argument("--player-collision-event-limit", type=int, default=96,
                         help="maximum nested helper breakpoints per callback")
     parser.add_argument("--player-collision-repeat-limit", type=int, default=3,
@@ -1505,6 +1511,7 @@ def main(argv: list[str] | None = None) -> int:
                 transition_warmup_frames=args.player_transition_warmup_frames,
                 select_level=args.select_level,
                 selector_frames=args.selector_frames,
+                capture_startup_stream=args.player_capture_startup_stream,
                 screenshot=args.screenshot,
                 screenshot_mode=args.screenshot_mode,
             )

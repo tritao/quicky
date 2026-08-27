@@ -84,10 +84,15 @@ local transition_probe_tail_camera_x = trace_config.transition_probe_tail_camera
 local transition_warmup_frames = trace_config.transition_warmup_frames or 0
 local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
+local capture_startup_stream = trace_config.capture_startup_stream or false
+local startup_stream_max_attempts = trace_config.startup_stream_max_attempts or 640
 local collision_event_limit = trace_config.collision_event_limit or 96
 local collision_repeat_limit = trace_config.collision_repeat_limit or 3
 local trace_event_counter = 0
 local descriptor_census_done = false
+local startup_stream_events = {}
+local startup_stream_pending_hit = nil
+local startup_previous_leaf_index = nil
 
 local function arm_breakpoint(owner, segment, offset, options)
     return breakpoint_controller:arm(owner, segment, offset,
@@ -540,6 +545,14 @@ local function static_globals()
         last_scan_code = dosbox.mem_read_word("ds", 0x88ba),
         camera_x = dosbox.mem_read_word("ds", 0x81c0),
         camera_y = dosbox.mem_read_word("ds", 0x81c4),
+        -- 01F7:1CDA's 64-pixel stream cursor and 1E04's current ARE
+        -- declaration origin. These are read-only startup diagnostics: the
+        -- cursor explains which newly-visible strip caused a pool entry,
+        -- while the origins identify the region used for its coordinates.
+        are_stream_cursor_x_3710 = dosbox.mem_read_word("ds", 0x3710),
+        are_stream_cursor_y_3712 = dosbox.mem_read_word("ds", 0x3712),
+        are_region_origin_x_3714 = dosbox.mem_read_word("ds", 0x3714),
+        are_region_origin_y_3716 = dosbox.mem_read_word("ds", 0x3716),
         map_row_stride = dosbox.mem_read_word("ds", 0x657e),
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
@@ -677,6 +690,21 @@ local function descriptor_census_snapshot()
             entries = descriptors,
             read_errors = descriptor_errors,
         },
+    }
+end
+
+local function startup_stream_snapshot()
+    -- Keep this intentionally smaller than static_globals(): the startup
+    -- scan can execute hundreds of 1CDA calls before the first player
+    -- callback, and only these words can explain its strip selection.
+    return {
+        camera_x = dosbox.mem_read_word("ds", 0x81c0),
+        camera_y = dosbox.mem_read_word("ds", 0x81c4),
+        stream_cursor_x = dosbox.mem_read_word("ds", 0x3710),
+        stream_cursor_y = dosbox.mem_read_word("ds", 0x3712),
+        region_origin_x = dosbox.mem_read_word("ds", 0x3714),
+        region_origin_y = dosbox.mem_read_word("ds", 0x3716),
+        leaf_prng_index = dosbox.mem_read_word("ds", 0x6468),
     }
 end
 
@@ -1755,6 +1783,57 @@ dosbox.output.awaiting_startup_replay = true
 dosbox.wait_frames(350)
 if select_level ~= "" then
     begin_selected_level()
+    if capture_startup_stream then
+        -- begin_selected_level() leaves the selector at the launch barrier
+        -- (01D7:4B18). Re-arm the one-shot entry until the first non-stream
+        -- target is reached. This captures the complete startup strip order
+        -- and leaves that first ordinary callback pending for the normal
+        -- sample loop instead of consuming it.
+        -- Keep a player barrier armed in parallel.  A stream call returns
+        -- through 01F7:1DC9; stepping to that return address before
+        -- re-arming 1CDA avoids re-reporting the current instruction on
+        -- debugger builds whose one-shot breakpoint is not removed until
+        -- after execution resumes.
+        arm_breakpoint("startup-stream-player", 0x01f7, 0x3ff8)
+        for stream_attempt = 1, startup_stream_max_attempts do
+            arm_breakpoint("startup-stream", 0x01f7, 0x1cda)
+            dosbox.debug_continue()
+            local stream_hit = wait_hit("startup ARE stream entry")
+            dosbox.breakpoint_remove(0x01f7, 0x1cda)
+            if stream_hit.offset ~= 0x1cda then
+                startup_stream_pending_hit = stream_hit
+                break
+            end
+            startup_stream_events[#startup_stream_events + 1] = {
+                attempt = stream_attempt,
+                segment = stream_hit.segment,
+                offset = stream_hit.offset,
+                registers = stream_hit.registers,
+                globals = startup_stream_snapshot(),
+            }
+            local leaf_index = startup_stream_events[#startup_stream_events]
+                .globals.leaf_prng_index
+            if startup_previous_leaf_index ~= nil and
+                    leaf_index ~= startup_previous_leaf_index then
+                local leaf_pool = {}
+                local snapshot = pool_snapshot()
+                for _, object in ipairs(snapshot.objects or {}) do
+                    if object.callback == 0x47e7 then
+                        leaf_pool[#leaf_pool + 1] = object
+                    end
+                end
+                startup_stream_events[#startup_stream_events].leaf_pool = leaf_pool
+            end
+            startup_previous_leaf_index = leaf_index
+            arm_breakpoint("startup-stream-return", 0x01f7, 0x1dc9)
+            dosbox.debug_continue()
+            local stream_return = wait_hit("startup ARE stream return")
+            dosbox.breakpoint_remove(0x01f7, 0x1dc9)
+            assert(stream_return.segment == 0x01f7 and
+                       stream_return.offset == 0x1dc9,
+                   "startup ARE stream returned through an unexpected address")
+        end
+    end
 else
     dosbox.key("KBD_space", true)
     dosbox.wait_frames(4)
@@ -2096,8 +2175,13 @@ for sequence = 1, sample_count do
             map_patch = apply_player_map_patch()
         end
         arm_targets()
-        dosbox.debug_continue()
-    local hit = wait_hit("player/object update breakpoint")
+        local pending_hit = sequence == 1 and startup_stream_pending_hit or nil
+        if pending_hit ~= nil then
+            startup_stream_pending_hit = nil
+        else
+            dosbox.debug_continue()
+        end
+    local hit = pending_hit or wait_hit("player/object update breakpoint")
     local ignored_object_callbacks = 0
     if object_focus ~= nil and object_focus.object_offset ~= nil then
         while hit.offset == focus_callback_offset do
@@ -2654,6 +2738,7 @@ local result = {
     final_capture_registers = capture.registers,
     final_globals = minimal_callback_capture and nil or static_globals(),
     final_pool = minimal_callback_capture and nil or pool_snapshot(),
+    startup_stream_events = startup_stream_events,
 }
 for _, sample in ipairs(samples) do
     if sample.descriptor_census ~= nil then

@@ -267,6 +267,10 @@ struct LevelEntity {
     std::uint16_t ambientAnimationCursor;
     std::uint8_t ambientTable;
     bool ambientRuntimeInitialized;
+    // 01F7:1749 stores (01F7:5C11() & 7) in the dedicated-event record.
+    // It is populated only when the replay supplies the shared PRNG ring.
+    std::uint8_t eventAnimationState;
+    bool eventPrngInitialized;
     // 01F7:9DC7/A0B2 platform object state.
     std::int32_t platformPreviousX;
     std::int32_t platformPreviousY;
@@ -283,6 +287,11 @@ struct LevelEntity {
     bool platformMotionGate59;
     bool platformInitializerMapChecked;
     bool platformCarryActive;
+    // 01F7:1E04 changes the high byte of the six-byte ARE declaration from
+    // zero to one on first publication. Keep that claim separate from the
+    // pooled object's current camera-active lifetime.
+    bool streamClaimed;
+    bool streamPublished;
     bool streamSuppressed;
     bool enemyContactPending;
     CallbackIdentity contactCallback;
@@ -314,13 +323,15 @@ struct LevelEntity {
           bumpAnimationCursor24(0), ambientVelocityY(), ambientOriginX(0),
           ambientOriginY(0), ambientTimer(0), ambientAnimationDelay(0),
           ambientAnimationCursor(0), ambientTable(0),
-          ambientRuntimeInitialized(false), platformPreviousX(0),
+          ambientRuntimeInitialized(false), eventAnimationState(0),
+          eventPrngInitialized(false), platformPreviousX(0),
           platformPreviousY(0), platformWait52(0), platformWait54(0),
           platformCooldown58(0), platformDirectionY4c(-1),
           platformEdgeLatch50(-1), platformDirectionX4e(1),
           platformHorizontal4a(false), platformAxisMarker4b(0),
           platformMotionGate59(true), platformInitializerMapChecked(false),
           platformCarryActive(false),
+          streamClaimed(false), streamPublished(false),
           streamSuppressed(false),
           enemyContactPending(false), contactCallback(), responseTimer(0),
           collisionWidth(0), collisionHeight(0),
@@ -355,6 +366,9 @@ public:
     bool hasStreamAnchor() const { return _streamAnchorActive; }
     std::int32_t streamAnchorX() const { return _streamAnchorX; }
     std::int32_t streamAnchorY() const { return _streamAnchorY; }
+    std::uint16_t streamCursorX() const { return _streamCursorX; }
+    std::uint16_t streamCursorY() const { return _streamCursorY; }
+    std::uint16_t sharedPrngIndex() const { return _leafPrngIndex; }
     // Emit the source-less high-address effect recovered from the 4B70/4C74
     // callback chain. sourceX/sourceY are the hit object's coordinates; the
     // pooled effect is positioned at sourceY + 10 pixels.
@@ -416,6 +430,7 @@ private:
     void initializeWorldEffect(LevelEntity &entity);
     void initializeAmbientVisual(LevelEntity &entity);
     void initializeAmbientVisualRuntime(LevelEntity &entity);
+    void initializePendingStreamObjects();
     // DS:6468/646C is shared by leaf, event, and normal-enemy paths. The
     // configuration retains its historical leaf-facing names for replay
     // compatibility, but this accessor names the recovered global contract.
@@ -486,6 +501,15 @@ private:
     bool _streamAnchorActive;
     std::int32_t _streamAnchorX;
     std::int32_t _streamAnchorY;
+    // 01F7:1CDA's aligned ARE scan cursor (DS:3710/3712). It is distinct
+    // from the published camera anchor and advances only when a new
+    // 64-pixel strip is scanned.
+    std::uint16_t _streamCursorX;
+    std::uint16_t _streamCursorY;
+    // 01F7:0E06 allocates a generic object during 1E04; its phase-1
+    // initializer runs after the stream walk. Preserve that publication
+    // order for shared DS:6468 consumption.
+    std::vector<std::size_t> _pendingStreamInitializers;
     std::uint16_t _leafPrngIndex;
     std::array<std::uint8_t, 0x100> _leafPrngRing;
 };
