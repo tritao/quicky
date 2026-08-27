@@ -1,0 +1,90 @@
+{
+  "schema": "quiky.player-w1l1-jump-landing-parity-current.v1",
+  "purpose": "Current W1L1 DOS-to-native replay covering jump initiation, apex transition, free fall, and natural landing.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "map": "research/build/early-assets/W1L1.MAP",
+    "map_sha256": "3d88892d9842c15fb6f860a2d84f3ede0a897175924ea42b2468022182299956",
+    "trace": "research/build/traces/player-w1l1-jump-landing-parity-current-v2.json",
+    "trace_sha256": "0966c88becc2401f27aeabe17239035691f5ec36eabcfe758cbf53d317f94001",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "47187e6a8beb077f59b0c5c2d6beea05f2def866408bf7989f761a22d71fcf5d",
+    "parity_tool": "research/tools/player_callback_parity.py",
+    "comparator": "research/tools/player_parity_compare.py"
+  },
+  "capture": {
+    "command": "python3 research/tools/quikytrace.py --launch --headless --runtime-dir game --select-level W1L1 --selector-frames 60 --timeout 240 --player-trace --player-focus-callback --player-minimal-callback-capture --player-parity-capture --player-capture-record --player-property-focus --player-collision-event-limit 96 --player-collision-repeat-limit 3 --player-samples 20 --player-frames-between 1 --player-input-phase-through-callback --output research/build/traces/player-w1l1-jump-landing-parity-current-v2.json --player-input-phase KBD_space+KBD_up:0 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1 --player-input-phase WAIT:1",
+    "callback": "01F7:3FF8",
+    "samples": 20,
+    "sample_spacing_guest_frames": 2,
+    "initial_player": {
+      "x": 128,
+      "y": 400,
+      "mode": 0,
+      "vertical_velocity_fixed": 0
+    },
+    "input_sequence": [
+      "baseline",
+      "KBD_space+KBD_up through one callback barrier",
+      "WAIT for one guest frame, repeated through sample 20"
+    ],
+    "jump_initiation": {
+      "sample": 2,
+      "normalized_action_word": "0x0022",
+      "pre_mode": "0x00",
+      "post_mode": "0xFF",
+      "pre_y": 400,
+      "post_y": 400,
+      "post_vertical_velocity_fixed": -303104
+    },
+    "apex_transition": {
+      "sample": 11,
+      "pre_mode": "0xFF",
+      "post_mode": "0x01",
+      "pre_y": 383,
+      "post_y": 383,
+      "pre_vertical_velocity_fixed": -8192,
+      "post_vertical_velocity_fixed": 0
+    },
+    "landing": {
+      "sample": 20,
+      "pre_mode": "0x01",
+      "post_mode": "0x00",
+      "pre_y": 399,
+      "post_y": 400,
+      "pre_vertical_velocity_fixed": 143360,
+      "post_vertical_velocity_fixed": 0
+    },
+    "property_probe_counts": [6, 8, 5, 5, 5, 5, 5, 5, 5, 5, 4, 10, 10, 10, 10, 10, 10, 10, 10, 12],
+    "collision_trace_guards": false,
+    "probe_budget_note": "The fixture uses collision-event-limit 96 and repeat-limit 3. The lower repeat-limit used by an earlier diagnostic capture omitted valid repeated helper entries and is not parity evidence."
+  },
+  "result": {
+    "diagnostic_parity": "pass",
+    "callbacks_checked": 20,
+    "complete_player_records": true,
+    "normalized_input_mismatches": 0,
+    "post_record_mismatches": 0,
+    "ordered_property_probe_mismatches": 0,
+    "callback_global_write_mismatches": 0,
+    "known_effect_mismatches": 0,
+    "parity_command": "python3 research/tools/player_callback_parity.py --original research/build/traces/player-w1l1-jump-landing-parity-current-v2.json --archive game/NESTLE.DAT --map W1L1.MAP --binary build/engine/quiky-player-trace",
+    "interpretation": "The complete callback record, normalized input, ordered property probes, and callback-global writes match through W1L1 jump initiation, apex, free fall, and natural landing. Factory/effect arrays are not used as a completeness claim for this fixture."
+  },
+  "static_evidence": [
+    "research/notes/player-static-decomp.cpp",
+    "research/ghidra/player-callback-focused-audit.json",
+    "research/ghidra/player-callback-closure.json",
+    "Ghidra 01F7:41F7/4209 positive side probe order",
+    "Ghidra 01F7:3998 forward probe repeat/step gate"
+  ],
+  "unresolved_boundaries": [
+    "Natural ceiling contact and general descriptor class names remain separate runtime questions.",
+    "Moving-platform landing, inherited velocity, crushing, and culling remain outside this static-floor fixture.",
+    "Contact-object factory/effect publication is not asserted by this player-scoped capture."
+  ],
+  "status": "twenty W1L1 callbacks match the native implementation through jump initiation, apex, free fall, and natural landing"
+}

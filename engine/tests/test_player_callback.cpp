@@ -74,6 +74,10 @@ void testLandingAndCeilingResponses() {
     quiky::PlayerRecord landing = playerAt();
     updater.globalsForSetup().idleCounter4FEE = 0;
     landing.mode37 = 1;
+    // The positive-mode callback's initial 41F7/4209 probes do not publish
+    // +0x3B.  A descending contact reaches 3D02 with the latch already set
+    // by the preceding 4278 side test, so model that incoming state here.
+    landing.sideResponse3B = 0xff;
     landing.velocityY.raw = 0x1000;
     landing.syncToRaw();
     updater.updatePlayer(landing, quiky::InputState(), landingWorld, 0);
@@ -123,6 +127,9 @@ void testPostStepContactUsesCurrentRecordCoordinates() {
     quiky::PlayerRecord player = playerAt();
     player.positionY.raw = (397 << 16) + 0x4000;
     player.mode37 = 1;
+    // Model the incoming side-contact latch consumed by 3DF2 after the
+    // post-step probe; 41F7/4209 itself does not create this latch.
+    player.sideResponse3B = 0xff;
     player.velocityY.raw = 0x00039800;
     player.syncToRaw();
     updater.updatePlayer(player, quiky::InputState(), world, 0);

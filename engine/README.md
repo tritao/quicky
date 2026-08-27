@@ -469,6 +469,13 @@ transition to `0x01`, and the natural landing transition back to `0x00` at
 `y=512` with zero vertical velocity. The twenty-callback exact replay is
 recorded in [`player-w1l2-landing-parity-v1.json`](../research/evidence/player-dos-parity/player-w1l2-landing-parity-v1.json).
 
+The current W1L1 jump/landing replay closes the same arc at the main-repository
+startup position: 20 callbacks match from jump initiation through apex, free
+fall, and natural landing at `y=400`. It also validates the positive-mode
+`41F7/4209` direct side-probe ordering and the repeated `3998` forward-probe
+sequence. The evidence is recorded in
+[`player-w1l1-jump-landing-parity-current-v1.json`](../research/evidence/player-dos-parity/player-w1l1-jump-landing-parity-current-v1.json).
+
 The committed fixture and its candidate are under
 `research/evidence/player-dos-parity/`. Re-run the live replay with:
 

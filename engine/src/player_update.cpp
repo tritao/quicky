@@ -527,6 +527,21 @@ bool sideProbeClear(PlayerRecord &player,
     return !decision.occupied;
 }
 
+bool positiveModeSideDescriptorsClear(
+    const PlayerRecord &player,
+    const WorldCollisionView &world,
+    PlayerTraceSink *trace) {
+    // Static 01F7:41F7/4209: positive mode performs the ordered x-5/x+5
+    // quadrant tests directly.  Unlike 3A1F, this preliminary pair does not
+    // publish +0x3B=FF; the later 01F7:4278 call is the latch-producing side
+    // test after vertical integration.  Keeping this separate is observable
+    // when 3D02 follows a clear positive-mode pair.
+    const CollisionDecision decision = CollisionKernel::sideProbePair(
+        world, player.xPixel(), player.yPixel());
+    captureProbes(decision, trace);
+    return !decision.occupied;
+}
+
 void applyDescriptorCorrection(PlayerRecord &player,
                                const WorldCollisionView &world,
                                PlayerTraceSink *trace) {
@@ -1186,7 +1201,7 @@ void TraceClosedPlayerUpdate::updatePlayer(
             stage(trace, PlayerUpdateStage::PositiveMode);
             player.resetDeathTimer3E = static_cast<std::uint16_t>(
                 player.resetDeathTimer3E + 1);
-            if (sideProbeClear(player, world, trace) &&
+            if (positiveModeSideDescriptorsClear(player, world, trace) &&
                 probeMapMask(world, player.xPixel(), player.yPixel(), 0x4000,
                              trace)) {
                 player.setYPixel(static_cast<std::int16_t>(
