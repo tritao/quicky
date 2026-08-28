@@ -16,6 +16,8 @@ from quiky.runs import (RUN_SCHEMA, load_input_jsonl, save_input_jsonl,
                         verify_run_directory)
 from quiky.common import file_fingerprint, write_json
 from quiky.capture import capture_session
+from quiky.capture_stream import (append as append_capture_record,
+                                  read as read_capture_stream)
 from quiky.state import (CHECKPOINTS, STATE_SCHEMA, compare_state, import_trace,
                          label_lifecycle, load_state_jsonl, save_state_jsonl)
 
@@ -43,6 +45,18 @@ def capture(*samples: dict) -> dict:
 
 
 class QuikyToolingTests(unittest.TestCase):
+    def test_capture_stream_round_trips_and_recovers_complete_frames(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stream_path = Path(directory) / "capture.qcap"
+            with stream_path.open("wb") as stream:
+                append_capture_record(stream, trace_sample(1))
+                append_capture_record(stream, trace_sample(2))
+            self.assertEqual([row["sequence"] for row in read_capture_stream(
+                stream_path)], [1, 2])
+            stream_path.write_bytes(stream_path.read_bytes()[:-3])
+            self.assertEqual([row["sequence"] for row in read_capture_stream(
+                stream_path, tolerate_truncated_tail=True)], [1])
+
     def test_current_capture_imports_to_canonical_state(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -213,19 +227,45 @@ class QuikyToolingTests(unittest.TestCase):
             root = Path(directory)
             captured = root / "capture"
             captured.mkdir()
-            source = captured / "capture.json"
-            source.write_text(json.dumps(capture(trace_sample())), encoding="utf-8")
+            source = captured / "capture.qcap"
+            with source.open("wb") as stream:
+                append_capture_record(stream, trace_sample())
             fingerprint = file_fingerprint(source)
-            fingerprint["path"] = "capture.json"
+            fingerprint["path"] = "capture.qcap"
             write_json(captured / "manifest.json", {
                 "schema": "quiky.capture-session-v1", "format_version": 1,
                 "name": "played", "status": "complete", "level": "W1L1",
-                "files": {"capture.json": fingerprint},
+                "files": {"capture.qcap": fingerprint},
             })
             run = root / "run"
             completed = subprocess.run([
                 sys.executable, str(TOOLS / "quiky.py"), "capture", "process",
                 str(captured), "--run", str(run),
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(validate_run_directory(run)["name"], "run")
+
+    def test_incomplete_capture_recovers_complete_binary_frames(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            captured = root / "capture"
+            captured.mkdir()
+            source = captured / "capture.partial.qcap"
+            with source.open("wb") as stream:
+                append_capture_record(stream, trace_sample())
+                append_capture_record(stream, trace_sample(2))
+            source.write_bytes(source.read_bytes()[:-3])
+            fingerprint = file_fingerprint(source)
+            fingerprint["path"] = source.name
+            write_json(captured / "manifest.json", {
+                "schema": "quiky.capture-session-v1", "format_version": 1,
+                "name": "played", "status": "incomplete", "level": "W1L1",
+                "files": {source.name: fingerprint},
+            })
+            run = root / "run"
+            completed = subprocess.run([
+                sys.executable, str(TOOLS / "quiky.py"), "capture", "process",
+                str(captured), "--run", str(run), "--recover-incomplete",
             ], cwd=ROOT, text=True, capture_output=True, check=False)
             self.assertEqual(completed.returncode, 0, completed.stderr)
             self.assertEqual(validate_run_directory(run)["name"], "run")
@@ -236,8 +276,10 @@ class QuikyToolingTests(unittest.TestCase):
 
             def complete(command, **_kwargs):
                 output = Path(command[command.index("--output") + 1])
-                output.write_text(json.dumps(capture(trace_sample())), encoding="utf-8")
+                with output.open("wb") as stream:
+                    append_capture_record(stream, trace_sample())
                 self.assertIn("--interactive-capture", command)
+                self.assertIn("--player-minimal-callback-capture", command)
                 self.assertNotIn("--headless", command)
                 return SimpleNamespace(returncode=0)
 

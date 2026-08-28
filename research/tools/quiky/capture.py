@@ -8,6 +8,7 @@ import tempfile
 from pathlib import Path
 
 from .common import ToolError, file_fingerprint, read_json, tools_root, write_json
+from .capture_stream import read as read_capture_stream
 from .runs import stage_run_files
 from .state import import_input, import_trace, save_state_jsonl
 
@@ -18,34 +19,51 @@ def _mark_incomplete(capture: Path, temporary: Path,
                      manifest_path: Path, manifest: dict) -> None:
     manifest["status"] = "incomplete"
     if temporary.is_file():
-        partial = capture / "capture.partial.jsonl"
+        partial = capture / "capture.partial.qcap"
         temporary.replace(partial)
         fingerprint = file_fingerprint(partial)
-        fingerprint["path"] = "capture.partial.jsonl"
-        manifest["files"] = {"capture.partial.jsonl": fingerprint}
+        fingerprint["path"] = "capture.partial.qcap"
+        manifest["files"] = {"capture.partial.qcap": fingerprint}
     write_json(manifest_path, manifest)
 
 
 def process_capture(capture: Path, run: Path, *, name: str,
-                    profile: str) -> None:
+                    profile: str, recover_incomplete: bool = False) -> None:
     manifest = read_json(capture / "manifest.json")
-    if (not isinstance(manifest, dict) or manifest.get("schema") != CAPTURE_SCHEMA or
-            manifest.get("status") != "complete"):
+    if not isinstance(manifest, dict) or manifest.get("schema") != CAPTURE_SCHEMA:
+        raise ToolError(f"capture manifest is invalid: {capture}")
+    complete = manifest.get("status") == "complete"
+    if not complete and not recover_incomplete:
         raise ToolError(f"capture is not complete: {capture}")
-    source = capture / "capture.json"
+    source_name = "capture.qcap" if complete else "capture.partial.qcap"
+    source = capture / source_name
     actual = file_fingerprint(source)
-    expected = manifest.get("files", {}).get("capture.json", {})
+    expected = manifest.get("files", {}).get(source_name, {})
     if (actual["size"] != expected.get("size") or
             actual["sha256"] != expected.get("sha256")):
         raise ToolError(f"capture fingerprint mismatch: {source}")
     with tempfile.TemporaryDirectory(prefix="quiky-capture-process-") as temp:
+        imported = Path(temp) / "capture.json"
+        try:
+            samples = list(read_capture_stream(
+                source, tolerate_truncated_tail=recover_incomplete))
+        except (OSError, ValueError) as exc:
+            raise ToolError(f"invalid capture stream {source}: {exc}") from exc
+        if not samples:
+            raise ToolError(f"capture stream is empty: {source}")
+        write_json(imported, {
+            "schema": "quiky-player-dos-parity-v1",
+            "source_trace": "quikytrace",
+            "trace_kind": "player_callback",
+            "events": [{"samples": samples}],
+        })
         expected_state = Path(temp) / "expected-state.jsonl"
-        save_state_jsonl(expected_state, import_trace(source, profile))
+        save_state_jsonl(expected_state, import_trace(imported, profile))
         provenance = {"dos_capture": file_fingerprint(source)}
         for input_name, fingerprint in manifest.get("inputs", {}).items():
             provenance[input_name] = fingerprint
         stage_run_files(
-            run, name=name, profile=profile, input_rows=import_input(source),
+            run, name=name, profile=profile, input_rows=import_input(imported),
             expected_state=expected_state,
             provenance=provenance)
 
@@ -70,7 +88,7 @@ def capture_session(*, name: str, level: str, runtime_dir: Path,
             raise ToolError(f"capture input does not exist: {path}")
         inputs[input_name] = file_fingerprint(path)
     capture.mkdir(parents=True, exist_ok=True)
-    temporary = capture / ".capture.json.tmp"
+    temporary = capture / ".capture.qcap.tmp"
     manifest_path = capture / "manifest.json"
     manifest = {"schema": CAPTURE_SCHEMA, "format_version": 1, "name": name,
                 "status": "recording", "level": level, "files": {}}
@@ -81,7 +99,9 @@ def capture_session(*, name: str, level: str, runtime_dir: Path,
         "--launch", "--runtime-dir", str(runtime_dir),
         "--output", str(temporary), "--select-level", level,
         "--player-trace", "--player-focus-callback", "--player-capture-record",
-        "--player-parity-capture", "--interactive-capture",
+        "--player-parity-capture", "--player-minimal-callback-capture",
+        "--player-record-input",
+        "--interactive-capture",
         "--player-frames-between", "0", "--timeout", "86400",
     ]
     try:
@@ -92,11 +112,11 @@ def capture_session(*, name: str, level: str, runtime_dir: Path,
     if completed.returncode or not temporary.is_file():
         _mark_incomplete(capture, temporary, manifest_path, manifest)
         raise ToolError(f"interactive capture failed with status {completed.returncode}")
-    source = capture / "capture.json"
+    source = capture / "capture.qcap"
     temporary.replace(source)
     fingerprint = file_fingerprint(source)
-    fingerprint["path"] = "capture.json"
-    manifest.update(status="complete", files={"capture.json": fingerprint})
+    fingerprint["path"] = "capture.qcap"
+    manifest.update(status="complete", files={"capture.qcap": fingerprint})
     write_json(manifest_path, manifest)
     if capture_only:
         return capture, None

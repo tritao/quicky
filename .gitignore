@@ -12,6 +12,13 @@ research/build/
 !research/build/
 research/build/*
 research/artifacts/
+# Interactive parity sessions are local evidence. The checked-in w1l1-jump
+# run remains the deterministic test fixture; new captures/runs should be
+# recaptured when needed rather than adding binary traces to normal commits.
+research/captures/
+research/runs/*/
+!research/runs/w1l1-jump/
+!research/runs/w1l1-jump/**
 research/notes/
 !research/notes/
 research/notes/*

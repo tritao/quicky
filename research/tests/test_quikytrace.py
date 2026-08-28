@@ -186,7 +186,7 @@ class QuikyTraceTests(unittest.TestCase):
         source = compose_player_trace_source(
             Path(__file__).resolve().parents[1] / "automation/quiky_player_trace.lua",
             config)
-        self.assertIn("interactive_sample = sample", source)
+        self.assertIn('dosbox.emit("player", sample)', source)
 
     def test_player_trace_exports_complete_replay_callback_globals(self):
         source = (Path(__file__).resolve().parents[1] /

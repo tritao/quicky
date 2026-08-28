@@ -21,6 +21,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from quiky.capture_stream import (append as append_capture_record,
+                                  decode as decode_cbor)
 from quikyctl import build_are_type_catalog
 
 LOOKUP = (0x0207, 0x18C7)
@@ -412,6 +414,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_samples": config.input_samples,
         "input_warmup_frames": config.input_warmup_frames,
         "record_input_stream": config.record_input_stream,
+        "interactive_capture": config.interactive_capture,
         "input_hold_key": config.input_hold_key or "",
         "input_hold_frames": config.input_hold_frames,
         "input_phase_through_callback": config.input_phase_through_callback,
@@ -481,17 +484,26 @@ def compose_player_trace_source(script_path: Path, config: PlayerTraceConfig) ->
     except OSError as exc:
         raise TraceError(f"cannot compose player trace: {exc}") from exc
     if config.interactive_capture:
+        input_marker = "    local sample = {\n"
+        input_prefix = (
+            "    if record_input_stream then\n"
+            "        capture_input_sample()\n"
+            "        experiment_frame = experiment_frame + 1\n"
+            "    end\n" + input_marker)
+        if player_source.count(input_marker) != 1:
+            raise TraceError("interactive input publication point is ambiguous")
+        player_source = player_source.replace(input_marker, input_prefix)
         marker = "    samples[#samples + 1] = sample\n"
         publication = marker + (
-            "    dosbox.output.player_trace = {\n"
-            "        interactive_sequence = sequence,\n"
-            "        interactive_sample = sample,\n"
-            "    }\n"
+            "    dosbox.emit(\"player\", sample)\n"
+            "    samples = {}\n"
         )
         if player_source.count(marker) != 1:
             raise TraceError("interactive capture publication point is ambiguous")
         player_source = player_source.replace(marker, publication)
     prefix = "TRACE_CONFIG = " + lua_literal(player_trace_lua_config(config)) + "\n"
+    if config.interactive_capture:
+        prefix += "dosbox.debug_silent(true)\n"
     return prefix + common_source + "\n" + patch_watch_source + "\n" + player_source
 
 
@@ -678,7 +690,10 @@ def trace_player_lua(
     """Run the player/object-pool probe with one structured configuration."""
     source = compose_player_trace_source(script_path, config)
     name = urllib.parse.quote("quiky-player-trace")
-    api.request("POST", f"/api/v1/script/load?name={name}",
+    load_query = f"/api/v1/script/load?name={name}"
+    if config.interactive_capture:
+        load_query += "&instruction_limit=0"
+    api.request("POST", load_query,
                 text_body=source)
     api.post("/api/v1/script/start")
     deadline = time.monotonic() + config.timeout + 20
@@ -687,6 +702,18 @@ def trace_player_lua(
     captured: list[Path] = []
     latest: dict[str, Any] | None = None
     interactive_samples: list[dict[str, Any]] = []
+    last_event_sequence = 0
+
+    def window_closed() -> bool:
+        if process is None:
+            return False
+        if process.poll() is None:
+            try:
+                process.wait(timeout=1.0)
+            except subprocess.TimeoutExpired:
+                return False
+        return process.poll() is not None
+
     while config.interactive_capture or time.monotonic() < deadline:
         if process is not None and process.poll() is not None:
             if latest is None:
@@ -695,8 +722,8 @@ def trace_player_lua(
         try:
             status = api.get("/api/v1/script/status")
         except TraceError:
-            if (config.interactive_capture and process is not None and
-                    process.poll() is not None and latest is not None):
+            # SDL tears down the API socket just before the process is reaped.
+            if config.interactive_capture and window_closed() and latest is not None:
                 return latest, captured
             raise
         if status.get("state") == "error":
@@ -707,24 +734,48 @@ def trace_player_lua(
             api.post("/api/v1/input/sequence", {"events": recording["events"]})
             replayed = True
         result = status.get("output", {}).get("player_trace")
+        if config.interactive_capture and replayed:
+            try:
+                stream = decode_cbor(api.get_binary(
+                    f"/api/v1/script/events?after={last_event_sequence}"
+                    "&limit=256&format=cbor"))
+            except TraceError:
+                if window_closed() and latest is not None:
+                    return latest, captured
+                raise
+            oldest = stream.get("oldest")
+            if (isinstance(oldest, int) and
+                    last_event_sequence + 1 < oldest):
+                raise TraceError("interactive callback buffer overran host polling")
+            emitted = stream.get("events", [])
+            if not isinstance(emitted, list):
+                raise TraceError("interactive event response is malformed")
+            new_samples = []
+            for event in emitted:
+                if not isinstance(event, dict):
+                    raise TraceError("interactive event response is malformed")
+                sequence = event.get("sequence")
+                if sequence != last_event_sequence + 1:
+                    raise TraceError("interactive event sequence is not contiguous")
+                last_event_sequence = sequence
+                if event.get("channel") == "player":
+                    sample = event.get("payload")
+                    if not isinstance(sample, dict):
+                        raise TraceError("interactive player event is malformed")
+                    new_samples.append(sample)
+            new_samples = normalize_player_trace(
+                {"samples": new_samples})["samples"]
+            if new_samples and config.interactive_output is not None:
+                config.interactive_output.parent.mkdir(parents=True, exist_ok=True)
+                with config.interactive_output.open("ab") as journal:
+                    for sample in new_samples:
+                        append_capture_record(journal, sample)
+                    journal.flush()
+            interactive_samples.extend(new_samples)
+            if interactive_samples:
+                latest = {"samples": interactive_samples}
         if isinstance(result, dict):
             if config.interactive_capture:
-                sequence = result.get("interactive_sequence")
-                sample = result.get("interactive_sample")
-                if (isinstance(sequence, int) and isinstance(sample, dict) and
-                        sequence == len(interactive_samples) + 1):
-                    interactive_samples.append(sample)
-                    latest = {"samples": interactive_samples}
-                    if config.interactive_output is not None:
-                        config.interactive_output.parent.mkdir(
-                            parents=True, exist_ok=True)
-                        with config.interactive_output.open(
-                                "a", encoding="utf-8") as journal:
-                            journal.write(json.dumps(sample, separators=(",", ":")) + "\n")
-                            journal.flush()
-                elif (isinstance(sequence, int) and
-                      sequence > len(interactive_samples) + 1):
-                    raise TraceError("interactive callback publication skipped a sequence")
                 time.sleep(config.poll_interval)
                 continue
             latest = result
@@ -1653,8 +1704,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.dispatch_table:
         ledger["data_selector"] = dispatch.get("data_selector")
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    args.output.write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
-    print(f"wrote {len(events)} trace events to {args.output}")
+    if args.interactive_capture:
+        print(f"wrote {len(player_trace.get('samples', []))} capture records "
+              f"to {args.output}")
+    else:
+        args.output.write_text(json.dumps(ledger, indent=2) + "\n", encoding="utf-8")
+        print(f"wrote {len(events)} trace events to {args.output}")
     return 0
 
 

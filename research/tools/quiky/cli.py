@@ -78,6 +78,7 @@ def _capture_process_parser() -> argparse.ArgumentParser:
     parser.add_argument("--run", type=Path, required=True)
     parser.add_argument("--name")
     parser.add_argument("--profile", choices=PROFILES, default="exact")
+    parser.add_argument("--recover-incomplete", action="store_true")
     return parser
 
 
@@ -86,7 +87,8 @@ def _capture(args: list[str]) -> int:
         parsed = _capture_process_parser().parse_args(args[1:])
         process_capture(parsed.capture, parsed.run,
                         name=parsed.name or parsed.run.name,
-                        profile=parsed.profile)
+                        profile=parsed.profile,
+                        recover_incomplete=parsed.recover_incomplete)
         print(f"OK: recorded run created at {parsed.run}")
         return 0
     parsed = _capture_parser().parse_args(args)
