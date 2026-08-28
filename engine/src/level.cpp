@@ -2527,10 +2527,82 @@ void LevelSession::updateBiene(LevelEntity &entity,
         return fixedHighWord(entity.positionY.raw);
     };
 
+    // The retail startup builds DS:7974 before any BIENE can enter state 1.
+    // Native callers do not always provide that DOS-time/software-float table,
+    // though. Leaving the bee in state 1 in that case makes it look as if it
+    // never sees the player. Keep the fully recovered table path below, but
+    // give table-less sessions the same important gameplay contract: once the
+    // bee lines up with the player it dives, can sting, and then returns to its
+    // patrol height.
+    const auto updateTablelessAttack = [&entity, &player]() {
+        const std::int32_t playerX = player.positionX.floorPixels();
+        const std::int32_t playerY = player.positionY.floorPixels();
+        const std::int32_t targetDirection = playerX < entity.x ? -1 : 1;
+        const auto clampVelocity = [](std::int32_t value) {
+            return value < static_cast<std::int32_t>(-0x15000)
+                ? static_cast<std::int32_t>(-0x15000)
+                : (value > 0x15000 ? static_cast<std::int32_t>(0x15000)
+                                    : value);
+        };
+        const auto advance = [&entity]() {
+            entity.positionX.raw = Fixed16::wrapAddRaw(
+                entity.positionX.raw, entity.velocityX.raw);
+            entity.positionY.raw = Fixed16::wrapAddRaw(
+                entity.positionY.raw, entity.velocityY.raw);
+            entity.x = entity.positionX.floorPixels();
+            entity.y = entity.positionY.floorPixels();
+        };
+
+        entity.enemyOrientation = static_cast<std::int8_t>(targetDirection);
+        entity.enemyPatrolDirection = static_cast<std::int8_t>(targetDirection);
+        if (entity.enemyState == 1) {
+            ++entity.enemyTransitionTimer;
+            entity.velocityX.raw = clampVelocity(
+                Fixed16::wrapAddRaw(entity.velocityX.raw,
+                                    targetDirection * 0x1000));
+            entity.velocityY.raw = clampVelocity(
+                Fixed16::wrapAddRaw(entity.velocityY.raw, 0x3000));
+            advance();
+
+            // The original exits the dive through its transition states. The
+            // table-less fallback uses the same origin as the recovered
+            // initializer and starts the return arc after passing the player.
+            if (entity.y >= playerY + 24 ||
+                entity.enemyTransitionTimer >= 0x90) {
+                entity.enemyState = 2;
+                entity.enemyTransitionTimer = 0;
+                entity.enemyAnimationSequence = 0x33d2;
+                entity.velocityY.raw = -0x18000;
+            }
+            return;
+        }
+
+        if (entity.enemyState == 2) {
+            entity.velocityY.raw = clampVelocity(
+                Fixed16::wrapAddRaw(entity.velocityY.raw, -0x2000));
+            advance();
+            if (entity.positionY.raw <= entity.enemyOriginY36) {
+                entity.positionY.raw = entity.enemyOriginY36;
+                entity.y = entity.positionY.floorPixels();
+                entity.enemyState = 0;
+                entity.enemyTimer = 0x14;
+                entity.enemyPhaseTimer = 0;
+                entity.enemyTransitionTimer = 0;
+                entity.enemyAnimationSequence = 0x33c0;
+                entity.velocityY.raw = 0;
+            }
+        }
+    };
+
+    if (!_config.hasBieneRuntimeTable && entity.enemyState > 0) {
+        updateTablelessAttack();
+        return;
+    }
+
     // 01F7:68F0-6A61. The state-zero path uses the same raw 1C4D MAP gate
     // published in entity.mapBlocked. Its range gate depends on DS:81C4;
-    // the native caller may supply that value through the camera stream
-    // anchor, while a missing anchor leaves the transition explicitly inert.
+    // the native caller supplies that value through the camera stream anchor
+    // when available, while setup-only sessions use the active player view.
     if (static_cast<std::uint16_t>(entity.enemyState) < 1) {
         const std::int32_t orientation = entity.enemyOrientation;
         const std::int32_t patrolDirection = entity.enemySourceOrKind2c;
@@ -2586,42 +2658,38 @@ void LevelSession::updateBiene(LevelEntity &entity,
             }
         }
 
-        if (_streamAnchorActive) {
-            const std::int16_t playerX = static_cast<std::int16_t>(
-                player.positionX.floorPixels());
-            const std::int16_t playerY = static_cast<std::int16_t>(
-                player.positionY.floorPixels());
-            const std::int16_t objectX = transitionX();
-            const std::int16_t objectY = transitionY();
-            bool inXRange = false;
-            if (entity.enemyOrientation < 0) {
-                const std::int16_t right = static_cast<std::int16_t>(
-                    playerX + 0x28);
-                inXRange = objectX < right && objectX >
-                    static_cast<std::int16_t>(right - 5);
-            } else {
-                const std::int16_t left = static_cast<std::int16_t>(
-                    playerX - 0x28);
-                inXRange = objectX > left && objectX <
-                    static_cast<std::int16_t>(left + 5);
-            }
-            if (inXRange && objectY < playerY &&
-                objectY > static_cast<std::int16_t>(_streamAnchorY)) {
-                entity.enemyState = 1;
-                loadAnimation(0x33c8);
-            }
+        const std::int16_t playerX = static_cast<std::int16_t>(
+            player.positionX.floorPixels());
+        const std::int16_t playerY = static_cast<std::int16_t>(
+            player.positionY.floorPixels());
+        const std::int16_t objectX = transitionX();
+        const std::int16_t objectY = transitionY();
+        bool inXRange = false;
+        if (entity.enemyOrientation < 0) {
+            const std::int16_t right = static_cast<std::int16_t>(
+                playerX + 0x28);
+            inXRange = objectX < right && objectX >
+                static_cast<std::int16_t>(right - 5);
+        } else {
+            const std::int16_t left = static_cast<std::int16_t>(
+                playerX - 0x28);
+            inXRange = objectX > left && objectX <
+                static_cast<std::int16_t>(left + 5);
+        }
+        // DS:81C4 is the camera's top edge in the retail callback. A
+        // setup-only session has no published camera, so the player itself is
+        // the only safe sight reference and the lower-edge test is omitted.
+        const bool belowSightTop = !_streamAnchorActive ||
+            objectY > static_cast<std::int16_t>(_streamAnchorY);
+        if (inXRange && objectY < playerY && belowSightTop) {
+            entity.enemyState = 1;
+            entity.enemyTransitionTimer = 0;
+            loadAnimation(0x33c8);
         }
         return;
     }
 
-    // States 1-8 consume startup-built DS:7974. Keep this as an explicit
-    // external-data boundary when the runtime table has not been injected;
-    // state-zero motion above is fully independent of that table.
-    if (!_config.hasBieneRuntimeTable)
-        return;
-
     // 01F7:6A69-6AC5. DS:7974 is indexed by a 10-bit wrapped phase. The
-    // original writes the vertical high word as a 16-bit word, so preserve
     // that width instead of treating the operation as fixed-point addition.
     if (static_cast<std::uint16_t>(entity.enemyState) < 2) {
         const std::uint16_t oldHigh = static_cast<std::uint16_t>(

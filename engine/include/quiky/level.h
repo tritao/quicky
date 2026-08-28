@@ -154,9 +154,9 @@ struct LevelSessionConfig {
     std::array<std::uint8_t, 0x100> leafPrngRing;
 
     // 01F7:0A43 builds DS:7974 at startup and BIENE state 1 consumes its
-    // first 0x400 signed bytes.  The generated values are intentionally an
-    // explicit replay input until the DOS-time/software-float initializer is
-    // ported; a zeroed/default config never enables this path.
+    // first 0x400 signed bytes.  A replay can provide the generated values;
+    // ordinary native play uses the table-less sting fallback when it does
+    // not have the DOS-time/software-float initializer yet.
     bool hasBieneRuntimeTable;
     std::array<std::int8_t, 0x400> bieneRuntimeTable;
 

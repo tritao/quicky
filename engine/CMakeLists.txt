@@ -172,3 +172,7 @@ target_link_libraries(quiky-w1l1-inventory-tests PRIVATE quiky_core)
 add_test(NAME quiky-w1l1-inventory-tests
     COMMAND quiky-w1l1-inventory-tests
             ${CMAKE_CURRENT_SOURCE_DIR}/../game/NESTLE.DAT)
+
+add_executable(quiky-biene-tests tests/test_biene.cpp)
+target_link_libraries(quiky-biene-tests PRIVATE quiky_core)
+add_test(NAME quiky-biene-tests COMMAND quiky-biene-tests)
