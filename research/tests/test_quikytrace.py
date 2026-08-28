@@ -731,6 +731,7 @@ class QuikyTraceTests(unittest.TestCase):
                     "player_callback": {
                         "writes": {"2": {"offset": 7}, "1": {"offset": 3}},
                         "global_writes": {"1": {"field": "camera_x"}},
+                        "effect_dispatches": {"1": {"address": 9}},
                     }
                 }
             }
@@ -738,6 +739,7 @@ class QuikyTraceTests(unittest.TestCase):
         callback = trace["samples"][0]["player_callback"]
         self.assertEqual([item["offset"] for item in callback["writes"]], [3, 7])
         self.assertEqual(callback["global_writes"][0]["field"], "camera_x")
+        self.assertEqual(callback["effect_dispatches"], [{"address": 9}])
 
     def test_player_spawn_probe_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"

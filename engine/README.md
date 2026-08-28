@@ -534,6 +534,31 @@ python3 research/tools/player_callback_parity.py \
   --binary build/engine/quiky-player-trace
 ```
 
+To include the callback's known pending-sound dispatch in a strict comparison,
+add the Ghidra-addressed watch and request that field explicitly:
+
+```sh
+python3 research/tools/quikytrace.py --launch --headless --runtime-dir game \
+  --select-level W1L1 --player-trace --player-focus-callback \
+  --player-capture-record --player-parity-capture \
+  --player-watch-execute 0x1e7:0xfcf \
+  --output research/build/traces/player-effect-watch.json \
+  --player-input-phase KBD_space+KBD_up:0 \
+  --player-input-phase WAIT:1
+python3 research/tools/player_callback_parity.py \
+  --original research/build/traces/player-effect-watch.json \
+  --archive game/NESTLE.DAT --map W1L1.MAP \
+  --binary build/engine/quiky-player-trace \
+  --require-field effects \
+  --coverage-report research/build/traces/player-effect-watch-report.json
+```
+
+The explicit watch publishes an empty effect array for callbacks where the
+boundary was observed and records `01E7:0FCF` when it executes. This closes the
+known effect field without treating the still-uninstrumented `0E06` factory
+output as empty; use `--require-complete` only with a capture that also
+publishes factory objects.
+
 The exact callback-selected animation words and the runtime-`DS` basis are
 pinned in
 [`player-animation-tables-static-v1.json`](../research/evidence/player-dos-parity/player-animation-tables-static-v1.json)

@@ -24,6 +24,7 @@ from quiky.parity import (
     canonical_input,
     canonical_probes,
     compare_player,
+    player_parity_coverage,
     validate_record,
 )
 from quiky.trace import TraceError, extract_samples, load_trace
@@ -77,8 +78,12 @@ def record_hex(sample: dict[str, Any], which: str) -> str | None:
 
 
 def compare(original: Path, candidate: Path,
-            require_complete: bool = False) -> list[dict[str, Any]]:
-    return compare_player(original, candidate, require_complete=require_complete)
+            require_complete: bool = False,
+            required_fields: list[str] | None = None
+            ) -> list[dict[str, Any]]:
+    return compare_player(original, candidate,
+                          require_complete=require_complete,
+                          required_fields=required_fields)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -90,10 +95,40 @@ def main(argv: list[str] | None = None) -> int:
         "--require-complete", action="store_true",
         help="fail when either trace omits a comparable callback field",
     )
+    parser.add_argument(
+        "--require-field", action="append", default=[],
+        choices=("input_flags", "probes", "global_writes",
+                 "factory_objects", "effects"),
+        help="fail when either trace omits this comparable field; repeatable",
+    )
+    parser.add_argument(
+        "--coverage-report", type=Path,
+        help="write machine-readable field coverage for both traces",
+    )
     args = parser.parse_args(argv)
     try:
-        mismatches = compare(args.original, args.candidate,
-                             require_complete=args.require_complete)
+        if args.coverage_report is not None:
+            report = {
+                "schema": "quiky.player-parity-report.v1",
+                "required_fields": sorted(set(args.require_field) | (
+                    {"input_flags", "probes", "global_writes",
+                     "factory_objects", "effects"}
+                    if args.require_complete else set()
+                )),
+                "original": player_parity_coverage(args.original),
+                "candidate": player_parity_coverage(args.candidate),
+            }
+            args.coverage_report.parent.mkdir(parents=True, exist_ok=True)
+            args.coverage_report.write_text(
+                json.dumps(report, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        mismatches = compare(
+            args.original,
+            args.candidate,
+            require_complete=args.require_complete,
+            required_fields=args.require_field,
+        )
     except ParityError as exc:
         print(f"player-parity: {exc}", file=sys.stderr)
         return 2

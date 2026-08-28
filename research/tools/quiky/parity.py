@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterable
 
 from .trace import NormalizedSample, TraceError, extract_samples, load_trace
 
@@ -15,6 +15,15 @@ class ParityError(Exception):
 
 class SessionTraceError(Exception):
     """Raised when a session trace cannot be compared safely."""
+
+
+PLAYER_PARITY_FIELDS = (
+    "input_flags",
+    "probes",
+    "global_writes",
+    "factory_objects",
+    "effects",
+)
 
 
 GLOBAL_FIELD_MAP = {
@@ -43,6 +52,23 @@ def _callback(sample: NormalizedSample | dict[str, Any]) -> dict[str, Any] | Non
         return sample.callback
     value = sample.get("player_callback")
     return value if isinstance(value, dict) else None
+
+
+def _ordered_array(value: Any) -> list[Any] | None:
+    """Accept JSON arrays and Lua's numeric-key table representation."""
+
+    if isinstance(value, list):
+        return value
+    if not isinstance(value, dict):
+        return None
+    indexed: list[tuple[int, Any]] = []
+    for key, item in value.items():
+        try:
+            index = int(key)
+        except (TypeError, ValueError):
+            return None
+        indexed.append((index, item))
+    return [item for _, item in sorted(indexed)]
 
 
 def _record_hex(sample: NormalizedSample | dict[str, Any], which: str) -> str | None:
@@ -182,11 +208,15 @@ def canonical_globals(sample: NormalizedSample | dict[str, Any]) -> Any:
 
 
 def canonical_factory(sample: NormalizedSample | dict[str, Any]) -> Any:
-    event = _raw(sample).get("factory_event")
+    raw = _raw(sample)
+    event = raw.get("factory_event")
+    if not isinstance(event, dict):
+        callback = _callback(sample)
+        event = callback.get("factory_event") if callback is not None else None
     if not isinstance(event, dict):
         return None
-    created = event.get("created_objects")
-    if not isinstance(created, list):
+    created = _ordered_array(event.get("created_objects"))
+    if created is None:
         return None
     selected = []
     for obj in created:
@@ -207,12 +237,78 @@ def canonical_factory(sample: NormalizedSample | dict[str, Any]) -> Any:
 def canonical_effects(sample: NormalizedSample | dict[str, Any]) -> Any:
     raw = _raw(sample)
     callback = _callback(sample)
-    if callback is not None and isinstance(callback.get("effect_dispatches"), list):
-        return callback["effect_dispatches"]
+    if callback is not None:
+        for key in ("effects", "effect_dispatches"):
+            value = _ordered_array(callback.get(key))
+            if value is not None:
+                return value
     for key in ("effects", "effect_dispatches"):
-        if isinstance(raw.get(key), list):
-            return raw[key]
+        value = _ordered_array(raw.get(key))
+        if value is not None:
+            return value
     return None
+
+
+def _record_coverage(value: str | None) -> str:
+    if value is None:
+        return "missing"
+    try:
+        validate_record(value, "player parity coverage")
+    except ParityError:
+        return "invalid"
+    return "present"
+
+
+def _field_coverage(values: Iterable[tuple[int, Any]]) -> dict[str, Any]:
+    present = 0
+    missing: list[int] = []
+    for sequence, value in values:
+        if value is None:
+            missing.append(sequence)
+        else:
+            present += 1
+    return {"present": present, "missing": missing}
+
+
+def player_parity_coverage(path: Path) -> dict[str, Any]:
+    """Report which comparable player fields a trace actually publishes."""
+
+    try:
+        trace = load_trace(path)
+    except TraceError as exc:
+        raise ParityError(str(exc)) from exc
+
+    samples = trace.by_sequence
+    record_fields: dict[str, dict[str, Any]] = {}
+    for which in ("pre", "post"):
+        statuses = {"present": 0, "missing": [], "invalid": []}
+        for sequence, sample in sorted(samples.items()):
+            status = _record_coverage(_record_hex(sample, which))
+            if status == "present":
+                statuses["present"] += 1
+            else:
+                statuses[status].append(sequence)
+        record_fields[f"{which}_record"] = statuses
+
+    comparable = {
+        "input_flags": canonical_input,
+        "probes": canonical_probes,
+        "global_writes": canonical_globals,
+        "factory_objects": canonical_factory,
+        "effects": canonical_effects,
+    }
+    fields: dict[str, Any] = dict(record_fields)
+    for field, getter in comparable.items():
+        fields[field] = _field_coverage(
+            (sequence, getter(sample))
+            for sequence, sample in sorted(samples.items())
+        )
+    return {
+        "schema": "quiky.player-parity-coverage.v1",
+        "trace": str(path),
+        "samples": len(samples),
+        "fields": fields,
+    }
 
 
 def canonical_input(sample: NormalizedSample | dict[str, Any]) -> Any:
@@ -234,12 +330,23 @@ def canonical_input(sample: NormalizedSample | dict[str, Any]) -> Any:
 
 
 def compare_player(original: Path, candidate: Path,
-                   require_complete: bool = False) -> list[dict[str, Any]]:
+                   require_complete: bool = False,
+                   required_fields: Iterable[str] | None = None
+                   ) -> list[dict[str, Any]]:
     try:
         left = load_trace(original).by_sequence
         right = load_trace(candidate).by_sequence
     except TraceError as exc:
         raise ParityError(str(exc)) from exc
+    required = set(required_fields or ())
+    if require_complete:
+        required.update(PLAYER_PARITY_FIELDS)
+    unknown_required = required.difference(PLAYER_PARITY_FIELDS)
+    if unknown_required:
+        raise ParityError(
+            "unknown player parity field(s): "
+            + ", ".join(sorted(unknown_required))
+        )
     mismatches: list[dict[str, Any]] = []
     for sequence in sorted(set(left) | set(right)):
         if sequence not in left or sequence not in right:
@@ -269,7 +376,7 @@ def compare_player(original: Path, candidate: Path,
                   ("factory_objects", canonical_factory(a), canonical_factory(b)),
                   ("effects", canonical_effects(a), canonical_effects(b)))
         for field, av, bv in fields:
-            if not require_complete:
+            if field not in required:
                 if av is None:
                     av = []
                 if bv is None:

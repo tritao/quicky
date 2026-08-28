@@ -69,8 +69,10 @@ The first Lua consolidation pass now keeps that migration small:
   post-baseline sample windows.
 
 The player trace schema remains version 1. Existing focused options and output
-fields are unchanged; mutation ledgers are additive and appear only when a
-declarative patch is requested.
+fields are unchanged unless an opt-in watch publishes an additional boundary;
+mutation ledgers and callback `effect_dispatches` are additive. The latter is
+published only for an explicit `01E7:0FCF` watch, so an empty array is observed
+negative evidence rather than a default for an uninstrumented trace.
 
 The hardening follow-up routes every canonical player breakpoint through the
 owner-aware controller and records owners on primary and related hits.

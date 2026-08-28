@@ -899,6 +899,10 @@ def normalize_player_trace(trace: dict[str, Any]) -> dict[str, Any]:
                 callback["global_writes"] = ordered_lua_array(
                     callback.get("global_writes", [])
                 )
+            if "effect_dispatches" in callback:
+                callback["effect_dispatches"] = ordered_lua_array(
+                    callback.get("effect_dispatches", [])
+                )
     census = trace.get("descriptor_census")
     if isinstance(census, dict):
         table = census.get("descriptor_table")

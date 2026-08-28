@@ -7,6 +7,13 @@ local patch_watch = assert(QUIKY_PATCH_WATCH, "QUIKY_PATCH_WATCH was not loaded"
 local breakpoint_controller = common.new_breakpoint_controller(dosbox)
 local patch_engine = patch_watch.new(dosbox, trace_config.patches or {})
 local execute_watches = trace_config.execute_watches or {}
+local pending_sound_watch_enabled = false
+for _, watch in ipairs(execute_watches) do
+    if watch.segment == 0x01e7 and watch.offset == 0x0fcf then
+        pending_sound_watch_enabled = true
+        break
+    end
+end
 local timeout_ms = trace_config.timeout_ms or 30000
 local sample_count = trace_config.samples or 8
 local frames_between = trace_config.frames_between or 30
@@ -1720,6 +1727,17 @@ local function record_execute_watch(sample, hit)
         end
     end
     event.external_dispatch = external_dispatch_snapshot(hit)
+    if hit.segment == 0x01e7 and hit.offset == 0x0fcf and
+       sample.player_callback ~= nil and
+       sample.player_callback.effect_dispatches ~= nil then
+        local registers = hit.registers or {}
+        sample.player_callback.effect_dispatches[
+            #sample.player_callback.effect_dispatches + 1
+        ] = {
+            address = 0x01e70fcf,
+            code = (registers.edx or 0) & 0xffff,
+        }
+    end
     if event.external_dispatch ~= nil and
        event.external_dispatch.callback ~= nil and
        event.external_dispatch.callback.word_0x18 ~= nil and
@@ -2484,6 +2502,12 @@ for sequence = 1, sample_count do
             pre_globals = callback_globals_before,
             record_size = callback_object and callback_object.state_size or 0x40,
         }
+        if pending_sound_watch_enabled then
+            -- This array is present only when the explicit 01E7:0FCF watch
+            -- instruments the callback. An empty array is therefore real
+            -- negative evidence for that boundary, not an inferred absence.
+            sample.player_callback.effect_dispatches = {}
+        end
         local stack = dosbox.mem_read(
             "ss", (hit.registers.esp or 0) & 0xffff, 4) or ""
         if #stack >= 4 and callback_object ~= nil then

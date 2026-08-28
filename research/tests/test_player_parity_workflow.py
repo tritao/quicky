@@ -14,7 +14,12 @@ from player_replay_manifest import (  # noqa: E402
     write_tsv,
 )
 from w1l1_session_parity import build_command  # noqa: E402
-from quiky.parity import canonical_global_write, canonical_probes  # noqa: E402
+from quiky.parity import (  # noqa: E402
+    canonical_global_write,
+    canonical_probes,
+    compare_player,
+    player_parity_coverage,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -187,6 +192,39 @@ class PlayerParityWorkflowTests(unittest.TestCase):
         self.assertTrue(any(item["field"] == "global_writes"
                             and "missing" in item.get("error", "")
                             for item in mismatches))
+
+    def test_field_selective_mode_keeps_uninstrumented_fields_explicit(self):
+        source = ROOT / "research/build/player-followup-standing-v1.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        candidate = json.loads(json.dumps(payload))
+        candidate["events"][0]["samples"][0]["player_callback"]["effects"] = []
+        with tempfile.TemporaryDirectory() as directory:
+            original_path = Path(directory) / "original.json"
+            candidate_path = Path(directory) / "candidate.json"
+            original_path.write_text(json.dumps(payload), encoding="utf-8")
+            candidate_path.write_text(json.dumps(candidate), encoding="utf-8")
+            mismatches = compare_player(
+                original_path, candidate_path, required_fields=["effects"]
+            )
+        self.assertFalse(any(item["field"] == "global_writes"
+                             for item in mismatches))
+        self.assertTrue(any(item["field"] == "effects"
+                            and "missing" in item.get("error", "")
+                            for item in mismatches))
+
+    def test_player_parity_coverage_distinguishes_missing_from_empty(self):
+        source = ROOT / "research/build/player-followup-standing-v1.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        sample = payload["events"][0]["samples"][0]
+        sample["player_callback"]["effects"] = []
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "coverage.json"
+            path.write_text(json.dumps(payload), encoding="utf-8")
+            coverage = player_parity_coverage(path)
+        self.assertEqual(coverage["schema"], "quiky.player-parity-coverage.v1")
+        self.assertEqual(coverage["fields"]["effects"]["present"], 1)
+        self.assertEqual(coverage["fields"]["factory_objects"]["missing"],
+                         list(range(1, 9)))
 
     def test_w1l1_session_gate_injects_derived_ring_and_replay_inputs(self):
         command = build_command(
