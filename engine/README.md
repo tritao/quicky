@@ -592,6 +592,13 @@ Explicit unresolved boundaries:
   pending ARE-event queue. The camera bridge through `20AF -> 31D1 -> 1ED7`
   now has static fixed-point and page-refresh contracts. Timer/VGA/resource targets remain address-named
   contracts because they do not directly write player simulation state;
+- the scheduler recovery edge is now separately pinned in
+  [`player-scheduler-lifecycle-static-v1.json`](../research/evidence/player-dos-parity/player-scheduler-lifecycle-static-v1.json):
+  `4BA4 -> 106A` performs selected-bank cleanup before
+  `1AF5 -> 1AAA -> 0B56 -> 0E06 -> 1036` resets and republishes the player
+  entry, while `0FA2` consumes secondary callbacks afterward. The opaque
+  resource/teardown calls around that sequence and post-culling membership
+  remain unresolved.
 - the no-descriptor-table fallback, which remains a deliberate research
   boundary.
 

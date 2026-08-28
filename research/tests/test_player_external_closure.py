@@ -16,6 +16,7 @@ from verify_player_external_closure import (  # noqa: E402
     check_natural_tile41_contact_evidence,
     check_negative_mode_second_probe_evidence,
     check_runtime_scheduler_membership,
+    check_scheduler_lifecycle_static,
     check_scheduler_order,
     check_transition_effect_static,
     check_transition_writer_callback_evidence,
@@ -48,6 +49,9 @@ class PlayerExternalClosureTests(unittest.TestCase):
 
     def test_runtime_scheduler_membership_is_audited(self):
         check_runtime_scheduler_membership(self.ledger, ROOT)
+
+    def test_scheduler_lifecycle_static_contract_is_audited(self):
+        check_scheduler_lifecycle_static(self.ledger, ROOT)
 
     def test_death_recovery_static_closure_is_audited(self):
         check_death_recovery_static(self.ledger, ROOT)

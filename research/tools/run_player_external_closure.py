@@ -211,7 +211,8 @@ SEG3_LISTING = [
     # Exact scheduler/carry boundary listings.  These preserve the phase,
     # bank-selection, RET/RETF, and flag details that the C-like export can
     # normalize away while remaining inside the player/platform closure.
-    ("0E96", 176), ("0FDC", 80), ("0FA2", 64), ("1036", 112),
+    ("0B56", 48), ("0E96", 176), ("0FDC", 80), ("0FA2", 64),
+    ("1036", 112), ("106A", 64), ("17D4", 80),
     # ARE stream walker and the reload-side map rebuild that reaches it.
     ("1CDA", 128), ("1E04", 448), ("1997", 128), ("3529", 128), ("34E3", 128), ("3808", 64), ("321F", 384),
     # Camera/map refresh closure called by 321F. Keep the caller-local 2064

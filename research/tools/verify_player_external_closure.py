@@ -1353,6 +1353,129 @@ def check_runtime_scheduler_membership(ledger: dict[str, Any], root: Path) -> No
         raise ExternalClosureError("scheduler membership rotated-bank observation is missing")
 
 
+def check_scheduler_lifecycle_static(ledger: dict[str, Any], root: Path) -> None:
+    closure = ledger.get("scheduler_lifecycle_static")
+    if not isinstance(closure, dict):
+        raise ExternalClosureError("scheduler_lifecycle_static must be an object")
+    if closure.get("status") != (
+        "scheduler_reset_rebuild_and_secondary_dispatch_static_contract_closed_"
+        "runtime_teardown_order_open"
+    ):
+        raise ExternalClosureError("scheduler lifecycle static status drifted")
+    if closure.get("runner") != "research/tools/run_player_external_closure.py":
+        raise ExternalClosureError("scheduler lifecycle runner drifted")
+    if closure.get("ghidra_language") != "x86:LE:16:Protected Mode":
+        raise ExternalClosureError("scheduler lifecycle export must use protected-mode Ghidra")
+    if closure.get("source_executable_sha256") != ledger["source"]["executable_sha256"]:
+        raise ExternalClosureError("scheduler lifecycle executable hash drifted")
+
+    note_path = root / closure.get("static_note", "")
+    if not note_path.is_file():
+        raise ExternalClosureError(f"missing scheduler lifecycle static note: {note_path}")
+    if sha256(note_path) != closure.get("static_note_sha256"):
+        raise ExternalClosureError("scheduler lifecycle static note hash drifted")
+    note_text = note_path.read_text(encoding="utf-8")
+    for anchor in (
+        "player_object_reinitialize_0B56",
+        "register_object_scheduler_entry_1036",
+        "clear_selected_scheduler_callbacks_106A",
+        "clear_are_event_queue_17D4",
+        "dispatch_secondary_callbacks_0FA2",
+        "01D7:4BA4 gate",
+        "01F7:1AAA first far call -> 01F7:0B56",
+    ):
+        if anchor not in note_text:
+            raise ExternalClosureError(f"scheduler lifecycle note missing anchor: {anchor}")
+
+    evidence_path = root / closure.get("evidence", "")
+    if not evidence_path.is_file():
+        raise ExternalClosureError(f"missing scheduler lifecycle evidence: {evidence_path}")
+    if sha256(evidence_path) != closure.get("evidence_sha256"):
+        raise ExternalClosureError("scheduler lifecycle evidence hash drifted")
+    evidence = json.loads(evidence_path.read_text(encoding="utf-8"))
+    if evidence.get("schema") != "quiky.player-scheduler-lifecycle-static.v1":
+        raise ExternalClosureError("unexpected scheduler lifecycle evidence schema")
+    source = evidence.get("source", {})
+    if source.get("executable_sha256") != ledger["source"]["executable_sha256"]:
+        raise ExternalClosureError("scheduler lifecycle evidence executable hash drifted")
+    if source.get("output") != closure.get("output"):
+        raise ExternalClosureError("scheduler lifecycle evidence output drifted")
+    if source.get("lifecycle_decomp_sha256") != closure.get("lifecycle_decomp_sha256"):
+        raise ExternalClosureError("scheduler lifecycle decomp hash drifted")
+    if source.get("scheduler_listing_sha256") != closure.get("scheduler_listing_sha256"):
+        raise ExternalClosureError("scheduler lifecycle scheduler listing hash drifted")
+    if source.get("mainloop_listing_sha256") != closure.get("mainloop_listing_sha256"):
+        raise ExternalClosureError("scheduler lifecycle mainloop listing hash drifted")
+    if source.get("independent_project_check") != (
+        "passed; project-a and project-b outputs matched"
+    ):
+        raise ExternalClosureError("scheduler lifecycle independent Ghidra check is not passed")
+
+    output = root / closure["output"]
+    decomp = output / "decomp-lifecycle-seg3-a/QUIKY_SEG03.bin.c"
+    scheduler_listing = output / "disasm-seg3-a/QUIKY_SEG03.bin.asm"
+    mainloop_listing = output / "disasm-a/QUIKY_SEG01.bin.asm"
+    for artifact in (decomp, scheduler_listing, mainloop_listing):
+        if not artifact.is_file():
+            raise ExternalClosureError(f"missing scheduler lifecycle Ghidra artifact: {artifact}")
+    if sha256(decomp) != closure["lifecycle_decomp_sha256"]:
+        raise ExternalClosureError("scheduler lifecycle decompilation artifact drifted")
+    if sha256(scheduler_listing) != closure["scheduler_listing_sha256"]:
+        raise ExternalClosureError("scheduler lifecycle listing artifact drifted")
+    if sha256(mainloop_listing) != closure["mainloop_listing_sha256"]:
+        raise ExternalClosureError("scheduler lifecycle mainloop artifact drifted")
+
+    scheduler_text = scheduler_listing.read_text(encoding="utf-8")
+    for token in (
+        "0000:0b56  MOV word ptr [0x7966],0x0",
+        "0000:0b62  MOV word ptr [SI],AX",
+        "0000:0b67  MOV word ptr [SI],AX",
+        "0000:0b6f  CALLF 0x0000:ffff",
+        "0000:0b74  MOV word ptr [0x881a],DI",
+        "0000:0b78  MOV byte ptr ES:[DI + 0x17],0x2",
+        "0000:1036  AND word ptr ES:[DI + 0x18],0xffff",
+        "0000:104e  MOV word ptr [SI + 0x2],BX",
+        "0000:105a  ADD word ptr [0x7966],0x8",
+        "0000:105f  MOV word ptr [SI + 0x8],0xffff",
+        "0000:106a  CALLF 0x0000:ffff",
+        "0000:107c  AND AX,0x200",
+        "0000:1099  CMP word ptr ES:[DI + 0x1a],-0x1",
+        "0000:10a9  MOV word ptr ES:[DI + 0x18],0x0",
+        "0000:17d7  MOV CX,0x80",
+        "0000:17e7  MOV byte ptr FS:[BX + 0x1],0x0",
+        "0000:17ec  MOV word ptr [SI],0x0",
+        "0000:0fba  MOV AX,word ptr [SI + 0x2]",
+        "0000:0fcd  CALL AX",
+    ):
+        if token not in scheduler_text:
+            raise ExternalClosureError(f"scheduler lifecycle listing lost: {token}")
+    mainloop_text = mainloop_listing.read_text(encoding="utf-8")
+    for token in (
+        "0000:4bce  CALLF 0x0000:ffff",
+        "0000:4bd5  MOV [0x85d2],AX",
+        "0000:4c2b  CALLF 0x0000:ffff",
+    ):
+        if token not in mainloop_text:
+            raise ExternalClosureError(f"scheduler lifecycle mainloop listing lost: {token}")
+
+    contracts = evidence.get("contracts", [])
+    by_address = {
+        item.get("address"): item for item in contracts if isinstance(item, dict)
+    }
+    for address in ("01F7:0B56", "01F7:1036", "01F7:106A", "01F7:17D4", "01F7:0FA2"):
+        if address not in by_address:
+            raise ExternalClosureError(f"scheduler lifecycle contract missing: {address}")
+        for field in ("calling_convention", "inputs_outputs", "global_fields_written", "callees", "confidence", "evidence"):
+            if field not in by_address[address]:
+                raise ExternalClosureError(
+                    f"scheduler lifecycle contract {address} lacks {field}"
+                )
+    if evidence.get("recovery_order", {}).get("static_sequence", [])[1] != (
+        "01D7:4BCE -> 01F7:106A selected-bank cleanup"
+    ):
+        raise ExternalClosureError("scheduler lifecycle recovery order drifted")
+
+
 def check_death_recovery_static(ledger: dict[str, Any], root: Path | None = None) -> None:
     closure = ledger.get("death_recovery_static")
     if not isinstance(closure, dict):
