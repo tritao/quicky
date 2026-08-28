@@ -24,6 +24,7 @@ from quiky.runs import (  # noqa: E402
     verify_run_directory,
 )
 from quiky.trace import load_trace  # noqa: E402
+from recorded_run_from_trace import input_rows  # noqa: E402
 
 
 def record(seed: str) -> str:
@@ -172,6 +173,18 @@ class QuikyToolingTests(unittest.TestCase):
             self.assertEqual(json.loads((run / "parity.json").read_text())[
                 "status"], "pass")
             validate_run_directory(run)
+
+    def test_raw_trace_import_materializes_explicit_input_rows(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trace = root / "trace.json"
+            trace.write_text(json.dumps({"samples": [sample()]}),
+                             encoding="utf-8")
+            rows = input_rows(trace)
+            self.assertEqual(rows, [{
+                "sequence": 1, "guest_frame": 1, "input_flags": 0,
+                "camera": {"x": 4, "y": 8},
+            }])
 
 
 if __name__ == "__main__":
