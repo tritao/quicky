@@ -56,6 +56,7 @@ void testJumpInitiationAndProbeOrder() {
     assert(player.statusWord12 == 10);
     assert(!trace.effectDispatches.empty());
     assert(trace.effectDispatches[0].address == 0x01e70fcfU);
+    assert(trace.factoryRequests.empty());
     assert(trace.collisionProbes.size() >= 3);
     assert(trace.collisionProbes[0].pixelX == 27);
     assert(trace.collisionProbes[0].pixelY == 400);
@@ -82,6 +83,13 @@ void testEarlyContactTilePublishesSoundBeforeInput() {
     assert(trace.effectDispatches.size() == 2);
     assert(trace.effectDispatches[0].address == 0x01e70fcfU);
     assert(trace.effectDispatches[0].code == 0);
+    assert(trace.factoryRequests.size() == 2);
+    assert(trace.factoryRequests[0].callSite == 0x01f7654eU);
+    assert(trace.factoryRequests[1].callSite == 0x01f76432U);
+    assert(trace.factoryRequests[0].callback == 0x6328);
+    assert(trace.factoryRequests[1].callback == 0x6328);
+    assert(trace.factoryRequests[0].preservedDx == 0);
+    assert(trace.factoryRequests[1].preservedDx == 0);
     assert(trace.globalWrites.size() == 2);
     assert(trace.globalWrites[0].address == 0x612e);
     assert(trace.globalWrites[0].after == 7);
@@ -110,6 +118,9 @@ void testNegativeEarlyContactTakes41C1Response() {
     // helper: timer=0x3e7, mode=1, vertical velocity=0, sequence=3186.
     assert(updater.globals().pendingEvent612E == 7);
     assert(trace.effectDispatches.size() == 1);
+    assert(trace.factoryRequests.size() == 1);
+    assert(trace.factoryRequests[0].callSite == 0x01f7654eU);
+    assert(trace.factoryRequests[0].callback == 0x6328);
     assert(player.mode37 == 1);
     assert(player.velocityY.raw == 0);
     assert(player.resetDeathTimer3E == 0x03e7);

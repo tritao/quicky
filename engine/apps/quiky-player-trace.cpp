@@ -263,6 +263,13 @@ void writeEffect(std::ostream &output,
            << ",\"code\":" << effect.code << "}";
 }
 
+void writeFactoryRequest(std::ostream &output,
+                         const quiky::PlayerFactoryRequest &request) {
+    output << "{\"call_site\":" << request.callSite
+           << ",\"callback\":" << request.callback
+           << ",\"preserved_dx\":" << request.preservedDx << "}";
+}
+
 void writeSample(std::ostream &output,
                  std::size_t sequence,
                  const quiky::PlayerUpdateTrace &trace) {
@@ -282,7 +289,12 @@ void writeSample(std::ostream &output,
         if (index != 0) output << ',';
         writeEffect(output, trace.effectDispatches[index]);
     }
-    output << "],\"factory_event\":{\"created_objects\":[]},"
+    output << "],\"factory_event\":{\"complete\":false,\"allocator_requests\":[";
+    for (std::size_t index = 0; index < trace.factoryRequests.size(); ++index) {
+        if (index != 0) output << ',';
+        writeFactoryRequest(output, trace.factoryRequests[index]);
+    }
+    output << "]},"
               "\"stages\":[";
     for (std::size_t index = 0; index < trace.stages.size(); ++index) {
         if (index != 0) output << ',';

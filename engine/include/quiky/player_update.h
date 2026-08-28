@@ -75,6 +75,21 @@ struct PlayerEffectDispatch {
         : address(addressValue), code(codeValue) {}
 };
 
+// Address-qualified request at the 01F7:0E06 boundary. The native engine
+// records the caller-selected callback and preserved DX, but does not claim
+// to have created a DOS pool object until the 0x78-byte pool is implemented.
+struct PlayerFactoryRequest {
+    std::uint32_t callSite;
+    std::uint16_t callback;
+    std::uint16_t preservedDx;
+
+    PlayerFactoryRequest(std::uint32_t callSiteValue = 0,
+                         std::uint16_t callbackValue = 0,
+                         std::uint16_t preservedDxValue = 0)
+        : callSite(callSiteValue), callback(callbackValue),
+          preservedDx(preservedDxValue) {}
+};
+
 // Typed projection of the callback globals used by the recovered 3FF8 path.
 // Addresses are retained because these values are part of the trace contract;
 // they are not presented as a modern engine singleton.
@@ -149,6 +164,9 @@ public:
     virtual void onEffectDispatch(const PlayerEffectDispatch &dispatch) {
         (void)dispatch;
     }
+    virtual void onFactoryRequest(const PlayerFactoryRequest &request) {
+        (void)request;
+    }
     virtual void onPreState(const PlayerRawRecord &state) { (void)state; }
     virtual void onInputFlags(std::uint16_t flags) { (void)flags; }
     virtual void onPostState(const PlayerRawRecord &state) { (void)state; }
@@ -165,6 +183,7 @@ struct PlayerUpdateTrace : public PlayerTraceSink {
     std::vector<bool> collisionOccupied;
     std::vector<PlayerGlobalWrite> globalWrites;
     std::vector<PlayerEffectDispatch> effectDispatches;
+    std::vector<PlayerFactoryRequest> factoryRequests;
 
     PlayerUpdateTrace();
 
@@ -177,6 +196,7 @@ struct PlayerUpdateTrace : public PlayerTraceSink {
                           bool occupied) override;
     void onGlobalWrite(const PlayerGlobalWrite &write) override;
     void onEffectDispatch(const PlayerEffectDispatch &dispatch) override;
+    void onFactoryRequest(const PlayerFactoryRequest &request) override;
     void onPreState(const PlayerRawRecord &state) override;
     void onInputFlags(std::uint16_t flags) override;
     void onPostState(const PlayerRawRecord &state) override;

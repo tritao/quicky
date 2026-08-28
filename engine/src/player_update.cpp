@@ -237,7 +237,7 @@ PlayerCallbackGlobals::PlayerCallbackGlobals()
 PlayerUpdateTrace::PlayerUpdateTrace()
     : stages(), inputFlags(0), hasPreState(false), preState(), postState(),
       stateWrites(), collisionProbes(), collisionOccupied(), globalWrites(),
-      effectDispatches() {
+      effectDispatches(), factoryRequests() {
 }
 
 void PlayerUpdateTrace::onStage(PlayerUpdateStage stageValue) {
@@ -265,6 +265,11 @@ void PlayerUpdateTrace::onGlobalWrite(const PlayerGlobalWrite &write) {
 void PlayerUpdateTrace::onEffectDispatch(
     const PlayerEffectDispatch &dispatch) {
     effectDispatches.push_back(dispatch);
+}
+
+void PlayerUpdateTrace::onFactoryRequest(
+    const PlayerFactoryRequest &request) {
+    factoryRequests.push_back(request);
 }
 
 void PlayerUpdateTrace::onPreState(const PlayerRawRecord &state) {
@@ -570,6 +575,12 @@ bool probeContactRight(const PlayerRecord &player,
     }
 
     dispatchContactSound(globals, trace);
+    if (trace != 0) {
+        // Static 01F7:654E is the 648E-owned 0E06 relocation. The child
+        // initialization remains the address-qualified 6328 pool contract.
+        trace->onFactoryRequest(
+            PlayerFactoryRequest(0x01f7654eU, 0x6328, 0));
+    }
     return negativeMode;
 }
 
@@ -593,6 +604,12 @@ bool probeContactPlus5(const PlayerRecord &player,
     }
 
     dispatchContactSound(globals, trace);
+    if (trace != 0) {
+        // Static 01F7:6432 is the 6370-owned 0E06 relocation reached through
+        // 6484. Native tracing reports the request, not a synthetic object.
+        trace->onFactoryRequest(
+            PlayerFactoryRequest(0x01f76432U, 0x6328, 0));
+    }
     return negativeMode;
 }
 
