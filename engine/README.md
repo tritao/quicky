@@ -574,7 +574,9 @@ Explicit unresolved boundaries:
   are recovered in [`player-contact-map-writer-v1.json`](../research/evidence/player-dos-parity/player-contact-map-writer-v1.json),
   and the direct controlled allocator selection is pinned in
   [`player-contact-factory-watch-v1.json`](../research/evidence/player-dos-parity/player-contact-factory-watch-v1.json),
-  but natural feedback into a later callback remains open;
+  but natural feedback into a later callback remains open. The pre-input
+  `DS:612E=7`/`01E7:0FCF` sound side effect is now implemented and pinned by
+  [`player-contact-sound-watch-v1.json`](../research/evidence/player-dos-parity/player-contact-sound-watch-v1.json);
 - runtime records outside the W1L1-observed `01F7:04DF`/`01F7:0517` target set
   at the `01F7:0598` indirect call site; the W1L1 low-byte matrix shows no
   bit-specific player simulation feedback, while non-W1L1/runtime-generated

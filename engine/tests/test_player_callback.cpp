@@ -63,6 +63,60 @@ void testJumpInitiationAndProbeOrder() {
     assert(trace.collisionProbes[1].pixelY == 400);
 }
 
+void testEarlyContactTilePublishesSoundBeforeInput() {
+    quiky::Map map = makeMap();
+    // playerAt() is x=32,y=400; 648E/6370 probe x+5 in MAP cell (2,25).
+    setCell(map, 2, 25, 5);
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    quiky::PlayerRecord player = playerAt();
+    quiky::PlayerUpdateTrace trace;
+    updater.updatePlayer(player, quiky::InputState(), world, &trace);
+
+    // Ordinary mode does not take the CF response, so both early helpers
+    // reach the authored tile. Each call dispatches 0FCF; the second store
+    // is a same-value write and is therefore absent from global_writes.
+    assert(updater.globals().pendingEvent612E == 7);
+    assert(trace.effectDispatches.size() == 2);
+    assert(trace.effectDispatches[0].address == 0x01e70fcfU);
+    assert(trace.effectDispatches[0].code == 0);
+    assert(trace.globalWrites.size() == 2);
+    assert(trace.globalWrites[0].address == 0x612e);
+    assert(trace.globalWrites[0].after == 7);
+    assert(trace.globalWrites[1].address == 0x4fee);
+    // The ordinary branch continues past 648E/6484 and then reaches its
+    // existing 42B4/41C9 contact response, which establishes mode 1.
+    assert(player.mode37 == 1);
+}
+
+void testNegativeEarlyContactTakes41C1Response() {
+    quiky::Map map = makeMap();
+    // Negative mode probes y-step: 400-40=360, which is MAP row 22.
+    setCell(map, 2, 22, 8);
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    quiky::PlayerRecord player = playerAt();
+    player.mode37 = -1;
+    player.velocityY.raw = -0x1000;
+    player.syncToRaw();
+    quiky::PlayerUpdateTrace trace;
+    updater.updatePlayer(player, quiky::InputState(), world, &trace);
+
+    // CF from 648E enters 41C1 before action normalization or the second
+    // helper: timer=0x3e7, mode=1, vertical velocity=0, sequence=3186.
+    assert(updater.globals().pendingEvent612E == 7);
+    assert(trace.effectDispatches.size() == 1);
+    assert(player.mode37 == 1);
+    assert(player.velocityY.raw == 0);
+    assert(player.resetDeathTimer3E == 0x03e7);
+    assert(player.animationCursor22 == 0x3188);
+    assert(player.animationDelay20 == 19);
+}
+
 void testLandingAndCeilingResponses() {
     quiky::Map landingMap = makeMap();
     setCell(landingMap, 2, 25, 1);
@@ -366,6 +420,8 @@ void test5937PublishesAddressQualifiedCountState() {
 
 int main() {
     testJumpInitiationAndProbeOrder();
+    testEarlyContactTilePublishesSoundBeforeInput();
+    testNegativeEarlyContactTakes41C1Response();
     testLandingAndCeilingResponses();
     testTransitionBranchPreservesLiveEaxAndProbeOrder();
     testTransitionBranchContactAndTerminalState();

@@ -519,6 +519,83 @@ bool probeForwardSurface(const PlayerRecord &player,
     return CollisionKernel::occupied(third);
 }
 
+std::uint16_t mapTileIdAtPixel(const WorldCollisionView &world,
+                               std::int16_t pixelX,
+                               std::int16_t pixelY) {
+    // Static 01F7:3376 receives unsigned pixel words. Preserve the original
+    // sixteen-bit wrap before selecting the MAP cell; this is a tile-id
+    // lookup, not a descriptor occupancy probe.
+    const std::uint16_t x = static_cast<std::uint16_t>(pixelX);
+    const std::uint16_t y = static_cast<std::uint16_t>(pixelY);
+    return world.cellAt(static_cast<std::int32_t>(x >> 4),
+                        static_cast<std::int32_t>(y >> 4)).tileId;
+}
+
+bool isContactTile(std::uint16_t tileId, bool negativeMode) {
+    if (tileId >= 8 && tileId <= 10) {
+        return true;
+    }
+    return !negativeMode && tileId >= 5 && tileId <= 7;
+}
+
+void dispatchContactSound(PlayerCallbackGlobals &globals,
+                          PlayerTraceSink *trace) {
+    // Static 01F7:6420/653C stores DS:612E=7 before calling 01E7:0FCF.
+    // The focused watch observed 0FCF with EDX=0, so the callback-local
+    // effect record uses the same address/code pair as the jump sound path.
+    writeGlobal16(0x612e, globals.pendingEvent612E, 7, trace);
+    if (trace != 0) {
+        trace->onEffectDispatch(PlayerEffectDispatch(0x01e70fcfU, 0));
+    }
+}
+
+bool probeContactRight(const PlayerRecord &player,
+                       const WorldCollisionView &world,
+                       PlayerCallbackGlobals &globals,
+                       PlayerTraceSink *trace) {
+    // Static 01F7:648E. Negative mode probes (x+5, y-step) and ordinary mode
+    // probes (x+5, y), then accepts the address-qualified contact tile
+    // families 8..10 (both modes) and 5..7 (ordinary mode only). The helper
+    // returns CF only for a negative-mode contact; the allocated 6328 child
+    // remains an external pool contract.
+    const bool negativeMode = player.mode37 < 0;
+    const std::int16_t probeY = negativeMode
+        ? addPixel(player.yPixel(),
+                   -static_cast<std::int32_t>(player.verticalStepPixels72))
+        : player.yPixel();
+    const std::uint16_t tileId = mapTileIdAtPixel(
+        world, addPixel(player.xPixel(), 5), probeY);
+    if (!isContactTile(tileId, negativeMode)) {
+        return false;
+    }
+
+    dispatchContactSound(globals, trace);
+    return negativeMode;
+}
+
+bool probeContactPlus5(const PlayerRecord &player,
+                       const WorldCollisionView &world,
+                       PlayerCallbackGlobals &globals,
+                       PlayerTraceSink *trace) {
+    // Static 01F7:6484 -> 6370. 6484 publishes DS:5003=5 and 6370 uses
+    // that offset in the same mode-dependent tile lookup. The direct child
+    // allocation and its +0x2A/+0x38/+0x02/+0x06 writes are deliberately not
+    // synthesized here; they remain the named 01F7:0E06/6328 boundary.
+    const bool negativeMode = player.mode37 < 0;
+    const std::int16_t probeY = negativeMode
+        ? addPixel(player.yPixel(),
+                   -static_cast<std::int32_t>(player.verticalStepPixels72))
+        : player.yPixel();
+    const std::uint16_t tileId = mapTileIdAtPixel(
+        world, addPixel(player.xPixel(), 5), probeY);
+    if (!isContactTile(tileId, negativeMode)) {
+        return false;
+    }
+
+    dispatchContactSound(globals, trace);
+    return negativeMode;
+}
+
 bool sideProbeClear(PlayerRecord &player,
                     const WorldCollisionView &world,
                     PlayerTraceSink *trace) {
@@ -1247,11 +1324,20 @@ void TraceClosedPlayerUpdate::updatePlayer(
     }
     stage(trace, PlayerUpdateStage::ActionCounterUpdate);
 
-    // Static 01F7:4006-401D: 648E/6484/3A8A have a recovered
-    // contact-object contract (6370 -> 3376 -> 0E06). The native scheduler
-    // does not yet publish that runtime child/effect path, so no synthetic
-    // contact is created here until a retail-contact parity fixture closes it.
-    stage(trace, PlayerUpdateStage::UnresolvedBoundary);
+    // Static 01F7:4006-4018: the two early tile-contact helpers run before
+    // input normalization. A negative-mode contact returns CF and jumps to
+    // 41C1; ordinary contacts continue into 3A8A after publishing the
+    // contact sound. Their 0E06 -> 6328 child remains an explicit pool
+    // boundary, so this path publishes only the statically closed global and
+    // effect side effects.
+    if (probeContactRight(player, world, _globals, trace) ||
+        probeContactPlus5(player, world, _globals, trace)) {
+        contactResponse(player, 0x03e7, true, trace);
+        stage(trace, PlayerUpdateStage::CommonCallbackTail);
+        commonCallbackTail(player, world, _globals, trace);
+        finishCallback();
+        return;
+    }
 
     if (player.gate38 != 0 && player.mode37 != 0) {
         stage(trace, PlayerUpdateStage::VerticalContactGate);

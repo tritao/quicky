@@ -247,6 +247,12 @@ lifetime contract.
   controlled-contact watch confirms the player route selects `AX=0x6328,
   DX=0` and produces the observed pooled `01F7:6328` child; unrelated caller
   families remain address-qualified.
+- The pre-input `01F7:648E`/`6484` contact route now has a native contract
+  for its direct effect boundary: the focused watch confirms
+  `DS:612E=7` followed by `01E7:0FCF` with `EDX=0`. The native callback emits
+  that dispatch and takes the statically recovered negative-mode `41C1`
+  response; pooled `0E06` allocation and `6328 -> 16CE` feedback remain
+  address-qualified.
 - `01F7:F21B/F21C` is retained as the input dispatch boundary. Ghidra emits
   malformed computed-jump warnings beyond the valid segment image; the raw
   bytes, function name, action-bit contract, and callback call site remain
