@@ -2194,13 +2194,19 @@ local function capture_input_sample()
     if not record_input_stream then return end
     local keyboard = dosbox.mem_read_word("ds", 0x88bc)
     local auxiliary = dosbox.mem_read_word("ds", 0x8196)
+    local camera_x = dosbox.mem_read_word("ds", 0x81c0)
+    local camera_y = dosbox.mem_read_word("ds", 0x81c4)
+    -- The startup recording briefly leaves DS pointed at a non-game data
+    -- block. Do not publish those words as replay input; the first sane
+    -- camera sample is the level's actual callback boundary.
+    if camera_x > 0x4000 or camera_y > 0x4000 then return end
     input_stream[#input_stream + 1] = {
         sequence = #input_stream + 1,
         guest_frame = experiment_frame,
         input_flags = (keyboard | auxiliary) & 0xffff,
         camera = {
-            x = dosbox.mem_read_word("ds", 0x81c0),
-            y = dosbox.mem_read_word("ds", 0x81c4),
+            x = camera_x,
+            y = camera_y,
         },
     }
 end
@@ -2221,7 +2227,6 @@ if input_warmup_frames > 0 and input_key ~= "" then
     wait_recorded_frames(input_warmup_frames)
     dosbox.key(input_key, false)
 end
-capture_input_sample()
 
 local function key_is_continuously_held(key)
     if input_hold_key == "" then return false end

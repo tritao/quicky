@@ -9,7 +9,7 @@
     "trace": "research/build/traces/player-w1l1-jump-landing-effect-watch-v3.json",
     "trace_sha256": "788ad3b4679b59dcdf6de06a0d794d3b859ba75b1462c3f8449826e97d08cf6d",
     "trace_script": "research/automation/quiky_player_trace.lua",
-    "trace_script_sha256": "6083d17fa88670034dc09cb0737b5c35a9aaceab53c4ba4172f42f6477543863",
+    "trace_script_sha256": "3a6504fd47a97881b79389358b42f74336ac946c0836b33f559fe87086ed80b8",
     "parity_tool": "research/tools/player_callback_parity.py",
     "comparator": "research/tools/player_parity_compare.py"
   },

@@ -32,6 +32,7 @@ struct InputFrame {
 void usage() {
     std::cerr << "usage: quiky-w1l1-trace ARCHIVE MAP-RESOURCE OUTPUT.JSON "
                  "[--frames N] [--action-flags N] [--input-tsv PATH] "
+                 "[--input-jsonl PATH] "
                  "[--camera-x N --camera-y N] "
                  "[--startup-camera-sweep-from N --startup-camera-sweep-to N] "
                  "[--leaf-prng-index N --leaf-prng-ring-hex HEX]\n";
@@ -362,6 +363,79 @@ std::vector<InputFrame> readInputTsv(const std::string &path) {
     return frames;
 }
 
+long jsonInteger(const std::string &line, const char *key, bool &present) {
+    const std::string needle = std::string("\"") + key + "\"";
+    const std::size_t keyPosition = line.find(needle);
+    if (keyPosition == std::string::npos) {
+        present = false;
+        return 0;
+    }
+    const std::size_t colon = line.find(':', keyPosition + needle.size());
+    if (colon == std::string::npos) {
+        throw quiky::FormatError(std::string("input JSONL field has no colon: ") + key);
+    }
+    const char *start = line.c_str() + colon + 1;
+    while (*start == ' ' || *start == '\t') ++start;
+    char *end = 0;
+    const long result = std::strtol(start, &end, 0);
+    if (end == start) {
+        throw quiky::FormatError(std::string("input JSONL field is not an integer: ") + key);
+    }
+    present = true;
+    return result;
+}
+
+std::vector<InputFrame> readInputJsonl(const std::string &path) {
+    std::ifstream input(path.c_str());
+    if (!input) {
+        throw quiky::FormatError("cannot open input JSONL: " + path);
+    }
+    std::vector<InputFrame> frames;
+    std::string line;
+    std::size_t previousSequence = 0;
+    while (std::getline(input, line)) {
+        if (line.empty()) {
+            throw quiky::FormatError("input JSONL contains a blank line");
+        }
+        bool hasSequence = false;
+        bool hasFlags = false;
+        const long sequence = jsonInteger(line, "sequence", hasSequence);
+        const long flags = jsonInteger(line, "input_flags", hasFlags);
+        if (!hasSequence || sequence < 1 ||
+            static_cast<std::size_t>(sequence) <= previousSequence) {
+            throw quiky::FormatError(
+                "input JSONL sequences must be strictly increasing positive integers");
+        }
+        if (!hasFlags || flags < 0 || flags > 0xffff) {
+            throw quiky::FormatError("input JSONL input_flags must be a uint16");
+        }
+        InputFrame frame(static_cast<std::size_t>(sequence),
+                         static_cast<std::uint16_t>(flags));
+        bool hasCamera = false;
+        bool hasCameraX = false;
+        bool hasCameraY = false;
+        const std::size_t cameraPosition = line.find("\"camera\"");
+        if (cameraPosition != std::string::npos) {
+            frame.cameraX = static_cast<std::int32_t>(
+                jsonInteger(line.substr(cameraPosition), "x", hasCameraX));
+            frame.cameraY = static_cast<std::int32_t>(
+                jsonInteger(line.substr(cameraPosition), "y", hasCameraY));
+            hasCamera = hasCameraX && hasCameraY;
+            if (!hasCamera) {
+                throw quiky::FormatError(
+                    "input JSONL camera requires integer x and y");
+            }
+        }
+        frame.hasCamera = hasCamera;
+        frames.push_back(frame);
+        previousSequence = static_cast<std::size_t>(sequence);
+    }
+    if (frames.empty()) {
+        throw quiky::FormatError("input JSONL contains no rows");
+    }
+    return frames;
+}
+
 void writeScheduler(std::ostream &output, const quiky::Simulation &simulation,
                     const quiky::SimulationOutput &snapshot) {
     const std::vector<quiky::SchedulerObject> &objects =
@@ -492,6 +566,7 @@ int main(int argc, char **argv) {
         long frameCount = 4;
         std::uint16_t actionFlags = 0;
         std::string inputTsv;
+        std::string inputJsonl;
         bool hasCamera = false;
         std::int32_t cameraX = 0;
         std::int32_t cameraY = 262;
@@ -514,6 +589,8 @@ int main(int argc, char **argv) {
                 actionFlags = static_cast<std::uint16_t>(parsed);
             } else if (option == "--input-tsv" && index + 1 < argc) {
                 inputTsv = argv[++index];
+            } else if (option == "--input-jsonl" && index + 1 < argc) {
+                inputJsonl = argv[++index];
             } else if (option == "--camera-x" && index + 1 < argc) {
                 cameraX = static_cast<std::int32_t>(
                     parseNumber(argv[++index], "camera X"));
@@ -558,7 +635,12 @@ int main(int argc, char **argv) {
         }
 
         std::vector<InputFrame> inputs;
-        if (!inputTsv.empty()) {
+        if (!inputTsv.empty() && !inputJsonl.empty()) {
+            throw quiky::FormatError(
+                "input TSV and input JSONL cannot be supplied together");
+        } else if (!inputJsonl.empty()) {
+            inputs = readInputJsonl(inputJsonl);
+        } else if (!inputTsv.empty()) {
             inputs = readInputTsv(inputTsv);
         } else {
             for (long index = 0; index < frameCount; ++index) {

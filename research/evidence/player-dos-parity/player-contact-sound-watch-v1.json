@@ -9,7 +9,7 @@
     "trace": "research/build/traces/player-contact-tile-controlled-5-sound-watch-v1.json",
     "trace_sha256": "af741f937ae5e117139a7d790a4f20fc787e4da10e5d2598d1d32081c267e711",
     "trace_script": "research/automation/quiky_player_trace.lua",
-    "trace_script_sha256": "6083d17fa88670034dc09cb0737b5c35a9aaceab53c4ba4172f42f6477543863"
+    "trace_script_sha256": "3a6504fd47a97881b79389358b42f74336ac946c0836b33f559fe87086ed80b8"
   },
   "method": {
     "level": "W1L1",
