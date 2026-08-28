@@ -572,7 +572,10 @@ Explicit unresolved boundaries:
   recovery MAP/spawn-table rebuild contract. A focused natural W1L1 trace now
   confirms the runtime ordering `01F7:1AAA` -> next `01F7:3FF8` callback,
   including the indexed respawn position, reset motion, callback identity, and
-  idle animation state. A focused transition trace additionally observes the
+  idle animation state. A follow-up lifecycle trace captures the raw row-zero
+  resource words `(1673,374)` at `01F7:1AAA`; the first recovered callback's
+  `(1673,368)` Y value is therefore retained as a callback-side correction,
+  not folded into the resource declaration. A focused transition trace additionally observes the
   signed gate countdown through `-347`, entry at `01D7:4BA4` with `DS:89EA=-350`,
   health restoration at `4BD8`, gate clear at `01F7:1AE6`, and the next
   recovered `3FF8` callback. `LevelSession` still collapses a generic hazard

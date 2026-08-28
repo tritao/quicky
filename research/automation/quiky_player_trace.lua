@@ -557,6 +557,19 @@ local function static_globals()
         are_region_origin_x_3714 = dosbox.mem_read_word("ds", 0x3714),
         are_region_origin_y_3716 = dosbox.mem_read_word("ds", 0x3716),
         map_row_stride = dosbox.mem_read_word("ds", 0x657e),
+        -- 01D7:34C7 publishes this interleaved recovery table and
+        -- 01F7:1AAA consumes the row selected by DS:85D2.  Keep the raw
+        -- words at lifecycle breakpoints so a recovery trace can distinguish
+        -- the resource-selected spawn from the ordinary level-start spawn.
+        recovery_selector_85d4 = dosbox.mem_read_word("ds", 0x85d4),
+        recovery_row_85d2 = dosbox.mem_read_word("ds", 0x85d2),
+        recovery_resource_97e2 = dosbox.mem_read_word("ds", 0x97e2),
+        recovery_spawn_row0_x = dosbox.mem_read_word("ds", 0x8828),
+        recovery_spawn_row0_y = dosbox.mem_read_word("ds", 0x882a),
+        recovery_spawn_selected_x = dosbox.mem_read_word("ds", 0x8828 +
+                                                         4 * dosbox.mem_read_word("ds", 0x85d2)),
+        recovery_spawn_selected_y = dosbox.mem_read_word("ds", 0x882a +
+                                                         4 * dosbox.mem_read_word("ds", 0x85d2)),
         object_list_cursor = dosbox.mem_read_word("ds", 0x36e0),
         player_object_offset = dosbox.mem_read_word("ds", 0x881a),
         player_control_word = dosbox.mem_read_word("ds", 0x89ea),
@@ -2023,6 +2036,7 @@ if transition_focus then
         {offset = 0x4ba4, name = "scheduler_gate_test", segment = 0x01d7},
         {offset = 0x4bd8, name = "secondary_gate_test", segment = 0x01d7},
         {offset = 0x3861, name = "secondary_loader_entry", segment = 0x01d7},
+        {offset = 0x1aaa, name = "player_recovery_entry", repeat_target = false},
     }
     local seen = {}
     local events = {}

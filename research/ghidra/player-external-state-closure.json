@@ -2934,6 +2934,8 @@
     "runtime_evidence_sha256": "09f183f701f8aef615a0d9aff11c66c7139f5c952fbf6c97d0ca0123a314a6d9",
     "focused_runtime_evidence": "research/evidence/player-dos-parity/player-death-recovery-focused-v5.json",
     "focused_runtime_evidence_sha256": "be5c5a4acf8f47b56f3fa84a074dba8517b380b052df2d0a30f3dd87d183b1d9",
+    "recovery_spawn_evidence": "research/evidence/player-dos-parity/player-death-recovery-spawn-v1.json",
+    "recovery_spawn_evidence_sha256": "869b40f76fac125a94d67664cca93ca98fe74c8ac8b6000e3ddba575875e9a96",
     "natural_owner_evidence": "research/evidence/player-dos-parity/player-natural-damage-owner-v1.json",
     "natural_owner_evidence_sha256": "be36e4abcd94d5be4f471b534573749f8167fd3c3961ac701e434466b5fa00fb",
     "static_decomp_note": "research/notes/death-recovery-static-decomp.cpp",
@@ -2958,7 +2960,7 @@
       "timer/IRQ ownership and exact counter that ends the delayed death animation hold",
       "exact object teardown, scheduler-bank rebuild, and resource reload ordering between the recovery gate and 1AAA"
     ],
-    "evidence": ["ghidra:199D-1AF5", "ghidra:6DC4-707B", "ghidra:4BA4-504F", "research/evidence/player-dos-parity/player-death-recovery-lifecycle-v1.json", "research/evidence/player-dos-parity/player-death-recovery-focused-v5.json", "research/evidence/player-dos-parity/player-natural-damage-owner-v1.json", "research/evidence/player-dos-parity/spawn-table-static-v1.json", "research/notes/actual-game-state.md", "research/notes/rendering-behavior.md"]
+    "evidence": ["ghidra:199D-1AF5", "ghidra:6DC4-707B", "ghidra:4BA4-504F", "research/evidence/player-dos-parity/player-death-recovery-lifecycle-v1.json", "research/evidence/player-dos-parity/player-death-recovery-focused-v5.json", "research/evidence/player-dos-parity/player-death-recovery-gate-v1.json", "research/evidence/player-dos-parity/player-death-recovery-spawn-v1.json", "research/evidence/player-dos-parity/player-natural-damage-owner-v1.json", "research/evidence/player-dos-parity/spawn-table-static-v1.json", "research/notes/actual-game-state.md", "research/notes/rendering-behavior.md"]
   },
   "lifecycle_relocation_static": {
     "status": "relocated_targets_and_camera_bridge_closed_timer_membership_open",

@@ -1,0 +1,74 @@
+{
+  "schema": "quiky.player-death-recovery-spawn.v1",
+  "purpose": "Runtime validation of the resource-selected W1L1 recovery row consumed by 01F7:1AAA.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "4606c466d36aee892e261d2cfc5d25208eb37ef4a119c22f9e2fef35c25165f4",
+    "trace": "research/build/traces/player-w1l1-death-recovery-spawn-v16.json",
+    "trace_sha256": "bf3852e9aa98e8904715d4454b8eab32e56ce4899193145c913b97c2ef0d9a92"
+  },
+  "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-transition-focus --player-transition-steps 100 --player-transition-probe-frames 3 --player-transition-warmup-frames 1600 --player-transition-hold-events 1 --player-input-key KBD_right --timeout 240 --output research/build/traces/player-w1l1-death-recovery-spawn-v16.json",
+  "static_contract": {
+    "lifecycle_gate": "01D7:4BA4",
+    "secondary_gate": "01D7:4BD8",
+    "map_loader": "01D7:3861",
+    "map_postload": "01D7:34C7",
+    "health_restore": "01F7:1AF5",
+    "recovery_initializer": "01F7:1AAA",
+    "spawn_table": "DS:8828..DS:88A7",
+    "row_selector": "DS:85D2",
+    "resource_handle": "DS:97E2",
+    "evidence": [
+      "research/notes/death-recovery-static-decomp.cpp",
+      "research/ghidra/player-external-state-closure.json"
+    ]
+  },
+  "observations": {
+    "route": [
+      "01D7:4BD8",
+      "01F7:1AAA",
+      "01F7:3FF8"
+    ],
+    "gate_at_recovery": -350,
+    "health_at_recovery": 3,
+    "lives_at_recovery": 3,
+    "resource_handle_97e2": 5,
+    "row_selector_85d2": 0,
+    "row0_words": {
+      "x": 1673,
+      "y": 374
+    },
+    "selected_row_words": {
+      "x": 1673,
+      "y": 374
+    },
+    "first_recovered_callback": {
+      "position_pixels": [1673, 368],
+      "mode": 0,
+      "velocity_x_fixed": "0x00000000",
+      "velocity_y_fixed": "0x00000000",
+      "transition_gate": 0,
+      "animation_sequence": "0x316c",
+      "evidence": "player-death-recovery-focused-v5"
+    },
+    "interpretation": "The row published by the recovery resource is (1673,374). 01F7:1AAA consumes row zero, and the first recovered callback observes Y=368 after the callback-side contact/correction path. The six-pixel difference must not be folded into the resource row."
+  },
+  "conclusion": {
+    "status": "w1l1_recovery_row_and_post_initializer_correction_closed",
+    "closed": [
+      "W1L1 recovery selects DS:85D2=0.",
+      "The observed recovery resource handle is DS:97E2=5.",
+      "The raw row-zero words are X=1673 and Y=374.",
+      "The first recovered callback reaches X=1673,Y=368 with zero velocity, mode zero, gate zero, and animation 0x316c."
+    ],
+    "still_open": [
+      "Whether resource handle 5 and row-zero coordinates are universal across levels or only W1L1.",
+      "Exact scheduler-bank teardown/rebuild order between 4BA4, 3861, and 1AAA.",
+      "Native C++ delayed recovery implementation and complete held-out object/effect parity."
+    ]
+  }
+}
