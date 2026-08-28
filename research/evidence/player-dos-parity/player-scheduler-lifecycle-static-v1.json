@@ -15,8 +15,23 @@
     "scheduler_listing_sha256": "46a0504941162e8aeeca0dad9da743a6148242a4f46b665b235f299f3e0280db",
     "mainloop_listing": "research/build/player-external-state-closure-recovery-v59/disasm-a/QUIKY_SEG01.bin.asm",
     "mainloop_listing_sha256": "f52354bf3a184ce0218df6544a4c6d4bc1361df2759b75a28cec98c08def034f",
+    "relocation_tool": "research/tools/ne_relocs.py",
+    "scheduler_relocations": [
+      {
+        "instruction": "01F7:106A",
+        "target": "01F7:17D4",
+        "source_type": 3,
+        "flags": 0
+      },
+      {
+        "instruction": "01F7:10A1",
+        "target": "01F7:1DEE",
+        "source_type": 3,
+        "flags": 0
+      }
+    ],
     "static_note": "research/notes/scheduler-lifecycle-static-decomp.cpp",
-    "static_note_sha256": "dbc5331beb6acdc10e7bf8d576d694678edda82cb9d124351754845209e57f23"
+    "static_note_sha256": "397e797aeeef5024bb06d308f77e32f3b78427f6c3ab3871377cffb45f611521"
   },
   "contracts": [
     {
@@ -60,36 +75,54 @@
       "name": "clear_selected_scheduler_callbacks_106A",
       "classification": "contract",
       "calling_convention": "far; no stable return flags; selected bank is derived from the pre-toggle DS:7966 value",
-      "inputs_outputs": "Calls an unresolved entry helper, toggles DS:7966 to the other bank selector, walks the old bank until phase callback FFFF, clears object +0x18 when object +0x1A is FFFF, and otherwise calls 17D4 with the old bank bit in BX.",
+      "inputs_outputs": "Calls 17D4 at entry, toggles DS:7966 to the other bank selector, walks the old bank until phase callback FFFF, clears object +0x18 when object +0x1A is FFFF, and otherwise calls 1DEE for the object.",
       "player_fields_read": ["object +0x1A"],
       "player_fields_written": ["object +0x18 for entries whose +0x1A is FFFF"],
       "global_fields_read": ["DS:7966", "DS:7566/DS:7766"],
       "global_fields_written": ["DS:7966", "selected scheduler object callbacks through ES:DI"],
-      "callees": ["address-named entry helper at 01F7:106A", "01F7:17D4"],
+      "callees": ["01F7:17D4", "01F7:1DEE"],
       "known_callers": ["01D7:4BCE", "01D7:4C9B", "01D7:4CE9", "01D7:4F08"],
       "scheduler_position": "Runs in the 4BA4 lifecycle branch before 4BD8 recovery selection and before 1AF5 -> 1AAA -> 0B56 rebuild.",
       "object_effects": "Removes phase callbacks from selected objects and clears pending ARE event records for the other selected entries.",
       "feeds_back_into_simulation": "yes",
-      "confidence": "confirmed_static; entry far-call side effect unresolved",
-      "evidence": ["ghidra:106A-10B1", "ghidra:DumpFocusedDisasm:106A-10B1", "ghidra:4BA4-4C35", "reloc:01D7:4BCE->01F7:106A"]
+      "confidence": "confirmed_static_relocations_and_body",
+      "evidence": ["ghidra:106A-10B1", "ghidra:DumpFocusedDisasm:106A-10B1", "ghidra:4BA4-4C35", "reloc:01F7:106A->01F7:17D4", "reloc:01F7:10A1->01F7:1DEE"]
     },
     {
       "address": "01F7:17D4",
       "name": "clear_are_event_queue_17D4",
       "classification": "contract",
-      "calling_convention": "far; BX is supplied by 106A but is not consumed by the visible body; RETF with no caller-consumed flags",
+      "calling_convention": "far; no meaningful arguments; RETF with no caller-consumed flags",
       "inputs_outputs": "Scans 0x80 eight-byte records at DS:6586; for each nonzero pointer clears byte +0x01 of the pointed event record and then clears the slot pointer.",
       "player_fields_read": [],
       "player_fields_written": [],
       "global_fields_read": ["DS:6586 event slot pointers"],
       "global_fields_written": ["event record byte +0x01", "DS:6586 slot pointers"],
       "callees": [],
-      "known_callers": ["01F7:106A"],
+      "known_callers": ["01F7:106A", "01F7:17AE"],
       "scheduler_position": "Nested in selected-bank cleanup; does not alter scheduler entry words.",
       "object_effects": "Clears pending ARE-event ownership markers; no direct player movement or descriptor write.",
       "feeds_back_into_simulation": "indirectly through pending event state",
       "confidence": "confirmed_static",
       "evidence": ["ghidra:17D4-17F6", "ghidra:DumpFocusedDisasm:17D4-17F6"]
+    },
+    {
+      "address": "01F7:1DEE",
+      "name": "deactivate_object_outside_camera_1DEE",
+      "classification": "contract",
+      "calling_convention": "far; ES:DI pooled object; no caller-consumed return flags",
+      "inputs_outputs": "Clears object +0x18 and clears the ARE declaration byte at FS:[object +0x1A + 1].",
+      "player_fields_read": [],
+      "player_fields_written": [],
+      "global_fields_read": ["DS:796E", "FS source ARE record"],
+      "global_fields_written": ["ARE declaration byte"],
+      "callees": [],
+      "known_callers": ["01F7:106A", "01F7:A06F", "01F7:9DC7"],
+      "scheduler_position": "Selected-bank cleanup and object camera-cull tail; it can allow the source ARE declaration to be streamed again.",
+      "object_effects": "Removes the pooled object's phase callback and releases its source declaration claim.",
+      "feeds_back_into_simulation": "indirectly through object lifetime and later re-streaming",
+      "confidence": "confirmed_static_relocation_and_existing_cull_evidence",
+      "evidence": ["ghidra:1DEE-1E03", "reloc:01F7:10A1->01F7:1DEE", "research/evidence/player-dos-parity/platform-cull-player-controlled-v1.json"]
     },
     {
       "address": "01F7:0FA2",
@@ -135,7 +168,6 @@
       "The first recovered callback observes the rebuilt scheduler bank"
     ],
     "still_open": [
-      "Side effects of the unresolved entry call at 01F7:106A",
       "Exact write timing of opaque resource/teardown calls at 4BBC, 4BDF, 4BE4, 4C1C, 4C21, 4C26, 4C30, and 4C35",
       "Scheduler membership after platform culling, jump detachment, and cross-level reconstruction"
     ]

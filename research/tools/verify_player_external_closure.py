@@ -1380,6 +1380,7 @@ def check_scheduler_lifecycle_static(ledger: dict[str, Any], root: Path) -> None
         "register_object_scheduler_entry_1036",
         "clear_selected_scheduler_callbacks_106A",
         "clear_are_event_queue_17D4",
+        "deactivate_object_outside_camera_1DEE",
         "dispatch_secondary_callbacks_0FA2",
         "01D7:4BA4 gate",
         "01F7:1AAA first far call -> 01F7:0B56",
@@ -1424,6 +1425,13 @@ def check_scheduler_lifecycle_static(ledger: dict[str, Any], root: Path) -> None
         raise ExternalClosureError("scheduler lifecycle listing artifact drifted")
     if sha256(mainloop_listing) != closure["mainloop_listing_sha256"]:
         raise ExternalClosureError("scheduler lifecycle mainloop artifact drifted")
+    if source.get("relocation_tool") != "research/tools/ne_relocs.py":
+        raise ExternalClosureError("scheduler lifecycle relocation tool drifted")
+    if source.get("scheduler_relocations") != [
+        {"instruction": "01F7:106A", "target": "01F7:17D4", "source_type": 3, "flags": 0},
+        {"instruction": "01F7:10A1", "target": "01F7:1DEE", "source_type": 3, "flags": 0},
+    ]:
+        raise ExternalClosureError("scheduler lifecycle call relocations drifted")
 
     scheduler_text = scheduler_listing.read_text(encoding="utf-8")
     for token in (
@@ -1438,6 +1446,7 @@ def check_scheduler_lifecycle_static(ledger: dict[str, Any], root: Path) -> None
         "0000:105a  ADD word ptr [0x7966],0x8",
         "0000:105f  MOV word ptr [SI + 0x8],0xffff",
         "0000:106a  CALLF 0x0000:ffff",
+        "0000:10a1  CALLF 0x0000:ffff",
         "0000:107c  AND AX,0x200",
         "0000:1099  CMP word ptr ES:[DI + 0x1a],-0x1",
         "0000:10a9  MOV word ptr ES:[DI + 0x18],0x0",
@@ -1462,7 +1471,7 @@ def check_scheduler_lifecycle_static(ledger: dict[str, Any], root: Path) -> None
     by_address = {
         item.get("address"): item for item in contracts if isinstance(item, dict)
     }
-    for address in ("01F7:0B56", "01F7:1036", "01F7:106A", "01F7:17D4", "01F7:0FA2"):
+    for address in ("01F7:0B56", "01F7:1036", "01F7:106A", "01F7:17D4", "01F7:1DEE", "01F7:0FA2"):
         if address not in by_address:
             raise ExternalClosureError(f"scheduler lifecycle contract missing: {address}")
         for field in ("calling_convention", "inputs_outputs", "global_fields_written", "callees", "confidence", "evidence"):
@@ -1474,6 +1483,11 @@ def check_scheduler_lifecycle_static(ledger: dict[str, Any], root: Path) -> None
         "01D7:4BCE -> 01F7:106A selected-bank cleanup"
     ):
         raise ExternalClosureError("scheduler lifecycle recovery order drifted")
+    scheduler_contract = by_address["01F7:106A"]
+    if scheduler_contract.get("callees") != ["01F7:17D4", "01F7:1DEE"]:
+        raise ExternalClosureError("scheduler lifecycle callees drifted")
+    if "unresolved entry helper" in scheduler_contract.get("inputs_outputs", ""):
+        raise ExternalClosureError("scheduler lifecycle retains resolved call as unresolved")
 
 
 def check_death_recovery_static(ledger: dict[str, Any], root: Path | None = None) -> None:

@@ -72,6 +72,8 @@ extern void address_named_far_call_1B01_to_1AAA();
 extern void address_named_animation_loader_5D38(std::uint16_t descriptor);
 extern std::uint16_t address_named_recovery_selector_85D4();
 extern std::uint16_t address_named_transition_selector_5044();
+extern void clear_are_event_queue_17D4();
+extern void deactivate_object_outside_camera_1DEE(std::uint16_t object_offset);
 
 // The resource/DOS calls inside 34C7 are retained as address-qualified
 // helpers.  Their returned AX words are the only values needed to recover the
@@ -424,11 +426,13 @@ struct LifecycleTargetGlobals {
 
 extern LifecycleTargetGlobals DS;
 
-// 01F7:106A, called by 01D7:4BCE/4C9B/4CE9.  The selected scheduler bank is
-// walked in eight-byte entries.  Objects with +0x1A == FFFF have their
-// callback pointer (+0x18) cleared; all other entries call the relocated
-// 01F7:17D4 queue-clear helper.  No stable flags are returned.
+// 01F7:106A, called by 01D7:4BCE/4C9B/4CE9.  Its entry relocation calls
+// 01F7:17D4 once; the loop relocation at 10A1 calls 01F7:1DEE for sourced
+// objects.  The selected scheduler bank is then walked in eight-byte entries.
+// Objects with +0x1A == FFFF have their callback pointer (+0x18) cleared.
+// No stable flags are returned.
 void clear_dead_scheduler_callbacks_106A() {
+    clear_are_event_queue_17D4();
     const std::uint16_t bank = static_cast<std::uint16_t>(
         (DS.scheduler_bank_7966 + 0x0200U) & 0x0200U);
     for (auto entry = scheduler_bank_7566(bank);
@@ -436,7 +440,7 @@ void clear_dead_scheduler_callbacks_106A() {
         if (entry.object.u16(0x1a) == 0xffff)
             entry.object.u16(0x18, 0);
         else
-            clear_are_event_queue_17D4(); // NE relocation at 01F7:106A
+            deactivate_object_outside_camera_1DEE(entry.object_offset);
     }
 }
 

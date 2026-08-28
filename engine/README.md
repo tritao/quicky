@@ -594,7 +594,9 @@ Explicit unresolved boundaries:
   contracts because they do not directly write player simulation state;
 - the scheduler recovery edge is now separately pinned in
   [`player-scheduler-lifecycle-static-v1.json`](../research/evidence/player-dos-parity/player-scheduler-lifecycle-static-v1.json):
-  `4BA4 -> 106A` performs selected-bank cleanup before
+  `4BA4 -> 106A` first calls `17D4` to clear pending ARE-event ownership,
+  then performs selected-bank cleanup; sourced entries call `1DEE` while
+  source-less entries clear their phase callback before
   `1AF5 -> 1AAA -> 0B56 -> 0E06 -> 1036` resets and republishes the player
   entry, while `0FA2` consumes secondary callbacks afterward. The opaque
   resource/teardown calls around that sequence and post-culling membership

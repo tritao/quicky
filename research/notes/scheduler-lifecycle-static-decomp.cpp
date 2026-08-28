@@ -51,8 +51,8 @@ extern AREEventSlot &are_event_slot(std::uint16_t index);
 extern void call_near_callback(std::uint16_t callback_offset,
                                std::uint16_t object_offset);
 extern void object_pool_factory_0E06(std::uint16_t callback_offset);
-extern void address_named_preclean_106A();
-extern void clear_are_event_queue_17D4(std::uint16_t selected_bank_bit);
+extern void clear_are_event_queue_17D4();
+extern void deactivate_object_outside_camera_1DEE(std::uint16_t object_offset);
 
 // 01F7:0B56.  This is the player-object reconstruction used by the natural
 // selector handoff and by the 01F7:1AAA recovery initializer.  The far call at
@@ -92,13 +92,13 @@ void register_object_scheduler_entry_1036(std::uint16_t object_offset) {
                                                             // 105F
 }
 
-// 01F7:106A.  The first far call is retained as an address-named boundary.
-// Its visible scheduler body toggles the bank selector and walks the bank
-// selected by the old selector value.  It clears a callback when object +0x1A
-// is FFFF; otherwise it calls 17D4 with the old bank bit in BX.  The body has
-// no stable return flags and does not write the player record directly.
+// 01F7:106A.  The NE relocation table resolves the first far call at 106A to
+// 01F7:17D4 and the loop call at 10A1 to 01F7:1DEE.  The body then toggles the
+// bank selector and walks the bank selected by the old selector value.  It
+// clears a callback when object +0x1A is FFFF; otherwise it deactivates the
+// object through 1DEE.  There is no unresolved entry call in this function.
 void clear_selected_scheduler_callbacks_106A() {
-    address_named_preclean_106A();              // 106A; unresolved far call
+    clear_are_event_queue_17D4();               // 106A; NE relocation
 
     const std::uint16_t old_cursor = DS.insert_cursor_7966; // 1074
     DS.insert_cursor_7966 = static_cast<std::uint16_t>(
@@ -114,7 +114,7 @@ void clear_selected_scheduler_callbacks_106A() {
         if (object.u16(0x1a) == 0xffff)       // 1099-109E
             object.u16(0x18, 0);               // 10A9; remove phase callback
         else
-            clear_are_event_queue_17D4(old_bank_bit); // 10A0-10A6
+            deactivate_object_outside_camera_1DEE(object_offset); // 10A1-10A5
         entry_address = static_cast<std::uint16_t>(entry_address + 8);
     }
 }
@@ -124,7 +124,7 @@ void clear_selected_scheduler_callbacks_106A() {
 // nonzero slot, the pointed record's byte +0x01 is cleared and the slot's
 // pointer is then cleared.  It does not write the player record or scheduler
 // entries and returns with RETF.
-void clear_are_event_queue_17D4(std::uint16_t /*selected_bank_bit*/) {
+void clear_are_event_queue_17D4() {
     for (std::uint16_t index = 0; index != 0x80; ++index) {
         AREEventSlot &slot = are_event_slot(index);
         if (slot.pointer != 0) {
