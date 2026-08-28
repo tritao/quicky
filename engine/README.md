@@ -572,10 +572,13 @@ Explicit unresolved boundaries:
   recovery MAP/spawn-table rebuild contract. A focused natural W1L1 trace now
   confirms the runtime ordering `01F7:1AAA` -> next `01F7:3FF8` callback,
   including the indexed respawn position, reset motion, callback identity, and
-  idle animation state. `LevelSession` still collapses a hazard hit into an
-  immediate reset; the unsampled death setter, timer/IRQ hold condition,
-  delayed teardown, and scheduler/resource rebuild ordering remain explicit
-  boundaries;
+  idle animation state. A focused transition trace additionally observes the
+  signed gate countdown through `-347`, entry at `01D7:4BA4` with `DS:89EA=-350`,
+  health restoration at `4BD8`, gate clear at `01F7:1AE6`, and the next
+  recovered `3FF8` callback. `LevelSession` still collapses a generic hazard
+  hit into an immediate reset; the initial death setter, cross-level
+  generality of the `-350` threshold, opaque timer/resource calls, delayed
+  teardown, and scheduler rebuild ordering remain explicit boundaries;
 - the targeted `01D7:4BA4-4EFE` relocation expansion now classifies the concrete
   lifecycle targets: `01F7:106A` can remove dead scheduler callbacks,
   `01F7:1AF5` restores health/spawn selection before `1AAA`, and `01F7:321F`

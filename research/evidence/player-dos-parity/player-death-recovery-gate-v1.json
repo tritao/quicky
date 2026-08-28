@@ -1,0 +1,91 @@
+{
+  "schema": "quiky.player-death-recovery-gate.v1",
+  "purpose": "Focused natural W1L1 trace of the signed transition-gate countdown and the outer recovery handoff.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-death-recovery-gate-v9.json",
+    "trace_sha256": "d5aa95160110381ba682deba1f09c19e62a85b2c2246c7e3990f615afe7c4643",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "25e6cd7ca86e00023455a0f8882e78702f75b42fce2eca2e3c42b21398c96d36",
+    "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-transition-focus --player-transition-steps 100 --player-transition-probe-frames 3 --player-transition-warmup-frames 1600 --player-transition-hold-events 1 --player-input-key KBD_right --timeout 240 --output research/build/traces/player-w1l1-death-recovery-gate-v9.json"
+  },
+  "capture": {
+    "transition_steps": 100,
+    "transition_probe_frames": 3,
+    "transition_warmup_frames": 1600,
+    "input": "KBD_right held through the warmup and released at the first transition-focus event",
+    "pre_recovery_callbacks": 94,
+    "post_recovery_callbacks": 3
+  },
+  "observations": {
+    "countdown": {
+      "first_observed_callback_gate": -68,
+      "last_callback_before_lifecycle_gate": -347,
+      "step": -3,
+      "sampling_interval_guest_frames": 3,
+      "interpretation": "The player callback's signed transition gate continues negative during the death hold."
+    },
+    "recovery_order": [
+      {
+        "sequence": 95,
+        "address": "01D7:4BA4",
+        "name": "main_loop_lifecycle_gate_4BA4",
+        "transition_gate": -350,
+        "health": 0,
+        "lives": 3,
+        "evidence": "scheduler_gate_test"
+      },
+      {
+        "sequence": 96,
+        "address": "01D7:4BD8",
+        "name": "main_loop_recovery_secondary_gate_4BD8",
+        "transition_gate": -350,
+        "health": 3,
+        "lives": 3,
+        "evidence": "secondary_gate_test"
+      },
+      {
+        "sequence": 97,
+        "address": "01F7:1AE6",
+        "name": "player_recovery_clear_gate_1AE6",
+        "transition_gate": -350,
+        "health": 3,
+        "lives": 3,
+        "evidence": "write_89ea_clear"
+      },
+      {
+        "sequence": 98,
+        "address": "01F7:3FF8",
+        "name": "update_player_3ff8",
+        "transition_gate": 0,
+        "health": 3,
+        "lives": 3,
+        "evidence": "first recovered player callback"
+      }
+    ]
+  },
+  "static_crosscheck": {
+    "lifecycle_contract": "research/notes/death-recovery-static-decomp.cpp",
+    "recovery_initializer": "01F7:1AAA",
+    "health_restore": "01F7:1AF5",
+    "relocation": "01F7:1B01 -> 01F7:1AAA",
+    "common_tail": "01D7:504F"
+  },
+  "conclusion": {
+    "status": "natural_w1l1_gate_threshold_and_recovery_order_closed",
+    "closed": [
+      "The observed W1L1 death-hold gate reaches signed -350 before the outer 01D7:4BA4 lifecycle branch.",
+      "The recovery order is 4BA4 -> 4BD8 health restore -> 1AE6 gate clear -> next 3FF8 callback.",
+      "The recovered callback observes health 3, lives 3, and transition gate zero."
+    ],
+    "still_open": [
+      "The exact initial 19E6/199D death-setter instruction and trigger timing.",
+      "Whether -350 is universal across levels, transitions, or only this natural W1L1 route.",
+      "Opaque timer/IRQ/resource calls, scheduler teardown details, and the native C++ checkpoint/spawn implementation.",
+      "Held-out parity for the complete recovery record, object pool, globals, and effects."
+    ]
+  }
+}
