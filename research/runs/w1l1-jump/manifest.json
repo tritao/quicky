@@ -1,0 +1,36 @@
+{
+  "files": {
+    "actual-state.jsonl": {
+      "path": "actual-state.jsonl",
+      "sha256": "0b9f8daee6b51fccf538bddcdeafddfb1245cf92cb9c5465b1093298ffbcc3f6",
+      "size": 14282
+    },
+    "expected-state.jsonl": {
+      "path": "expected-state.jsonl",
+      "sha256": "5eaec0f5cb987b3e008516b54f3adf957e1fed6b8817bf256ea0d899b6aa179c",
+      "size": 14192
+    },
+    "input.jsonl": {
+      "path": "input.jsonl",
+      "sha256": "e994261cf4a13a15f78ceebe046e5b82ed65a14308c5563ff577ae275c6b1f8d",
+      "size": 723
+    }
+  },
+  "format_version": 5,
+  "name": "w1l1-jump",
+  "profile": "exact",
+  "provenance": {
+    "actual_trace": {
+      "path": "research/evidence/player-dos-parity/w1l1-jump-property-v3-candidate.json",
+      "sha256": "48727eda9d8f2c9866c301e5b3fef5dc85ebbe4615473cb97ae96163986e7ebf",
+      "size": 14389
+    },
+    "expected_trace": {
+      "path": "research/evidence/player-dos-parity/w1l1-jump-property-v3.json",
+      "sha256": "4108b11b6936d2104e78a5af01b18a068c08792b739a282de66e022fbf8a4a88",
+      "size": 34894
+    }
+  },
+  "replay": null,
+  "schema": "quiky.recorded-run-v5"
+}

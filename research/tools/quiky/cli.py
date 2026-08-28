@@ -30,7 +30,7 @@ def _top_parser() -> argparse.ArgumentParser:
             "Quiky research tooling and strict recorded-run parity."
         ),
         epilog=(
-            "Commands: run import|validate|verify, frame, trace, verify SCRIPT, "
+            "Commands: run import|replay|validate|verify, frame, trace, verify SCRIPT, "
             "ghidra SCRIPT.\n"
             "Examples: quiky run import RUN --name NAME --profile exact "
             "--expected-trace DOS.json; quiky run verify RUN"
@@ -47,9 +47,6 @@ def _run_parser() -> argparse.ArgumentParser:
     importer.add_argument("--name", required=True)
     importer.add_argument("--profile", choices=PROFILES, required=True)
     importer.add_argument("--expected-trace", type=Path, required=True)
-    migration = operations.add_parser("migrate-actual")
-    migration.add_argument("directory", type=Path)
-    migration.add_argument("--trace", type=Path, required=True)
     replay = operations.add_parser("replay")
     replay.add_argument("directory", type=Path)
     replay.add_argument("--binary", type=Path,
@@ -112,19 +109,14 @@ def main(argv: list[str] | None = None) -> int:
                         })
                 print(f"OK: recorded run imported at {parsed.directory}")
                 return 0
-            if parsed.operation == "migrate-actual":
-                manifest = validate_run_directory(parsed.directory)
-                with tempfile.TemporaryDirectory(prefix="quiky-actual-migration-") as temp:
-                    state = Path(temp) / "actual-state.jsonl"
-                    save_state_jsonl(state, import_trace(
-                        parsed.trace, manifest["profile"]))
-                    install_actual_state(parsed.directory, state)
-                print(f"OK: migrated actual state for {parsed.directory}")
-                return 0
             if parsed.operation == "replay":
                 manifest = validate_run_directory(parsed.directory)
-                supplied = parsed.archive is not None or parsed.map_resource is not None
-                if supplied:
+                recipe = manifest.get("replay")
+                configuring = (parsed.map_resource is not None or
+                               parsed.player_bob is not None or
+                               parsed.leaf_prng_index is not None or
+                               parsed.leaf_prng_ring_hex is not None)
+                if recipe is None or configuring:
                     if parsed.archive is None or parsed.map_resource is None:
                         raise ToolError("replay configuration requires --archive and --map")
                     if ((parsed.leaf_prng_index is None) !=
@@ -136,10 +128,9 @@ def main(argv: list[str] | None = None) -> int:
                         player_bob=parsed.player_bob,
                         leaf_prng_index=parsed.leaf_prng_index,
                         leaf_prng_ring_hex=parsed.leaf_prng_ring_hex)
-                recipe = manifest.get("replay")
-                if recipe is None:
-                    raise ToolError("run has no replay configuration; supply --archive and --map")
-                archive = Path(recipe["archive"]["path"])
+                    recipe = manifest["replay"]
+                archive = (parsed.archive if parsed.archive is not None
+                           else Path(recipe["archive"]["path"]))
                 if file_fingerprint(archive)["sha256"] != recipe["archive"]["sha256"]:
                     raise ToolError(f"replay archive digest mismatch: {archive}")
                 with tempfile.TemporaryDirectory(prefix="quiky-run-replay-") as temp:

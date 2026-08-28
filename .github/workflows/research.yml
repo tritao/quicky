@@ -19,13 +19,7 @@ jobs:
       - name: Run research tests
         run: python3 -m unittest discover -s research/tests
       - name: Verify canonical recorded-run parity
-        run: |
-          python3 research/tools/quiky.py run import "$RUNNER_TEMP/w1l1-jump" \
-            --name w1l1-jump --profile exact \
-            --expected-trace research/evidence/player-dos-parity/w1l1-jump-property-v3.json
-          python3 research/tools/quiky.py run migrate-actual "$RUNNER_TEMP/w1l1-jump" \
-            --trace research/evidence/player-dos-parity/w1l1-jump-property-v3-candidate.json
-          python3 research/tools/quiky.py run verify "$RUNNER_TEMP/w1l1-jump"
+        run: python3 research/tools/quiky.py run verify research/runs/w1l1-jump
       - name: Check Python sources and generated manifests
         run: |
           python3 -m py_compile research/tools/*.py

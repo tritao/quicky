@@ -36,11 +36,8 @@ struct InputFrame {
 
 void usage() {
     std::cerr << "usage: quiky-parity-replay ARCHIVE MAP-RESOURCE OUTPUT.JSON "
-                 "[--frames N] [--action-flags N] "
-                 "[--input-jsonl PATH] "
+                 "--input-jsonl PATH "
                  "[--player-bob RESOURCE] "
-                 "[--camera-x N --camera-y N] "
-                 "[--startup-camera-sweep-from N --startup-camera-sweep-to N] "
                  "[--leaf-prng-index N --leaf-prng-ring-hex HEX]\n";
 }
 
@@ -125,6 +122,10 @@ long jsonInteger(const std::string &line, const char *key, bool &present) {
     char *end = 0;
     const long result = std::strtol(start, &end, 0);
     if (end == start) {
+        throw quiky::FormatError(std::string("input JSONL field is not an integer: ") + key);
+    }
+    while (*end == ' ' || *end == '\t') ++end;
+    if (*end != ',' && *end != '}') {
         throw quiky::FormatError(std::string("input JSONL field is not an integer: ") + key);
     }
     present = true;
@@ -322,51 +323,17 @@ int main(int argc, char **argv) {
         const std::string mapName(argv[2]);
         const std::string outputPath(argv[3]);
         std::string playerBobName = playerBobFor(mapName);
-        long frameCount = 4;
-        std::uint16_t actionFlags = 0;
         std::string inputJsonl;
-        bool hasCamera = false;
-        std::int32_t cameraX = 0;
-        std::int32_t cameraY = 262;
-        bool hasStartupCameraSweep = false;
-        std::int32_t startupCameraFrom = 0;
-        std::int32_t startupCameraTo = 0;
         bool hasLeafPrngIndex = false;
         bool hasLeafPrngRing = false;
         std::uint16_t leafPrngIndex = 0;
         std::array<std::uint8_t, 0x100> leafPrngRing;
         for (int index = 4; index < argc; ++index) {
             const std::string option(argv[index]);
-            if (option == "--frames" && index + 1 < argc) {
-                frameCount = parseNumber(argv[++index], "frame count");
-            } else if (option == "--action-flags" && index + 1 < argc) {
-                const long parsed = parseNumber(argv[++index], "action flags");
-                if (parsed < 0 || parsed > 0xffff) {
-                    throw quiky::FormatError("action flags outside uint16 range");
-                }
-                actionFlags = static_cast<std::uint16_t>(parsed);
-            } else if (option == "--input-jsonl" && index + 1 < argc) {
+            if (option == "--input-jsonl" && index + 1 < argc) {
                 inputJsonl = argv[++index];
             } else if (option == "--player-bob" && index + 1 < argc) {
                 playerBobName = argv[++index];
-            } else if (option == "--camera-x" && index + 1 < argc) {
-                cameraX = static_cast<std::int32_t>(
-                    parseNumber(argv[++index], "camera X"));
-                hasCamera = true;
-            } else if (option == "--camera-y" && index + 1 < argc) {
-                cameraY = static_cast<std::int32_t>(
-                    parseNumber(argv[++index], "camera Y"));
-                hasCamera = true;
-            } else if (option == "--startup-camera-sweep-from" &&
-                       index + 1 < argc) {
-                startupCameraFrom = static_cast<std::int32_t>(
-                    parseNumber(argv[++index], "startup camera from"));
-                hasStartupCameraSweep = true;
-            } else if (option == "--startup-camera-sweep-to" &&
-                       index + 1 < argc) {
-                startupCameraTo = static_cast<std::int32_t>(
-                    parseNumber(argv[++index], "startup camera to"));
-                hasStartupCameraSweep = true;
             } else if (option == "--leaf-prng-index" && index + 1 < argc) {
                 const long parsed = parseNumber(
                     argv[++index], "leaf PRNG index");
@@ -384,27 +351,15 @@ int main(int argc, char **argv) {
                 return EXIT_FAILURE;
             }
         }
-        if (frameCount < 0) {
-            throw quiky::FormatError("frame count must be non-negative");
+        if (inputJsonl.empty()) {
+            throw quiky::FormatError("--input-jsonl is required");
         }
         if (hasLeafPrngIndex != hasLeafPrngRing) {
             throw quiky::FormatError(
                 "leaf PRNG index and ring must be supplied together");
         }
 
-        std::vector<InputFrame> inputs;
-        if (!inputJsonl.empty()) {
-            inputs = readInputJsonl(inputJsonl);
-        } else {
-            for (long index = 0; index < frameCount; ++index) {
-                InputFrame frame(static_cast<std::size_t>(index + 1),
-                                 actionFlags);
-                frame.hasCamera = hasCamera;
-                frame.cameraX = cameraX;
-                frame.cameraY = cameraY;
-                inputs.push_back(frame);
-            }
-        }
+        const std::vector<InputFrame> inputs = readInputJsonl(inputJsonl);
 
         const quiky::Archive archive = quiky::Archive::load(archivePath);
         quiky::LevelSessionConfig config;
@@ -418,23 +373,8 @@ int main(int argc, char **argv) {
         quiky::Simulation simulation;
         quiky::TraceClosedPlayerUpdate updater;
         simulation.setExperimentalPlayerUpdater(&updater);
-        if (hasStartupCameraSweep) {
-            if (!hasCamera || startupCameraFrom < startupCameraTo) {
-                throw quiky::FormatError(
-                    "startup camera sweep requires camera Y and descending X bounds");
-            }
-            runtime->setStreamAnchor(startupCameraFrom, cameraY);
-        }
         runtime->reset(simulation);
-        if (hasStartupCameraSweep) {
-            for (std::int32_t startupX = startupCameraFrom;
-                 startupX >= startupCameraTo; --startupX) {
-                runtime->setStreamAnchor(startupX, cameraY);
-                runtime->session().updateStreaming(
-                    simulation, startupX, cameraY);
-            }
-            runtime->setStreamAnchor(startupCameraTo, cameraY);
-        } else if (hasCamera && !inputs.empty() && inputs[0].hasCamera) {
+        if (inputs[0].hasCamera) {
             runtime->setStreamAnchor(inputs[0].cameraX, inputs[0].cameraY);
         }
 

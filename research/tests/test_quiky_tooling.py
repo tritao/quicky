@@ -123,7 +123,7 @@ class QuikyToolingTests(unittest.TestCase):
             self.assertNotIn("parity.json", refreshed["files"])
             self.assertNotIn("coverage.json", refreshed["files"])
 
-    def test_unified_cli_imports_and_verifies(self):
+    def test_unified_cli_imports_a_run(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             trace = root / "trace.json"
@@ -135,15 +135,16 @@ class QuikyToolingTests(unittest.TestCase):
                  "--expected-trace", str(trace)],
                 cwd=ROOT, text=True, capture_output=True, check=False)
             self.assertEqual(imported.returncode, 0, imported.stderr)
-            migrated = subprocess.run(
-                [sys.executable, str(TOOLS / "quiky.py"), "run", "migrate-actual",
-                 str(run), "--trace", str(trace)], cwd=ROOT, text=True,
-                capture_output=True, check=False)
-            self.assertEqual(migrated.returncode, 0, migrated.stderr)
-            verified = subprocess.run(
-                [sys.executable, str(TOOLS / "quiky.py"), "run", "verify", str(run)],
+            validated = subprocess.run(
+                [sys.executable, str(TOOLS / "quiky.py"), "run", "validate", str(run)],
                 cwd=ROOT, text=True, capture_output=True, check=False)
-            self.assertEqual(verified.returncode, 0, verified.stderr)
+            self.assertEqual(validated.returncode, 0, validated.stderr)
+
+    def test_committed_run_verifies(self):
+        mismatches, coverage = verify_run_directory(
+            ROOT / "research/runs/w1l1-jump")
+        self.assertEqual(mismatches, [])
+        self.assertTrue(coverage)
 
 
 if __name__ == "__main__":

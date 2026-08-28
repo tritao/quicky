@@ -1073,32 +1073,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="debugger-only: force the player post-update target-emitter spawn path")
     parser.add_argument("--player-probe-release-emitter", action="store_true",
                         help="debugger-only: clear the first emitter target at 45AB and trace 470C teardown")
-    parser.add_argument("--player-input-key",
-                        help="hold a DOSBox keyboard key between player samples, e.g. KBD_right")
-    parser.add_argument("--player-input-key-switch",
-                        help="replace --player-input-key at the selected sample, e.g. KBD_left")
-    parser.add_argument("--player-input-switch-sample", type=int, default=0,
-                        help="first post-baseline sample using --player-input-key-switch")
-    parser.add_argument("--player-input-key-2",
-                        help="hold a second key alongside --player-input-key, e.g. KBD_up")
-    parser.add_argument("--player-secondary-pulse-frames", type=int, default=0,
-                        help="toggle the secondary key every N frames during each input hold")
-    parser.add_argument("--player-secondary-start-sample", type=int, default=1,
-                        help="post-baseline sample at which the secondary key starts (default 1)")
-    parser.add_argument("--player-secondary-end-sample", type=int, default=0,
-                        help="last post-baseline sample receiving the secondary key (0 means no end)")
-    parser.add_argument("--player-input-frames", type=int, default=0,
-                        help="guest frames to hold --player-input-key before each post-baseline sample")
-    parser.add_argument("--player-input-samples", type=int, default=0,
-                        help="number of post-baseline samples that receive the input hold (0 means all)")
-    parser.add_argument("--player-input-warmup-frames", type=int, default=0,
-                        help="guest frames to hold --player-input-key before the first sampled callback")
     parser.add_argument("--player-record-input-stream", action="store_true",
                         help="record lightweight per-guest-frame input/camera rows")
-    parser.add_argument("--player-input-hold-key",
-                        help="keep one or more '+'-separated DOSBox keys physically held while sampling callbacks")
-    parser.add_argument("--player-input-hold-frames", type=int, default=0,
-                        help="number of guest frames for --player-input-hold-key")
     parser.add_argument("--player-map-patch-cell", type=parse_map_patch_cell,
                         metavar="X,Y=TILE",
                         help="temporarily replace one MAP cell for each player sample")
@@ -1220,18 +1196,6 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-samples must be positive")
     if args.player_frames_between < 0:
         raise TraceError("--player-frames-between cannot be negative")
-    if args.player_input_frames < 0:
-        raise TraceError("--player-input-frames cannot be negative")
-    if args.player_input_samples < 0:
-        raise TraceError("--player-input-samples cannot be negative")
-    if args.player_input_warmup_frames < 0:
-        raise TraceError("--player-input-warmup-frames cannot be negative")
-    if args.player_input_hold_frames < 0:
-        raise TraceError("--player-input-hold-frames cannot be negative")
-    if args.player_input_hold_frames and not args.player_input_hold_key:
-        raise TraceError("--player-input-hold-frames requires --player-input-hold-key")
-    if args.player_input_hold_key and not args.player_input_hold_frames:
-        raise TraceError("--player-input-hold-key requires --player-input-hold-frames")
     if args.player_map_patch_cell is not None:
         patch_x, patch_y, patch_tile = args.player_map_patch_cell
         if not 0 <= patch_x < args.player_map_width or not 0 <= patch_y < args.player_map_height:
@@ -1252,23 +1216,6 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError(
             "--player-persistent-map-patch requires --player-map-patch-cell"
         )
-    if args.player_input_key_2 and not args.player_input_key:
-        raise TraceError("--player-input-key-2 requires --player-input-key")
-    if args.player_input_key_switch and not args.player_input_key:
-        raise TraceError("--player-input-key-switch requires --player-input-key")
-    if args.player_input_key_switch and args.player_input_switch_sample < 2:
-        raise TraceError("--player-input-switch-sample must be at least 2")
-    if args.player_input_switch_sample and not args.player_input_key_switch:
-        raise TraceError("--player-input-switch-sample requires --player-input-key-switch")
-    if args.player_secondary_pulse_frames < 0:
-        raise TraceError("--player-secondary-pulse-frames cannot be negative")
-    if args.player_secondary_start_sample < 1:
-        raise TraceError("--player-secondary-start-sample must be positive")
-    if args.player_secondary_end_sample < 0:
-        raise TraceError("--player-secondary-end-sample cannot be negative")
-    if (args.player_secondary_end_sample and
-            args.player_secondary_end_sample < args.player_secondary_start_sample):
-        raise TraceError("--player-secondary-end-sample must not precede the start sample")
     if args.player_transition_steps < 1:
         raise TraceError("--player-transition-steps must be positive")
     if args.player_transition_hold_events < 0:
@@ -1283,15 +1230,6 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError("--player-transition-probe-tail-frames requires --player-transition-probe-tail-camera-x")
     if args.player_transition_warmup_frames < 0:
         raise TraceError("--player-transition-warmup-frames cannot be negative")
-    if args.player_input_frames and not args.player_input_key:
-        raise TraceError("--player-input-frames requires --player-input-key")
-    if args.player_input_warmup_frames and not args.player_input_key:
-        raise TraceError("--player-input-warmup-frames requires --player-input-key")
-    if args.player_input_phase and (
-            args.player_input_key or args.player_input_key_switch or
-            args.player_input_key_2 or args.player_input_frames or
-            args.player_input_samples):
-        raise TraceError("--player-input-phase cannot be combined with legacy player input options")
     if args.player_frames_between_after_sample < 0:
         raise TraceError("--player-frames-between-after-sample must be non-negative")
     if args.player_frames_between_after is not None and args.player_frames_between_after < 0:
@@ -1493,19 +1431,7 @@ def main(argv: list[str] | None = None) -> int:
                 map_height=args.player_map_height,
                 probe_spawn_emitter=args.player_probe_spawn_emitter,
                 probe_release_emitter=args.player_probe_release_emitter,
-                input_key=args.player_input_key,
-                input_key_switch=args.player_input_key_switch,
-                input_switch_sample=args.player_input_switch_sample,
-                input_key_secondary=args.player_input_key_2,
-                secondary_pulse_frames=args.player_secondary_pulse_frames,
-                secondary_start_sample=args.player_secondary_start_sample,
-                secondary_end_sample=args.player_secondary_end_sample,
-                input_frames=args.player_input_frames,
-                input_samples=args.player_input_samples,
-                input_warmup_frames=args.player_input_warmup_frames,
                 record_input_stream=args.player_record_input_stream,
-                input_hold_key=args.player_input_hold_key,
-                input_hold_frames=args.player_input_hold_frames,
                 input_phase_through_callback=args.player_input_phase_through_callback,
                 input_phase_hold_callbacks=args.player_input_phase_hold_callbacks,
                 input_phase_hold_after_wait=args.player_input_phase_hold_after_wait,

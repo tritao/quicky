@@ -313,8 +313,8 @@ anchor `(0,262)`, and the SDL frontend publishes its settled camera for the
 following tick. The native session also replays the Ghidra-derived
 `01F7:1CDA -> 01F7:1E04` incremental stream cursor for camera-owned sessions;
 W1L1 reset reproduces the observed selector settle from `x=511` to `x=0`.
-The trace emitter accepts `--startup-camera-sweep-from/to` for a recorded
-startup history such as W1L2's `591 -> 80` settle. The scanner now accounts for
+Parity replay consumes the exact per-frame camera history from its required
+canonical `--input-jsonl` stream. The scanner now accounts for
 the six dedicated `0x65` records (one `01F7:5C11` byte each) and the later
 phase-1 initialization of four leaf records (two bytes each), reproducing the observed W1L2 cursor
 `DS:6468: 18 -> 32` from the captured ring. The complete boundary is recorded in

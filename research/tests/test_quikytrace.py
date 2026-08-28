@@ -680,8 +680,9 @@ class QuikyTraceTests(unittest.TestCase):
             encoding="utf-8"
         )
         self.assertIn("--player-capture-record", host_source)
-        self.assertIn("--player-input-key-2", host_source)
-        self.assertIn("--player-input-warmup-frames", host_source)
+        self.assertIn("--player-input-phase", host_source)
+        self.assertNotIn("--player-input-key-2", host_source)
+        self.assertNotIn("--player-input-warmup-frames", host_source)
 
     def test_player_input_warmup_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
