@@ -72,6 +72,24 @@ class QuikyGhidraManifestTests(unittest.TestCase):
             "GAMEDATA\\W1L4.map",
         )
 
+    def test_common_504f_tail_records_direct_state_order_and_open_edges(self):
+        path = ROOT / "research" / "ghidra" / "transition-reload-closure.json"
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        tail = manifest["common_tail_504f"]
+        self.assertEqual(
+            tail["status"],
+            "direct_global_order_closed_timer_and_scheduler_membership_open",
+        )
+        self.assertEqual(tail["direct_state_targets"][:5], [
+            "DS:613F", "DS:85D2", "DS:8196", "DS:88BC", "DS:89E4",
+        ])
+        evidence = json.loads(
+            (ROOT / tail["evidence"]).read_text(encoding="utf-8")
+        )
+        self.assertEqual(evidence["entry"]["address"], "01D7:504F")
+        self.assertIn("DS:89F0", " ".join(tail["direct_state_targets"]))
+        self.assertIn("timer/IRQ", tail["runtime_open_edges"][0])
+
 
 if __name__ == "__main__":
     unittest.main()

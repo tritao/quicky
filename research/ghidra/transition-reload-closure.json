@@ -25,7 +25,23 @@
     "5047": "Local call to 01D7:313D, dispatching the next world/selector constructor path.",
     "18C7": "Common Pascal resource lookup publishing DS:97E4/97E8/97EC after path resolution.",
     "1AAA": "Consumes the indexed DS:8828/882A transition coordinate, clears DS:89EA, and calls 5D38.",
-    "321F": "Rebuilds camera/map state through 31D1, 20AF, 3062, and 17AE."
+    "321F": "Rebuilds camera/map state through 31D1, 20AF, 3062, and 17AE.",
+    "504F": "The common internal tail resets DS:85D2, DS:8196, DS:88BC, DS:89E4, DS:89EE, and DS:8952 in the recovered order; swaps DS:817A/DS:817C, publishes DS:81D1, clears/polls DS:819E, and processes the address-qualified command ladder that can write DS:8822, DS:880C, DS:89EE, DS:89F0, DS:89E6, and DS:89F4. The direct-state contract is recorded in main-loop-common-tail-static-v1.json; timer/resource/UI effects remain external contracts."
+  },
+  "common_tail_504f": {
+    "note": "research/notes/main-loop-common-tail-static-decomp.cpp",
+    "evidence": "research/evidence/player-dos-parity/main-loop-common-tail-static-v1.json",
+    "status": "direct_global_order_closed_timer_and_scheduler_membership_open",
+    "direct_state_targets": [
+      "DS:613F", "DS:85D2", "DS:8196", "DS:88BC", "DS:89E4",
+      "DS:89EE", "DS:8952", "DS:817A/DS:817C", "DS:81D1", "DS:819E",
+      "DS:89EC", "DS:8822", "DS:880C", "DS:89F0", "DS:89E6", "DS:89F4"
+    ],
+    "runtime_open_edges": [
+      "timer/IRQ condition and counter ending the death hold",
+      "scheduler-bank teardown/rebuild membership before 1AAA",
+      "presentation/resource effects behind address-named calls"
+    ]
   },
   "exports": {
     "QUIKY_SEG01.bin.c": "16a318f506ecdd2af55156373257b5e91e7778b6beb7ee2b4a261f32f36a28d1",

@@ -1,0 +1,66 @@
+{
+  "schema": "quiky.main-loop-common-tail-static.v1",
+  "purpose": "Mechanically auditable direct-state contract for the common 01D7:504F tail inside the 01D7:5010 main-loop closure.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "pipeline": "repository Ghidra raw NE segment import",
+    "language": "x86:LE:16:Protected Mode",
+    "runner": "research/tools/run_transition_reload_closure.py",
+    "independent_export_check": "passed; project-a and project-b SEG01 exports matched"
+  },
+  "entry": {
+    "address": "01D7:504F",
+    "containing_function": "01D7:5010",
+    "calling_convention": "internal continuation; no independent stack/register ABI",
+    "return_contract": "returns only through the containing main-loop control flow; no caller-consumed flags proven"
+  },
+  "branch_order": [
+    "504F: if DS:89EC != 0 or DS:89E0 == 0xffff, perform the external tail and publish DS:613F from BP-0x409",
+    "ordinary pass: DS:85D2 = 0",
+    "DS:85DA == 1: clear BP-0x407 and set BP-0x408",
+    "BP-0x407 != 0: selector/rebuild calls, DS:613F = 0, BP-0x406 = 0x0014, then clear BP-0x407",
+    "BP-0x408 != 0: clear BP-0x408 and run selector refresh calls",
+    "reset DS:8196 and DS:88BC; then clear DS:89E4 and DS:89EE; conditionally run BP-0x403 call; set DS:8952 = 0xffff",
+    "48B5-48BB: decrement BP-0x406, swap DS:817A/817C, set DS:81D1 = 1, clear/poll DS:819E",
+    "command ladder: process DS:88BA and transition gates, then join at 4968",
+    "4968: clear DS:89EC and DS:8952, set BP-0x403, then dispatch 89F4/89EE/89EA/89F0/pending branches"
+  ],
+  "direct_writes": [
+    {"address": "01D7:504F", "target": "DS:613F", "width": 1, "source": "BP-0x409", "feeds_simulation": "outer UI/transition state"},
+    {"address": "01D7:505?", "target": "DS:85D2", "width": 2, "value": 0, "feeds_simulation": "1AAA spawn-row selection"},
+    {"address": "01D7:48B5", "target": "DS:8196", "width": 2, "value": 0, "feeds_simulation": "loop/timer gate"},
+    {"address": "01D7:48B5", "target": "DS:88BC", "width": 2, "value": 0, "feeds_simulation": "input command state"},
+    {"address": "01D7:48B5", "target": "DS:89E4", "width": 2, "value": 0, "feeds_simulation": "transition state"},
+    {"address": "01D7:48B5", "target": "DS:89EE", "width": 2, "value": 0, "feeds_simulation": "transition input"},
+    {"address": "01D7:48B5", "target": "DS:8952", "width": 2, "value": "0xffff", "feeds_simulation": "callback gate"},
+    {"address": "01D7:48B5", "target": "DS:817A/DS:817C", "width": 2, "value": "swap", "feeds_simulation": "MAP page aliases"},
+    {"address": "01D7:48B5", "target": "DS:81D1", "width": 1, "value": 1, "feeds_simulation": "MAP refresh publication"},
+    {"address": "01D7:48B5", "target": "DS:819E", "width": 2, "value": 0, "feeds_simulation": "timer wait"},
+    {"address": "01D7:4968", "target": "DS:89EC", "width": 2, "value": 0, "feeds_simulation": "outer transition event"},
+    {"address": "01D7:4968", "target": "DS:8952", "width": 2, "value": 0, "feeds_simulation": "callback gate"},
+    {"address": "01D7:command", "target": "DS:8822", "width": 2, "value": "DS:8824", "condition": "DS:88B2 != 0 or DS:88BA == 2", "feeds_simulation": "health restore"},
+    {"address": "01D7:command", "target": "DS:880C", "width": 2, "value": 99, "condition": "DS:88B4 != 0 or DS:88BA == 4", "feeds_simulation": "ammo state"},
+    {"address": "01D7:command", "target": "DS:89EE", "width": 2, "value": "0xffff", "condition": "DS:88BA == 0x19", "feeds_simulation": "transition input"},
+    {"address": "01D7:command", "target": "DS:89F0", "width": 2, "value": "0xffff", "condition": "DS:88BA == 1", "feeds_simulation": "transition counter"},
+    {"address": "01D7:command", "target": "DS:89E6", "width": 2, "value": "0xffff", "condition": "DS:88BA == 3", "feeds_simulation": "transition signal"},
+    {"address": "01D7:command", "target": "DS:89F4", "width": 2, "value": "0xffff", "condition": "DS:88BA == 5", "feeds_simulation": "completion command"}
+  ],
+  "callees": [
+    {"address": "01E7:0D18", "name": "address_named_finalization_menu_update", "classification": "contract", "feedback": "unknown timer/UI result; only zero/nonzero is consumed"},
+    {"address": "0207:0002", "name": "address_named_frame_wait_0002", "classification": "contract", "feedback": "timer gate only"},
+    {"address": "01F7:F049", "name": "address_named_timer_irq_F049", "classification": "contract", "feedback": "writes DS:819E/DS:5014"},
+    {"address": "01D7:4BA4", "name": "main_loop_lifecycle_gate_4BA4", "classification": "inline", "feedback": "consumes DS:89EA/DS:89F0/lives and can reach recovery"}
+  ],
+  "unresolved": [
+    "exact timer/IRQ condition and counter that ends the natural death hold",
+    "scheduler-bank membership and teardown order between the gate and 1AAA",
+    "presentation/resource effects behind address-named calls"
+  ],
+  "evidence": [
+    "ghidra:SEG01/5010-504F",
+    "research/build/transition-reload-closure/decomp-a/QUIKY_SEG01.bin.c",
+    "research/build/transition-reload-closure/decomp-b/QUIKY_SEG01.bin.c",
+    "research/notes/main-loop-common-tail-static-decomp.cpp"
+  ]
+}

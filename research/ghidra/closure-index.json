@@ -80,7 +80,10 @@
       "id": "transition_reload",
       "scope": "Post-5010 reload, player reposition, camera/MAP rebuild, and resource boundary",
       "ledger": "research/ghidra/transition-reload-closure.json",
-      "notes": ["research/notes/death-recovery-static-decomp.cpp"],
+      "notes": [
+        "research/notes/death-recovery-static-decomp.cpp",
+        "research/notes/main-loop-common-tail-static-decomp.cpp"
+      ],
       "verifier": "research/tools/verify_player_external_closure.py",
       "status": "orchestration_closed_resource_and_timer_boundaries_open"
     }
