@@ -365,6 +365,18 @@ velocities, and sprite selectors. The exact seed prefix and the 60 honest
 coverage gaps are recorded in
 [`w1l1-seeded-session-object-parity-v1.json`](../research/evidence/player-dos-parity/w1l1-seeded-session-object-parity-v1.json).
 
+The same replay is available as a fail-closed gate. It derives the ring,
+invokes the native emitter, compares the result, and fails on any comparable
+player, scheduler, object, probe, global, or effect mismatch:
+
+~~~sh
+python3 research/tools/w1l1_session_parity.py \
+  --original research/build/player-frame-full-v1.json
+~~~
+
+The command reports the archived trace's honest coverage gaps. Add
+`--require-complete` when a capture with all comparison arrays is available.
+
 The first W1L2 difference family is now integrated from the focused
 protected-mode closure: ARE type `0x34` runs `01F7:9BEE` initialization and
 the phase-1 `01F7:9C0C` callback before `01F7:3FF8`. The native path preserves

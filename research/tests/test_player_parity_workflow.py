@@ -13,6 +13,7 @@ from player_replay_manifest import (  # noqa: E402
     build_manifest,
     write_tsv,
 )
+from w1l1_session_parity import build_command  # noqa: E402
 from quiky.parity import canonical_global_write, canonical_probes  # noqa: E402
 
 
@@ -186,6 +187,28 @@ class PlayerParityWorkflowTests(unittest.TestCase):
         self.assertTrue(any(item["field"] == "global_writes"
                             and "missing" in item.get("error", "")
                             for item in mismatches))
+
+    def test_w1l1_session_gate_injects_derived_ring_and_replay_inputs(self):
+        command = build_command(
+            Path("build/engine/quiky-w1l1-trace"),
+            Path("game/NESTLE.DAT"),
+            "W1L1.MAP",
+            Path("/tmp/candidate.json"),
+            frames=4,
+            action_flags="0",
+            input_tsv=None,
+            leaf_prng_index=0,
+            leaf_prng_ring_hex="00" * 0x100,
+        )
+        self.assertEqual(command[:4], [
+            "build/engine/quiky-w1l1-trace",
+            "game/NESTLE.DAT",
+            "W1L1.MAP",
+            "/tmp/candidate.json",
+        ])
+        self.assertIn("--frames", command)
+        self.assertIn("--action-flags", command)
+        self.assertEqual(command[-1], "00" * 0x100)
 
 
 if __name__ == "__main__":
