@@ -28,6 +28,28 @@ class PlayerLifecycleEvidenceTests(unittest.TestCase):
             evidence["observations"]["first_recovered_callback"]["position_pixels"][1],
         )
 
+    def test_recovery_scheduler_keeps_identity_across_bank_rebuild(self):
+        path = ROOT / "research/evidence/player-dos-parity/player-death-recovery-scheduler-v1.json"
+        evidence = json.loads(path.read_text(encoding="utf-8"))
+
+        self.assertEqual(evidence["schema"],
+                         "quiky.player-death-recovery-scheduler.v1")
+        self.assertEqual(
+            evidence["observations"]["route"],
+            ["01D7:4BA4", "01D7:4BD8", "01F7:1AAA", "01F7:3FF8"],
+        )
+        self.assertEqual(
+            evidence["observations"]["before_recovery"]["player_entries"],
+            [
+                {"bank": "0x7566", "index": 9, "object_offset": 0},
+                {"bank": "0x7766", "index": 9, "object_offset": 0},
+            ],
+        )
+        self.assertEqual(
+            evidence["observations"]["first_recovered_callback"]["player_entries"],
+            [{"bank": "0x7766", "index": 8, "object_offset": 0}],
+        )
+
     def test_natural_gate_trace_records_recovery_order(self):
         path = ROOT / "research/evidence/player-dos-parity/player-death-recovery-gate-v1.json"
         evidence = json.loads(path.read_text(encoding="utf-8"))

@@ -578,10 +578,13 @@ Explicit unresolved boundaries:
   not folded into the resource declaration. A focused transition trace additionally observes the
   signed gate countdown through `-347`, entry at `01D7:4BA4` with `DS:89EA=-350`,
   health restoration at `4BD8`, gate clear at `01F7:1AE6`, and the next
-  recovered `3FF8` callback. `LevelSession` still collapses a generic hazard
+  recovered `3FF8` callback. The same focused trace observes the player in
+  both rotating banks before recovery and in the rebuilt `0x7766` bank at a
+  different physical index afterward; callback `0x3ff8` plus object offset
+  zero remains the identity. `LevelSession` still collapses a generic hazard
   hit into an immediate reset; the initial death setter, cross-level
   generality of the `-350` threshold, opaque timer/resource calls, delayed
-  teardown, and scheduler rebuild ordering remain explicit boundaries;
+  teardown, and exact bank-copy ordering remain explicit boundaries;
 - the targeted `01D7:4BA4-4EFE` relocation expansion now classifies the concrete
   lifecycle targets: `01F7:106A` can remove dead scheduler callbacks,
   `01F7:1AF5` restores health/spawn selection before `1AAA`, and `01F7:321F`

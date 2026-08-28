@@ -2916,13 +2916,15 @@
     "descriptor_boundary": "1BD1/1C6E/1C92/5C27/5CC3/5DC3 all have mechanical return contracts; gameplay labels for descriptor high bits remain intentionally unassigned."
   },
   "runtime_scheduler_membership": {
-    "status": "current_w1l1_selected_bank_confirmed_rotation_edge_open",
+    "status": "current_w1l1_death_recovery_membership_confirmed_rotation_edge_open",
     "trace": "research/evidence/player-dos-parity/player-scheduler-membership-v2.json",
     "evidence_sha256": "1cd9344deb388024eb1ffd037fc0b02ef0922d75d5cb55455b6f5363b019a85a",
+    "death_recovery_trace": "research/evidence/player-dos-parity/player-death-recovery-scheduler-v1.json",
+    "death_recovery_trace_sha256": "dab8e9994664ee3081952b7851de7d75f1cc19325c99caca9a770042e0e960e5",
     "static_selection": "01F7:0FA2 selects DS:7566 + (DS:7966 & 0x0200), with eight-byte entries: phase callback offset at +0x00, secondary callback offset at +0x02, object offset at +0x04, and an unclassified +0x06 word. The +0x00 word is the terminator tested by 0E96/0FA2/0FDC.",
-    "runtime_fact": "At a fresh W1L1 01F7:0FA2 entry, DS:7966=0x0250 selects DS:7766 and entry 9 contains phase callback 01F7:3FF8, secondary callback 01F7:1997, and object offset zero. A later rotated pass selects DS:7566 and exposes the same phase callback at entry 7 while the prior bank still retains entry 9.",
+    "runtime_fact": "At a fresh W1L1 01F7:0FA2 entry, DS:7966=0x0250 selects DS:7766 and entry 9 contains phase callback 01F7:3FF8, secondary callback 01F7:1997, and object offset zero. A later rotated pass selects DS:7566 and exposes the same phase callback at entry 7 while the prior bank still retains entry 9. The natural W1L1 death/recovery trace keeps that callback/object identity through 4BA4/4BD8/1AAA, then observes the first recovered 3FF8 callback in the rebuilt 0x7766 bank at entry 8; the physical index changes and is not identity.",
     "engine_rule": "Represent player membership by the persistent object offset and callback identity; never hard-code a scheduler append index.",
-    "open_edges": ["death/reload membership rebuild", "platform detachment and culling membership", "cross-level bank reconstruction"]
+    "open_edges": ["exact death/reload teardown and bank-copy instruction order", "platform detachment and culling membership", "cross-level bank reconstruction"]
   },
   "death_recovery_static": {
     "status": "static_writes_closed_observed_natural_owner_closed",
@@ -3046,7 +3048,7 @@
   },
   "unresolved": [
     {"address": "01F7:0598", "question": "Can runtime DS:6D8A record callbacks other than the statically captured ordinary W1L1-W5L1 set and changed-bit matrices write player simulation state?", "next": "The ordinary W1L1-W5L1 targets and the changed-bit target matrix are statically closed, non-calling leaves with no observed player/global delta. Keep other record-selected targets address-named; capture/decompile another target only when held-out parity or a non-startup gameplay trace reaches this edge."},
-    {"address": "01F7:0FA2", "question": "How are the player entry and its rotated-bank copy rebuilt after death, reload, jump detachment, or platform culling?", "next": "Capture the bank arrays at each lifecycle boundary; retain object offset zero/callback 3FF8 as the stable identity and do not infer semantics from append index."},
+    {"address": "01F7:0FA2", "question": "What exact teardown and bank-copy instructions rebuild the player entry during death/recovery, and how does that differ from reload, jump detachment, or platform culling?", "next": "The natural W1L1 trace now closes the before/after player membership identity and rotation. Expand the bank-copy writes only if a held-out parity mismatch attributes state to the remaining teardown order; retain object offset zero/callback 3FF8 as the stable identity."},
     {"address": "01F7:1DEE", "question": "What happens to an attached player when a platform callback is culled?", "next": "Run one off-camera attached-platform trace."},
     {"address": "01F7:41C1/41CF", "question": "What is the response when 4326 or 4368 is reached by a blocked negative-mode probe in a natural authored ceiling? The contiguous protected-mode listing and unpatched W1L1 trace close the ordinary apex join through 4356, but the shared 41C1 response is not itself a ceiling classification.", "next": "Capture an unpatched reachable ceiling trajectory that proves the 4326 or 4368 predecessor, with the 41C1/41CF and descriptor probes in the same callback window."}
   ],

@@ -1,0 +1,73 @@
+{
+  "schema": "quiky.player-death-recovery-scheduler.v1",
+  "purpose": "Runtime validation of W1L1 scheduler-bank membership across the outer death/recovery handoff.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "4fee98fb0b8fb5a58a9481560aac540d77f23d602a90213cbb569b4c1961124b",
+    "trace": "research/build/traces/player-w1l1-death-recovery-scheduler-v17.json",
+    "trace_sha256": "74e9fc66ecb944637e0bf07ef08e3e943102de2395650d420203cc62ad12104e"
+  },
+  "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --player-trace --player-transition-focus --player-transition-steps 100 --player-transition-probe-frames 3 --player-transition-warmup-frames 1600 --player-transition-hold-events 1 --player-input-key KBD_right --timeout 240 --output research/build/traces/player-w1l1-death-recovery-scheduler-v17.json",
+  "static_contract": {
+    "scheduler_dispatch": "01F7:0E96",
+    "scheduler_bank_selector": "01F7:0FA2",
+    "player_callback": "01F7:3FF8",
+    "recovery_gate": "01D7:4BA4 -> 4BD8 -> 01F7:1AAA",
+    "entry_size": 8,
+    "player_identity": {
+      "phase_callback_offset": "0x3ff8",
+      "object_offset": "0x0000"
+    },
+    "evidence": [
+      "research/ghidra/player-external-state-closure.json",
+      "research/evidence/player-dos-parity/player-scheduler-membership-v2.json"
+    ]
+  },
+  "observations": {
+    "route": [
+      "01D7:4BA4",
+      "01D7:4BD8",
+      "01F7:1AAA",
+      "01F7:3FF8"
+    ],
+    "before_recovery": {
+      "gate": -350,
+      "scheduler_gate_insert_cursor": "0x0058",
+      "player_entries": [
+        {"bank": "0x7566", "index": 9, "object_offset": 0},
+        {"bank": "0x7766", "index": 9, "object_offset": 0}
+      ],
+      "evidence_events": ["scheduler_gate_test", "secondary_gate_test", "player_recovery_entry"]
+    },
+    "first_recovered_callback": {
+      "gate": 0,
+      "scheduler_gate_insert_cursor": "0x0040",
+      "player_entries": [
+        {"bank": "0x7766", "index": 8, "object_offset": 0}
+      ],
+      "position_pixels": [1673, 368],
+      "mode": 0,
+      "velocity_x_fixed": "0x00000000",
+      "velocity_y_fixed": "0x00000000",
+      "animation_sequence": "0x316c"
+    },
+    "interpretation": "The player remains present under the stable callback/object identity through the death gate, while the rebuilt bank changes its physical entry index from 9 to 8 and publishes only the recovered bank entry at the first 3FF8 callback. Append index is not identity."
+  },
+  "conclusion": {
+    "status": "w1l1_death_recovery_membership_and_rotation_observed",
+    "closed": [
+      "The player is present in both rotating banks at the 4BA4/4BD8/1AAA boundary with callback 0x3ff8 and object offset zero.",
+      "The first recovered callback sees the player in the rebuilt 0x7766 bank at index 8 with the same callback/object identity.",
+      "The first recovered callback is not dependent on the pre-recovery append index 9."
+    ],
+    "still_open": [
+      "Exact object teardown and bank-copy instruction order inside the recovery branch.",
+      "Cross-level bank reconstruction and platform detachment/culling membership.",
+      "Native C++ delayed recovery implementation and complete held-out object/effect parity."
+    ]
+  }
+}

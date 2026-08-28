@@ -2100,6 +2100,17 @@ if transition_focus then
             caller = {stack_hex = hex(stack)},
             globals = trace_globals(),
         }
+        if name == "scheduler_gate_test" or
+           name == "secondary_gate_test" or
+           name == "player_recovery_entry" or
+           name == "write_89ea_clear" or
+           name == "player_callback" then
+            -- The recovery branch is an outer scheduler boundary. Capture
+            -- both rotating banks only at those events so the trace can
+            -- distinguish player identity from append-index movement without
+            -- paying the full pool-walk cost on every countdown callback.
+            event.scheduler = scheduler_snapshot()
+        end
         if #stack >= 4 then
             event.caller.return_address = {offset = word(stack, 1), segment = word(stack, 3)}
         end
