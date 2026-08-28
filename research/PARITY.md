@@ -5,7 +5,7 @@ capture evidence, not comparison formats.
 
 Each run contains:
 
-- `manifest.json`: `quiky.recorded-run-v3`, including the explicit `exact` or
+- `manifest.json`: `quiky.recorded-run-v5`, including the explicit `exact` or
   `lifecycle` comparison profile and content fingerprints;
 - `input.jsonl`: the only native replay input;
 - `expected-state.jsonl`: canonical imported DOS state;
@@ -13,7 +13,7 @@ Each run contains:
 - `parity.json` and `coverage.json`: generated verification results; these are
   deliberately excluded from the manifest's immutable input fingerprints.
 
-Both state streams use `quiky.parity-state-v1`. Verification reads this schema
+Both state streams use `quiky.parity-state-v2`. Verification reads this schema
 strictly and does not detect trace envelopes or field aliases. Historical
 formats are decoded only by `quiky run import`, allowing captures to be
 recaptured or re-imported without compatibility code in replay or comparison.
@@ -25,7 +25,6 @@ python3 research/tools/quiky.py run import research/runs/NAME \
   --name NAME --profile exact --expected-trace DOS.json
 
 python3 research/tools/quiky.py run replay research/runs/NAME \
-  --binary build/engine/quiky-parity-replay \
   --archive game/NESTLE.DAT --map W1L1.MAP
 
 python3 research/tools/quiky.py run verify research/runs/NAME
@@ -34,6 +33,11 @@ python3 research/tools/quiky.py run verify research/runs/NAME
 Use the `lifecycle` profile for sparse captures. Its named checkpoints are
 materialized during import, so the verifier never guesses comparison mode from
 sample counts.
+
+Replay derives `QUIKYWn.BOB` from a `Wn*.MAP` name. Use `--player-bob` when a
+world intentionally shares a differently named player resource.
+The first replay stores this binary-independent recipe and archive digest in
+the manifest; subsequent runs need only `quiky run replay RUN`.
 
 Missing fields are coverage gaps. Fields published by both sides but carrying
 different values are parity mismatches. Missing rows or lifecycle checkpoints

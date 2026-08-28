@@ -6,11 +6,13 @@
 
 #include <array>
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
 #include <exception>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <map>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -36,9 +38,19 @@ void usage() {
     std::cerr << "usage: quiky-parity-replay ARCHIVE MAP-RESOURCE OUTPUT.JSON "
                  "[--frames N] [--action-flags N] "
                  "[--input-jsonl PATH] "
+                 "[--player-bob RESOURCE] "
                  "[--camera-x N --camera-y N] "
                  "[--startup-camera-sweep-from N --startup-camera-sweep-to N] "
                  "[--leaf-prng-index N --leaf-prng-ring-hex HEX]\n";
+}
+
+std::string playerBobFor(const std::string &mapName) {
+    if (mapName.size() < 2 || (mapName[0] != 'W' && mapName[0] != 'w') ||
+            !std::isdigit(static_cast<unsigned char>(mapName[1]))) {
+        throw quiky::FormatError(
+            "cannot derive player BOB from MAP resource name: " + mapName);
+    }
+    return std::string("QUIKYW") + mapName[1] + ".BOB";
 }
 
 long parseNumber(const std::string &value, const char *name) {
@@ -85,21 +97,6 @@ std::string hexBytes(const quiky::Bytes &bytes) {
     return output.str();
 }
 
-std::string jsonEscape(const std::string &value) {
-    std::string result;
-    for (std::size_t index = 0; index < value.size(); ++index) {
-        if (value[index] == '"' || value[index] == '\\') result += '\\';
-        result += value[index];
-    }
-    return result;
-}
-
-void writeCallback(std::ostream &output,
-                   const quiky::CallbackIdentity &callback) {
-    output << "{\"segment\":" << callback.segment
-           << ",\"offset\":" << callback.offset << "}";
-}
-
 void writeProbe(std::ostream &output, const quiky::CollisionProbe &probe,
                 bool occupied) {
     output << "{\"x\":" << probe.pixelX
@@ -110,118 +107,6 @@ void writeProbe(std::ostream &output, const quiky::CollisionProbe &probe,
            << ",\"quadrant_mask\":"
            << static_cast<unsigned>(probe.quadrantMask)
            << ",\"occupied\":" << (occupied ? "true" : "false") << "}";
-}
-
-void writeEntity(std::ostream &output, const quiky::LevelEntity &entity) {
-    output << "{\"id\":" << entity.id
-           << ",\"record_offset\":" << entity.recordOffset
-           << ",\"type\":" << entity.type
-           << ",\"region_x\":" << entity.regionX
-           << ",\"region_y\":" << entity.regionY
-           << ",\"x\":" << entity.x << ",\"y\":" << entity.y
-           << ",\"x_fixed\":" << entity.positionX.raw
-           << ",\"y_fixed\":" << entity.positionY.raw
-           << ",\"velocity_x_fixed\":" << entity.velocityX.raw
-           << ",\"velocity_y_fixed\":" << entity.velocityY.raw
-           << ",\"phase\":" << static_cast<unsigned>(entity.phase)
-           << ",\"kind\":" << static_cast<unsigned>(entity.kind)
-           << ",\"callback\":";
-    writeCallback(output, entity.updateCallback);
-    output << ",\"scheduler_slot\":" << entity.schedulerHandle.slot
-           << ",\"scheduler_generation\":"
-           << entity.schedulerHandle.generation
-           << ",\"sprite_slot\":" << entity.spriteSlot
-           << ",\"effect_slot\":" << entity.effectSlot
-           << ",\"animation_frame\":" << entity.animationFrame
-           << ",\"ambient_velocity_y_fixed\":"
-           << entity.ambientVelocityY.raw
-           << ",\"ambient_origin_x\":" << entity.ambientOriginX
-           << ",\"ambient_origin_y\":" << entity.ambientOriginY
-           << ",\"ambient_timer\":" << entity.ambientTimer
-           << ",\"ambient_animation_delay\":"
-           << entity.ambientAnimationDelay
-           << ",\"ambient_animation_cursor\":"
-           << entity.ambientAnimationCursor
-           << ",\"ambient_table\":"
-           << static_cast<unsigned>(entity.ambientTable)
-           // Address-qualified callback state is emitted verbatim for the
-           // normal-enemy closure. These fields are intentionally not folded
-           // into a generic enemy abstraction: the WURM2 trace needs to
-           // distinguish byte-shaped state from fixed-point words and the
-           // BUMP trace needs its independent +0x20/+0x24 timer/cursor.
-           << ",\"enemy_phase_timer\":" << entity.enemyPhaseTimer
-           << ",\"enemy_timer\":" << entity.enemyTimer
-           << ",\"enemy_state\":" << entity.enemyState
-           << ",\"enemy_orientation\":"
-           << static_cast<int>(entity.enemyOrientation)
-           << ",\"enemy_patrol_direction\":"
-           << static_cast<int>(entity.enemyPatrolDirection)
-           << ",\"enemy_transition_timer\":"
-           << entity.enemyTransitionTimer
-           << ",\"enemy_phase34\":" << entity.enemyPhase34
-           << ",\"enemy_sine_or_probe39\":"
-           << entity.enemySineOrProbe39
-           << ",\"enemy_vertical_state36\":"
-           << static_cast<int>(entity.enemyVerticalState36)
-           << ",\"enemy_transition_state3d\":"
-           << static_cast<int>(entity.enemyTransitionState3d)
-           << ",\"enemy_source_or_kind2c\":"
-           << static_cast<int>(entity.enemySourceOrKind2c)
-           << ",\"enemy_aux3e\":" << entity.enemyAux3e
-           << ",\"enemy_vertical_offset40\":"
-           << entity.enemyVerticalOffset40
-           << ",\"enemy_origin_y36\":" << entity.enemyOriginY36
-           << ",\"enemy_saved_velocity3a\":"
-           << entity.enemySavedVelocity3a
-           << ",\"enemy_saved_direction44\":"
-           << static_cast<int>(entity.enemySavedDirection44)
-           << ",\"map_blocked\":"
-           << static_cast<unsigned>(entity.mapBlocked)
-           << ",\"target_cursor_30\":" << entity.targetCursor30
-           << ",\"contact_callback\":";
-    writeCallback(output, entity.contactCallback);
-    output
-           << ",\"enemy_animation_delay\":"
-           << entity.enemyAnimationDelay
-           << ",\"enemy_animation_sequence\":"
-           << entity.enemyAnimationSequence
-           << ",\"bump_animation_delay20\":"
-           << entity.bumpAnimationDelay20
-           << ",\"bump_animation_cursor24\":"
-           << entity.bumpAnimationCursor24
-           << ",\"active_frames\":" << entity.activeFrames
-           << ",\"platform_carry_active\":"
-           << (entity.platformCarryActive ? "true" : "false")
-           << ",\"active\":" << (entity.active ? "true" : "false")
-           << ",\"collected\":" << (entity.collected ? "true" : "false")
-           << "}";
-}
-
-void writeSimulationEvent(std::ostream &output,
-                          const quiky::SimulationEvent &event) {
-    output << "{\"kind\":" << static_cast<unsigned>(event.kind)
-           << ",\"tick\":" << event.tick
-           << ",\"source_id\":" << event.sourceId
-           << ",\"code\":" << event.code
-           << ",\"value\":" << event.value << "}";
-}
-
-void writeLevelEvent(std::ostream &output, const quiky::LevelEvent &event) {
-    output << "{\"type\":" << static_cast<unsigned>(event.type)
-           << ",\"entity_id\":" << event.entityId
-           << ",\"entity_type\":" << event.entityType
-           << ",\"tile_id\":" << event.tileId
-           << ",\"target_level\":\""
-           << jsonEscape(event.targetLevel) << "\",\"state_writes\":[";
-    for (std::size_t index = 0; index < event.stateWrites.size(); ++index) {
-        if (index != 0) output << ',';
-        const quiky::LevelStateWrite &write = event.stateWrites[index];
-        output << "{\"address\":" << write.address
-               << ",\"width\":" << static_cast<unsigned>(write.width)
-               << ",\"before\":" << write.before
-               << ",\"after\":" << write.after << "}";
-    }
-    output << "]}";
 }
 
 long jsonInteger(const std::string &line, const char *key, bool &present) {
@@ -246,6 +131,45 @@ long jsonInteger(const std::string &line, const char *key, bool &present) {
     return result;
 }
 
+void validateInputJsonShape(const std::string &line) {
+    if (line.size() < 2 || line.front() != '{' || line.back() != '}') {
+        throw quiky::FormatError("input JSONL row must be one JSON object");
+    }
+    const char *allowed[] = {
+        "sequence", "guest_frame", "input_flags", "camera", "x", "y"
+    };
+    std::size_t position = 0;
+    std::map<std::string, unsigned> counts;
+    while ((position = line.find('"', position)) != std::string::npos) {
+        const std::size_t end = line.find('"', position + 1);
+        if (end == std::string::npos) {
+            throw quiky::FormatError("input JSONL contains an unterminated key");
+        }
+        const std::string key = line.substr(position + 1, end - position - 1);
+        bool known = false;
+        for (std::size_t index = 0; index < sizeof(allowed) / sizeof(allowed[0]); ++index) {
+            if (key == allowed[index]) known = true;
+        }
+        if (!known) {
+            throw quiky::FormatError("input JSONL contains unknown field: " + key);
+        }
+        if (++counts[key] != 1) {
+            throw quiky::FormatError("input JSONL contains duplicate field: " + key);
+        }
+        position = end + 1;
+    }
+    for (const char *key : {"sequence", "guest_frame", "input_flags"}) {
+        if (counts[key] != 1) {
+            throw quiky::FormatError(std::string("input JSONL is missing field: ") + key);
+        }
+    }
+    const bool camera = counts["camera"] == 1;
+    if ((counts["x"] == 1 || counts["y"] == 1) != camera ||
+            counts["x"] != counts["y"]) {
+        throw quiky::FormatError("input JSONL camera requires exactly x and y");
+    }
+}
+
 std::vector<InputFrame> readInputJsonl(const std::string &path) {
     std::ifstream input(path.c_str());
     if (!input) {
@@ -258,6 +182,7 @@ std::vector<InputFrame> readInputJsonl(const std::string &path) {
         if (line.empty()) {
             throw quiky::FormatError("input JSONL contains a blank line");
         }
+        validateInputJsonShape(line);
         bool hasSequence = false;
         bool hasFlags = false;
         const long sequence = jsonInteger(line, "sequence", hasSequence);
@@ -304,42 +229,13 @@ std::vector<InputFrame> readInputJsonl(const std::string &path) {
     return frames;
 }
 
-void writeScheduler(std::ostream &output, const quiky::Simulation &simulation,
-                    const quiky::SimulationOutput &snapshot) {
-    const std::vector<quiky::SchedulerObject> &objects =
-        simulation.state().scheduler.objects();
-    output << "[";
-    for (std::size_t index = 0; index < snapshot.schedulerCallbacks.size(); ++index) {
-        if (index != 0) output << ',';
-        const quiky::SchedulerInvocation &invocation =
-            snapshot.schedulerCallbacks[index];
-        output << "{\"tick\":" << invocation.tick
-               << ",\"slot\":" << invocation.slot
-               << ",\"generation\":" << invocation.generation
-               << ",\"player_callback\":"
-               << (invocation.playerCallback ? "true" : "false")
-               << ",\"camera_participating\":"
-               << (invocation.cameraParticipating ? "true" : "false")
-               << ",\"source_id\":";
-        if (invocation.slot < objects.size()) {
-            output << objects[invocation.slot].sourceId;
-        } else {
-            output << 0;
-        }
-        output << ",\"callback\":";
-        writeCallback(output, invocation.callback);
-        output << "}";
-    }
-    output << "]";
-}
-
 void writeSample(std::ostream &output, const InputFrame &input,
                  const quiky::Simulation &simulation,
                  const quiky::SimulationOutput &snapshot,
                  const quiky::PlayerUpdateTrace &trace,
                  const quiky::LevelRuntime &runtime) {
     const quiky::LevelSession &session = runtime.session();
-    output << "{\"schema\":\"quiky.parity-state-v1\",\"sequence\":"
+    output << "{\"schema\":\"quiky.parity-state-v2\",\"sequence\":"
            << input.sequence << ",\"pre_record\":\""
            << hexBytes(trace.preState.toBytes()) << "\",\"post_record\":\""
            << hexBytes(trace.postState.toBytes()) << "\",\"input_flags\":"
@@ -425,6 +321,7 @@ int main(int argc, char **argv) {
         const std::string archivePath(argv[1]);
         const std::string mapName(argv[2]);
         const std::string outputPath(argv[3]);
+        std::string playerBobName = playerBobFor(mapName);
         long frameCount = 4;
         std::uint16_t actionFlags = 0;
         std::string inputJsonl;
@@ -450,6 +347,8 @@ int main(int argc, char **argv) {
                 actionFlags = static_cast<std::uint16_t>(parsed);
             } else if (option == "--input-jsonl" && index + 1 < argc) {
                 inputJsonl = argv[++index];
+            } else if (option == "--player-bob" && index + 1 < argc) {
+                playerBobName = argv[++index];
             } else if (option == "--camera-x" && index + 1 < argc) {
                 cameraX = static_cast<std::int32_t>(
                     parseNumber(argv[++index], "camera X"));
@@ -515,7 +414,7 @@ int main(int argc, char **argv) {
             config.leafPrngRing = leafPrngRing;
         }
         std::unique_ptr<quiky::LevelRuntime> runtime =
-            quiky::LevelRuntime::load(archive, mapName, "QUIKYW1.BOB", config);
+            quiky::LevelRuntime::load(archive, mapName, playerBobName, config);
         quiky::Simulation simulation;
         quiky::TraceClosedPlayerUpdate updater;
         simulation.setExperimentalPlayerUpdater(&updater);

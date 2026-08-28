@@ -323,7 +323,7 @@ the ring remains replay input rather than a hardcoded simulation rule.
 
 Parity uses named recorded-run directories. Historical DOS envelopes are
 accepted only by `run import`; validation and comparison consume strict
-`quiky.parity-state-v1` JSONL on both sides:
+`quiky.parity-state-v2` JSONL on both sides:
 
 ~~~sh
 python3 research/tools/quiky.py run import research/runs/w1l1-session \

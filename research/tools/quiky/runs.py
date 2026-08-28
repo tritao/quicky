@@ -10,7 +10,7 @@ from typing import Any, Iterable
 from .common import ToolError, file_fingerprint, read_json, write_json
 from .state import PROFILES, compare_state, load_state_jsonl
 
-RUN_SCHEMA = "quiky.recorded-run-v3"
+RUN_SCHEMA = "quiky.recorded-run-v5"
 RUN_FILES = ("input.jsonl", "expected-state.jsonl", "actual-state.jsonl")
 
 
@@ -82,15 +82,16 @@ def new_run_manifest(name: str, *, profile: str,
         raise ToolError("run name must be non-empty")
     if profile not in PROFILES:
         raise ToolError(f"unknown parity profile {profile!r}")
-    return {"schema": RUN_SCHEMA, "format_version": 3, "name": name,
-            "profile": profile, "provenance": dict(provenance or {}), "files": {}}
+    return {"schema": RUN_SCHEMA, "format_version": 5, "name": name,
+            "profile": profile, "provenance": dict(provenance or {}),
+            "replay": None, "files": {}}
 
 
 def validate_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(manifest, dict) or manifest.get("schema") != RUN_SCHEMA:
         raise ToolError(f"manifest must use {RUN_SCHEMA}")
-    if manifest.get("format_version") != 3:
-        raise ToolError("manifest format_version must be 3")
+    if manifest.get("format_version") != 5:
+        raise ToolError("manifest format_version must be 5")
     if not isinstance(manifest.get("name"), str) or not manifest["name"]:
         raise ToolError("manifest name must be non-empty")
     if manifest.get("profile") not in PROFILES:
@@ -99,8 +100,29 @@ def validate_manifest(manifest: dict[str, Any]) -> dict[str, Any]:
         raise ToolError("manifest provenance must be an object")
     if not isinstance(manifest.get("files"), dict):
         raise ToolError("manifest files must be an object")
+    replay = manifest.get("replay")
+    if replay is not None:
+        required = {"archive", "map", "player_bob", "leaf_prng"}
+        if not isinstance(replay, dict) or set(replay) != required:
+            raise ToolError("manifest replay configuration is invalid")
+        archive = replay["archive"]
+        if (not isinstance(archive, dict) or
+                not isinstance(archive.get("path"), str) or
+                not isinstance(archive.get("sha256"), str)):
+            raise ToolError("manifest replay archive fingerprint is invalid")
+        if not isinstance(replay["map"], str) or not replay["map"]:
+            raise ToolError("manifest replay map is invalid")
+        if replay["player_bob"] is not None and not isinstance(replay["player_bob"], str):
+            raise ToolError("manifest replay player_bob is invalid")
+        leaf = replay["leaf_prng"]
+        if leaf is not None and (not isinstance(leaf, dict) or
+                                 not isinstance(leaf.get("index"), int) or
+                                 not isinstance(leaf.get("ring_hex"), str) or
+                                 len(leaf["ring_hex"]) != 0x200):
+            raise ToolError("manifest replay leaf PRNG state is invalid")
     unknown = set(manifest).difference(
-        {"schema", "format_version", "name", "profile", "provenance", "files"})
+        {"schema", "format_version", "name", "profile", "provenance",
+         "replay", "files"})
     if unknown:
         raise ToolError(f"manifest has unknown fields: {', '.join(sorted(unknown))}")
     return manifest
@@ -120,8 +142,14 @@ def save_manifest(path: Path, manifest: dict[str, Any]) -> None:
 
 def _fingerprints(directory: Path) -> dict[str, Any]:
     """Fingerprint parity inputs, never regenerable verification reports."""
-    return {name: file_fingerprint(directory / name)
-            for name in RUN_FILES if (directory / name).is_file()}
+    result = {}
+    for name in RUN_FILES:
+        if not (directory / name).is_file():
+            continue
+        fingerprint = file_fingerprint(directory / name)
+        fingerprint["path"] = name
+        result[name] = fingerprint
+    return result
 
 
 def stage_run_files(directory: Path, *, name: str, profile: str,
@@ -189,3 +217,21 @@ def install_actual_state(directory: Path, state: Path) -> None:
     shutil.copyfile(state, directory / "actual-state.jsonl")
     manifest["files"] = _fingerprints(directory)
     save_manifest(directory / "manifest.json", manifest)
+
+
+def configure_replay(directory: Path, *, archive: Path, map_resource: str,
+                     player_bob: str | None, leaf_prng_index: int | None,
+                     leaf_prng_ring_hex: str | None) -> dict[str, Any]:
+    manifest = validate_run_directory(directory)
+    fingerprint = file_fingerprint(archive)
+    fingerprint["path"] = str(archive)
+    manifest["replay"] = {
+        "archive": fingerprint,
+        "map": map_resource,
+        "player_bob": player_bob,
+        "leaf_prng": ({"index": leaf_prng_index,
+                       "ring_hex": leaf_prng_ring_hex.lower()}
+                      if leaf_prng_index is not None else None),
+    }
+    save_manifest(directory / "manifest.json", manifest)
+    return manifest

@@ -15,7 +15,7 @@ from typing import Any, Iterable
 from .common import ToolError
 
 
-STATE_SCHEMA = "quiky.parity-state-v1"
+STATE_SCHEMA = "quiky.parity-state-v2"
 PROFILES = ("exact", "lifecycle")
 CHECKPOINTS = (
     "terminal_damage", "death_hold", "recovery_gate",
@@ -54,11 +54,15 @@ def validate_row(value: Any, *, label: str = "state row") -> dict[str, Any]:
                                not isinstance(camera.get("x"), int) or
                                not isinstance(camera.get("y"), int)):
         raise ToolError(f"{label}.camera must contain integer x and y")
-    checkpoint = result.get("checkpoint")
-    if checkpoint is not None and checkpoint not in CHECKPOINTS:
-        raise ToolError(f"{label}: unknown checkpoint {checkpoint!r}")
+    checkpoints = result.get("checkpoints")
+    if checkpoints is not None:
+        if (not isinstance(checkpoints, list) or
+                any(item not in CHECKPOINTS for item in checkpoints)):
+            raise ToolError(f"{label}.checkpoints contains an unknown checkpoint")
+        if len(set(checkpoints)) != len(checkpoints):
+            raise ToolError(f"{label}.checkpoints contains duplicates")
     allowed = {
-        "schema", "sequence", "checkpoint", "pre_record", "post_record",
+        "schema", "sequence", "checkpoints", "pre_record", "post_record",
         "input_flags", "camera", "probes", "global_writes", "effects",
         "factory_objects", "scheduler_callbacks", "active_objects",
         "lifecycle",
@@ -66,7 +70,71 @@ def validate_row(value: Any, *, label: str = "state row") -> dict[str, Any]:
     unknown = set(result).difference(allowed)
     if unknown:
         raise ToolError(f"{label}: unknown fields: {', '.join(sorted(unknown))}")
+    for field in ("probes", "global_writes", "effects", "factory_objects",
+                  "scheduler_callbacks", "active_objects"):
+        if field in result and not isinstance(result[field], list):
+            raise ToolError(f"{label}.{field} must be an array")
+    for index, item in enumerate(result.get("probes", [])):
+        _validate_object(item, {"x", "y", "map_word", "tile_id",
+                                "descriptor_word", "quadrant_mask", "occupied"},
+                         f"{label}.probes[{index}]")
+        for key in ("x", "y", "map_word", "tile_id", "descriptor_word",
+                    "quadrant_mask"):
+            if item[key] is not None and not isinstance(item[key], int):
+                raise ToolError(f"{label}.probes[{index}].{key} must be integer or null")
+        if item["occupied"] is not None and not isinstance(item["occupied"], bool):
+            raise ToolError(f"{label}.probes[{index}].occupied must be boolean or null")
+    for index, item in enumerate(result.get("global_writes", [])):
+        _validate_object(item, {"offset", "width", "before", "after"},
+                         f"{label}.global_writes[{index}]")
+        if any(not isinstance(item[key], int) for key in item):
+            raise ToolError(f"{label}.global_writes[{index}] values must be integers")
+        if item["width"] not in (1, 2, 4):
+            raise ToolError(f"{label}.global_writes[{index}].width is invalid")
+    for index, item in enumerate(result.get("effects", [])):
+        _validate_object(item, {"address", "code"}, f"{label}.effects[{index}]")
+        if any(not isinstance(item[key], int) for key in item):
+            raise ToolError(f"{label}.effects[{index}] values must be integers")
+    for index, item in enumerate(result.get("factory_objects", [])):
+        _validate_object(item, {"offset", "callback", "kind", "phase",
+                                "sprite_slot", "position"},
+                         f"{label}.factory_objects[{index}]")
+    if any(not isinstance(item, int)
+           for item in result.get("scheduler_callbacks", [])):
+        raise ToolError(f"{label}.scheduler_callbacks must contain integers")
+    for index, item in enumerate(result.get("active_objects", [])):
+        if not isinstance(item, dict):
+            raise ToolError(f"{label}.active_objects[{index}] must be an object")
+        required = {"callback", "x", "y", "sprite_slot"}
+        optional = {"velocity_y_fixed", "animation_delay", "animation_cursor"}
+        if not required.issubset(item) or set(item).difference(required | optional):
+            raise ToolError(f"{label}.active_objects[{index}] has invalid fields")
+        if any(value is not None and not isinstance(value, int)
+               for value in item.values()):
+            raise ToolError(f"{label}.active_objects[{index}] values must be integers or null")
+    lifecycle = result.get("lifecycle")
+    if lifecycle is not None:
+        if not isinstance(lifecycle, dict):
+            raise ToolError(f"{label}.lifecycle must be an object")
+        unknown_lifecycle = set(lifecycle).difference(
+            {"health", "lives", "gate", "mode", "position"})
+        if unknown_lifecycle:
+            raise ToolError(f"{label}.lifecycle has unknown fields")
+        for key in ("health", "lives", "gate", "mode"):
+            if key in lifecycle and not isinstance(lifecycle[key], int):
+                raise ToolError(f"{label}.lifecycle.{key} must be an integer")
+        position = lifecycle.get("position")
+        if position is not None and (not isinstance(position, dict) or
+                                     set(position) != {"x", "y"} or
+                                     not isinstance(position["x"], int) or
+                                     not isinstance(position["y"], int)):
+            raise ToolError(f"{label}.lifecycle.position must contain integer x and y")
     return result
+
+
+def _validate_object(value: Any, fields: set[str], label: str) -> None:
+    if not isinstance(value, dict) or set(value) != fields:
+        raise ToolError(f"{label} must contain exactly {', '.join(sorted(fields))}")
 
 
 def load_state_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -78,7 +146,7 @@ def load_state_jsonl(path: Path) -> list[dict[str, Any]]:
         raise ToolError(f"{path}: state stream is empty")
     rows: list[dict[str, Any]] = []
     previous = 0
-    checkpoints: set[str] = set()
+    published_checkpoints: set[str] = set()
     for index, line in enumerate(lines, 1):
         if not line.strip():
             raise ToolError(f"{path}: blank line at {index}")
@@ -90,11 +158,10 @@ def load_state_jsonl(path: Path) -> list[dict[str, Any]]:
         if row["sequence"] <= previous:
             raise ToolError(f"{path}: sequences must be strictly increasing")
         previous = row["sequence"]
-        checkpoint = row.get("checkpoint")
-        if checkpoint in checkpoints:
-            raise ToolError(f"{path}: duplicate checkpoint {checkpoint}")
-        if checkpoint is not None:
-            checkpoints.add(checkpoint)
+        for checkpoint in row.get("checkpoints", []):
+            if checkpoint in published_checkpoints:
+                raise ToolError(f"{path}: duplicate checkpoint {checkpoint}")
+            published_checkpoints.add(checkpoint)
         rows.append(row)
     return rows
 
@@ -121,9 +188,8 @@ def import_trace(path: Path, profile: str) -> list[dict[str, Any]]:
     # validation or comparison.
     from .trace_import import (
         active_objects, effects, factory_objects, global_writes, lifecycle,
-        probes, scheduler_callbacks,
+        probes, scheduler_callbacks, TraceError, load_trace,
     )
-    from .trace import TraceError, load_trace
 
     try:
         samples = list(load_trace(path).samples)
@@ -167,7 +233,7 @@ def import_trace(path: Path, profile: str) -> list[dict[str, Any]]:
 
 def import_input(path: Path) -> list[dict[str, Any]]:
     """Extract the explicit replay stream while importing trace evidence."""
-    from .trace import TraceError, load_trace
+    from .trace_import import TraceError, load_trace
     try:
         trace = load_trace(path)
     except TraceError as exc:
@@ -200,6 +266,14 @@ def import_input(path: Path) -> list[dict[str, Any]]:
 
 
 def label_lifecycle(rows: list[dict[str, Any]]) -> None:
+    def publish(row: dict[str, Any], checkpoint: str) -> None:
+        values = row.setdefault("checkpoints", [])
+        if checkpoint not in values:
+            values.append(checkpoint)
+
+    def published(checkpoint: str) -> bool:
+        return any(checkpoint in item.get("checkpoints", []) for item in rows)
+
     previous_health: int | None = None
     terminal_seen = False
     last_negative: dict[str, Any] | None = None
@@ -210,26 +284,25 @@ def label_lifecycle(rows: list[dict[str, Any]]) -> None:
                               state.get("mode"))
         if (not terminal_seen and health == 0 and
                 isinstance(previous_health, int) and previous_health > 0):
-            row["checkpoint"] = "terminal_damage"
+            publish(row, "terminal_damage")
             terminal_seen = True
-        elif terminal_seen and health == 0 and mode == 0xff and not any(
-                item.get("checkpoint") == "death_hold" for item in rows):
-            row["checkpoint"] = "death_hold"
+        if terminal_seen and health == 0 and mode == 0xff and not any(
+                "death_hold" in item.get("checkpoints", []) for item in rows):
+            publish(row, "death_hold")
         if isinstance(gate, int) and gate < 0:
             last_negative = row
         if isinstance(gate, int) and gate <= -350 and not any(
-                item.get("checkpoint") == "recovery_gate" for item in rows):
-            row["checkpoint"] = "recovery_gate"
+                "recovery_gate" in item.get("checkpoints", []) for item in rows):
+            publish(row, "recovery_gate")
         if health and gate == 0 and mode == 0 and last_negative is not None:
-            if not any(item.get("checkpoint") == "recovery_gate" for item in rows):
-                last_negative["checkpoint"] = "recovery_gate"
-            if not any(item.get("checkpoint") == "recovered_callback"
-                       for item in rows):
-                row["checkpoint"] = "recovered_callback"
+            if not published("recovery_gate"):
+                publish(last_negative, "recovery_gate")
+            if not published("recovered_callback"):
+                publish(row, "recovered_callback")
                 recovered = row
         elif recovered is not None and row is not recovered and state.get("position"):
-            if not any(item.get("checkpoint") == "respawn" for item in rows):
-                row["checkpoint"] = "respawn"
+            if not published("respawn"):
+                publish(row, "respawn")
         if isinstance(health, int):
             previous_health = health
 
@@ -240,16 +313,19 @@ def compare_state(expected_path: Path, actual_path: Path, profile: str
         raise ToolError(f"unknown parity profile {profile!r}")
     expected = load_state_jsonl(expected_path)
     actual = load_state_jsonl(actual_path)
-    key = ((lambda row: row.get("checkpoint")) if profile == "lifecycle"
-           else (lambda row: row["sequence"]))
     if profile == "lifecycle":
-        expected = [row for row in expected if row.get("checkpoint")]
-        actual = [row for row in actual if row.get("checkpoint")]
-    left = {key(row): row for row in expected}
-    right = {key(row): row for row in actual}
+        left = {checkpoint: row for row in expected
+                for checkpoint in row.get("checkpoints", [])}
+        right = {checkpoint: row for row in actual
+                 for checkpoint in row.get("checkpoints", [])}
+        identities: list[Any] = list(CHECKPOINTS)
+    else:
+        left = {row["sequence"]: row for row in expected}
+        right = {row["sequence"]: row for row in actual}
+        identities = sorted(set(left) | set(right))
     mismatches: list[dict[str, Any]] = []
     coverage: list[dict[str, Any]] = []
-    for identity in sorted(set(left) | set(right), key=str):
+    for identity in identities:
         label = "checkpoint" if profile == "lifecycle" else "sequence"
         if identity not in left or identity not in right:
             mismatches.append({label: identity, "field": "row",
@@ -258,13 +334,58 @@ def compare_state(expected_path: Path, actual_path: Path, profile: str
             continue
         a, b = left[identity], right[identity]
         fields = set(a) | set(b)
-        fields.difference_update(("schema", "sequence", "checkpoint"))
+        fields.difference_update(("schema", "sequence", "checkpoints"))
         for field in sorted(fields):
             if field not in a or field not in b:
                 coverage.append({label: identity, "field": field,
                                  "expected_present": field in a,
                                  "actual_present": field in b})
+            elif field == "lifecycle":
+                _compare_mapping(a[field], b[field], label, identity, field,
+                                 mismatches, coverage)
+            elif field == "active_objects":
+                _compare_active_objects(a[field], b[field], label, identity,
+                                        mismatches, coverage)
             elif a[field] != b[field]:
                 mismatches.append({label: identity, "field": field,
                                    "expected": a[field], "actual": b[field]})
     return mismatches, coverage
+
+
+def _compare_mapping(expected: dict[str, Any], actual: dict[str, Any],
+                     identity_name: str, identity: Any, field: str,
+                     mismatches: list[dict[str, Any]],
+                     coverage: list[dict[str, Any]]) -> None:
+    for key in sorted(set(expected) | set(actual)):
+        name = f"{field}.{key}"
+        if key not in expected or key not in actual:
+            coverage.append({identity_name: identity, "field": name,
+                             "expected_present": key in expected,
+                             "actual_present": key in actual})
+        elif expected[key] != actual[key]:
+            mismatches.append({identity_name: identity, "field": name,
+                               "expected": expected[key], "actual": actual[key]})
+
+
+def _compare_active_objects(expected: list[dict[str, Any]],
+                            actual: list[dict[str, Any]],
+                            identity_name: str, identity: Any,
+                            mismatches: list[dict[str, Any]],
+                            coverage: list[dict[str, Any]]) -> None:
+    keys = ("callback", "x", "y", "sprite_slot")
+    if (len(expected) != len(actual) or
+            [tuple(item.get(key) for key in keys) for item in expected] !=
+            [tuple(item.get(key) for key in keys) for item in actual]):
+        mismatches.append({identity_name: identity, "field": "active_objects",
+                           "expected": expected, "actual": actual})
+        return
+    for index, (left, right) in enumerate(zip(expected, actual)):
+        for key in sorted((set(left) | set(right)).difference(keys)):
+            field = f"active_objects[{index}].{key}"
+            if key not in left or key not in right:
+                coverage.append({identity_name: identity, "field": field,
+                                 "expected_present": key in left,
+                                 "actual_present": key in right})
+            elif left[key] != right[key]:
+                mismatches.append({identity_name: identity, "field": field,
+                                   "expected": left[key], "actual": right[key]})

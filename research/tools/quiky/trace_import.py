@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .trace import NormalizedSample
+from .trace import NormalizedSample, TraceError, load_trace
 
 
 GLOBAL_FIELD_MAP = {

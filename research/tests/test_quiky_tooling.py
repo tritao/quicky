@@ -12,8 +12,8 @@ sys.path.insert(0, str(TOOLS))
 from quiky.runs import (RUN_SCHEMA, load_input_jsonl, save_input_jsonl,
                         stage_run_files, validate_run_directory,
                         verify_run_directory)
-from quiky.state import (STATE_SCHEMA, compare_state, import_trace,
-                         load_state_jsonl, save_state_jsonl)
+from quiky.state import (CHECKPOINTS, STATE_SCHEMA, compare_state, import_trace,
+                         label_lifecycle, load_state_jsonl, save_state_jsonl)
 
 
 def record(seed: str) -> str:
@@ -55,7 +55,7 @@ class QuikyToolingTests(unittest.TestCase):
 
     def test_profiles_are_explicit(self):
         row = {"schema": STATE_SCHEMA, "sequence": 1,
-               "checkpoint": "terminal_damage", "lifecycle": {"health": 0}}
+               "checkpoints": list(CHECKPOINTS), "lifecycle": {"health": 0}}
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             expected, actual = root / "expected.jsonl", root / "actual.jsonl"
@@ -63,6 +63,37 @@ class QuikyToolingTests(unittest.TestCase):
             save_state_jsonl(actual, [dict(row, sequence=20)])
             self.assertFalse(compare_state(expected, actual, "lifecycle")[0])
             self.assertTrue(compare_state(expected, actual, "exact")[0])
+
+    def test_lifecycle_requires_every_checkpoint(self):
+        row = {"schema": STATE_SCHEMA, "sequence": 1,
+               "lifecycle": {"health": 3}}
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            expected, actual = root / "expected.jsonl", root / "actual.jsonl"
+            save_state_jsonl(expected, [row])
+            save_state_jsonl(actual, [row])
+            mismatches, _ = compare_state(expected, actual, "lifecycle")
+        self.assertEqual([item["checkpoint"] for item in mismatches],
+                         list(CHECKPOINTS))
+
+    def test_coincident_lifecycle_checkpoints_are_preserved(self):
+        rows = [
+            {"schema": STATE_SCHEMA, "sequence": 1,
+             "lifecycle": {"health": 3, "gate": 0, "mode": 0}},
+            {"schema": STATE_SCHEMA, "sequence": 2,
+             "lifecycle": {"health": 0, "gate": -1, "mode": 255}},
+        ]
+        label_lifecycle(rows)
+        self.assertEqual(rows[1]["checkpoints"],
+                         ["terminal_damage", "death_hold"])
+
+    def test_nested_state_shape_is_strict(self):
+        row = {"schema": STATE_SCHEMA, "sequence": 1,
+               "global_writes": [{"offset": 1, "width": 3,
+                                    "before": 0, "after": 1}]}
+        with tempfile.TemporaryDirectory() as directory:
+            with self.assertRaisesRegex(Exception, "width is invalid"):
+                save_state_jsonl(Path(directory) / "state.jsonl", [row])
 
     def test_input_stream_is_strict(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -101,9 +132,14 @@ class QuikyToolingTests(unittest.TestCase):
             imported = subprocess.run(
                 [sys.executable, str(TOOLS / "quiky.py"), "run", "import", str(run),
                  "--name", "smoke", "--profile", "exact",
-                 "--expected-trace", str(trace), "--actual-trace", str(trace)],
+                 "--expected-trace", str(trace)],
                 cwd=ROOT, text=True, capture_output=True, check=False)
             self.assertEqual(imported.returncode, 0, imported.stderr)
+            migrated = subprocess.run(
+                [sys.executable, str(TOOLS / "quiky.py"), "run", "migrate-actual",
+                 str(run), "--trace", str(trace)], cwd=ROOT, text=True,
+                capture_output=True, check=False)
+            self.assertEqual(migrated.returncode, 0, migrated.stderr)
             verified = subprocess.run(
                 [sys.executable, str(TOOLS / "quiky.py"), "run", "verify", str(run)],
                 cwd=ROOT, text=True, capture_output=True, check=False)

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .common import ToolError, run_compat_script, tools_root
 from .common import file_fingerprint
-from .runs import (install_actual_state, stage_run_files,
+from .runs import (configure_replay, install_actual_state, stage_run_files,
                    validate_run_directory, verify_run_directory)
 from .state import (PROFILES, import_input, import_trace, label_lifecycle,
                     load_state_jsonl, save_state_jsonl)
@@ -41,17 +41,27 @@ def _top_parser() -> argparse.ArgumentParser:
 
 def _run_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="quiky run")
-    parser.add_argument("operation", choices=("import", "replay", "validate", "verify"))
-    parser.add_argument("directory", type=Path)
-    parser.add_argument("--name")
-    parser.add_argument("--profile", choices=PROFILES)
-    parser.add_argument("--expected-trace", type=Path)
-    parser.add_argument("--actual-trace", type=Path)
-    parser.add_argument("--binary", type=Path)
-    parser.add_argument("--archive", type=Path)
-    parser.add_argument("--map", dest="map_resource")
-    parser.add_argument("--leaf-prng-index", type=int)
-    parser.add_argument("--leaf-prng-ring-hex")
+    operations = parser.add_subparsers(dest="operation", required=True)
+    importer = operations.add_parser("import")
+    importer.add_argument("directory", type=Path)
+    importer.add_argument("--name", required=True)
+    importer.add_argument("--profile", choices=PROFILES, required=True)
+    importer.add_argument("--expected-trace", type=Path, required=True)
+    migration = operations.add_parser("migrate-actual")
+    migration.add_argument("directory", type=Path)
+    migration.add_argument("--trace", type=Path, required=True)
+    replay = operations.add_parser("replay")
+    replay.add_argument("directory", type=Path)
+    replay.add_argument("--binary", type=Path,
+                        default=Path("build/engine/quiky-parity-replay"))
+    replay.add_argument("--archive", type=Path)
+    replay.add_argument("--map", dest="map_resource")
+    replay.add_argument("--player-bob")
+    replay.add_argument("--leaf-prng-index", type=int)
+    replay.add_argument("--leaf-prng-ring-hex")
+    for name in ("validate", "verify"):
+        operation = operations.add_parser(name)
+        operation.add_argument("directory", type=Path)
     return parser
 
 
@@ -87,49 +97,64 @@ def main(argv: list[str] | None = None) -> int:
         if command == "run":
             parsed = _run_parser().parse_args(tail)
             if parsed.operation == "import":
-                if not parsed.name or not parsed.profile or not parsed.expected_trace:
-                    raise ToolError(
-                        "run import requires --name, --profile, and --expected-trace")
                 with tempfile.TemporaryDirectory(prefix="quiky-run-import-") as temp:
                     root = Path(temp)
                     expected = root / "expected-state.jsonl"
                     save_state_jsonl(expected, import_trace(
                         parsed.expected_trace, parsed.profile))
-                    actual = None
-                    if parsed.actual_trace is not None:
-                        actual = root / "actual-state.jsonl"
-                        save_state_jsonl(actual, import_trace(
-                            parsed.actual_trace, parsed.profile))
                     stage_run_files(
                         parsed.directory, name=parsed.name,
                         profile=parsed.profile,
                         input_rows=import_input(parsed.expected_trace),
-                        expected_state=expected, actual_state=actual,
+                        expected_state=expected,
                         provenance={
                             "expected_trace": file_fingerprint(parsed.expected_trace),
-                            **({"actual_trace": file_fingerprint(parsed.actual_trace)}
-                               if parsed.actual_trace is not None else {}),
                         })
                 print(f"OK: recorded run imported at {parsed.directory}")
                 return 0
-            if parsed.operation == "replay":
-                if not parsed.binary or not parsed.archive or not parsed.map_resource:
-                    raise ToolError("run replay requires --binary, --archive, and --map")
+            if parsed.operation == "migrate-actual":
                 manifest = validate_run_directory(parsed.directory)
+                with tempfile.TemporaryDirectory(prefix="quiky-actual-migration-") as temp:
+                    state = Path(temp) / "actual-state.jsonl"
+                    save_state_jsonl(state, import_trace(
+                        parsed.trace, manifest["profile"]))
+                    install_actual_state(parsed.directory, state)
+                print(f"OK: migrated actual state for {parsed.directory}")
+                return 0
+            if parsed.operation == "replay":
+                manifest = validate_run_directory(parsed.directory)
+                supplied = parsed.archive is not None or parsed.map_resource is not None
+                if supplied:
+                    if parsed.archive is None or parsed.map_resource is None:
+                        raise ToolError("replay configuration requires --archive and --map")
+                    if ((parsed.leaf_prng_index is None) !=
+                            (parsed.leaf_prng_ring_hex is None)):
+                        raise ToolError("leaf PRNG index and ring must be supplied together")
+                    manifest = configure_replay(
+                        parsed.directory, archive=parsed.archive,
+                        map_resource=parsed.map_resource,
+                        player_bob=parsed.player_bob,
+                        leaf_prng_index=parsed.leaf_prng_index,
+                        leaf_prng_ring_hex=parsed.leaf_prng_ring_hex)
+                recipe = manifest.get("replay")
+                if recipe is None:
+                    raise ToolError("run has no replay configuration; supply --archive and --map")
+                archive = Path(recipe["archive"]["path"])
+                if file_fingerprint(archive)["sha256"] != recipe["archive"]["sha256"]:
+                    raise ToolError(f"replay archive digest mismatch: {archive}")
                 with tempfile.TemporaryDirectory(prefix="quiky-run-replay-") as temp:
                     root = Path(temp)
                     raw = root / "native-trace.json"
                     state = root / "actual-state.jsonl"
-                    replay = [str(parsed.binary), str(parsed.archive),
-                              parsed.map_resource, str(raw), "--input-jsonl",
+                    replay = [str(parsed.binary), str(archive),
+                              recipe["map"], str(raw), "--input-jsonl",
                               str(parsed.directory / "input.jsonl")]
-                    if ((parsed.leaf_prng_index is None) !=
-                            (parsed.leaf_prng_ring_hex is None)):
-                        raise ToolError("leaf PRNG index and ring must be supplied together")
-                    if parsed.leaf_prng_index is not None:
-                        replay.extend(("--leaf-prng-index", str(parsed.leaf_prng_index),
+                    if recipe["player_bob"] is not None:
+                        replay.extend(("--player-bob", recipe["player_bob"]))
+                    if recipe["leaf_prng"] is not None:
+                        replay.extend(("--leaf-prng-index", str(recipe["leaf_prng"]["index"]),
                                        "--leaf-prng-ring-hex",
-                                       parsed.leaf_prng_ring_hex))
+                                       recipe["leaf_prng"]["ring_hex"]))
                     completed = subprocess.run(replay, text=True, capture_output=True)
                     if completed.returncode:
                         detail = completed.stderr.strip() or completed.stdout.strip()
