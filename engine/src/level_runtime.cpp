@@ -50,8 +50,16 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
     const Area area = Area::parse(archive.read(areaName), areaName);
     const Palette palette = Palette::parsePcxDac(
         archive.read(worldName + ".PCC"), worldName + ".PCC");
-    const PcxImage gamebar = PcxImage::parse(
-        archive.read("GAMEBAR.PCC"), "GAMEBAR.PCC");
+    const Bytes gamebarData = archive.read("GAMEBAR.PCC");
+    PcxImage gamebar = PcxImage::parse(gamebarData, "GAMEBAR.PCC");
+    // GAMEBAR/SMFONT are copied as indexed pixels, but their DAC entries
+    // join the same VGA upload as the world palette. Keep PcxImage's raw
+    // parser semantics for asset inspection and use the measured DAC path
+    // for the live runtime palette.
+    gamebar.palette = Palette::parsePcxDac(gamebarData, "GAMEBAR.PCC");
+    const Bytes smallFontData = archive.read("SMFONT.PCC");
+    PcxImage smallFont = PcxImage::parse(smallFontData, "SMFONT.PCC");
+    smallFont.palette = Palette::parsePcxDac(smallFontData, "SMFONT.PCC");
     const Tileset tileset = Tileset::parseIco(
         archive.read(worldName + ".ICO"), worldName + ".ICO");
     const std::string loopName = "LOOP_" + worldName + ".ICO";
@@ -62,7 +70,7 @@ std::unique_ptr<LevelRuntime> LevelRuntime::load(
 
     std::unique_ptr<LevelRuntime> result(new LevelRuntime(
         mapName, areaName, worldName, playerBobName, map, area, palette,
-        gamebar, tileset, loopTileset, playerBob, config));
+        gamebar, smallFont, tileset, loopTileset, playerBob, config));
     result->loadEntityBobs(archive);
     return result;
 }
@@ -73,6 +81,7 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
                            const std::string &playerBobName,
                            const Map &map, const Area &area,
                            const Palette &palette, const PcxImage &gamebar,
+                           const PcxImage &smallFont,
                            const Tileset &tileset,
                            const Tileset &loopTileset, const Bob &playerBob,
                            const LevelSessionConfig &config)
@@ -84,6 +93,7 @@ LevelRuntime::LevelRuntime(const std::string &mapName,
       _area(area),
       _palette(palette),
       _gamebar(gamebar),
+      _smallFont(smallFont),
       _tileset(tileset),
       _loopTileset(loopTileset),
       _playerBob(playerBob),

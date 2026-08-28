@@ -310,9 +310,11 @@ selector `0x337`, width `320`, height `24`, and size `7680` bytes. The first
 `1024` live bytes match the first `1024` bytes of the extracted
 `GAMEBAR.PCC` PCX decode exactly. The native loader/compositor therefore does
 not remap GAMEBAR pixel indices before `0207:099C`; resource-owned indices
-`99..123` remain intact. The remaining palette task is specifically to locate
-the setup path that makes the GAMEBAR DAC entries active (or composes them with
-the world palette), not a pixel-buffer conversion problem.
+`99..123` remain intact. The native presentation therefore needs a layer-aware
+palette at the final indexed-to-RGB boundary: world pixels use the active world
+DAC table, GAMEBAR pixels use the GAMEBAR DAC table, and runtime SMFONT glyph
+pixels use the shared SMFONT DAC colors. `quiky-play` now applies that split
+without remapping the captured GAMEBAR buffer.
 
 A controlled native BOB boundary run settles that remaining HUD-specific
 question. The W1L1 trace
@@ -803,9 +805,11 @@ The engine now has an indexed PCX/PCC decoder (`PcxImage`) and a clipped
 `blitIndexedSurface` primitive with explicit opaque versus transparent-zero
 modes. `quiky-play` loads `GAMEBAR.PCC`, crops the world to the measured
 320x176 viewport, and composites the opaque 320x24 bar into a 320x200 logical
-frame before presentation. Palette application remains separate, matching the
-native byte-identical GAMEBAR buffer evidence; the remaining palette
-uncertainty is upload timing/page handoff, not the menu/title source.
+frame before presentation. At upload, the world and HUD retain separate DAC
+palette provenance because the same numeric indices have different meanings in
+the two resources. The dynamic score/lives/ammo writes use the packed 6x8
+SMFONT strip (numeric cells are stored `1..9,0`) at the measured native
+positions.
 
 The gameplay `LevelRuntime` now applies the measured VGA palette contract via
 `Palette::parsePcxDac`: each PCX component is truncated to six bits (`>> 2`)

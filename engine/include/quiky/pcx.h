@@ -10,9 +10,10 @@
 namespace quiky {
 
 // The original title, menu, font, and status-bar resources are 8-bit,
-// single-plane PCX/PCC images.  Keep the decoded indexed pixels alongside
-// their file-owned DAC palette so callers can composite them without losing
-// palette provenance.
+// single-plane PCX/PCC images. Keep the decoded indexed pixels alongside
+// their file-owned palette so callers can composite them without losing
+// palette provenance. Runtime loaders may replace this raw palette with its
+// VGA-DAC-expanded presentation form after parsing.
 struct PcxImage {
     std::uint32_t width;
     std::uint32_t height;

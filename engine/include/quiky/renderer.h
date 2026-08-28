@@ -31,6 +31,17 @@ enum class SurfaceBlitMode {
 // owns rows 0..175 and GAMEBAR.PCC is an opaque 320x24 strip at y=176.
 void compositeGamebar(IndexedSurface &screen, const IndexedSurface &gamebar);
 
+// Draw fixed-width decimal digits from the native 6x8 SMFONT strip. The
+// atlas stores A-Z in six-pixel cells at slots 0..25 and numeric glyphs in
+// the shipped order 1..9,0 at slots 26..35. Digits are selected in native
+// 0..9 order, written most-significant first (including leading zeroes), and
+// advanced by nine destination pixels. Destination pixels are clipped.
+void drawSmallFontNumber(IndexedSurface &surface,
+                         const IndexedSurface &smallFont,
+                         std::uint32_t value, std::size_t digitCount,
+                         std::int32_t destinationX,
+                         std::int32_t destinationY);
+
 // Crop the camera-visible world to the native 320x176 gameplay area, then
 // append the opaque GAMEBAR strip to produce one complete 320x200 frame.
 IndexedSurface composeGameplayFrame(const IndexedSurface &world,

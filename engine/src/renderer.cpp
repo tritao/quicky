@@ -50,6 +50,60 @@ void compositeGamebar(IndexedSurface &screen, const IndexedSurface &gamebar) {
     blitIndexedSurface(screen, gamebar, 0, 176, SurfaceBlitMode::Opaque);
 }
 
+void drawSmallFontNumber(IndexedSurface &surface,
+                         const IndexedSurface &smallFont,
+                         std::uint32_t value, std::size_t digitCount,
+                         std::int32_t destinationX,
+                         std::int32_t destinationY) {
+    // SMFONT is a packed six-pixel-cell strip: each glyph is five pixels
+    // wide followed by one blank column. The destination writer advances by
+    // nine pixels, matching the spacing in the native status-bar calls.
+    const std::size_t kGlyphWidth = 6;
+    const std::size_t kGlyphHeight = 8;
+    const std::size_t kFirstDigitGlyph = 26;
+    const std::size_t kZeroGlyph = 35;
+    if (digitCount == 0 || digitCount > 10) {
+        throw FormatError("SMFONT digit count must be between 1 and 10");
+    }
+    if (smallFont.width < (kZeroGlyph + 1) * kGlyphWidth ||
+        smallFont.height < kGlyphHeight) {
+        throw FormatError("SMFONT atlas is missing its numeric glyphs");
+    }
+
+    std::uint32_t divisor = 1;
+    for (std::size_t index = 1; index < digitCount; ++index) {
+        divisor *= 10;
+    }
+    for (std::size_t index = 0; index < digitCount; ++index) {
+        const std::uint32_t digit = (value / divisor) % 10;
+        // The shipped strip's numeric order is 1..9,0 even though the
+        // native selector range 01F7:01F4..01FD is 0..9.
+        const std::size_t glyph = digit == 0
+                                      ? kZeroGlyph
+                                      : kFirstDigitGlyph + digit - 1;
+        const std::int32_t sourceX = static_cast<std::int32_t>(
+            glyph * kGlyphWidth);
+        for (std::size_t glyphY = 0; glyphY < kGlyphHeight; ++glyphY) {
+            for (std::size_t glyphX = 0; glyphX < kGlyphWidth; ++glyphX) {
+                const std::int32_t targetX = destinationX +
+                    static_cast<std::int32_t>(index * 9 + glyphX);
+                const std::int32_t targetY = destinationY +
+                    static_cast<std::int32_t>(glyphY);
+                if (targetX < 0 || targetY < 0 ||
+                    static_cast<std::uint32_t>(targetX) >= surface.width ||
+                    static_cast<std::uint32_t>(targetY) >= surface.height) {
+                    continue;
+                }
+                surface.at(static_cast<std::uint32_t>(targetX),
+                           static_cast<std::uint32_t>(targetY)) =
+                    smallFont.at(static_cast<std::uint32_t>(sourceX) + glyphX,
+                                 static_cast<std::uint32_t>(glyphY));
+            }
+        }
+        divisor /= 10;
+    }
+}
+
 IndexedSurface composeGameplayFrame(const IndexedSurface &world,
                                     const IndexedSurface &gamebar,
                                     std::int32_t cameraX,

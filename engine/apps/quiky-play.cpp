@@ -287,10 +287,33 @@ void triggerLevelSfx(SdlState &sdl, quiky::AudioMixer *audioMixer,
 #endif
 
 void uploadSurface(SDL_Texture *texture, const quiky::IndexedSurface &surface,
-                   const quiky::Palette &palette) {
+                   const quiky::Palette &palette,
+                   const quiky::Palette *gamebarPalette = nullptr,
+                   const quiky::Palette *smallFontPalette = nullptr) {
     std::vector<quiky::byte> rgb(surface.pixels.size() * 3);
     for (std::size_t index = 0; index < surface.pixels.size(); ++index) {
-        const quiky::RGB &color = palette.colors[surface.pixels[index]];
+        const std::uint32_t y = static_cast<std::uint32_t>(
+            index / surface.width);
+        // GAMEBAR.PCC owns the DAC entries used by its 320x24 layer. The
+        // world palette reuses those indices for terrain colors, so applying
+        // one palette to the already-composited indexed frame turns the HUD
+        // into a solid neon strip. Select the layer palette only at this
+        // final RGB conversion boundary; indexed world composition remains
+        // unchanged.
+        const quiky::byte pixel = surface.pixels[index];
+        const bool inGamebar = gamebarPalette != nullptr &&
+                               y >= kWorldViewportHeight;
+        // SMFONT's two-color glyphs are copied into the GAMEBAR surface at
+        // runtime. GAMEBAR leaves those low indices as magenta placeholders,
+        // so resolve them through SMFONT's shared UI palette while retaining
+        // GAMEBAR's resource-owned 99..123 colors for the strip itself.
+        const bool isSmallFontPixel =
+            smallFontPalette != nullptr && (pixel == 1 || pixel == 49);
+        const quiky::Palette &activePalette =
+            inGamebar && isSmallFontPixel ? *smallFontPalette
+            : inGamebar ? *gamebarPalette
+                        : palette;
+        const quiky::RGB &color = activePalette.colors[pixel];
         rgb[index * 3 + 0] = color.red;
         rgb[index * 3 + 1] = color.green;
         rgb[index * 3 + 2] = color.blue;
@@ -366,11 +389,32 @@ void updateTitle(SDL_Window *window, const std::string &mapName,
           << " vy=" << player.velocityY.floorPixels()
           << " mode=" << static_cast<int>(player.mode37)
           << " score=" << level.score()
+          << " ammo=" << level.gameplayState().ammo880c
           << " deaths=" << level.deaths();
     if (!eventText.empty()) {
         title << " " << eventText;
     }
     SDL_SetWindowTitle(window, title.str().c_str());
+}
+
+quiky::IndexedSurface gameplayGamebar(const quiky::LevelRuntime &runtime) {
+    quiky::IndexedSurface gamebar = runtime.gamebar().surface();
+    const quiky::IndexedSurface smallFont = runtime.smallFont().surface();
+    const quiky::LevelGameplayState &state = runtime.session().gameplayState();
+
+    // 01F7:5A03-5BEC writes the live counters into the 320x24 GAMEBAR
+    // surface using SMFONT's packed 6x8 decimal glyphs. Keep the positions in the
+    // same bar-local coordinate system instead of baking digits into the
+    // resource, so pickup and damage writes are visible immediately.
+    quiky::drawSmallFontNumber(gamebar, smallFont, state.score881c, 6,
+                               0xce, 8);
+    quiky::drawSmallFontNumber(
+        gamebar, smallFont,
+        std::min<std::uint16_t>(9, state.lives880a), 1, 0x5a, 8);
+    quiky::drawSmallFontNumber(
+        gamebar, smallFont,
+        std::min<std::uint16_t>(99, state.ammo880c), 2, 0xb4, 8);
+    return gamebar;
 }
 
 bool isKey(SDL_Scancode key, SDL_Scancode first, SDL_Scancode second = SDL_SCANCODE_UNKNOWN) {
@@ -489,8 +533,9 @@ int main(int argc, char **argv) {
         runtime->setStreamAnchor(camera.x(), camera.y());
         const quiky::IndexedSurface initialWorld =
             quiky::renderMap(runtime->map(), runtime->tileset());
+        const quiky::IndexedSurface initialGamebar = gameplayGamebar(*runtime);
         const quiky::IndexedSurface initialSurface = quiky::composeGameplayFrame(
-            initialWorld, runtime->gamebar().surface(), camera.x(), camera.y());
+            initialWorld, initialGamebar, camera.x(), camera.y());
         sdl.texture = createSurfaceTexture(sdl.renderer, initialSurface);
 
         bool running = true;
@@ -646,9 +691,11 @@ int main(int argc, char **argv) {
                             runtime->setStreamAnchor(camera.x(), camera.y());
                             const quiky::IndexedSurface nextWorld =
                                 quiky::renderMap(runtime->map(), runtime->tileset());
+                            const quiky::IndexedSurface nextGamebar =
+                                gameplayGamebar(*runtime);
                             const quiky::IndexedSurface nextSurface =
                                 quiky::composeGameplayFrame(
-                                    nextWorld, runtime->gamebar().surface(),
+                                    nextWorld, nextGamebar,
                                     camera.x(), camera.y());
                             replaceSurfaceTexture(sdl, nextSurface);
                             playerAnimation.reset();
@@ -704,13 +751,16 @@ int main(int argc, char **argv) {
                           static_cast<int>(worldSurface.height));
             const int cameraX = camera.x();
             const int cameraY = camera.y();
+            const quiky::IndexedSurface gamebar = gameplayGamebar(*runtime);
             const quiky::IndexedSurface surface = quiky::composeGameplayFrame(
-                worldSurface, runtime->gamebar().surface(), cameraX, cameraY);
+                worldSurface, gamebar, cameraX, cameraY);
             // The native ARE object gate is camera-relative. Publish the
             // renderer's settled camera for the next simulation tick rather
             // than deriving the stream window from player Y.
             runtime->setStreamAnchor(cameraX, cameraY);
-            uploadSurface(sdl.texture, surface, framePalette);
+            uploadSurface(sdl.texture, surface, framePalette,
+                          &runtime->gamebar().palette,
+                          &runtime->smallFont().palette);
             const SDL_FRect source = {
                 0.0f, 0.0f, static_cast<float>(kLogicalWidth),
                 static_cast<float>(kLogicalHeight)};

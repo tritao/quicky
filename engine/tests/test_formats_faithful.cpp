@@ -198,6 +198,33 @@ void testGameplayFrameComposition() {
     assert(zeroFrame.at(10, 176) == 0);
 }
 
+void testSmallFontNumber() {
+    quiky::IndexedSurface smallFont(320, 8);
+    std::fill(smallFont.pixels.begin(), smallFont.pixels.end(), 1);
+    for (std::size_t digit = 0; digit < 10; ++digit) {
+        // SMFONT stores 1..9,0 in six-pixel cells at slots 26..35.
+        const std::size_t glyph = digit == 0 ? 35 : 25 + digit;
+        const std::uint32_t glyphX = static_cast<std::uint32_t>(glyph) * 6;
+        for (std::uint32_t y = 0; y < 8; ++y) {
+            for (std::uint32_t x = 0; x < 6; ++x) {
+                smallFont.at(glyphX + x, y) =
+                    static_cast<quiky::byte>(40 + digit);
+            }
+        }
+    }
+
+    quiky::IndexedSurface bar(40, 12);
+    std::fill(bar.pixels.begin(), bar.pixels.end(), 0xee);
+    quiky::drawSmallFontNumber(bar, smallFont, 42, 3, 1, 2);
+    // Native status rendering is fixed-width and includes the leading zero.
+    assert(bar.at(1, 2) == 40);
+    assert(bar.at(6, 2) == 40);
+    assert(bar.at(7, 2) == 0xee);
+    assert(bar.at(10, 2) == 44);
+    assert(bar.at(19, 2) == 42);
+    assert(bar.at(25, 2) == 0xee);
+}
+
 void testAreaAndBob() {
     quiky::Area area = makeSingleArea(0x2b);
     assert(area.layoutWidth == 2 && area.layoutHeight == 1);
@@ -1401,6 +1428,7 @@ int main() {
         testArchive();
         testFormatsAndRenderer();
         testGameplayFrameComposition();
+        testSmallFontNumber();
         testAreaAndBob();
         testFaithfulRecordWorldAndAnimation();
         testLevelSessionUsesSimulationBoundary();
