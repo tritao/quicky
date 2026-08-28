@@ -54,6 +54,8 @@ def sample(sequence: int = 1) -> dict:
 def lifecycle_sample(sequence: int, health: int, gate: int, mode: int,
                      x: int, y: int, *, native: bool) -> dict:
     state = bytearray.fromhex(record("00"))
+    state[0x02:0x06] = (x << 16).to_bytes(4, "little", signed=True)
+    state[0x06:0x0a] = (y << 16).to_bytes(4, "little", signed=True)
     state[0x37] = mode & 0xff
     state_hex = state.hex()
     common = {
@@ -129,7 +131,8 @@ class QuikyToolingTests(unittest.TestCase):
                 (3, 0, 0, 100, 200),
                 (0, 0, 0, 101, 200),
                 (0, -100, 255, 101, 200),
-                (0, -350, 255, 101, 200),
+                (0, -346, 255, 101, 200),
+                (3, 0, 0, 1673, 374),
                 (3, 0, 0, 1673, 374),
             ]
             left.write_text(json.dumps({
@@ -138,10 +141,12 @@ class QuikyToolingTests(unittest.TestCase):
                     for i, state in enumerate(states, 1)
                 ]}]
             }), encoding="utf-8")
+            native_states = list(states)
+            native_states[3] = (0, -349, 255, 101, 200)
             right.write_text(json.dumps({
                 "samples": [
                     lifecycle_sample(i, *state, native=True)
-                    for i, state in enumerate(states, 1)
+                    for i, state in enumerate(native_states, 1)
                 ]
             }), encoding="utf-8")
             mismatches, coverage = compare_session_checkpoints(left, right)

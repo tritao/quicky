@@ -760,6 +760,19 @@ def _checkpoint_position(sample: NormalizedSample) -> tuple[int, int] | None:
                     isinstance(position.get("x"), int) and
                     isinstance(position.get("y"), int)):
                 return position["x"], position["y"]
+    record = _checkpoint_record(sample)
+    if record is not None:
+        try:
+            data = bytes.fromhex(record)
+        except ValueError:
+            data = b""
+        # PlayerRecord stores the signed 16.16 positions at +0x02/+0x06.
+        if len(data) >= 0x0a:
+            x_raw = int.from_bytes(data[0x02:0x06], "little", signed=False)
+            y_raw = int.from_bytes(data[0x06:0x0a], "little", signed=False)
+            x = x_raw - (1 << 32) if x_raw & (1 << 31) else x_raw
+            y = y_raw - (1 << 32) if y_raw & (1 << 31) else y_raw
+            return x >> 16, y >> 16
     raw = sample.raw
     position = raw.get("position")
     if (isinstance(position, dict) and isinstance(position.get("x"), int) and
@@ -805,7 +818,7 @@ def _checkpoint_samples(path: Path) -> dict[str, tuple[NormalizedSample, dict[st
     result: dict[str, tuple[NormalizedSample, dict[str, Any]]] = {}
     previous_health: int | None = None
     terminal_seen = False
-    gate_seen = False
+    pending_negative_gate: tuple[NormalizedSample, dict[str, Any]] | None = None
     for sample in samples:
         state = _checkpoint_state(sample)
         health = state["health"]
@@ -820,12 +833,23 @@ def _checkpoint_samples(path: Path) -> dict[str, tuple[NormalizedSample, dict[st
             result["death_hold"] = (sample, state)
         if (gate is not None and gate <= -350):
             result.setdefault("recovery_gate", (sample, state))
-            gate_seen = True
-        if (gate_seen and "recovered_callback" not in result and
-                isinstance(health, int) and health > 0 and gate == 0 and
-                mode == 0):
-            result["recovered_callback"] = (sample, state)
+            state["gate_crossed"] = True
+        if isinstance(gate, int) and gate < 0:
+            pending_negative_gate = (sample, state)
+        if (isinstance(health, int) and health > 0 and gate == 0 and
+                mode == 0 and pending_negative_gate is not None):
+            # Sparse callback traces can step from (for example) -346 to the
+            # first restored callback, skipping the literal -350 observation.
+            # Keep the last negative gate as the measured threshold-crossing
+            # sample; never synthesize a -350 value.
+            if "recovery_gate" not in result:
+                gate_sample, gate_state = pending_negative_gate
+                gate_state["gate_crossed"] = True
+                result["recovery_gate"] = (gate_sample, gate_state)
+            if "recovered_callback" not in result:
+                result["recovered_callback"] = (sample, state)
         if ("recovered_callback" in result and "respawn" not in result and
+                result["recovered_callback"][0] is not sample and
                 state["position"] is not None):
             result["respawn"] = (sample, state)
         if isinstance(health, int):
@@ -886,6 +910,18 @@ def compare_session_checkpoints(
                     "original_present": expected_value is not None,
                     "candidate_present": actual_value is not None,
                 })
+            elif (label == "recovery_gate" and field == "gate"):
+                expected_crossed = bool(expected_state.get("gate_crossed"))
+                actual_crossed = bool(actual_state.get("gate_crossed"))
+                if not expected_crossed or not actual_crossed:
+                    mismatches.append({
+                        "checkpoint": label,
+                        "sequence": expected_sample.sequence,
+                        "field": field,
+                        "error": "recovery threshold was not crossed",
+                        "original": expected_value,
+                        "candidate": actual_value,
+                    })
             elif expected_value != actual_value:
                 mismatches.append({
                     "checkpoint": label,
