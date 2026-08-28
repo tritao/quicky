@@ -15,6 +15,7 @@ from quiky.parity import (
     callback_offsets,
     compare_active_objects,
     compare_session,
+    compare_session_checkpoints,
     scheduler_offsets as _scheduler_offsets,
     validate_record as _validate_record,
     _effects,
@@ -111,6 +112,15 @@ def active_objects(sample: dict[str, Any]) -> list[dict[str, Any]] | None:
 
 
 def compare(original: Path, candidate: Path) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Compare exact samples, or named lifecycle barriers for sparse traces."""
+
+    try:
+        original_count = len(load_trace(original).samples)
+        candidate_count = len(load_trace(candidate).samples)
+    except TraceError as exc:
+        raise SessionTraceError(str(exc)) from exc
+    if original_count != candidate_count:
+        return compare_session_checkpoints(original, candidate)
     return compare_session(original, candidate)
 
 

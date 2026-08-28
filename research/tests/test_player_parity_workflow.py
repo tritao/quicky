@@ -9,6 +9,7 @@ TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
 from player_parity_compare import compare  # noqa: E402
+from w1l1_session_compare import compare as compare_session_gate  # noqa: E402
 from player_replay_manifest import (  # noqa: E402
     ReplayManifestError,
     build_manifest,
@@ -281,6 +282,17 @@ class PlayerParityWorkflowTests(unittest.TestCase):
         )
         self.assertIn("--input-jsonl", command)
         self.assertNotIn("--input-tsv", command)
+
+    def test_session_compat_gate_switches_to_checkpoints_for_sparse_trace(self):
+        source = ROOT / "research/build/player-followup-standing-v1.json"
+        payload = json.loads(source.read_text(encoding="utf-8"))
+        payload["events"][0]["samples"] = payload["events"][0]["samples"][:1]
+        with tempfile.TemporaryDirectory() as directory:
+            candidate = Path(directory) / "sparse.json"
+            candidate.write_text(json.dumps(payload), encoding="utf-8")
+            mismatches, _ = compare_session_gate(source, candidate)
+        self.assertTrue(mismatches)
+        self.assertTrue(all("checkpoint" in item for item in mismatches))
 
 
 if __name__ == "__main__":
