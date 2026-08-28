@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Fail-closed audit of the native W1L2 BUMP/WURM2 scheduler trace.
 
-This checks only facts published by ``quiky-w1l1-trace``.  It is deliberately
+This checks only facts published by ``quiky-parity-replay``.  It is deliberately
 not a DOS comparator: the DOS side has no captured W1L2 session record yet,
 and descriptor contents/707B target rows remain explicit runtime inputs.
 """

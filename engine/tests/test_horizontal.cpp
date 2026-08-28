@@ -1,11 +1,11 @@
 #include "quiky/collision_kernel.h"
 #include "quiky/player_update.h"
+#include "quiky/simulation.h"
 
 #include <cassert>
 #include <cstdint>
 #include <fstream>
 #include <iostream>
-#include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
@@ -373,43 +373,6 @@ void testSnapshotsAndTraceIsolation() {
     const std::vector<std::uint16_t> mapBefore = map.cells;
     quiky::CollisionKernel::sideProbePair(world, 32, 8);
     assert(map.cells == mapBefore);
-
-    quiky::TraceFrame expectedFrame;
-    expectedFrame.tick = 7;
-    expectedFrame.sourceExperiment = "holdout-right-3.json";
-    expectedFrame.sequence = 3;
-    expectedFrame.inputFlags = 0x04;
-    expectedFrame.player = withTrace.postState;
-    quiky::CollisionProbe probe;
-    probe.pixelX = 27;
-    probe.pixelY = 8;
-    probe.descriptorWord = 0x000f;
-    probe.quadrantMask = 0x02;
-    expectedFrame.collisionProbes.push_back(probe);
-
-    std::ostringstream expectedText;
-    quiky::TraceWriter expectedWriter(expectedText);
-    expectedWriter.writeHeader();
-    expectedWriter.writeFrame(expectedFrame);
-    quiky::TraceFrame actualFrame = expectedFrame;
-    actualFrame.player.setU32(0x02, 0x00800001);
-    std::ostringstream actualText;
-    quiky::TraceWriter actualWriter(actualText);
-    actualWriter.writeHeader();
-    actualWriter.writeFrame(actualFrame);
-    std::istringstream expectedStream(expectedText.str());
-    std::istringstream actualStream(actualText.str());
-    const quiky::TraceDifference difference =
-        quiky::TraceComparator::compare(expectedStream, actualStream);
-    assert(!difference.equal);
-    assert(difference.tick == 7);
-    assert(difference.sourceExperiment == "holdout-right-3.json");
-    assert(difference.sequence == 3);
-    assert(difference.inputFlags == 0x04);
-    assert(difference.hasRawOffset);
-    assert(difference.rawOffset == 2);
-    assert(difference.semanticField == "x_fixed");
-    assert(!difference.expectedCollisionProbes.empty());
 
     quiky::Simulation simulation(1);
     simulation.stateForSetup().player.positionX =

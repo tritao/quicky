@@ -6,7 +6,7 @@ the stream pass.  Each 01F7:4727 initializer consumes one selector byte and
 one velocity byte.  The six dedicated event declarations precede the leaves
 in the startup stream, so the default output reserves six leading bytes for
 that earlier consumption and emits a complete 256-byte ring suitable for
-``quiky-w1l1-trace --leaf-prng-ring-hex``.
+``quiky-parity-replay --leaf-prng-ring-hex``.
 """
 
 from __future__ import annotations

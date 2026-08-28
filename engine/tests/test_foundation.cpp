@@ -3,14 +3,12 @@
 #include "quiky/player_animation.h"
 #include "quiky/scheduler.h"
 #include "quiky/simulation.h"
-#include "quiky/trace.h"
 #include "quiky/player_update.h"
 #include "quiky/world_view.h"
 
 #include <cassert>
 #include <cstdint>
 #include <iostream>
-#include <sstream>
 
 namespace {
 
@@ -201,38 +199,6 @@ void testSchedulerAndBoundary() {
     assert(output.audioEvents.size() == 1);
 }
 
-void testTraceComparison() {
-    quiky::TraceFrame frame;
-    frame.tick = 4;
-    frame.inputFlags = 0x20;
-    frame.playerSelector = 0x027f;
-    frame.playerOffset = 0;
-    frame.player.setU32(0x02, 0x12345678);
-    frame.stateWrites.push_back(quiky::TraceStateWrite{0x02, 4, 0x12345678});
-
-    std::ostringstream expectedText;
-    quiky::TraceWriter expectedWriter(expectedText);
-    expectedWriter.writeHeader();
-    expectedWriter.writeFrame(frame);
-
-    std::istringstream expected(expectedText.str());
-    std::istringstream actual(expectedText.str());
-    assert(quiky::TraceComparator::compare(expected, actual).equal);
-
-    frame.player.setU32(0x02, 0x12345679);
-    std::ostringstream actualText;
-    quiky::TraceWriter actualWriter(actualText);
-    actualWriter.writeHeader();
-    actualWriter.writeFrame(frame);
-    std::istringstream expectedChanged(expectedText.str());
-    std::istringstream actualChanged(actualText.str());
-    const quiky::TraceDifference difference =
-        quiky::TraceComparator::compare(expectedChanged, actualChanged);
-    assert(!difference.equal);
-    assert(difference.tick == 4);
-    assert(difference.field == "raw_player_record");
-}
-
 } // namespace
 
 int main() {
@@ -241,7 +207,6 @@ int main() {
     testPlayerAnimationTables();
     testWorldView();
     testSchedulerAndBoundary();
-    testTraceComparison();
     std::cout << "all quiky foundation tests passed\n";
     return 0;
 }

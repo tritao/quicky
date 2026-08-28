@@ -1,8 +1,8 @@
-"""Shared, compatibility-preserving tooling APIs for Quiky research.
+"""Shared Quiky research APIs.
 
-The command files in ``research/tools`` remain the stable entry points for
-existing notes and scripts.  This package is the new home for shared loading,
-normalization, parity, and artifact helpers while the migration is in progress.
+Trace normalization is exposed for capture importers. Recorded-run replay and
+verification use the strict schemas in :mod:`quiky.runs` and
+:mod:`quiky.state`.
 """
 
 from .trace import (

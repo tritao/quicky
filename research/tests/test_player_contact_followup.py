@@ -8,7 +8,7 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
-from player_parity_compare import compare  # noqa: E402
+from quiky.parity import compare_player as compare  # noqa: E402
 from verify_player_contact_followup import verify  # noqa: E402
 
 

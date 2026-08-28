@@ -3,12 +3,17 @@
 
 #include "quiky/collision_kernel.h"
 #include "quiky/player_record.h"
-#include "quiky/trace.h"
 
 #include <cstdint>
 #include <vector>
 
 namespace quiky {
+
+struct TraceStateWrite {
+    std::uint16_t offset;
+    std::uint8_t width;
+    std::uint32_t value;
+};
 
 class PlayerTraceSink;
 

@@ -28,7 +28,6 @@ add_library(quiky_core
     src/level_runtime.cpp
     src/sfx_events.cpp
     src/tileset.cpp
-    src/trace.cpp
     src/world_view.cpp
 )
 
@@ -53,17 +52,11 @@ target_link_libraries(quiky-bob-sheet PRIVATE quiky_core)
 add_executable(quiky-simulate apps/quiky-simulate.cpp)
 target_link_libraries(quiky-simulate PRIVATE quiky_core)
 
-add_executable(quiky-trace-compare apps/quiky-trace-compare.cpp)
-target_link_libraries(quiky-trace-compare PRIVATE quiky_core)
-
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 
-add_executable(quiky-player-trace apps/quiky-player-trace.cpp)
-target_link_libraries(quiky-player-trace PRIVATE quiky_core)
-
-add_executable(quiky-w1l1-trace apps/quiky-w1l1-trace.cpp)
-target_link_libraries(quiky-w1l1-trace PRIVATE quiky_core)
+add_executable(quiky-parity-replay apps/quiky-w1l1-trace.cpp)
+target_link_libraries(quiky-parity-replay PRIVATE quiky_core)
 
 add_executable(quiky-frame apps/quiky-frame.cpp)
 target_link_libraries(quiky-frame PRIVATE quiky_core)

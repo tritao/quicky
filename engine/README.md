@@ -64,9 +64,8 @@ The foundation currently includes:
   the confirmed descriptor predicates, not a guessed `isSolid()` rule;
 - `ObjectScheduler`, which applies deferred spawn/release mutations, walks
   stable slot order, and records callback identity and invocation order;
-- `quiky-trace-v2`, a normalized trace interchange containing the raw player,
-  MAP lookups, scheduler callbacks, state writes, and emitted events. The
-  `quiky-trace-compare` tool reports the first divergent tick and field.
+- canonical recorded-run parity, with strict state JSONL and explicit exact
+  or lifecycle comparison profiles.
 
 The active frontend and scene tools consume `SimulationOutput` and
 `PlayerRecord`; they no longer have a second player-state or collision API.
@@ -322,18 +321,21 @@ phase-1 initialization of four leaf records (two bytes each), reproducing the ob
 [`w1l2-startup-stream-v1.json`](../research/evidence/player-dos-parity/w1l2-startup-stream-v1.json);
 the ring remains replay input rather than a hardcoded simulation rule.
 
-The W1L1 session boundary is traceable with the dedicated native emitter:
+Parity uses named recorded-run directories. Historical DOS envelopes are
+accepted only by `run import`; validation and comparison consume strict
+`quiky.parity-state-v1` JSONL on both sides:
 
 ~~~sh
-build/engine/quiky-w1l1-trace game/NESTLE.DAT W1L1.MAP /tmp/w1l1-session.json \
-  --frames 4 --action-flags 0
-python3 research/tools/w1l1_session_compare.py \
-  --original research/build/player-frame-full-v1.json \
-  --candidate /tmp/w1l1-session.json
+python3 research/tools/quiky.py run import research/runs/w1l1-session \
+  --name w1l1-session --profile exact \
+  --expected-trace research/build/player-frame-full-v1.json
+python3 research/tools/quiky.py run replay research/runs/w1l1-session \
+  --binary build/engine/quiky-parity-replay \
+  --archive game/NESTLE.DAT --map W1L1.MAP
+python3 research/tools/quiky.py run verify research/runs/w1l1-session
 ~~~
 
-An input TSV contains `sequence action_flags` and may append `camera_x
-camera_y`; the latter is published before that tick's streaming pass. Each
+`input.jsonl` is the only replay input format. Each
 native sample records the complete callback pre/post record, ordered probes,
 state/global/effect writes, camera anchor, scheduler/dependency order, active
 entities/effects, gameplay globals, and queued events. The comparator is
@@ -345,18 +347,17 @@ exact for player records, scheduler order, WERBE, and active leaf position,
 velocity, animation cursor/delay, and sprite slot; the focused DOS capture's
 missing later pool/probe/effect arrays are reported as coverage gaps.
 
-For the older four-frame DOS pool capture, derive the replayable leaf ring
-instead of using the zero-seed fallback:
+For a capture requiring the replayable leaf ring, pass it to the canonical
+replay command:
 
 ~~~sh
 RING=$(python3 research/tools/derive_w1l1_leaf_ring.py \
   research/build/player-frame-full-v1.json)
-build/engine/quiky-w1l1-trace game/NESTLE.DAT W1L1.MAP /tmp/w1l1-session-seeded.json \
-  --frames 4 --action-flags 0 --leaf-prng-index 0 \
-  --leaf-prng-ring-hex "$RING"
-python3 research/tools/w1l1_session_compare.py \
-  --original research/build/player-frame-full-v1.json \
-  --candidate /tmp/w1l1-session-seeded.json
+python3 research/tools/quiky.py run replay research/runs/w1l1-session \
+  --binary build/engine/quiky-parity-replay \
+  --archive game/NESTLE.DAT --map W1L1.MAP \
+  --leaf-prng-index 0 --leaf-prng-ring-hex "$RING"
+python3 research/tools/quiky.py run verify research/runs/w1l1-session
 ~~~
 
 This produces zero comparable mismatches for the complete player records,
@@ -365,17 +366,9 @@ velocities, and sprite selectors. The exact seed prefix and the 60 honest
 coverage gaps are recorded in
 [`w1l1-seeded-session-object-parity-v1.json`](../research/evidence/player-dos-parity/w1l1-seeded-session-object-parity-v1.json).
 
-The same replay is available as a fail-closed gate. It derives the ring,
-invokes the native emitter, compares the result, and fails on any comparable
-player, scheduler, object, probe, global, or effect mismatch:
-
-~~~sh
-python3 research/tools/w1l1_session_parity.py \
-  --original research/build/player-frame-full-v1.json
-~~~
-
-The command reports the archived trace's honest coverage gaps. Add
-`--require-complete` when a capture with all comparison arrays is available.
+The verifier fails on comparable mismatches and writes separate parity and
+coverage reports. Comparison mode is selected explicitly by the run's
+`exact` or `lifecycle` profile, never inferred from sample counts.
 
 The first W1L2 difference family is now integrated from the focused
 protected-mode closure: ARE type `0x34` runs `01F7:9BEE` initialization and
@@ -469,7 +462,7 @@ Dynamically parity-validated:
   later landed on through `3D02 -> 5CC3`, with grounded mode and zero vertical
   velocity after contact;
 - candidate-to-candidate full-record/probe/global/effect comparison through
-  `player_parity_compare.py`;
+  canonical recorded runs;
 - the complete v2 replay fixture, including all twelve `5937` inputs, exact
   player records, ordered property probes, and the direct `DS:4FF8` write.
 - an eight-callback W1L2 input replay with a real `KBD_space+KBD_up` press and
@@ -490,9 +483,8 @@ remain diagnostic when their source traces omit native probe arrays or opaque
 helper outputs, while the complete W1L1 jump/property window is now a closed
 fixture. It compares all ten callback records, normalized input words, ordered
 `1C6E/1C92/5C27/5CC3` property probes, callback-global writes, and known
-effects exactly. Dispatch-bearing captures use
-`research/tools/player_replay_manifest.py` schema v2; the twelve auxiliary
-fields are required rather than silently replaced with defaults.
+effects exactly. Dispatch-bearing captures retain all twelve auxiliary fields
+at import; missing fields remain explicit coverage rather than defaults.
 
 The first real W1L2 callback replay is also closed at the available capture
 boundary: four one-frame-spaced DOS callbacks match the native implementation
@@ -524,15 +516,9 @@ fall, and natural landing at `y=400`. It also validates the positive-mode
 sequence. The evidence is recorded in
 [`player-w1l1-jump-landing-parity-current-v1.json`](../research/evidence/player-dos-parity/player-w1l1-jump-landing-parity-current-v1.json).
 
-The committed fixture and its candidate are under
-`research/evidence/player-dos-parity/`. Re-run the live replay with:
-
-```sh
-python3 research/tools/player_callback_parity.py \
-  --original research/evidence/player-dos-parity/w1l1-jump-property-v3.json \
-  --archive game/NESTLE.DAT --map W1L1.MAP \
-  --binary build/engine/quiky-player-trace
-```
+The committed fixture and its candidate remain immutable evidence under
+`research/evidence/player-dos-parity/`; import them into a named run before
+comparison.
 
 To include the callback's known pending-sound dispatch in a strict comparison,
 add the Ghidra-addressed watch and request that field explicitly:
@@ -545,12 +531,9 @@ python3 research/tools/quikytrace.py --launch --headless --runtime-dir game \
   --output research/build/traces/player-effect-watch.json \
   --player-input-phase KBD_space+KBD_up:0 \
   --player-input-phase WAIT:1
-python3 research/tools/player_callback_parity.py \
-  --original research/build/traces/player-effect-watch.json \
-  --archive game/NESTLE.DAT --map W1L1.MAP \
-  --binary build/engine/quiky-player-trace \
-  --require-field effects \
-  --coverage-report research/build/traces/player-effect-watch-report.json
+python3 research/tools/quiky.py run import research/runs/player-effect-watch \
+  --name player-effect-watch --profile exact \
+  --expected-trace research/build/traces/player-effect-watch.json
 ```
 
 The explicit watch publishes an empty effect array for callbacks where the
@@ -639,18 +622,9 @@ Explicit unresolved boundaries:
 - the no-descriptor-table fallback, which remains a deliberate research
   boundary.
 
-The repeatable callback replay workflow is:
-
-```sh
-python3 research/tools/player_callback_parity.py \
-  --original research/evidence/player-dos-parity/w1l1-jump-property-v3.json \
-  --archive game/NESTLE.DAT --map W1L1.MAP \
-  --binary build/engine/quiky-player-trace
-```
-
-It materializes a pre-state replay manifest, runs `quiky-player-trace`, and
-invokes the fail-closed comparator. Missing records, probes, globals, or
-effect/factory data are reported as mismatches rather than skipped.
+The repeatable workflow is `quiky run import`, `quiky run replay`, then
+`quiky run verify`. Missing records, probes, globals, or effect/factory data
+are reported as coverage; unequal published values are mismatches.
 
 ## Horizontal player closure
 

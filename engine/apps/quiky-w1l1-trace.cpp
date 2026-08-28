@@ -32,8 +32,8 @@ struct InputFrame {
 };
 
 void usage() {
-    std::cerr << "usage: quiky-w1l1-trace ARCHIVE MAP-RESOURCE OUTPUT.JSON "
-                 "[--frames N] [--action-flags N] [--input-tsv PATH] "
+    std::cerr << "usage: quiky-parity-replay ARCHIVE MAP-RESOURCE OUTPUT.JSON "
+                 "[--frames N] [--action-flags N] "
                  "[--input-jsonl PATH] "
                  "[--camera-x N --camera-y N] "
                  "[--startup-camera-sweep-from N --startup-camera-sweep-to N] "
@@ -328,43 +328,6 @@ void writeLevelEvent(std::ostream &output, const quiky::LevelEvent &event) {
     output << "]}";
 }
 
-std::vector<InputFrame> readInputTsv(const std::string &path) {
-    std::ifstream input(path.c_str());
-    if (!input) {
-        throw quiky::FormatError("cannot open input TSV: " + path);
-    }
-    std::vector<InputFrame> frames;
-    std::string line;
-    while (std::getline(input, line)) {
-        if (line.empty() || line[0] == '#') continue;
-        std::istringstream fields(line);
-        std::string sequenceText;
-        std::string flagsText;
-        std::string cameraXText;
-        std::string cameraYText;
-        if (!(fields >> sequenceText >> flagsText)) {
-            throw quiky::FormatError("input TSV needs sequence and action flags");
-        }
-        InputFrame frame(
-            static_cast<std::size_t>(parseNumber(sequenceText, "sequence")),
-            0);
-        const long parsedFlags = parseNumber(flagsText, "action flags");
-        if (parsedFlags < 0 || parsedFlags > 0xffff) {
-            throw quiky::FormatError("action flags outside uint16 range");
-        }
-        frame.actionFlags = static_cast<std::uint16_t>(parsedFlags);
-        if (fields >> cameraXText >> cameraYText) {
-            frame.hasCamera = true;
-            frame.cameraX = static_cast<std::int32_t>(
-                parseNumber(cameraXText, "camera X"));
-            frame.cameraY = static_cast<std::int32_t>(
-                parseNumber(cameraYText, "camera Y"));
-        }
-        frames.push_back(frame);
-    }
-    return frames;
-}
-
 long jsonInteger(const std::string &line, const char *key, bool &present) {
     const std::string needle = std::string("\"") + key + "\"";
     const std::size_t keyPosition = line.find(needle);
@@ -575,7 +538,6 @@ int main(int argc, char **argv) {
         const std::string outputPath(argv[3]);
         long frameCount = 4;
         std::uint16_t actionFlags = 0;
-        std::string inputTsv;
         std::string inputJsonl;
         bool hasCamera = false;
         std::int32_t cameraX = 0;
@@ -597,8 +559,6 @@ int main(int argc, char **argv) {
                     throw quiky::FormatError("action flags outside uint16 range");
                 }
                 actionFlags = static_cast<std::uint16_t>(parsed);
-            } else if (option == "--input-tsv" && index + 1 < argc) {
-                inputTsv = argv[++index];
             } else if (option == "--input-jsonl" && index + 1 < argc) {
                 inputJsonl = argv[++index];
             } else if (option == "--camera-x" && index + 1 < argc) {
@@ -645,13 +605,8 @@ int main(int argc, char **argv) {
         }
 
         std::vector<InputFrame> inputs;
-        if (!inputTsv.empty() && !inputJsonl.empty()) {
-            throw quiky::FormatError(
-                "input TSV and input JSONL cannot be supplied together");
-        } else if (!inputJsonl.empty()) {
+        if (!inputJsonl.empty()) {
             inputs = readInputJsonl(inputJsonl);
-        } else if (!inputTsv.empty()) {
-            inputs = readInputTsv(inputTsv);
         } else {
             for (long index = 0; index < frameCount; ++index) {
                 InputFrame frame(static_cast<std::size_t>(index + 1),

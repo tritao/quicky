@@ -3072,7 +3072,7 @@
     {"address": "01F7:41C1/41CF", "question": "What is the response when 4326 or 4368 is reached by a blocked negative-mode probe in a natural authored ceiling? The contiguous protected-mode listing and unpatched W1L1 trace close the ordinary apex join through 4356, but the shared 41C1 response is not itself a ceiling classification.", "next": "Capture an unpatched reachable ceiling trajectory that proves the 4326 or 4368 predecessor, with the 41C1/41CF and descriptor probes in the same callback window."}
   ],
   "parity_boundary": {
-    "current_diagnostic_command": "python3 research/tools/player_callback_parity.py --original <trace> --archive <dat> --map <map> --binary build/engine/quiky-player-trace",
+    "current_diagnostic_command": "python3 research/tools/quiky.py run import <run> --name <name> --profile exact --expected-trace <trace>",
     "current_mismatch_attribution": [
       "callback-global normalization gaps: external_x_delta, timer_clear, view_state_a/view_state_b, action_low_copy, pending_event, camera_y_limit, action_source, activation_state, speed_cap_mode, action_suppressor, transition_mode",
       "side-trace probe normalization remains map/helper-coordinate dependent",
