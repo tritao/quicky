@@ -1,4 +1,5 @@
 import json
+import hashlib
 import sys
 import tempfile
 import unittest
@@ -26,6 +27,28 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class PlayerParityWorkflowTests(unittest.TestCase):
+    def test_w1l1_effect_boundary_parity_is_pinned(self):
+        evidence = ROOT / "research/evidence/player-dos-parity/player-w1l1-effect-parity-v1.json"
+        payload = json.loads(evidence.read_text(encoding="utf-8"))
+        source = payload["source"]
+        for relative, key in (("game/QUIKY.EXE", "executable_sha256"),
+                              ("game/NESTLE.DAT", "archive_sha256"),
+                              ("research/automation/quiky_player_trace.lua", "trace_script_sha256")):
+            digest = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+            self.assertEqual(digest, source[key], relative)
+
+        result = payload["result"]
+        self.assertEqual(result["diagnostic_parity"], "pass")
+        self.assertEqual(result["callbacks_checked"], 20)
+        self.assertTrue(result["complete_player_records"])
+        for field in ("normalized_input_mismatches", "post_record_mismatches",
+                      "ordered_property_probe_mismatches",
+                      "callback_global_write_mismatches", "known_effect_mismatches"):
+            self.assertEqual(result[field], 0, field)
+        self.assertEqual(result["effect_events"], [
+            {"sequence": 2, "address": "01E7:0FCF", "code": "0x0000"}
+        ])
+
     def test_w1l2_input_parity_evidence_records_closed_boundaries(self):
         evidence = ROOT / "research/evidence/player-dos-parity/player-w1l2-input-parity-v1.json"
         payload = json.loads(evidence.read_text(encoding="utf-8"))

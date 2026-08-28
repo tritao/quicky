@@ -1,0 +1,50 @@
+{
+  "schema": "quiky.player-w1l1-effect-parity.v1",
+  "purpose": "Pin a complete W1L1 jump/landing replay whose known pending-sound effect boundary is captured and compared, separating opaque factory coverage from the recovered 01E7:0FCF dispatch.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-w1l1-jump-landing-effect-watch-v3.json",
+    "trace_sha256": "788ad3b4679b59dcdf6de06a0d794d3b859ba75b1462c3f8449826e97d08cf6d",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "c96e28b7976cef24811fcc122f15db81ece11697a10b28795f7c6cd118e9d9ac",
+    "parity_tool": "research/tools/player_callback_parity.py",
+    "comparator": "research/tools/player_parity_compare.py"
+  },
+  "method": {
+    "level": "W1L1",
+    "map_or_executable_patches": false,
+    "capture": "20 callback samples from the native startup position (128,400), with Space+Up held through one callback barrier and WAIT continuation",
+    "focus": "01F7:3FF8 with complete 0x78-byte record, normalized input, ordered probes, callback globals, and explicit 01E7:0FCF execute-watch effects",
+    "required_fields": ["effects"],
+    "comparison_command": "python3 research/tools/player_callback_parity.py --original research/build/traces/player-w1l1-jump-landing-effect-watch-v3.json --archive game/NESTLE.DAT --map W1L1.MAP --binary build/engine/quiky-player-trace --require-field effects"
+  },
+  "result": {
+    "diagnostic_parity": "pass",
+    "callbacks_checked": 20,
+    "complete_player_records": true,
+    "normalized_input_mismatches": 0,
+    "post_record_mismatches": 0,
+    "ordered_property_probe_mismatches": 0,
+    "callback_global_write_mismatches": 0,
+    "known_effect_mismatches": 0,
+    "effect_events": [
+      {"sequence": 2, "address": "01E7:0FCF", "code": "0x0000"}
+    ],
+    "factory_objects": "not published by this capture; not treated as an empty equal field"
+  },
+  "interpretation": {
+    "confirmed": [
+      "The complete callback record, normalized input, ordered descriptor probes, callback-global writes, and the known 01E7:0FCF effect dispatch match the native implementation.",
+      "The effect adapter preserves the execute-watch event as address 0x01E70FCF with code zero at the jump-initiation callback."
+    ],
+    "not_claimed": [
+      "The 01F7:0E06 contact-object factory output or pooled 6328 child lifetime.",
+      "Natural ceiling contact or moving-platform landing behavior."
+    ],
+    "confidence": "complete_known_effect_boundary_parity",
+    "status": "closed_at_captured_effect_boundary"
+  }
+}

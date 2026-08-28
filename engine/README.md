@@ -557,7 +557,9 @@ The explicit watch publishes an empty effect array for callbacks where the
 boundary was observed and records `01E7:0FCF` when it executes. This closes the
 known effect field without treating the still-uninstrumented `0E06` factory
 output as empty; use `--require-complete` only with a capture that also
-publishes factory objects.
+publishes factory objects. The complete W1L1 jump/landing run with that watch
+passes the strict effect comparison; its pinned result is
+[`player-w1l1-effect-parity-v1.json`](../research/evidence/player-dos-parity/player-w1l1-effect-parity-v1.json).
 
 The exact callback-selected animation words and the runtime-`DS` basis are
 pinned in
