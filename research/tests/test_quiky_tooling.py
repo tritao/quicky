@@ -4,6 +4,8 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 TOOLS = Path(__file__).resolve().parents[1] / "tools"
 ROOT = Path(__file__).resolve().parents[2]
@@ -12,6 +14,8 @@ sys.path.insert(0, str(TOOLS))
 from quiky.runs import (RUN_SCHEMA, load_input_jsonl, save_input_jsonl,
                         replay_run, stage_run_files, validate_run_directory,
                         verify_run_directory)
+from quiky.common import file_fingerprint, write_json
+from quiky.capture import capture_session
 from quiky.state import (CHECKPOINTS, STATE_SCHEMA, compare_state, import_trace,
                          label_lifecycle, load_state_jsonl, save_state_jsonl)
 
@@ -203,6 +207,48 @@ class QuikyToolingTests(unittest.TestCase):
             ROOT / "research/runs/w1l1-jump")
         self.assertEqual(mismatches, [])
         self.assertTrue(coverage)
+
+    def test_completed_capture_processes_into_a_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            captured = root / "capture"
+            captured.mkdir()
+            source = captured / "capture.json"
+            source.write_text(json.dumps(capture(trace_sample())), encoding="utf-8")
+            fingerprint = file_fingerprint(source)
+            fingerprint["path"] = "capture.json"
+            write_json(captured / "manifest.json", {
+                "schema": "quiky.capture-session-v1", "format_version": 1,
+                "name": "played", "status": "complete", "level": "W1L1",
+                "files": {"capture.json": fingerprint},
+            })
+            run = root / "run"
+            completed = subprocess.run([
+                sys.executable, str(TOOLS / "quiky.py"), "capture", "process",
+                str(captured), "--run", str(run),
+            ], cwd=ROOT, text=True, capture_output=True, check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(validate_run_directory(run)["name"], "run")
+
+    def test_interactive_capture_has_one_command_happy_path(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def complete(command, **_kwargs):
+                output = Path(command[command.index("--output") + 1])
+                output.write_text(json.dumps(capture(trace_sample())), encoding="utf-8")
+                self.assertIn("--interactive-capture", command)
+                self.assertNotIn("--headless", command)
+                return SimpleNamespace(returncode=0)
+
+            with patch("quiky.capture.subprocess.run", side_effect=complete):
+                captured, run = capture_session(
+                    name="played", level="W1L1", runtime_dir=Path("game"),
+                    profile="exact", capture_only=False,
+                    captures_root=root / "captures", runs_root=root / "runs")
+            self.assertEqual(captured.name, "played")
+            self.assertEqual(run, root / "runs/played")
+            self.assertEqual(validate_run_directory(run)["name"], "played")
 
 
 if __name__ == "__main__":

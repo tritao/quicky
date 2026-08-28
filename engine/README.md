@@ -325,6 +325,16 @@ Parity uses named recorded-run directories. Import accepts only the current
 `quiky-player-dos-parity-v1` capture schema; validation and comparison consume
 strict `quiky.parity-state-v2` JSONL on both sides:
 
+For the normal interactive workflow, launch a visible window, play, and close
+the window to finalize both the immutable capture and its processed run:
+
+~~~sh
+python3 research/tools/quiky.py capture w1l1-session --level W1L1
+~~~
+
+Capture and processing remain separate internally; pass `--capture-only` and
+use `quiky capture process` when they should be run independently.
+
 ~~~sh
 python3 research/tools/quiky.py run import research/runs/w1l1-session \
   --name w1l1-session --profile exact \

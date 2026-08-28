@@ -18,6 +18,27 @@ evidence is archival and must be recaptured before it can become a run.
 
 ## Workflow
 
+For an interactive capture, launch a visible game session and play normally:
+
+```sh
+python3 research/tools/quiky.py capture NAME --level W1L1
+```
+
+Close the game window to finalize `research/captures/NAME` and automatically
+create `research/runs/NAME`. The raw `quiky.capture-session-v1` capture is
+content-addressed and retained separately from the processed run. Callback
+snapshots are checkpointed while the window is open; a crash leaves an
+`incomplete` session with an append-only `capture.partial.jsonl` journal when at least one callback was
+observed. Use `--capture-only` to skip automatic processing, then run:
+
+```sh
+python3 research/tools/quiky.py capture process research/captures/NAME \
+  --run research/runs/NAME
+```
+
+The lower-level import workflow remains available for an existing strict DOS
+capture:
+
 ```sh
 python3 research/tools/quiky.py run import research/runs/NAME \
   --name NAME --profile exact --expected-trace DOS.json

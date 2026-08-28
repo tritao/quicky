@@ -7,8 +7,8 @@ import sys
 import tempfile
 from pathlib import Path
 
-from .common import ToolError, run_compat_script, tools_root
-from .common import file_fingerprint
+from .capture import capture_session, process_capture
+from .common import ToolError, file_fingerprint, run_compat_script, tools_root
 from .runs import (replay_run, stage_run_files, validate_run_directory,
                    verify_run_directory)
 from .state import PROFILES, import_input, import_trace, save_state_jsonl
@@ -28,7 +28,7 @@ def _top_parser() -> argparse.ArgumentParser:
             "Quiky research tooling and strict recorded-run parity."
         ),
         epilog=(
-            "Commands: run import|replay|validate|verify, frame, trace, verify SCRIPT, "
+            "Commands: capture, run import|replay|validate|verify, frame, trace, verify SCRIPT, "
             "ghidra SCRIPT.\n"
             "Examples: quiky run import RUN --name NAME --profile exact "
             "--expected-trace DOS.json; quiky run verify RUN"
@@ -60,6 +60,47 @@ def _run_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _capture_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="quiky capture")
+    parser.add_argument("name")
+    parser.add_argument("--level", default="W1L1")
+    parser.add_argument("--runtime-dir", type=Path, default=Path("game"))
+    parser.add_argument("--profile", choices=PROFILES, default="exact")
+    parser.add_argument("--capture-only", action="store_true")
+    parser.add_argument("--captures-root", type=Path, default=Path("research/captures"))
+    parser.add_argument("--runs-root", type=Path, default=Path("research/runs"))
+    return parser
+
+
+def _capture_process_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="quiky capture process")
+    parser.add_argument("capture", type=Path)
+    parser.add_argument("--run", type=Path, required=True)
+    parser.add_argument("--name")
+    parser.add_argument("--profile", choices=PROFILES, default="exact")
+    return parser
+
+
+def _capture(args: list[str]) -> int:
+    if args and args[0] == "process":
+        parsed = _capture_process_parser().parse_args(args[1:])
+        process_capture(parsed.capture, parsed.run,
+                        name=parsed.name or parsed.run.name,
+                        profile=parsed.profile)
+        print(f"OK: recorded run created at {parsed.run}")
+        return 0
+    parsed = _capture_parser().parse_args(args)
+    print(f"Launching capture {parsed.name!r}; close the game window to finish.")
+    capture, run = capture_session(
+        name=parsed.name, level=parsed.level, runtime_dir=parsed.runtime_dir,
+        profile=parsed.profile, capture_only=parsed.capture_only,
+        captures_root=parsed.captures_root, runs_root=parsed.runs_root)
+    print(f"OK: capture finalized at {capture}")
+    if run is not None:
+        print(f"OK: recorded run created at {run}")
+    return 0
+
+
 def _dispatch_named(group: str, args: list[str]) -> int:
     if not args or args[0] in ("-h", "--help"):
         if group == "verify":
@@ -89,6 +130,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     command, tail = args[0], args[1:]
     try:
+        if command == "capture":
+            return _capture(tail)
         if command == "run":
             parsed = _run_parser().parse_args(tail)
             if parsed.operation == "import":

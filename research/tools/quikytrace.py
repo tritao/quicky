@@ -302,6 +302,8 @@ class PlayerTraceConfig:
     execute_watches: tuple[ExecuteWatch, ...] = ()
     object_focus: ObjectFocus | None = None
     factory_focus: bool = False
+    interactive_capture: bool = False
+    interactive_output: Path | None = None
 
 
 def lua_literal(value: Any) -> str:
@@ -375,7 +377,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
     return {
         "schema_version": TRACE_SCHEMA_VERSION,
         "timeout_ms": round(config.timeout * 1000),
-        "samples": config.samples,
+        "samples": 0x7FFFFFFF if config.interactive_capture else config.samples,
         "frames_between": config.frames_between,
         "frames_between_after_sample": config.frames_between_after_sample,
         "frames_between_after": (
@@ -464,6 +466,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
             if config.object_focus else None
         ),
         "factory_focus": config.factory_focus,
+        "interactive_capture": config.interactive_capture,
     }
 
 
@@ -477,6 +480,17 @@ def compose_player_trace_source(script_path: Path, config: PlayerTraceConfig) ->
         player_source = script_path.read_text(encoding="utf-8")
     except OSError as exc:
         raise TraceError(f"cannot compose player trace: {exc}") from exc
+    if config.interactive_capture:
+        marker = "    samples[#samples + 1] = sample\n"
+        publication = marker + (
+            "    dosbox.output.player_trace = {\n"
+            "        interactive_sequence = sequence,\n"
+            "        interactive_sample = sample,\n"
+            "    }\n"
+        )
+        if player_source.count(marker) != 1:
+            raise TraceError("interactive capture publication point is ambiguous")
+        player_source = player_source.replace(marker, publication)
     prefix = "TRACE_CONFIG = " + lua_literal(player_trace_lua_config(config)) + "\n"
     return prefix + common_source + "\n" + patch_watch_source + "\n" + player_source
 
@@ -659,6 +673,7 @@ def trace_entity_lua(
 
 def trace_player_lua(
     api: ApiClient, script_path: Path, config: PlayerTraceConfig,
+    process: subprocess.Popen[bytes] | None = None,
 ) -> tuple[dict[str, Any], list[Path]]:
     """Run the player/object-pool probe with one structured configuration."""
     source = compose_player_trace_source(script_path, config)
@@ -670,8 +685,20 @@ def trace_player_lua(
     recording = json.loads(config.startup_recording.read_text(encoding="utf-8"))
     replayed = False
     captured: list[Path] = []
-    while time.monotonic() < deadline:
-        status = api.get("/api/v1/script/status")
+    latest: dict[str, Any] | None = None
+    interactive_samples: list[dict[str, Any]] = []
+    while config.interactive_capture or time.monotonic() < deadline:
+        if process is not None and process.poll() is not None:
+            if latest is None:
+                raise TraceError("game window closed before the first player callback")
+            return latest, captured
+        try:
+            status = api.get("/api/v1/script/status")
+        except TraceError:
+            if (config.interactive_capture and process is not None and
+                    process.poll() is not None and latest is not None):
+                return latest, captured
+            raise
         if status.get("state") == "error":
             raise TraceError(
                 f"Lua player trace failed: {status.get('error', 'unknown error')}"
@@ -681,6 +708,26 @@ def trace_player_lua(
             replayed = True
         result = status.get("output", {}).get("player_trace")
         if isinstance(result, dict):
+            if config.interactive_capture:
+                sequence = result.get("interactive_sequence")
+                sample = result.get("interactive_sample")
+                if (isinstance(sequence, int) and isinstance(sample, dict) and
+                        sequence == len(interactive_samples) + 1):
+                    interactive_samples.append(sample)
+                    latest = {"samples": interactive_samples}
+                    if config.interactive_output is not None:
+                        config.interactive_output.parent.mkdir(
+                            parents=True, exist_ok=True)
+                        with config.interactive_output.open(
+                                "a", encoding="utf-8") as journal:
+                            journal.write(json.dumps(sample, separators=(",", ":")) + "\n")
+                            journal.flush()
+                elif (isinstance(sequence, int) and
+                      sequence > len(interactive_samples) + 1):
+                    raise TraceError("interactive callback publication skipped a sequence")
+                time.sleep(config.poll_interval)
+                continue
+            latest = result
             if config.screenshot is not None and not captured:
                 api.post("/api/v1/debug/continue")
                 time.sleep(0.05)
@@ -1113,6 +1160,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="capture only the statically mapped callback globals needed by replay parity",
     )
     parser.add_argument(
+        "--interactive-capture", action="store_true",
+        help="capture callbacks until the launched game window closes",
+    )
+    parser.add_argument(
         "--player-scheduler-only", action="store_true",
         help="capture scheduler banks without the unrelated 64-record object-pool walk",
     )
@@ -1246,6 +1297,12 @@ def main(argv: list[str] | None = None) -> int:
         raise TraceError(
             "--player-capture-record requires player callback, object focus, or execute watch"
         )
+    if args.interactive_capture and (not args.launch or args.headless):
+        raise TraceError("--interactive-capture requires a visible --launch session")
+    if args.interactive_capture and not (
+            args.player_trace and args.player_focus_callback and
+            args.player_capture_record and args.player_parity_capture):
+        raise TraceError("--interactive-capture requires the parity player callback capture")
     if args.player_collision_event_limit < 1:
         raise TraceError("--player-collision-event-limit must be positive")
     if args.player_collision_repeat_limit < 1:
@@ -1449,6 +1506,8 @@ def main(argv: list[str] | None = None) -> int:
                 execute_watches=tuple(args.player_watch_execute),
                 object_focus=args.player_object_focus,
                 factory_focus=args.player_factory_focus,
+                interactive_capture=args.interactive_capture,
+                interactive_output=args.output if args.interactive_capture else None,
                 collision_event_limit=args.player_collision_event_limit,
                 collision_repeat_limit=args.player_collision_repeat_limit,
                 transition_focus=args.player_transition_focus,
@@ -1466,7 +1525,7 @@ def main(argv: list[str] | None = None) -> int:
                 screenshot_mode=args.screenshot_mode,
             )
             player_trace, player_screenshots = trace_player_lua(
-                api, player_script_path, player_config,
+                api, player_script_path, player_config, process,
             )
             player_trace = normalize_player_trace(player_trace)
             events = [player_trace]
