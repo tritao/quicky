@@ -746,7 +746,54 @@ void testRecoveredWurm2DescriptorProbeContract() {
     // callback stores +0x2F=1 and takes its alternate state-0 path.
     assert(wurm2.mapBlocked == 1);
     assert(wurm2.x == 128);
-    assert(wurm2.velocityX.raw == 0x1400);
+    // WURM2's +0x2c branch selector starts negative for type 0x02, so this
+    // path applies the native deceleration rather than the +0x29 travel sign.
+    assert(wurm2.velocityX.raw == 0);
+}
+
+void testRecoveredWurm2DirectionSpriteContract() {
+    const quiky::Map map = makeMap(32, 16, 1);
+    quiky::PlayerDescriptorTable descriptors;
+    descriptors.setWord(1, 0x0002);
+    const quiky::WorldCollisionView world(map, &descriptors);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 48;
+    config.streamRadiusRegions = 1;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L2.MAP", map, makeSingleArea(0x02),
+                                config);
+    quiky::Simulation simulation;
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    session.updateStreaming(simulation, 16, 48);
+
+    quiky::LevelEntity &wurm2 = session.entitiesForSetup()[0];
+    wurm2.x = 128;
+    wurm2.y = 128;
+    wurm2.positionX = quiky::Fixed16::fromPixels(wurm2.x);
+    wurm2.positionY = quiky::Fixed16::fromPixels(wurm2.y);
+    wurm2.velocityX.raw = 0x1000;
+    wurm2.enemyTimer = 0;
+    assert(wurm2.enemyOrientation == 1);
+    assert(wurm2.enemyPatrolDirection == 1);
+    assert(wurm2.enemySourceOrKind2c == -1);
+    assert(wurm2.spriteSlot == 231);
+    assert(quiky::renderSpriteSlot(wurm2) == 231);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+
+    // A blocked type-0x02 WURM2 reverses all direction state used by the
+    // callback and keeps the same animation frame in the left-facing pair.
+    assert(wurm2.mapBlocked == 1);
+    assert(wurm2.enemyOrientation == -1);
+    assert(wurm2.enemyPatrolDirection == -1);
+    assert(wurm2.enemySourceOrKind2c == 1);
+    assert(wurm2.spriteSlot == 281);
+    assert(quiky::renderSpriteSlot(wurm2) == 281);
+    assert(wurm2.velocityX.raw == -0x200);
 }
 
 void testRecoveredWurm2TargetTailContract() {
@@ -1492,6 +1539,7 @@ int main() {
         testRecoveredW1L1EnemyFamilies();
         testRecoveredBumpCallbackContract();
         testRecoveredWurm2DescriptorProbeContract();
+        testRecoveredWurm2DirectionSpriteContract();
         testRecoveredWurm2TargetTailContract();
         testRecoveredBieneStateZeroMapPolarityContract();
         testRecoveredBieneRuntimePhaseContract();

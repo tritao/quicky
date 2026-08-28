@@ -228,6 +228,7 @@ struct LevelEntity {
     Fixed16 velocityY;
     EntityKind kind;
     EntityPhase phase;
+    // Current logical BOB record, including the active facing variant.
     std::uint16_t spriteSlot;
     std::string spriteResource;
     std::uint16_t effectSlot;
@@ -240,6 +241,7 @@ struct LevelEntity {
     std::uint16_t enemyTimer;
     std::int16_t enemyState;
     std::int8_t enemyOrientation;
+    // Native object+0x29: signed travel direction.
     std::int8_t enemyPatrolDirection;
     std::uint16_t enemyTransitionTimer;
     // Address-qualified normal-object fields from the focused Ghidra
@@ -249,6 +251,7 @@ struct LevelEntity {
     std::int32_t enemySineOrProbe39;
     std::int8_t enemyVerticalState36;
     std::int8_t enemyTransitionState3d;
+    // Native object+0x2c: WURM2's signed patrol branch selector.
     std::int8_t enemySourceOrKind2c;
     std::int32_t enemyAux3e;
     std::int32_t enemyVerticalOffset40;
@@ -351,6 +354,11 @@ struct LevelEntity {
           animationFrame(0), activeFrames(0),
           active(false), collected(false), pooledInteractionTriggered(false) {}
 };
+
+// Resolve the sprite slot that should be rendered for the entity's current
+// animation/orientation state. Keeping this next to the level state prevents
+// the frame and interactive renderers from drifting apart.
+std::uint16_t renderSpriteSlot(const LevelEntity &entity);
 
 class LevelSession {
 public:

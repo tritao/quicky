@@ -125,6 +125,36 @@ std::int16_t fixedHighWord(std::int32_t raw) {
         static_cast<std::uint32_t>(raw) >> 16));
 }
 
+void syncWurm2SpriteToOrientation(LevelEntity &entity) {
+    const std::uint16_t kWurm2RightFirstSlot = 231;
+    const std::uint16_t kWurm2RightLastSlot = 236;
+    const std::uint16_t kWurm2LeftFirstSlot = 281;
+    const std::uint16_t kWurm2LeftLastSlot = 286;
+    const std::uint16_t kWurm2FacingSlotOffset = 50;
+
+    if (entity.type != 0x01 && entity.type != 0x02) {
+        return;
+    }
+
+    // WURM2.BOB stores each of its six animation frames as a pair: the
+    // right-facing record is 50 slots before the left-facing record. Preserve
+    // the current frame while changing only the facing variant.
+    const bool facingLeft = entity.enemyOrientation < 0;
+    if (entity.spriteSlot >= kWurm2RightFirstSlot &&
+        entity.spriteSlot <= kWurm2RightLastSlot) {
+        if (facingLeft) {
+            entity.spriteSlot = static_cast<std::uint16_t>(
+                entity.spriteSlot + kWurm2FacingSlotOffset);
+        }
+    } else if (entity.spriteSlot >= kWurm2LeftFirstSlot &&
+               entity.spriteSlot <= kWurm2LeftLastSlot) {
+        if (!facingLeft) {
+            entity.spriteSlot = static_cast<std::uint16_t>(
+                entity.spriteSlot - kWurm2FacingSlotOffset);
+        }
+    }
+}
+
 } // namespace
 
 LevelGameplayState::LevelGameplayState()
@@ -951,6 +981,18 @@ std::uint16_t LevelSession::spriteSlotFor(std::uint16_t type) {
         return static_cast<std::uint16_t>(600 + (type - 0x79));
     }
     return 0xffff;
+}
+
+std::uint16_t renderSpriteSlot(const LevelEntity &entity) {
+    if (entity.type == 0x28) {
+        return static_cast<std::uint16_t>(
+            413 + ((entity.animationFrame / 8) % 4));
+    }
+    if (entity.type >= 0x29 && entity.type <= 0x2b) {
+        return static_cast<std::uint16_t>(
+            700 + ((entity.animationFrame / 8) % 8));
+    }
+    return entity.spriteSlot;
 }
 
 std::uint16_t LevelSession::effectSlotFor(std::uint16_t type) const {
@@ -2263,7 +2305,10 @@ void LevelSession::updateWurm2(LevelEntity &entity,
     };
 
     const std::int32_t orientation = entity.enemyOrientation;
-    const std::int32_t patrolDirection = entity.enemyPatrolDirection;
+    // +0x29 is the travel direction; +0x2c is the signed branch selector
+    // used by the native WURM2 callback. They usually start with opposite
+    // polarity and must not be substituted for one another.
+    const std::int32_t patrolMode = entity.enemySourceOrKind2c;
     const auto finishCallback = [this, &entity]() {
         // 01F7:707B follows every state-machine exit, including early returns
         // from state 0, state 2, and the non-state-3 movement branch.
@@ -2274,7 +2319,7 @@ void LevelSession::updateWurm2(LevelEntity &entity,
         // polarity. Positive means the 6E3A descriptor-contact response;
         // zero/nonpositive means the ordinary 6F16 integration path.
         if (static_cast<std::int8_t>(entity.mapBlocked) > 0) {
-            if (patrolDirection < 0) {
+            if (patrolMode < 0) {
                 if (entity.enemyTimer == 0x14) {
                     loadAnimation(0x33ee);
                 }
@@ -2289,6 +2334,8 @@ void LevelSession::updateWurm2(LevelEntity &entity,
                         0 - entity.enemyOrientation);
                     entity.enemyPatrolDirection = static_cast<std::int8_t>(
                         0 - entity.enemyPatrolDirection);
+                    entity.enemySourceOrKind2c = static_cast<std::int8_t>(
+                        0 - entity.enemySourceOrKind2c);
                     entity.enemyTimer = 0x3c;
                     entity.velocityX.raw =
                         static_cast<std::int32_t>(entity.enemyOrientation) << 9;
@@ -2301,8 +2348,8 @@ void LevelSession::updateWurm2(LevelEntity &entity,
                     entity.enemyTimer - 1);
                 entity.enemyTimer = nextTimer;
                 if (static_cast<std::int16_t>(nextTimer) < 0) {
-                    entity.enemyPatrolDirection = static_cast<std::int8_t>(
-                        0 - entity.enemyPatrolDirection);
+                    entity.enemySourceOrKind2c = static_cast<std::int8_t>(
+                        0 - entity.enemySourceOrKind2c);
                     entity.mapBlocked = 0xff;
                     entity.enemyTimer = 0x14;
                 }

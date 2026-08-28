@@ -58,16 +58,6 @@ const quiky::BobRecord *findSlot(const quiky::Bob &bob, std::uint16_t slot) {
     return nullptr;
 }
 
-std::uint16_t animatedEntitySlot(const quiky::LevelEntity &entity) {
-    if (entity.type == 0x28) {
-        return static_cast<std::uint16_t>(413 + ((entity.animationFrame / 8) % 4));
-    }
-    if (entity.type >= 0x29 && entity.type <= 0x2b) {
-        return static_cast<std::uint16_t>(700 + ((entity.animationFrame / 8) % 8));
-    }
-    return entity.spriteSlot;
-}
-
 std::uint16_t dedicatedEffectSlot(const quiky::LevelEffect &effect,
                                   const std::string &worldName) {
     if (effect.sourceType == 0x65 && worldName == "W1") {
@@ -129,7 +119,7 @@ void drawEntitySprites(quiky::IndexedSurface &surface,
             const std::map<std::string, quiky::Bob>::const_iterator resource =
                 resources.find(entity.spriteResource);
             if (resource != resources.end()) {
-                const std::uint16_t slot = animatedEntitySlot(entity);
+                const std::uint16_t slot = quiky::renderSpriteSlot(entity);
                 const quiky::BobRecord *record = findSlot(resource->second, slot);
                 if (record == nullptr) {
                     std::ostringstream message;
