@@ -11,10 +11,10 @@ Each run contains:
 - `expected-state.jsonl`: canonical imported DOS state;
 - `actual-state.jsonl`: canonical native replay state.
 
-Both state streams use `quiky.parity-state-v2`. Verification reads this schema
-strictly and does not detect trace envelopes or field aliases. Historical
-formats are decoded only by `quiky run import`, allowing captures to be
-recaptured or re-imported without compatibility code in replay or comparison.
+Both state streams use `quiky.parity-state-v2`. Import accepts only the current
+`quiky-player-dos-parity-v1` DOS capture schema. Verification reads canonical
+state strictly and does not detect trace envelopes or field aliases. Older
+evidence is archival and must be recaptured before it can become a run.
 
 ## Workflow
 

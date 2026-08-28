@@ -321,14 +321,14 @@ phase-1 initialization of four leaf records (two bytes each), reproducing the ob
 [`w1l2-startup-stream-v1.json`](../research/evidence/player-dos-parity/w1l2-startup-stream-v1.json);
 the ring remains replay input rather than a hardcoded simulation rule.
 
-Parity uses named recorded-run directories. Historical DOS envelopes are
-accepted only by `run import`; validation and comparison consume strict
-`quiky.parity-state-v2` JSONL on both sides:
+Parity uses named recorded-run directories. Import accepts only the current
+`quiky-player-dos-parity-v1` capture schema; validation and comparison consume
+strict `quiky.parity-state-v2` JSONL on both sides:
 
 ~~~sh
 python3 research/tools/quiky.py run import research/runs/w1l1-session \
   --name w1l1-session --profile exact \
-  --expected-trace research/build/player-frame-full-v1.json
+  --expected-trace research/evidence/player-dos-parity/w1l1-jump-property-v3.json
 python3 research/tools/quiky.py run replay research/runs/w1l1-session \
   --binary build/engine/quiky-parity-replay \
   --archive game/NESTLE.DAT --map W1L1.MAP

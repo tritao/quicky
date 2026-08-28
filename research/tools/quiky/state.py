@@ -180,44 +180,36 @@ def save_state_jsonl(path: Path, rows: Iterable[dict[str, Any]]) -> None:
 
 
 def import_trace(path: Path, profile: str) -> list[dict[str, Any]]:
-    """Convert one historical trace at the explicit import boundary."""
+    """Convert one current DOS parity capture to canonical state."""
 
     if profile not in PROFILES:
         raise ToolError(f"unknown parity profile {profile!r}")
-    # Deliberately local: the historical adapter is not reachable from run
-    # validation or comparison.
     from .trace_import import (
-        active_objects, effects, factory_objects, global_writes, lifecycle,
-        probes, scheduler_callbacks, TraceError, load_trace,
+        active_objects, camera, effects, global_writes, input_flags, lifecycle,
+        load_capture, probes, records, scheduler_callbacks,
     )
-
-    try:
-        samples = list(load_trace(path).samples)
-    except TraceError as exc:
-        raise ToolError(str(exc)) from exc
-    if not samples:
-        raise ToolError(f"{path}: trace contains no samples")
+    _, samples = load_capture(path)
     rows: list[dict[str, Any]] = []
     for sample in samples:
+        pre_record, post_record = records(sample)
+        camera_x, camera_y = camera(sample)
         row: dict[str, Any] = {"schema": STATE_SCHEMA,
-                               "sequence": sample.sequence}
+                               "sequence": sample["sequence"]}
         values = {
-            "pre_record": sample.pre_record_hex,
-            "post_record": sample.post_record_hex,
-            "input_flags": sample.input_flags,
+            "pre_record": pre_record,
+            "post_record": post_record,
+            "input_flags": input_flags(sample),
             "probes": probes(sample),
             "global_writes": global_writes(sample),
             "effects": effects(sample),
-            "factory_objects": factory_objects(sample),
             "scheduler_callbacks": scheduler_callbacks(sample),
             "active_objects": active_objects(sample),
+            "camera": {"x": camera_x, "y": camera_y},
         }
-        if sample.camera is not None:
-            values["camera"] = {"x": sample.camera[0], "y": sample.camera[1]}
         for field, value in values.items():
             if value is not None:
                 row[field] = value
-        lifecycle_state = {key: value for key, value in lifecycle(sample).items()
+        lifecycle_state = {key: value for key, value in lifecycle(sample, post_record).items()
                            if value is not None}
         if lifecycle_state:
             if isinstance(lifecycle_state.get("position"), tuple):
@@ -233,34 +225,21 @@ def import_trace(path: Path, profile: str) -> list[dict[str, Any]]:
 
 def import_input(path: Path) -> list[dict[str, Any]]:
     """Extract the explicit replay stream while importing trace evidence."""
-    from .trace_import import TraceError, load_trace
-    try:
-        trace = load_trace(path)
-    except TraceError as exc:
-        raise ToolError(str(exc)) from exc
-    stream = trace.payload.get("input_stream")
-    if stream is None:
-        events = trace.payload.get("events")
-        if isinstance(events, list) and len(events) == 1 and isinstance(events[0], dict):
-            stream = events[0].get("input_stream")
-    if isinstance(stream, dict):
-        try:
-            stream = [stream[key] for key in sorted(stream, key=lambda key: int(key))]
-        except (TypeError, ValueError) as exc:
-            raise ToolError(f"{path}: input_stream keys must be numeric") from exc
+    from .trace_import import camera, input_flags, load_capture
+    payload, samples = load_capture(path)
+    stream = payload["events"][0].get("input_stream")
     if stream is not None:
         if not isinstance(stream, list) or any(not isinstance(row, dict) for row in stream):
             raise ToolError(f"{path}: input_stream must be an array of objects")
         return [dict(row) for row in stream]
     rows: list[dict[str, Any]] = []
-    for sample in trace.samples:
-        if sample.input_flags is None:
-            raise ToolError(f"{path}: sample {sample.sequence} has no input flags")
-        frame = sample.raw.get("frame_index", sample.sequence)
-        row = {"sequence": sample.sequence, "guest_frame": frame,
-               "input_flags": sample.input_flags}
-        if sample.camera is not None:
-            row["camera"] = {"x": sample.camera[0], "y": sample.camera[1]}
+    for sample in samples:
+        sequence = sample["sequence"]
+        frame = sample.get("frame_index", sequence)
+        camera_x, camera_y = camera(sample)
+        row = {"sequence": sequence, "guest_frame": frame,
+               "input_flags": input_flags(sample),
+               "camera": {"x": camera_x, "y": camera_y}}
         rows.append(row)
     return rows
 

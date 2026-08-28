@@ -6,7 +6,7 @@ from collections import Counter
 from pathlib import Path
 from typing import Any, Iterable
 
-from .trace import NormalizedSample, load_trace
+from .trace_import import load_capture
 
 
 COVERAGE_SCHEMA = "quiky.callback-coverage-v1"
@@ -30,21 +30,20 @@ def _append(counter: Counter[int], values: Any) -> None:
             counter[offset] += 1
 
 
-def sample_callback_coverage(sample: NormalizedSample) -> Counter[int]:
-    """Count callback PCs visible in one normalized sample."""
+def sample_callback_coverage(sample: dict[str, Any]) -> Counter[int]:
+    """Count callback PCs visible in one current capture sample."""
 
     counter: Counter[int] = Counter()
-    raw = sample.raw
-    _append(counter, raw.get("scheduler_callbacks"))
-    scheduler = raw.get("scheduler")
+    _append(counter, sample.get("scheduler_callbacks"))
+    scheduler = sample.get("scheduler")
     if isinstance(scheduler, dict):
         _append(counter, scheduler.get("entries"))
-    pool = raw.get("pool")
+    pool = sample.get("pool")
     if isinstance(pool, dict):
         _append(counter, pool.get("objects"))
-    _append(counter, raw.get("entities"))
+    _append(counter, sample.get("entities"))
     for key in ("callback", "phase_callback_offset"):
-        value = raw.get(key)
+        value = sample.get(key)
         offset = _offset(value)
         if offset is not None and offset not in (0, 0xFFFF):
             counter[offset] += 1
@@ -52,14 +51,14 @@ def sample_callback_coverage(sample: NormalizedSample) -> Counter[int]:
 
 
 def coverage_for_trace(path: Path) -> dict[str, Any]:
-    trace = load_trace(path)
+    _, samples = load_capture(path)
     counts: Counter[int] = Counter()
-    for sample in trace.samples:
+    for sample in samples:
         counts.update(sample_callback_coverage(sample))
     return {
         "schema": COVERAGE_SCHEMA,
         "source": str(path),
-        "samples": len(trace.samples),
+        "samples": len(samples),
         "callbacks": [
             {"offset": offset, "count": counts[offset]}
             for offset in sorted(counts)

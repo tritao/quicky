@@ -28,6 +28,7 @@ RESOURCE_STATE_OFFSET = 0x97E4
 RESOURCE_STATE_SIZE = 12
 TRACE_SCHEMA_VERSION = 1
 LEDGER_SCHEMA = "quiky-resource-trace-v1"
+PARITY_CAPTURE_SCHEMA = "quiky-player-dos-parity-v1"
 
 
 class TraceError(Exception):
@@ -1576,6 +1577,16 @@ def main(argv: list[str] | None = None) -> int:
         if args.navigate_w1l3 or args.navigate_level or args.select_level or args.player_trace else None,
         "breakpoint": {"segment": LOOKUP[0], "offset": LOOKUP[1]}, "events": events,
     }
+    if args.player_trace and args.player_parity_capture:
+        event = {"samples": player_trace.get("samples", [])}
+        if "input_stream" in player_trace:
+            event["input_stream"] = player_trace["input_stream"]
+        ledger = {
+            "schema": PARITY_CAPTURE_SCHEMA,
+            "source_trace": "quikytrace",
+            "trace_kind": "player_callback",
+            "events": [event],
+        }
     if entity_screenshots:
         ledger["screenshots"] = [str(path) for path in entity_screenshots]
     if player_screenshots:

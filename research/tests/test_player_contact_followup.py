@@ -9,7 +9,7 @@ from pathlib import Path
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
-from quiky.state import compare_state, import_trace, save_state_jsonl  # noqa: E402
+from quiky.state import compare_state, load_state_jsonl, save_state_jsonl  # noqa: E402
 from verify_player_contact_followup import verify  # noqa: E402
 
 
@@ -17,12 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 def compare(left: Path, right: Path):
-    with tempfile.TemporaryDirectory() as directory:
-        root = Path(directory)
-        expected, actual = root / "expected.jsonl", root / "actual.jsonl"
-        save_state_jsonl(expected, import_trace(left, "exact"))
-        save_state_jsonl(actual, import_trace(right, "exact"))
-        return compare_state(expected, actual, "exact")[0]
+    return compare_state(left, right, "exact")[0]
 
 
 class PlayerContactFollowupTests(unittest.TestCase):
@@ -58,21 +53,18 @@ class PlayerContactFollowupTests(unittest.TestCase):
         )
         self.assertEqual(warnings, [])
 
-    def test_parity_accepts_identical_complete_callback_trace(self):
-        trace = ROOT / "research/build/player-followup-side-rising-falling-v2.json"
-        self.assertEqual(compare(trace, trace), [])
+    def test_parity_accepts_identical_canonical_state(self):
+        state = ROOT / "research/runs/w1l1-jump/expected-state.jsonl"
+        self.assertEqual(compare(state, state), [])
 
     def test_parity_rejects_a_single_record_byte_drift(self):
-        source = ROOT / "research/build/player-followup-side-rising-falling-v2.json"
-        payload = json.loads(source.read_text(encoding="utf-8"))
-        candidate = copy.deepcopy(payload)
-        sample = candidate["events"][0]["samples"][1]
-        state = sample["player_callback"]["post_object"]["state_hex"]
-        replacement = ("00" if state[:2] != "00" else "01") + state[2:]
-        sample["player_callback"]["post_object"]["state_hex"] = replacement
+        source = ROOT / "research/runs/w1l1-jump/expected-state.jsonl"
+        candidate = copy.deepcopy(load_state_jsonl(source))
+        state = candidate[1]["post_record"]
+        candidate[1]["post_record"] = ("00" if state[:2] != "00" else "01") + state[2:]
         with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "candidate.json"
-            path.write_text(json.dumps(candidate), encoding="utf-8")
+            path = Path(directory) / "candidate.jsonl"
+            save_state_jsonl(path, candidate)
             mismatches = compare(source, path)
         self.assertTrue(any(item["field"] == "post_record" for item in mismatches))
 

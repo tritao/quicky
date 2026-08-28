@@ -22,7 +22,8 @@ def record(seed: str) -> str:
 
 def trace_sample(sequence: int = 1) -> dict:
     return {"sequence": sequence,
-            "globals": {"keyboard_action_flags": 0, "camera_x": 4, "camera_y": 8},
+            "globals": {"keyboard_action_flags": 0, "input_action_flags": 0,
+                        "camera_x": 4, "camera_y": 8},
             "player_callback": {
                 "pre_object": {"state_hex": record("00")},
                 "post_object": {"state_hex": record("01")},
@@ -31,12 +32,18 @@ def trace_sample(sequence: int = 1) -> dict:
             "entities": []}
 
 
+def capture(*samples: dict) -> dict:
+    return {"schema": "quiky-player-dos-parity-v1",
+            "source_trace": "test", "trace_kind": "player_callback",
+            "events": [{"samples": list(samples)}]}
+
+
 class QuikyToolingTests(unittest.TestCase):
-    def test_historical_shapes_exist_only_at_import(self):
+    def test_current_capture_imports_to_canonical_state(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             trace = root / "trace.json"
-            trace.write_text(json.dumps({"events": [{"samples": [trace_sample()]}]}),
+            trace.write_text(json.dumps(capture(trace_sample())),
                              encoding="utf-8")
             state = root / "state.jsonl"
             save_state_jsonl(state, import_trace(trace, "exact"))
@@ -44,6 +51,21 @@ class QuikyToolingTests(unittest.TestCase):
         self.assertEqual(rows[0]["schema"], STATE_SCHEMA)
         self.assertEqual(rows[0]["camera"], {"x": 4, "y": 8})
         self.assertNotIn("player_callback", rows[0])
+
+    def test_import_rejects_unversioned_trace_envelope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / "trace.json"
+            trace.write_text(json.dumps({"samples": [trace_sample()]}), encoding="utf-8")
+            with self.assertRaisesRegex(Exception, "quiky-player-dos-parity-v1"):
+                import_trace(trace, "exact")
+
+    def test_active_capture_reproduces_committed_expected_state(self):
+        capture_path = (ROOT / "research/evidence/player-dos-parity" /
+                        "w1l1-jump-property-v3.json")
+        imported = import_trace(capture_path, "exact")
+        expected = load_state_jsonl(
+            ROOT / "research/runs/w1l1-jump/expected-state.jsonl")
+        self.assertEqual(imported, expected)
 
     def test_state_reader_rejects_trace_envelopes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -163,7 +185,7 @@ class QuikyToolingTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             trace = root / "trace.json"
-            trace.write_text(json.dumps({"samples": [trace_sample()]}), encoding="utf-8")
+            trace.write_text(json.dumps(capture(trace_sample())), encoding="utf-8")
             run = root / "run"
             imported = subprocess.run(
                 [sys.executable, str(TOOLS / "quiky.py"), "run", "import", str(run),
