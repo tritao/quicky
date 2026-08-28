@@ -23,6 +23,7 @@ research/notes/*
 !research/notes/ghidra-analysis.md
 !research/notes/player-static-closure.md
 !research/notes/player-static-decomp.cpp
+!research/notes/player-factory-static-decomp.cpp
 !research/notes/platform-static-decomp.cpp
 !research/notes/5937-dispatch-static-decomp.cpp
 !research/notes/5937-runtime-target-static-decomp.cpp

@@ -14,7 +14,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 LEDGER = ROOT / "research/ghidra/player-factory-static-closure.json"
 NOTE = ROOT / "research/notes/player-factory-static-decomp.cpp"
-EXPECTED_NOTE_SHA256 = "c658daf5805f7960a25414a0b8e7c5c7b5c97a3a4ffca90d58479a7f6de80d0e"
+EXPECTED_NOTE_SHA256 = "1db83f5c43d9ecc3b791c09f2ef4692ff41148c40f768277c38eb2d383a056c4"
 
 
 class FactoryClosureError(Exception):
@@ -165,6 +165,14 @@ def check_note(ledger: dict[str, Any], root: Path = ROOT) -> None:
         "DX is preserved by the body",
         "01F7:6484",
         "01F7:648E",
+        "01F7:6328",
+        "01F7:16CE",
+        "01F7:1693",
+        "01F7:10B5",
+        "align_low_byte_to_16",
+        "DX's 0x8000 test uses the",
+        "CF=1 rejects the object; CLC accepts it",
+        "11B4 and the values it fills in",
     ):
         if anchor not in text:
             raise FactoryClosureError(f"static note missing anchor: {anchor}")
