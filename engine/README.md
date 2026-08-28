@@ -450,6 +450,9 @@ Implemented from static evidence:
   frontends select the measured death table only when the callback record is
   in mode `-1`, health is zero, and the signed `DS:89EA` gate is negative.
   This keeps ordinary ascent and action word `4` on their normal tables.
+- terminal `01F7:19E6` damage now publishes one `PlayerDied` event at the
+  recovered state boundary; it does not reset the player or object scheduler,
+  leaving the measured death hold available to the eventual `4BA4` consumer.
 
 Dynamically parity-validated:
 
@@ -475,6 +478,9 @@ Dynamically parity-validated:
 - the natural W1L1 death trace's measured animation-state shape: action word
   `4` is retained while mode `-1`, the gate remains negative through the hold,
   and the death sequence uses the `20..28` table before checkpoint recovery.
+- the terminal W1L1 damage fixture's event ordering: `PlayerDamaged` is
+  followed by exactly one `PlayerDied` event while the terminal player record
+  remains intact.
 - a twenty-callback W1L2 replay through jump initiation, apex, free fall, and
   natural landing; complete records, ordered property probes, and global
   writes match exactly at every sampled callback.

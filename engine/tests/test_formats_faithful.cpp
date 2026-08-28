@@ -858,6 +858,7 @@ void testRecoveredNormalEnemyDamageContract() {
         quiky::PlayerRecord player;
         quiky::LevelGameplayState gameplay;
         quiky::LevelEvent event;
+        quiky::LevelEvent followup;
         bool enemyContactPending;
     };
 
@@ -905,6 +906,7 @@ void testRecoveredNormalEnemyDamageContract() {
         result.player = simulation.stateForSetup().player;
         result.gameplay = session.gameplayState();
         result.event = session.consumeEvent();
+        result.followup = session.consumeEvent();
         result.enemyContactPending = session.entities()[0].enemyContactPending;
         return result;
     };
@@ -940,6 +942,7 @@ void testRecoveredNormalEnemyDamageContract() {
     assert(terminal.event.stateWrites[3].after == 0xffcf);
     assert(terminal.event.stateWrites[4].address == 0x89ea);
     assert(terminal.event.stateWrites[4].after == 0xffff);
+    assert(terminal.followup.type == quiky::LevelEventType::PlayerDied);
     assert(terminal.gameplay.currentHealth8822 == 0);
     assert(terminal.gameplay.lives880a == 3);
     assert(terminal.player.mode37 == -1);

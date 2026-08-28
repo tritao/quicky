@@ -3030,6 +3030,7 @@ void LevelSession::tick(Simulation &simulation,
                         const InputState &input,
                         SimulationOutput &output) {
     PlayerRecord &player = simulation.stateForSetup().player;
+    const bool deathAnimationBefore = playerDeathAnimationActive(player);
     const bool alternatePressed = input.alternate && !_alternateActionActive;
     _alternateActionActive = input.alternate;
     const std::int32_t streamX = _streamAnchorActive
@@ -3079,6 +3080,13 @@ void LevelSession::tick(Simulation &simulation,
     }
     output.playerDependencyOrder = dependencyOrder;
     syncPlayerTimer(player);
+    // 01F7:19E6 publishes the terminal mode/health/gate state before the
+    // outer 01D7:4BA4 lifecycle consumer takes ownership of recovery. Emit
+    // the one-shot gameplay event at this boundary so presentation can react
+    // without resetting the player before the measured death hold completes.
+    if (!deathAnimationBefore && playerDeathAnimationActive(player)) {
+        enqueueEvent(LevelEventType::PlayerDied);
+    }
     spawnedTransient = updateStreaming(
         simulation,
         _streamAnchorActive ? _streamAnchorX : player.positionX.floorPixels(),
