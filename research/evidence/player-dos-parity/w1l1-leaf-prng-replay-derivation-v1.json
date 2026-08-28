@@ -5,6 +5,7 @@
     "dos_trace": "research/build/player-frame-full-v1.json",
     "dos_trace_sha256": "8e6d8c56c3e2829678e63c5548a2386ebaf30e30b954c0d87e7e06b45d9091e9",
     "initializer_note": "research/notes/w1l1-object-callbacks-static-decomp.cpp",
+    "ring_derivation_tool": "research/tools/derive_w1l1_leaf_ring.py",
     "native_trace": "/tmp/w1l1-session-leaf-seeded-final.json",
     "comparator": "research/tools/w1l1_session_compare.py",
     "comparator_sha256": "67a3f76805654e29a1270c028cee271bad1af225c8eb72136866ea0316cf25f1"
@@ -13,7 +14,10 @@
     "formula": "initial_velocity = 0x13000 - signed_ring_byte * 0x80; callback subtracts 300 when velocity > 0x4000",
     "selector": "signed first byte > 0 selects DS:3312/sprite 700; otherwise DS:3326/sprite 703",
     "publication_order": "camera stream order: descending region X, ascending region Y",
-    "unknown_bytes": "ring bytes after the first twelve remain zero in this diagnostic replay"
+    "unknown_bytes": "ring bytes after the six pre-leaf event bytes and twelve leaf bytes remain zero in this diagnostic replay",
+    "initial_prng_index": 0,
+    "pre_leaf_event_bytes": "000000000000",
+    "derived_ring_prefix": "00000000000000980041005b019a014e004b"
   },
   "derived_prefix": [
     {"object_x": 272, "selector_byte": "0x00", "velocity_byte": "0x98", "signed_velocity_byte": -104},
