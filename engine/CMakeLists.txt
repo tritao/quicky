@@ -55,7 +55,7 @@ target_link_libraries(quiky-simulate PRIVATE quiky_core)
 add_executable(quiky-player-frame apps/quiky-player-frame.cpp)
 target_link_libraries(quiky-player-frame PRIVATE quiky_core)
 
-add_executable(quiky-parity-replay apps/quiky-w1l1-trace.cpp)
+add_executable(quiky-parity-replay apps/quiky-parity-replay.cpp)
 target_link_libraries(quiky-parity-replay PRIVATE quiky_core)
 
 add_executable(quiky-frame apps/quiky-frame.cpp)

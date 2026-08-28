@@ -10,7 +10,8 @@ Each run contains:
 - `input.jsonl`: the only native replay input;
 - `expected-state.jsonl`: canonical imported DOS state;
 - `actual-state.jsonl`: canonical native replay state;
-- `parity.json` and `coverage.json`: generated verification results.
+- `parity.json` and `coverage.json`: generated verification results; these are
+  deliberately excluded from the manifest's immutable input fingerprints.
 
 Both state streams use `quiky.parity-state-v1`. Verification reads this schema
 strictly and does not detect trace envelopes or field aliases. Historical

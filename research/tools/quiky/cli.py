@@ -12,7 +12,8 @@ from .common import ToolError, run_compat_script, tools_root
 from .common import file_fingerprint
 from .runs import (install_actual_state, stage_run_files,
                    validate_run_directory, verify_run_directory)
-from .state import PROFILES, import_input, import_trace, save_state_jsonl
+from .state import (PROFILES, import_input, import_trace, label_lifecycle,
+                    load_state_jsonl, save_state_jsonl)
 
 
 ALIASES = {
@@ -133,7 +134,10 @@ def main(argv: list[str] | None = None) -> int:
                     if completed.returncode:
                         detail = completed.stderr.strip() or completed.stdout.strip()
                         raise ToolError(f"native replay failed: {detail}")
-                    save_state_jsonl(state, import_trace(raw, manifest["profile"]))
+                    rows = load_state_jsonl(raw)
+                    if manifest["profile"] == "lifecycle":
+                        label_lifecycle(rows)
+                    save_state_jsonl(state, rows)
                     install_actual_state(parsed.directory, state)
                 print(f"OK: replayed canonical state for {parsed.directory}")
                 return 0

@@ -11,8 +11,7 @@ from .common import ToolError, file_fingerprint, read_json, write_json
 from .state import PROFILES, compare_state, load_state_jsonl
 
 RUN_SCHEMA = "quiky.recorded-run-v3"
-RUN_FILES = ("input.jsonl", "expected-state.jsonl", "actual-state.jsonl",
-             "parity.json", "coverage.json")
+RUN_FILES = ("input.jsonl", "expected-state.jsonl", "actual-state.jsonl")
 
 
 def validate_input_row(value: Any, *, label: str = "input row") -> dict[str, Any]:
@@ -120,6 +119,7 @@ def save_manifest(path: Path, manifest: dict[str, Any]) -> None:
 
 
 def _fingerprints(directory: Path) -> dict[str, Any]:
+    """Fingerprint parity inputs, never regenerable verification reports."""
     return {name: file_fingerprint(directory / name)
             for name in RUN_FILES if (directory / name).is_file()}
 

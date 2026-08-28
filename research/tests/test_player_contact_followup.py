@@ -2,17 +2,27 @@ import copy
 import hashlib
 import json
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 TOOLS_DIR = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS_DIR))
 
-from quiky.parity import compare_player as compare  # noqa: E402
+from quiky.state import compare_state, import_trace, save_state_jsonl  # noqa: E402
 from verify_player_contact_followup import verify  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
+
+
+def compare(left: Path, right: Path):
+    with tempfile.TemporaryDirectory() as directory:
+        root = Path(directory)
+        expected, actual = root / "expected.jsonl", root / "actual.jsonl"
+        save_state_jsonl(expected, import_trace(left, "exact"))
+        save_state_jsonl(actual, import_trace(right, "exact"))
+        return compare_state(expected, actual, "exact")[0]
 
 
 class PlayerContactFollowupTests(unittest.TestCase):
@@ -60,8 +70,6 @@ class PlayerContactFollowupTests(unittest.TestCase):
         state = sample["player_callback"]["post_object"]["state_hex"]
         replacement = ("00" if state[:2] != "00" else "01") + state[2:]
         sample["player_callback"]["post_object"]["state_hex"] = replacement
-        import tempfile
-
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "candidate.json"
             path.write_text(json.dumps(candidate), encoding="utf-8")

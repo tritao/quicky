@@ -5,6 +5,7 @@
 #include "quiky/simulation.h"
 
 #include <array>
+#include <algorithm>
 #include <cstdlib>
 #include <exception>
 #include <fstream>
@@ -75,33 +76,6 @@ std::array<std::uint8_t, 0x100> parseLeafPrngRing(
     return result;
 }
 
-std::string jsonEscape(const std::string &value) {
-    std::ostringstream output;
-    for (std::size_t index = 0; index < value.size(); ++index) {
-        const unsigned char character =
-            static_cast<unsigned char>(value[index]);
-        switch (character) {
-        case '"': output << "\\\""; break;
-        case '\\': output << "\\\\"; break;
-        case '\b': output << "\\b"; break;
-        case '\f': output << "\\f"; break;
-        case '\n': output << "\\n"; break;
-        case '\r': output << "\\r"; break;
-        case '\t': output << "\\t"; break;
-        default:
-            if (character < 0x20) {
-                output << "\\u" << std::hex << std::setfill('0')
-                       << std::setw(4) << static_cast<unsigned>(character)
-                       << std::dec;
-            } else {
-                output << value[index];
-            }
-            break;
-        }
-    }
-    return output.str();
-}
-
 std::string hexBytes(const quiky::Bytes &bytes) {
     std::ostringstream output;
     output << std::hex << std::setfill('0');
@@ -111,109 +85,31 @@ std::string hexBytes(const quiky::Bytes &bytes) {
     return output.str();
 }
 
+std::string jsonEscape(const std::string &value) {
+    std::string result;
+    for (std::size_t index = 0; index < value.size(); ++index) {
+        if (value[index] == '"' || value[index] == '\\') result += '\\';
+        result += value[index];
+    }
+    return result;
+}
+
 void writeCallback(std::ostream &output,
                    const quiky::CallbackIdentity &callback) {
     output << "{\"segment\":" << callback.segment
-           << ",\"offset\":" << callback.offset
-           << ",\"label\":\"" << jsonEscape(callback.label) << "\"}";
-}
-
-void writeGlobalState(std::ostream &output,
-                      const quiky::LevelGameplayState &state) {
-    output << "{\"ammo_880c\":" << state.ammo880c
-           << ",\"lives_880a\":" << state.lives880a
-           << ",\"score_881c\":" << state.score881c
-           << ",\"current_health_8822\":" << state.currentHealth8822
-           << ",\"maximum_health_8824\":" << state.maximumHealth8824
-           << ",\"invulnerability_8810\":"
-           << state.invulnerabilityGate8810
-           << ",\"pending_event_612e\":" << state.pendingEvent612e
-           << ",\"player_timer_0034\":" << state.playerTimer0034
-           << ",\"puzzle_mask_60d8\":" << state.puzzleMask60d8
-           << ",\"terminal_x_8828\":" << state.terminalX8828
-           << ",\"terminal_y_882a\":" << state.terminalY882a
-           << ",\"shared_target_active_count_8806\":"
-           << state.sharedTargetActiveCount8806
-           << ",\"shared_target_capacity_8808\":"
-           << state.sharedTargetCapacity8808
-           << ",\"shared_target_rows_87de\":[";
-    for (std::size_t index = 0; index < state.sharedTargetRows87de.size();
-         ++index) {
-        if (index != 0) output << ',';
-        const quiky::TargetCoordinateRow &row =
-            state.sharedTargetRows87de[index];
-        output << "{\"index\":" << index
-               << ",\"x\":" << row.x
-               << ",\"y\":" << row.y << "}";
-    }
-    output << "]"
-           << ",\"cloud_signal_89e6\":" << state.cloudSignal89e6
-           << ",\"transition_gate_89ea\":" << state.transitionGate89ea
-           << ",\"platform_latch_5006\":" << state.platformLatch5006
-           << ",\"platform_carry_x_8816\":"
-           << state.platformCarryX8816
-           << ",\"platform_carry_y_8812\":"
-           << state.platformCarryY8812 << "}";
+           << ",\"offset\":" << callback.offset << "}";
 }
 
 void writeProbe(std::ostream &output, const quiky::CollisionProbe &probe,
                 bool occupied) {
     output << "{\"x\":" << probe.pixelX
            << ",\"y\":" << probe.pixelY
-           << ",\"in_bounds\":" << (probe.inBounds ? "true" : "false")
            << ",\"map_word\":" << probe.mapWord
            << ",\"tile_id\":" << probe.tileId
            << ",\"descriptor_word\":" << probe.descriptorWord
            << ",\"quadrant_mask\":"
            << static_cast<unsigned>(probe.quadrantMask)
            << ",\"occupied\":" << (occupied ? "true" : "false") << "}";
-}
-
-void writePlayerTrace(std::ostream &output,
-                      const quiky::PlayerUpdateTrace &trace) {
-    output << "{\"input_flags\":" << trace.inputFlags
-           << ",\"pre_record_hex\":\""
-           << hexBytes(trace.preState.toBytes())
-           << "\",\"post_record_hex\":\""
-           << hexBytes(trace.postState.toBytes())
-           << "\",\"stages\":[";
-    for (std::size_t index = 0; index < trace.stages.size(); ++index) {
-        if (index != 0) output << ',';
-        output << static_cast<unsigned>(trace.stages[index]);
-    }
-    output << "],\"state_writes\":[";
-    for (std::size_t index = 0; index < trace.stateWrites.size(); ++index) {
-        if (index != 0) output << ',';
-        const quiky::TraceStateWrite &write = trace.stateWrites[index];
-        output << "{\"offset\":" << write.offset
-               << ",\"width\":" << static_cast<unsigned>(write.width)
-               << ",\"value\":" << write.value << "}";
-    }
-    output << "],\"collisions\":[";
-    for (std::size_t index = 0; index < trace.collisionProbes.size(); ++index) {
-        if (index != 0) output << ',';
-        const bool occupied = index < trace.collisionOccupied.size()
-            ? trace.collisionOccupied[index]
-            : quiky::CollisionKernel::occupied(trace.collisionProbes[index]);
-        writeProbe(output, trace.collisionProbes[index], occupied);
-    }
-    output << "],\"global_writes\":[";
-    for (std::size_t index = 0; index < trace.globalWrites.size(); ++index) {
-        if (index != 0) output << ',';
-        const quiky::PlayerGlobalWrite &write = trace.globalWrites[index];
-        output << "{\"offset\":" << write.address
-               << ",\"width\":" << static_cast<unsigned>(write.width)
-               << ",\"before\":" << write.before
-               << ",\"after\":" << write.after << "}";
-    }
-    output << "],\"effects\":[";
-    for (std::size_t index = 0; index < trace.effectDispatches.size(); ++index) {
-        if (index != 0) output << ',';
-        const quiky::PlayerEffectDispatch &effect = trace.effectDispatches[index];
-        output << "{\"address\":" << effect.address
-               << ",\"code\":" << effect.code << "}";
-    }
-    output << "]}";
 }
 
 void writeEntity(std::ostream &output, const quiky::LevelEntity &entity) {
@@ -441,87 +337,80 @@ void writeSample(std::ostream &output, const InputFrame &input,
                  const quiky::Simulation &simulation,
                  const quiky::SimulationOutput &snapshot,
                  const quiky::PlayerUpdateTrace &trace,
-                 const quiky::LevelRuntime &runtime,
-                 const std::vector<quiky::LevelEvent> &levelEvents) {
+                 const quiky::LevelRuntime &runtime) {
     const quiky::LevelSession &session = runtime.session();
-    output << "{\"sequence\":" << input.sequence
-           << ",\"guest_frame\":" << input.guestFrame
-           << ",\"tick\":" << snapshot.tick
-           << ",\"input_flags\":" << input.actionFlags
-           << ",\"camera\":{\"x\":" << session.streamAnchorX()
-           << ",\"y\":" << session.streamAnchorY()
-           << ",\"active\":"
-           << (session.hasStreamAnchor() ? "true" : "false") << "}"
-           << ",\"stream_cursor\":{\"x\":" << session.streamCursorX()
-           << ",\"y\":" << session.streamCursorY() << "}"
-           << ",\"shared_prng_index\":" << session.sharedPrngIndex()
-           << ",\"player_record_hex\":\""
-           << hexBytes(snapshot.player.toBytes()) << "\",\"player_callback\":";
-    writePlayerTrace(output, trace);
-    output << ",\"player_dependency_order\":[";
-    for (std::size_t index = 0; index < snapshot.playerDependencyOrder.size(); ++index) {
+    output << "{\"schema\":\"quiky.parity-state-v1\",\"sequence\":"
+           << input.sequence << ",\"pre_record\":\""
+           << hexBytes(trace.preState.toBytes()) << "\",\"post_record\":\""
+           << hexBytes(trace.postState.toBytes()) << "\",\"input_flags\":"
+           << input.actionFlags << ",\"camera\":{\"x\":"
+           << session.streamAnchorX() << ",\"y\":" << session.streamAnchorY()
+           << "},\"probes\":[";
+    for (std::size_t index = 0; index < trace.collisionProbes.size(); ++index) {
         if (index != 0) output << ',';
-        const quiky::SimulationCallbackStep &step =
-            snapshot.playerDependencyOrder[index];
-        output << "{\"phase\":" << static_cast<unsigned>(step.phase)
-               << ",\"source_id\":" << step.sourceId
-               << ",\"callback\":";
-        writeCallback(output, step.callback);
-        output << "}";
+        const bool occupied = index < trace.collisionOccupied.size()
+            ? trace.collisionOccupied[index]
+            : quiky::CollisionKernel::occupied(trace.collisionProbes[index]);
+        writeProbe(output, trace.collisionProbes[index], occupied);
     }
-    output << "],\"scheduler_callbacks\":";
-    writeScheduler(output, simulation, snapshot);
-    output << ",\"entities\":[";
-    bool first = true;
-    for (std::size_t index = 0; index < session.entities().size(); ++index) {
-        const quiky::LevelEntity &entity = session.entities()[index];
-        if (!entity.active) continue;
-        if (!first) output << ',';
-        first = false;
-        writeEntity(output, entity);
+    output << "],\"global_writes\":[";
+    for (std::size_t index = 0; index < trace.globalWrites.size(); ++index) {
+        if (index != 0) output << ',';
+        const quiky::PlayerGlobalWrite &write = trace.globalWrites[index];
+        output << "{\"offset\":" << write.address << ",\"width\":"
+               << static_cast<unsigned>(write.width) << ",\"before\":"
+               << write.before << ",\"after\":" << write.after << "}";
     }
     output << "],\"effects\":[";
-    for (std::size_t index = 0; index < session.effects().size(); ++index) {
+    for (std::size_t index = 0; index < trace.effectDispatches.size(); ++index) {
         if (index != 0) output << ',';
-        const quiky::LevelEffect &effect = session.effects()[index];
-        output << "{\"source_entity_id\":" << effect.sourceEntityId
-               << ",\"source_type\":" << effect.sourceType
-               << ",\"x\":" << effect.x << ",\"y\":" << effect.y
-               << ",\"effect_slot\":" << effect.effectSlot
-               << ",\"sprite_slot\":" << effect.spriteSlot
-               << ",\"animation_frame\":" << effect.animationFrame
-               << ",\"callback_state\":" << effect.callbackState
-               << ",\"event_subtype\":"
-               << static_cast<unsigned>(effect.eventSubtype)
-               << ",\"event_animation_state\":"
-               << static_cast<unsigned>(effect.eventAnimationState)
-               << ",\"callback\":";
-        writeCallback(output, effect.updateCallback);
-        output << ",\"active\":" << (effect.active ? "true" : "false")
-               << "}";
+        const quiky::PlayerEffectDispatch &effect = trace.effectDispatches[index];
+        output << "{\"address\":" << effect.address
+               << ",\"code\":" << effect.code << "}";
     }
-    output << "],\"gameplay_state\":";
-    writeGlobalState(output, session.gameplayState());
-    output << ",\"simulation_game_events\":[";
-    for (std::size_t index = 0; index < snapshot.gameEvents.size(); ++index) {
+    output << "],\"scheduler_callbacks\":[";
+    for (std::size_t index = 0; index < snapshot.schedulerCallbacks.size(); ++index) {
         if (index != 0) output << ',';
-        writeSimulationEvent(output, snapshot.gameEvents[index]);
+        output << snapshot.schedulerCallbacks[index].callback.offset;
     }
-    output << "],\"simulation_audio_events\":[";
-    for (std::size_t index = 0; index < snapshot.audioEvents.size(); ++index) {
+    std::vector<const quiky::LevelEntity *> entities;
+    for (std::size_t index = 0; index < session.entities().size(); ++index) {
+        const std::uint16_t callback =
+            session.entities()[index].updateCallback.offset;
+        if (session.entities()[index].active && callback != 0 &&
+            callback != 0x3FF8 && callback != 0xFFFF)
+            entities.push_back(&session.entities()[index]);
+    }
+    std::sort(entities.begin(), entities.end(),
+              [](const quiky::LevelEntity *left, const quiky::LevelEntity *right) {
+        if (left->updateCallback.offset != right->updateCallback.offset)
+            return left->updateCallback.offset < right->updateCallback.offset;
+        if (left->x != right->x) return left->x < right->x;
+        if (left->y != right->y) return left->y < right->y;
+        return left->spriteSlot < right->spriteSlot;
+    });
+    output << "],\"active_objects\":[";
+    for (std::size_t index = 0; index < entities.size(); ++index) {
         if (index != 0) output << ',';
-        const quiky::AudioEvent &event = snapshot.audioEvents[index];
-        output << "{\"tick\":" << event.tick
-               << ",\"source_id\":" << event.sourceId
-               << ",\"code\":" << event.code
-               << ",\"value\":" << event.value << "}";
+        const quiky::LevelEntity &entity = *entities[index];
+        output << "{\"callback\":" << entity.updateCallback.offset
+               << ",\"x\":" << entity.x << ",\"y\":" << entity.y
+               << ",\"sprite_slot\":" << entity.spriteSlot;
+        if (entity.updateCallback.offset == 0x47E7) {
+            output << ",\"velocity_y_fixed\":" << entity.ambientVelocityY.raw
+                   << ",\"animation_delay\":" << entity.ambientAnimationDelay
+                   << ",\"animation_cursor\":" << entity.ambientAnimationCursor;
+        }
+        output << "}";
     }
-    output << "],\"level_events\":[";
-    for (std::size_t index = 0; index < levelEvents.size(); ++index) {
-        if (index != 0) output << ',';
-        writeLevelEvent(output, levelEvents[index]);
-    }
-    output << "]}";
+    const quiky::LevelGameplayState &gameplay = session.gameplayState();
+    output << "],\"lifecycle\":{\"health\":" << gameplay.currentHealth8822
+           << ",\"lives\":" << gameplay.lives880a << ",\"gate\":"
+           << static_cast<std::int16_t>(gameplay.transitionGate89ea)
+           << ",\"mode\":"
+           << static_cast<unsigned>(static_cast<std::uint8_t>(snapshot.player.mode37))
+           << ",\"position\":{\"x\":" << snapshot.player.positionX.floorPixels()
+           << ",\"y\":" << snapshot.player.positionY.floorPixels() << "}}}";
 }
 
 } // namespace
@@ -654,11 +543,7 @@ int main(int argc, char **argv) {
         if (!output) {
             throw quiky::FormatError("cannot open trace output: " + outputPath);
         }
-        output << "{\"schema\":\"quiky-w1l1-session-v1\",\"archive\":\""
-               << jsonEscape(archivePath) << "\",\"map\":\""
-               << jsonEscape(mapName) << "\",\"samples\":[";
         for (std::size_t index = 0; index < inputs.size(); ++index) {
-            if (index != 0) output << ',';
             const InputFrame &input = inputs[index];
             if (input.hasCamera) {
                 runtime->setStreamAnchor(input.cameraX, input.cameraY);
@@ -675,10 +560,9 @@ int main(int argc, char **argv) {
             while (runtime->session().hasPendingEvents()) {
                 levelEvents.push_back(runtime->session().consumeEvent());
             }
-            writeSample(output, input, simulation, snapshot, trace, *runtime,
-                        levelEvents);
+            writeSample(output, input, simulation, snapshot, trace, *runtime);
+            output << '\n';
         }
-        output << "]}\n";
     } catch (const std::exception &error) {
         std::cerr << "error: " << error.what() << "\n";
         return EXIT_FAILURE;

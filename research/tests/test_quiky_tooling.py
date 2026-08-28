@@ -88,7 +88,9 @@ class QuikyToolingTests(unittest.TestCase):
                             expected_state=state, actual_state=state)
             self.assertEqual(validate_run_directory(run)["schema"], RUN_SCHEMA)
             self.assertEqual(verify_run_directory(run), ([], []))
-            validate_run_directory(run)
+            refreshed = validate_run_directory(run)
+            self.assertNotIn("parity.json", refreshed["files"])
+            self.assertNotIn("coverage.json", refreshed["files"])
 
     def test_unified_cli_imports_and_verifies(self):
         with tempfile.TemporaryDirectory() as directory:

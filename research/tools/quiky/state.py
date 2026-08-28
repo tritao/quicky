@@ -119,9 +119,9 @@ def import_trace(path: Path, profile: str) -> list[dict[str, Any]]:
         raise ToolError(f"unknown parity profile {profile!r}")
     # Deliberately local: the historical adapter is not reachable from run
     # validation or comparison.
-    from .parity import (
-        _checkpoint_state, _effects, _global_writes, _session_probes,
-        active_objects, canonical_factory, scheduler_offsets,
+    from .trace_import import (
+        active_objects, effects, factory_objects, global_writes, lifecycle,
+        probes, scheduler_callbacks,
     )
     from .trace import TraceError, load_trace
 
@@ -139,11 +139,11 @@ def import_trace(path: Path, profile: str) -> list[dict[str, Any]]:
             "pre_record": sample.pre_record_hex,
             "post_record": sample.post_record_hex,
             "input_flags": sample.input_flags,
-            "probes": _session_probes(sample),
-            "global_writes": _global_writes(sample),
-            "effects": _effects(sample),
-            "factory_objects": canonical_factory(sample),
-            "scheduler_callbacks": scheduler_offsets(sample),
+            "probes": probes(sample),
+            "global_writes": global_writes(sample),
+            "effects": effects(sample),
+            "factory_objects": factory_objects(sample),
+            "scheduler_callbacks": scheduler_callbacks(sample),
             "active_objects": active_objects(sample),
         }
         if sample.camera is not None:
@@ -151,17 +151,16 @@ def import_trace(path: Path, profile: str) -> list[dict[str, Any]]:
         for field, value in values.items():
             if value is not None:
                 row[field] = value
-        lifecycle = _checkpoint_state(sample)
-        lifecycle = {key: value for key, value in lifecycle.items()
-                     if value is not None and key != "record"}
-        if lifecycle:
-            if isinstance(lifecycle.get("position"), tuple):
-                x, y = lifecycle["position"]
-                lifecycle["position"] = {"x": x, "y": y}
-            row["lifecycle"] = lifecycle
+        lifecycle_state = {key: value for key, value in lifecycle(sample).items()
+                           if value is not None}
+        if lifecycle_state:
+            if isinstance(lifecycle_state.get("position"), tuple):
+                x, y = lifecycle_state["position"]
+                lifecycle_state["position"] = {"x": x, "y": y}
+            row["lifecycle"] = lifecycle_state
         rows.append(row)
     if profile == "lifecycle":
-        _label_lifecycle(rows)
+        label_lifecycle(rows)
     return [validate_row(row, label=f"imported sample {row['sequence']}")
             for row in rows]
 
@@ -200,7 +199,7 @@ def import_input(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def _label_lifecycle(rows: list[dict[str, Any]]) -> None:
+def label_lifecycle(rows: list[dict[str, Any]]) -> None:
     previous_health: int | None = None
     terminal_seen = False
     last_negative: dict[str, Any] | None = None
