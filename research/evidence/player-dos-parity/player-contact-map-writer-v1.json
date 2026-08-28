@@ -1,0 +1,70 @@
+{
+  "schema": "quiky.player-contact-map-writer.v1",
+  "purpose": "Focused runtime evidence for the statically recovered 6328 -> 16CE contact-child feedback edge.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "/tmp/player-contact-map-writer-v1.json",
+    "trace_sha256": "36313a0d03acd5d606d749ac69b9786d2dbe0a6637ec3886dc4f6cff80aa8346",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "25e6cd7ca86e00023455a0f8882e78702f75b42fce2eca2e3c42b21398c96d36",
+    "report_tool": "research/tools/contact_map_writer_report.py",
+    "report_tool_sha256": "438e955803864c8fffebd854ce8a0e7dfd8f4345da0981d8b7f307f71e5037bc"
+  },
+  "method": {
+    "level": "W1L1",
+    "watch": "01F7:6328 object callback plus 01F7:16CE execute watch",
+    "map_patch": "W1L1 cell (8,25) low-nine-bit tile 5, persistent",
+    "command": "python3 research/tools/quikytrace.py --launch --headless --select-level W1L1 --timeout 120 --player-trace --player-object-focus 0x6328 --player-minimal-callback-capture --player-scheduler-only --player-samples 12 --player-frames-between 0 --player-persistent-map-patch --player-map-patch-cell 8,25=5 --player-watch-execute 0x1f7:0x16ce --output /tmp/player-contact-map-writer-v1.json"
+  },
+  "observations": {
+    "writer_events": 2,
+    "changed_events": 1,
+    "unchanged_events": 1,
+    "rows": [
+      {
+        "sample": 1,
+        "callback": "01F7:6328",
+        "coordinates": {"x": 128, "y": 400},
+        "effect_selector": 498,
+        "effect_word": 498,
+        "map_selector": 887,
+        "cell_offset": 13516,
+        "before_word": 46,
+        "after_word": 498,
+        "before_tile_id": 46,
+        "after_tile_id": 498,
+        "map_write_applied": true
+      },
+      {
+        "sample": 2,
+        "callback": "01F7:6328",
+        "coordinates": {"x": 128, "y": 400},
+        "effect_selector": 498,
+        "effect_word": 498,
+        "map_selector": 887,
+        "cell_offset": 13516,
+        "before_word": 498,
+        "after_word": 498,
+        "before_tile_id": 498,
+        "after_tile_id": 498,
+        "map_write_applied": false
+      }
+    ]
+  },
+  "interpretation": {
+    "confirmed": [
+      "01F7:16CE receives cell X/Y in AX/BX and the replacement word in DX.",
+      "The first observed contact-child update changes the selected MAP low-nine-bit tile from 0x02E to 0x1F2.",
+      "A repeated contact-child update writes the same 0x1F2 value and is observationally a no-op.",
+      "The controlled child path therefore has a real MAP mutation, even though 6328 itself has no player-record write."
+    ],
+    "does_not_prove": [
+      "that the patched contact tile is a retail W1L1 descriptor class",
+      "that the resulting MAP tile changes a later solid/descriptor probe",
+      "natural contact frequency or unrelated 16CE callers"
+    ]
+  }
+}

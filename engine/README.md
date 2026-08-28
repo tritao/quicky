@@ -513,11 +513,13 @@ pinned in
 
 Explicit unresolved boundaries:
 
-- subsequent simulation feedback of the statically closed
-  `648E/6484 -> 6370 -> 3376 -> 0E06(6328)` tile-effect path; its direct
-  player/global/object writes, return-CF contract, and pooled `6328` child
-  lifetime/terminal callback clear are now recovered, but the `6328 -> 16CE`
-  MAP rewrite still needs a normal-contact trace;
+- whether the statically closed
+  `648E/6484 -> 6370 -> 3376 -> 0E06(6328) -> 16CE` tile-effect path can
+  alter a later retail solid or descriptor probe; its direct
+  player/global/object writes, return-CF contract, pooled `6328` child
+  lifetime/terminal callback clear, and controlled `16CE` MAP-word rewrite
+  are recovered in [`player-contact-map-writer-v1.json`](../research/evidence/player-dos-parity/player-contact-map-writer-v1.json),
+  but natural feedback into a later callback remains open;
 - runtime records outside the W1L1-observed `01F7:04DF`/`01F7:0517` target set
   at the `01F7:0598` indirect call site; the W1L1 low-byte matrix shows no
   bit-specific player simulation feedback, while non-W1L1/runtime-generated

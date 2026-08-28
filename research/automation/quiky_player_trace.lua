@@ -1591,6 +1591,50 @@ local function dispatch_state_differences(before, after)
     return result
 end
 
+-- 01F7:16CE is the one contact-child callee that can feed back into later
+-- simulation.  Its register convention is different from 01F7:3376:
+-- AX=cell X pixels, BX=cell Y pixels, and DX is the replacement tile/effect
+-- word.  Capture the selected MAP word at entry and defer the second read
+-- until the focused callback has returned.  This keeps the observation
+-- scoped to the writer call without introducing a guessed breakpoint at an
+-- internal return address.
+local function map_writer_snapshot(hit)
+    if hit.offset ~= 0x16ce then return nil end
+    local registers = hit.registers or {}
+    local coordinate_x = (registers.eax or 0) & 0xffff
+    local coordinate_y = (registers.ebx or 0) & 0xffff
+    local lookup = map_lookup_snapshot(hit, coordinate_x, coordinate_y)
+    return {
+        coordinates = {x = coordinate_x, y = coordinate_y},
+        effect_selector = (registers.ecx or 0) & 0xffff,
+        effect_word = (registers.edx or 0) & 0xffff,
+        map_selector = lookup.map_selector,
+        map_base = lookup.map_base,
+        row_stride = lookup.row_stride,
+        cell_offset = lookup.cell_offset,
+        before_word = lookup.cell_word,
+        before_tile_id = lookup.tile_id,
+    }
+end
+
+local function finalize_map_writer_events(sample)
+    for _, event in ipairs(sample.execute_watches or {}) do
+        local writer = event.map_writer
+        if writer == nil then goto continue end
+        local ok, after_word = pcall(
+            selector_word, writer.map_selector, writer.cell_offset
+        )
+        if ok then
+            writer.after_word = after_word
+            writer.after_tile_id = after_word & 0x1ff
+            writer.map_write_applied = writer.before_word ~= after_word
+        else
+            writer.after_read_error = tostring(after_word)
+        end
+        ::continue::
+    end
+end
+
 local function dispatch_target_return_location(hit)
     local address, reason = far_return_location(hit)
     if address == nil then return nil, reason end
@@ -1697,6 +1741,7 @@ local function record_execute_watch(sample, hit)
     if hit.offset == 0x3986 or hit.offset == 0x1c92 then
         event.map_property = map_property_snapshot(hit)
     end
+    event.map_writer = map_writer_snapshot(hit)
     -- 3D02 receives the live player coordinates through the callback's
     -- object record rather than stable AX/BX values at its entry.  Preserve
     -- the descriptor lookup at that exact helper event when a full record is
@@ -2791,6 +2836,7 @@ for sequence = 1, sample_count do
             release_phase_through_callback()
         end
     end
+    finalize_map_writer_events(sample)
     samples[#samples + 1] = sample
 end
 release_phase_through_callback()

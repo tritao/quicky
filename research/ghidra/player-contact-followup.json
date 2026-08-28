@@ -14,7 +14,7 @@
   "status": {
     "contact_semantics": "static_closed_with_runtime_polarity_gaps",
     "helper_5937": "direct_body_and_observed_level_startup_targets_non_simulation_other_runtime_targets_unresolved",
-    "factory_0E06": "allocator_and_focused_caller_matrix_closed_6328_lifetime_closed_other_runtime_families_open",
+    "factory_0E06": "allocator_and_focused_caller_matrix_closed_6328_lifetime_and_controlled_map_writer_closed_other_runtime_families_open",
     "input_dispatch": "normalized_word_closed_callback_precedence_closed",
     "moving_platform": "carry_contract_scheduler_order_full_player_return_and_controlled_jump_detachment_runtime_confirmed_cull_lifetime_and_next_player_tick_controlled_retail_attachment_open",
     "full_cpp_parity": "partial_runtime_callback_implemented_animation_boundary_closed_probe_and_external_data_gates_open"
@@ -136,7 +136,7 @@
       "callees": ["01F7:3376", "01E7:0FCF", "01F7:0E06"],
       "probe_coordinates": ["negative mode: (X+offset,Y-+0x72)", "mode zero: (X+offset,Y)"],
       "object_effects": "Allocates AX=0x6328 with tile IDs 8/9/A -> types 0x1F4/0x1F9/0x1FE and mode-zero IDs 5/6/7 -> orientation 0xFF, types 0x1F2/0x1F7/0x1FC",
-      "confidence": "confirmed_static_runtime_child_frequency_open",
+      "confidence": "confirmed_static_runtime_child_creation_controlled",
       "evidence": ["ghidra:6370-659B", "ghidra:DumpFocusedDisasm:6370-659B", "reloc:6426/6432/6542/654E"]
     },
     {
@@ -151,8 +151,8 @@
       "callees": ["01F7:16CE"],
       "collision_role": "every eighth update reaches 16CE; the child itself has no solid-collision read, but 16CE rewrites one MAP low-nine-bit tile before creating the visual child",
       "ownership_lifetime": "owned by the shared pool; allocator defaults are inherited from 0E06 and terminal callback clear makes the slot reusable",
-      "confidence": "static_and_runtime_lifetime_closed_runtime_map_feedback_open",
-      "evidence": ["static:6328 callback slice", "static:16CE-1747", "reloc:6359->16CE", "dynamic:contact-object-creation", "research/evidence/player-dos-parity/player-contact-child-lifetime-v1.json"]
+      "confidence": "static_and_runtime_lifetime_and_controlled_map_writer_closed",
+      "evidence": ["static:6328 callback slice", "static:16CE-1747", "reloc:6359->16CE", "dynamic:contact-object-creation", "research/evidence/player-dos-parity/player-contact-child-lifetime-v1.json", "research/evidence/player-dos-parity/player-contact-map-writer-v1.json"]
     },
     {
       "address": "01F7:16CE",
@@ -163,8 +163,8 @@
       "player_writes": [],
       "global_writes": ["selected MAP cell", "object pool through 0E06/1036"],
       "callees": ["01F7:0E06"],
-      "confidence": "confirmed_static_runtime_contact_feedback_open",
-      "evidence": ["ghidra:16CE-1747", "reloc:1717->0E06", "research/notes/ghidra-analysis.md:16CE"]
+      "confidence": "confirmed_static_controlled_contact_feedback",
+      "evidence": ["ghidra:16CE-1747", "reloc:1717->0E06", "research/notes/ghidra-analysis.md:16CE", "research/evidence/player-dos-parity/player-contact-map-writer-v1.json"]
     },
     {
       "address": "01F7:10B5",
@@ -310,6 +310,7 @@
     {"id":"contact_effect_route_watch", "trace":"research/evidence/player-dos-parity/player-contact-effect-route-v1.json", "sha256":"cd6e2374f9dffeed443b44e83ac68b8c85e0b0bd0d76780c6b616483d990fc8c", "status":"negative_for_sampled_route_only", "observation":"An ordinary eight-sample W1L1 route reached two unrelated 10B5 effect callbacks and one 1693 visibility gate, but reached neither contact child 6328 nor MAP writer 16CE; no global contact-effect conclusion is drawn."},
     {"id":"contact_tile_child_chain_controlled", "trace":"research/evidence/player-dos-parity/player-contact-tile-controlled-v1.json", "sha256":"f5fb06ae1ff0a86249cbd2a1ef1ebe2cc4ff79485a65cedf7c6227c04687395c", "status":"passed_controlled_child_chain_only", "observation":"A W1L1 map-cell patch reaches 648E>6484>6370, allocates callback-6328 children through 0E06, and observes the 6328>16CE>10B5 lifecycle. Because the descriptor cell was patched, this confirms the static route and scheduler publication only; it does not classify retail descriptor semantics or natural contact frequency."},
     {"id":"contact_child_lifetime", "trace":"research/evidence/player-dos-parity/player-contact-child-lifetime-v1.json", "sha256":"d8d8a39dd79ed7256033b8be7c339d767315ab13717de6786824951bfcab6d2c", "status":"passed_6328_terminal_clear", "observation":"A one-shot controlled contact creates two 6328 pooled children. Across alternating scheduler banks, the trace observes the static countdown and terminal +0x18=0 write when +0x2e changes from 3 to 4; no child solid probe or direct player movement write occurs."},
+    {"id":"contact_map_writer_controlled", "trace":"research/evidence/player-dos-parity/player-contact-map-writer-v1.json", "sha256":"15fdd6882eaa0a335658f065540a391dbe2f1ae0cc26d646c3382daf05c37f22", "status":"passed_controlled_16ce_map_mutation", "observation":"A focused 6328 callback trace watches 16CE with the recovered AX=cell-X, BX=cell-Y, and DX=replacement-word contract. The first observed writer changes MAP word 0x002E to 0x01F2 and the next repeated writer is a no-op; natural retail feedback into later descriptor probes remains open."},
     {"id":"factory_0E06", "trace":"research/build/player-factory-focus.json", "sha256":"89b2d6b627f94d15825446fbde98e85e3f211014b7bf852fc0fad0bbc29e861c", "status":"passed_allocator_observation_static_caller_matrix_closed", "observation":"factory entry/tail and first-free pool insertion are observable; the protected-mode static matrix closes six player/lifecycle callsites and confirms that callback selection and post-allocation writes are caller-owned"},
     {"id":"moving_platform_carry", "trace":"research/build/entity-platform-player-followup-v2.json", "sha256":"4e046a13c349c2fae7369cb3682d406f495454bb7feeb43caa47c4feca26087e", "status":"passed_current_main_overlap_trace", "observation":"Current main-repository tracing reaches A075/A0B2 and records DS:5006=0xFFFF, DS:8816=1, DS:8812=0xFFF80001"},
     {"id":"moving_platform_scheduler_order", "trace":"research/evidence/entity-platform-scheduler-order-trace.json", "sha256":"3e21d6fbfc3884cbb21e3aa6eb77bbf85d8859261b4e5251e51d95f918066c86", "status":"passed_entry_order", "observation":"Combined W4L1 trace observes 9DC7 -> A075 -> A0B2 -> 3FF8 entry; full return capture is covered by moving_platform_player_return"},
@@ -331,7 +332,8 @@
   "unresolved": [
     {"address":"01F7:0598", "question":"whether runtime DS:6D8A targets other than the observed ordinary W1L1 14A7:1258 callback can write player/global simulation state", "next":"retain the observed target as a non-simulation contract; expand another loaded target only if held-out parity selects it or attributes a mismatch to it"},
     {"address":"01F7:3D02/3DF2", "question":"natural ceiling polarity and descriptor one-way semantics", "next":"capture unpatched controlled level geometry and approach from both vertical directions"},
-    {"address":"01F7:0E06", "question":"runtime behavior of 0E06-selected families beyond the now-closed 6328/contact-child lifetime", "next":"leave address-named; expand another family only if held-out parity reaches it, since the focused 6328 child has a closed terminal release contract"},
+    {"address":"01F7:6328/16CE", "question":"whether the controlled MAP rewrite can alter a later retail solid or descriptor probe", "next":"retain the controlled AX/BX/DX and MAP-word contract; close only with a natural contact followed by a later callback probe"},
+    {"address":"01F7:0E06", "question":"runtime behavior of 0E06-selected families beyond the now-closed 6328/contact-child lifetime", "next":"leave address-named; expand another family only if held-out parity reaches it, since the focused 6328 child and its controlled MAP writer have closed contracts"},
     {"address":"01F7:0E96/1036", "question":"scheduler-bank membership rebuild timing and attached-player behavior after death, reload, jump detachment, crushing, or culling", "next":"capture both scheduler banks at each lifecycle boundary; use callback 3FF8/object offset zero as the stable player identity rather than append index"},
     {"address":"01F7:41C1", "question":"whether the early contact response is ceiling-specific or a generic vertical boundary", "next":"natural ascent impact trace without coordinate patch"}
   ],
