@@ -283,7 +283,7 @@
     },
     {
       "address":"01F7:1BD1","range":["1BD1","1C4D"],"name":"probe_transition_descriptor","old_symbol":"FUN_1BD1","classification":"contract","convention":"far","signature":"Flags probe_transition_descriptor(PlayerRecord* es_di, int16_t dx, int16_t cx)",
-      "inputs":["ES:DI player record","DX/CX coordinate offsets"],"outputs":["CF=1 when descriptor quadrant is occupied"],"player_reads":["04","08"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],"callees":[],"confidence":"mechanical","evidence":["raw:1BD1-1C4C","callsite:44C5"]
+      "inputs":["ES:DI player record","DX/CX coordinate offsets"],"outputs":["CF=1 when descriptor quadrant is occupied; AX=computed Y pixel word and upper EAX remains live for the 44CE caller"],"player_reads":["04","08"],"player_writes":[],"global_reads":["DS:657A","DS:657C","DS:657E","DS:6582","DS:6584","DS:30D4"],"global_writes":[],"callees":[],"confidence":"mechanical","evidence":["raw:1BD1-1C4C","callsite:44C5"]
     },
     {
       "address":"01F7:1B07","range":["1B07","1B43"],"name":"apply_tile_transition_1B07","old_symbol":"FUN_1B07","classification":"contract","convention":"far","signature":"void apply_tile_transition_1B07(void)",

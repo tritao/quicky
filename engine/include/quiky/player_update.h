@@ -34,6 +34,7 @@ enum class PlayerUpdateStage {
     NegativeMode,
     GroundedContactResponse,
     CommonCallbackTail,
+    TransitionBranch,
     UnresolvedBoundary
 };
 
@@ -97,6 +98,12 @@ struct PlayerCallbackGlobals {
     std::uint16_t specialSpeedCapMode88B6;
     std::int16_t actionSuppressor89E6;
     std::int16_t collisionTransitionMode89EA;
+    std::int16_t transitionState89EC;
+    // 01F7:20AF publication pair. These are camera-facing globals, but the
+    // transition branch writes the zero pair before it can feed the next
+    // frame's camera/level boundary.
+    std::int32_t publishedViewDeltaX60DC;
+    std::int32_t publishedViewDeltaY60E0;
 
     // Address-qualified auxiliary state consumed by 01F7:5937. The
     // 881C/881E and 4FF2/4FF4 pairs are retained as a low/high word split at
@@ -217,6 +224,13 @@ public:
         (void)transitionGate89ea;
     }
 
+    // The recovered 4416-44FE branch decrements DS:89EA in the player
+    // callback. Session owners must read it back after the callback or the
+    // next frame would republish the stale pre-callback gate.
+    virtual bool hasTransitionState() const { return false; }
+    virtual std::uint16_t transitionGate89EA() const { return 0; }
+    virtual std::uint16_t transitionState89EC() const { return 0; }
+
     // 01F7:5937 consumes the persistent score/lives/ammo/health words from
     // the level callback boundary. The boolean is true only at level reset,
     // where the display-side publication words are rebuilt by the original
@@ -253,6 +267,13 @@ public:
     void publishPlatformCarry(std::int32_t xDelta8816,
                               std::int32_t yDelta8812) override;
     void publishTransitionGate(std::uint16_t transitionGate89ea) override;
+    bool hasTransitionState() const override { return true; }
+    std::uint16_t transitionGate89EA() const override {
+        return static_cast<std::uint16_t>(_globals.collisionTransitionMode89EA);
+    }
+    std::uint16_t transitionState89EC() const override {
+        return static_cast<std::uint16_t>(_globals.transitionState89EC);
+    }
     void publishGameplayCounters(std::uint32_t score881c,
                                   std::uint16_t lives880a,
                                   std::uint16_t ammo880c,

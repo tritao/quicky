@@ -218,6 +218,9 @@ PlayerCallbackGlobals::PlayerCallbackGlobals()
       specialSpeedCapMode88B6(0),
       actionSuppressor89E6(0),
       collisionTransitionMode89EA(0),
+      transitionState89EC(0),
+      publishedViewDeltaX60DC(0),
+      publishedViewDeltaY60E0(0),
       dispatchWord60D8(0),
       dispatchPreviousWord60DA(0),
       dispatchScoreLow881C(0),
@@ -1023,6 +1026,121 @@ void emitPendingSound(PlayerCallbackGlobals &globals,
     }
 }
 
+struct TransitionDescriptorProbeResult {
+    bool contact;
+    std::int32_t eaxAfterCall;
+
+    TransitionDescriptorProbeResult(bool contactValue = false,
+                                    std::int32_t eaxValue = 0)
+        : contact(contactValue), eaxAfterCall(eaxValue) {}
+};
+
+bool transitionDescriptorPairClear(const PlayerRecord &player,
+                                   const WorldCollisionView &world,
+                                   PlayerTraceSink *trace) {
+    // 01F7:447B-44BB: both branches execute the same two 5CC3 calls.  The
+    // signed +0x29 branch is retained by the caller below because it is part
+    // of the recovered control flow, while this helper preserves the exact
+    // current/Y-16 probe order and TEST DX,0x70 polarity.
+    const CollisionProbe current = CollisionKernel::probeAt(
+        world, player.xPixel(), player.yPixel());
+    captureProbe(current, (current.descriptorWord & 0x0070U) != 0, trace);
+    const CollisionProbe previous = CollisionKernel::probeAt(
+        world, player.xPixel(), addPixel(player.yPixel(), -0x10));
+    captureProbe(previous, (previous.descriptorWord & 0x0070U) != 0, trace);
+    return (current.descriptorWord & 0x0070U) == 0 &&
+           (previous.descriptorWord & 0x0070U) == 0;
+}
+
+TransitionDescriptorProbeResult probeTransitionDescriptor1BD1(
+    const PlayerRecord &player,
+    const WorldCollisionView &world,
+    std::int32_t callerEax,
+    PlayerTraceSink *trace) {
+    // 01F7:1BD1 is a far descriptor probe with CX=DX=0 at 44C5.  It restores
+    // the original Y word into AX before testing the selected low-nibble bit;
+    // the upper EAX word is not written by the 16-bit helper.  Consequently
+    // 44CE consumes (caller EAX high word):(player Y pixel word), not the
+    // fixed-point velocity value itself.
+    const std::int16_t y = player.yPixel();
+    const std::int16_t x = player.xPixel();
+    const CollisionProbe probe = CollisionKernel::probeAt(world, x, y);
+    const bool contact = CollisionKernel::occupied(probe);
+    captureProbe(probe, contact, trace);
+    const std::uint32_t preservedHigh =
+        static_cast<std::uint32_t>(callerEax) & 0xffff0000U;
+    const std::uint32_t restoredY = static_cast<std::uint16_t>(y);
+    const std::int32_t eaxAfterCall = static_cast<std::int32_t>(
+        preservedHigh | restoredY);
+    return TransitionDescriptorProbeResult(contact, eaxAfterCall);
+}
+
+void transitionBranch4416(PlayerRecord &player,
+                           const WorldCollisionView &world,
+                           PlayerCallbackGlobals &globals,
+                           PlayerTraceSink *trace) {
+    stage(trace, PlayerUpdateStage::TransitionBranch);
+
+    // Static 01F7:441D-4432.  8822 is the same address represented by the
+    // 5937 health/display projection; the alias is intentional at this
+    // callback boundary because both paths write the same DOS word.
+    if (globals.collisionTransitionMode89EA == -1) {
+        player.velocityY.raw = -0x20000;
+        writeGlobal16(0x8822, globals.dispatchDisplayCount8822, 0, trace);
+        loadAnimationDescriptor(player, 0x31a4, trace);
+    }
+    advanceAnimationDescriptor(player, trace);
+
+    // Static 01F7:4439-4445 -> 01F7:20AF.
+    writeGlobal32(0x60dc, globals.publishedViewDeltaX60DC, 0, trace);
+    writeGlobal32(0x60e0, globals.publishedViewDeltaY60E0, 0, trace);
+
+    player.velocityY.raw = Fixed16::wrapAddRaw(player.velocityY.raw, 0x1800);
+    if (player.velocityY.raw > 0x20000) {
+        player.velocityY.raw = 0x20000;
+    }
+    const std::int32_t callerEax = player.velocityY.raw;
+
+    bool pairClear = false;
+    if (static_cast<std::int8_t>(player.motionDirectionByte29) <= 0) {
+        pairClear = transitionDescriptorPairClear(player, world, trace);
+    } else {
+        pairClear = transitionDescriptorPairClear(player, world, trace);
+    }
+
+    bool contact = !pairClear;
+    if (pairClear) {
+        const TransitionDescriptorProbeResult finalProbe =
+            probeTransitionDescriptor1BD1(player, world, callerEax, trace);
+        contact = finalProbe.contact;
+        if (!contact) {
+            // Static 01F7:44CE-44D3.  Keep both additions explicitly
+            // wrapping at 32 bits, as the original writes the fixed-point
+            // record with ADD/SUB rather than a host-language arithmetic
+            // expression.
+            player.positionY.raw = Fixed16::wrapAddRaw(
+                player.positionY.raw, finalProbe.eaxAfterCall);
+            player.positionX.raw = Fixed16::wrapSubRaw(
+                player.positionX.raw, 0x5000);
+        }
+    }
+
+    if (!contact) {
+        return;
+    }
+
+    // Static 01F7:44DC-44F8.  This is a signed 16-bit global decrement.
+    const std::uint16_t nextGate = static_cast<std::uint16_t>(
+        static_cast<std::uint16_t>(globals.collisionTransitionMode89EA) - 1);
+    writeGlobal16Signed(
+        0x89ea, globals.collisionTransitionMode89EA,
+        static_cast<std::int16_t>(nextGate), trace);
+    if (globals.collisionTransitionMode89EA < -0x50 &&
+        globals.collisionTransitionMode89EA < -0x15d) {
+        writeGlobal16Signed(0x89ec, globals.transitionState89EC, -1, trace);
+    }
+}
+
 } // namespace
 
 TraceClosedPlayerUpdate::TraceClosedPlayerUpdate() : _globals() {
@@ -1056,6 +1174,16 @@ void TraceClosedPlayerUpdate::updatePlayer(
         trace->onPreState(preState);
     }
 
+    const auto finishCallback = [&]() {
+        player.syncToRaw();
+        const PlayerRawRecord postState = player.toRaw();
+        captureWrites(preState, postState, trace);
+        stage(trace, PlayerUpdateStage::CapturePostState);
+        if (trace != 0) {
+            trace->onPostState(postState);
+        }
+    };
+
     // Static 01F7:3FF8 calls 5937 before testing DS:89EA. Its direct body
     // publishes only address-qualified auxiliary state; the nested 386F and
     // runtime-selected 0598 callbacks remain outside this player simulation
@@ -1063,13 +1191,11 @@ void TraceClosedPlayerUpdate::updatePlayer(
     updateAuxiliaryPlayerDispatch5937(_globals, trace);
 
     if (_globals.collisionTransitionMode89EA != 0) {
-        stage(trace, PlayerUpdateStage::UnresolvedBoundary);
-        player.syncToRaw();
-        const PlayerRawRecord postState = player.toRaw();
-        captureWrites(preState, postState, trace);
-        if (trace != 0) {
-            trace->onPostState(postState);
-        }
+        // Static 01F7:4002 -> 01F7:4416.  This branch is also reached by
+        // natural W1L1 damage (player-transition-writer-callback-v1), so it
+        // is part of ordinary gameplay rather than a menu-only boundary.
+        transitionBranch4416(player, world, _globals, trace);
+        finishCallback();
         return;
     }
 
@@ -1254,13 +1380,7 @@ void TraceClosedPlayerUpdate::updatePlayer(
     }
 
 callback_complete:
-    player.syncToRaw();
-    const PlayerRawRecord postState = player.toRaw();
-    captureWrites(preState, postState, trace);
-    stage(trace, PlayerUpdateStage::CapturePostState);
-    if (trace != 0) {
-        trace->onPostState(postState);
-    }
+    finishCallback();
 }
 
 void TraceClosedPlayerUpdate::publishPlatformCarry(

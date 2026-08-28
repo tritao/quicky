@@ -20,10 +20,13 @@ The current iteration supports:
 - an explicit MAP-cell-to-descriptor query bridge using confirmed quadrant rules;
 - an SDL3 interactive W1L1 frontend with fixed-step input and camera scrolling;
 - a shared SDL audio mixer that combines gameplay music with confirmed pickup SFX;
+- the recovered `01F7:4416–44FE` transition branch, including its ordered
+  descriptor probes, live-EAX Y correction, `DS:89EA` decrement, terminal
+  `DS:89EC` write, and zero `01F7:20AF` view publication;
 - ARE-backed level streaming with the scoped W1L1 object-family inventory;
   the shared collectible callback `01F7:8D20`, recovered normal-enemy family
   callbacks, and animated world-ICO callback `01F7:8E4B` are now published
-  through the scheduler, while unresolved transition contracts remain
+  through the scheduler, while unrelated outer transition contracts remain
   explicit at their recovered boundaries;
 
 The default W1L1 session now starts the player at the native traced

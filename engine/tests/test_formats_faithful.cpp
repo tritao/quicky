@@ -948,7 +948,13 @@ void testRecoveredNormalEnemyDamageContract() {
     assert(terminal.player.contactScratch2B == 0);
     assert(terminal.player.resetDeathTimer3E == 0x03e8);
     assert(terminal.player.velocityX.raw == 0x00018000);
-    assert(terminal.player.velocityY.raw == static_cast<std::int32_t>(0xfffe0000U));
+    // 01F7:4416-44FE now runs after the 19E6 gate write.  The callback adds
+    // the live EAX value left by 1BD1, so the clear-descriptor control moves
+    // the integer Y word from 48 to 46 and leaves the post-4450 velocity at
+    // -0x1e800.
+    assert(terminal.player.xPixel() == 15);
+    assert(terminal.player.yPixel() == 46);
+    assert(terminal.player.velocityY.raw == static_cast<std::int32_t>(0xfffe1800U));
     assert(terminal.player.acceleration4C.raw == 0x00002000);
     assert(terminal.player.positiveYAcceleration50.raw == 0x00002000);
     assert(terminal.player.horizontalSpeedCap5C.raw == 0x00018000);

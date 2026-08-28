@@ -145,6 +145,7 @@ LevelGameplayState::LevelGameplayState()
       sharedTargetRows87de(),
       cloudSignal89e6(0),
       transitionGate89ea(0),
+      transitionState89ec(0),
       transitionEffectBits8950(0),
       platformLatch5006(0),
       platformCarryX8816(0),
@@ -3061,6 +3062,16 @@ void LevelSession::tick(Simulation &simulation,
             false);
     }
     simulation.tick(input, world, output);
+    if (simulation.playerUpdater() != 0 &&
+        simulation.playerUpdater()->hasTransitionState()) {
+        // 01F7:44DC mutates DS:89EA inside the player callback. Publish the
+        // post-callback value back to the level owner before cloud/completion
+        // consumers inspect the transition gate for this same frame.
+        _gameplayState.transitionGate89ea =
+            simulation.playerUpdater()->transitionGate89EA();
+        _gameplayState.transitionState89ec =
+            simulation.playerUpdater()->transitionState89EC();
+    }
     if (simulation.playerUpdater() != 0) {
         dependencyOrder.push_back(SimulationCallbackStep(
             SimulationCallbackPhase::PlayerUpdate, 0,

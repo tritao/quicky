@@ -354,8 +354,11 @@ The transition block at `4416` is separate from ordinary input. When
 it then advances the animation descriptor, publishes a zero EAX/EBX view
 delta, adds `0x1800` to Y velocity up to `0x20000`, queries current and Y-16
 descriptors, and uses relocated `1bd1` (CF selects the contact branch) before
-writing the transition position. A contact hit decrements `DS:89ea`; only
-values below `-0x15d` set `DS:89ec=-1`.
+writing the transition position. The `1bd1` call preserves the caller's
+upper EAX word while restoring the computed Y pixel word into AX; therefore
+`44ce` adds `(transition velocity high word):(player Y pixel word)` to the
+fixed-point Y record, not the full velocity value. A contact hit decrements
+`DS:89ea`; only values below `-0x15d` set `DS:89ec=-1`.
 
 ## Relevant globals and external calls
 

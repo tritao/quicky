@@ -116,6 +116,85 @@ void testLandingAndCeilingResponses() {
     assert(ceiling.statusWord12 == 13);
 }
 
+void testTransitionBranchPreservesLiveEaxAndProbeOrder() {
+    quiky::Map map = makeMap();
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    updater.globalsForSetup().collisionTransitionMode89EA = -1;
+    updater.globalsForSetup().dispatchDisplayCount8822 = 3;
+    updater.globalsForSetup().dispatchPublishedCount4FF8 = 3;
+    updater.globalsForSetup().publishedViewDeltaX60DC = 0x1234;
+    updater.globalsForSetup().publishedViewDeltaY60E0 = 0x5678;
+
+    quiky::PlayerRecord player = playerAt();
+    quiky::PlayerUpdateTrace trace;
+    updater.updatePlayer(player, quiky::InputState(), world, &trace);
+
+    // Ghidra 01F7:4467-44D3: after the -0x20000/+0x1800 velocity update,
+    // 1BD1 restores Y=0x0190 into AX while preserving EAX's upper 0xfffe.
+    // The clear path therefore adds 0xfffe0190, then subtracts 0x5000 X.
+    assert(player.velocityY.raw == static_cast<std::int32_t>(0xfffe1800U));
+    assert(player.positionY.raw == quiky::Fixed16::wrapAddRaw(
+        quiky::Fixed16::fromPixels(400).raw,
+        static_cast<std::int32_t>(0xfffe0190U)));
+    assert(player.positionX.raw == quiky::Fixed16::wrapSubRaw(
+        quiky::Fixed16::fromPixels(32).raw, 0x5000));
+    assert(updater.globals().collisionTransitionMode89EA == -1);
+    assert(updater.globals().dispatchDisplayCount8822 == 0);
+    assert(updater.globals().publishedViewDeltaX60DC == 0);
+    assert(updater.globals().publishedViewDeltaY60E0 == 0);
+    assert(trace.collisionProbes.size() == 3);
+    assert(!trace.collisionOccupied[0]);
+    assert(!trace.collisionOccupied[1]);
+    assert(!trace.collisionOccupied[2]);
+    assert(!trace.stages.empty());
+    assert(trace.stages[1] == quiky::PlayerUpdateStage::TransitionBranch);
+}
+
+void testTransitionBranchContactAndTerminalState() {
+    quiky::Map map = makeMap();
+    setCell(map, 2, 25, 1);
+    quiky::PlayerDescriptorTable descriptors;
+    // 0x0008 is the selected quadrant for x=32,y=400. It has no 0x70
+    // response bits, so the final 1BD1 probe—not the descriptor pair—takes
+    // the 44DC contact path.
+    descriptors.setWord(1, 0x0008);
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    updater.globalsForSetup().collisionTransitionMode89EA = -1;
+    updater.globalsForSetup().dispatchDisplayCount8822 = 1;
+    updater.globalsForSetup().dispatchPublishedCount4FF8 = 1;
+    quiky::PlayerRecord player = playerAt();
+    quiky::PlayerUpdateTrace trace;
+    updater.updatePlayer(player, quiky::InputState(), world, &trace);
+
+    assert(updater.globals().collisionTransitionMode89EA == -2);
+    assert(player.positionX.raw == quiky::Fixed16::fromPixels(32).raw);
+    assert(player.positionY.raw == quiky::Fixed16::fromPixels(400).raw);
+    assert(trace.collisionProbes.size() == 3);
+    assert(trace.collisionOccupied[2]);
+    assert(trace.globalWrites.size() == 2);
+    assert(trace.globalWrites[0].address == 0x8822);
+    assert(trace.globalWrites[1].address == 0x89ea);
+
+    updater.globalsForSetup().collisionTransitionMode89EA =
+        static_cast<std::int16_t>(0xfea3U); // -0x15d
+    updater.globalsForSetup().transitionState89EC = 0;
+    updater.globalsForSetup().dispatchPublishedCount4FF8 = 0;
+    quiky::PlayerRecord terminal = playerAt();
+    quiky::PlayerUpdateTrace terminalTrace;
+    updater.updatePlayer(terminal, quiky::InputState(), world, &terminalTrace);
+    assert(updater.globals().collisionTransitionMode89EA ==
+           static_cast<std::int16_t>(0xfea2U));
+    assert(updater.globals().transitionState89EC == -1);
+    assert(terminalTrace.globalWrites.size() == 2);
+    assert(terminalTrace.globalWrites[0].address == 0x89ea);
+    assert(terminalTrace.globalWrites[1].address == 0x89ec);
+}
+
 void testPostStepContactUsesCurrentRecordCoordinates() {
     quiky::Map map = makeMap();
     setCell(map, 2, 25, 45);
@@ -288,6 +367,8 @@ void test5937PublishesAddressQualifiedCountState() {
 int main() {
     testJumpInitiationAndProbeOrder();
     testLandingAndCeilingResponses();
+    testTransitionBranchPreservesLiveEaxAndProbeOrder();
+    testTransitionBranchContactAndTerminalState();
     testPostStepContactUsesCurrentRecordCoordinates();
     testCommonTailClosedAnimationAndViewCopy();
     testAnimationStreamContinuesPast3142DescriptorLabel();

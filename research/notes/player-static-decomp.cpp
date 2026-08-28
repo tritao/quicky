@@ -13,10 +13,6 @@ struct Flags {
     bool cf;                             // true when x86 CF=1
 };
 
-struct CarryOnly {
-    bool cf;                             // ZF/other flags are not consumed
-};
-
 struct ViewDelta {
     int32_t eax;
     int32_t ebx;
@@ -123,8 +119,10 @@ extern void far_write_word(uint16_t selector, uint16_t offset, uint16_t value);
 extern void update_auxiliary_player_dispatch_5937(PlayerRecord*); // 5937; direct body closed; 0598 target remains address-named
 extern int16_t animation_sequence_word(uint16_t sequence_offset); // raw DS:SI word
 extern void dispatch_transition_effect_0CE3();       // 01e7:0ce3 contract
-extern CarryOnly probe_transition_descriptor(PlayerRecord* p, uint16_t cx,
-                                             uint16_t dx); // 1bd1
+struct TransitionProbeReturn;
+extern TransitionProbeReturn probe_transition_descriptor(
+    PlayerRecord* p, uint16_t cx, uint16_t dx,
+    int32_t caller_eax); // 1bd1; CF plus live EAX/AX result
 extern Flags probe_map_word_bit_4000(int16_t y, int16_t x); // 1c6e
 extern Flags probe_map_word_bit_1000(int16_t y, int16_t x); // 1c92
 extern void dispatch_pending_sound_effect();        // 01e7:0fcf
@@ -282,8 +280,19 @@ uint16_t read_descriptor_word(int16_t y, int16_t x) {
 // Far entry 01f7:1bd1.  This is the transition branch's final collision
 // helper, not a generic boolean descriptor query.  CX is the Y offset and DX
 // is the X offset relative to the player record.  The helper preserves the
-// original coordinates for the quadrant tests and publishes only CF.
-CarryOnly probe_transition_descriptor(PlayerRecord* p, uint16_t cx, uint16_t dx) {
+// original coordinates for the quadrant tests and publishes CF. The helper
+// is 16-bit internally: it restores the computed Y pixel word into AX and
+// never rewrites the upper EAX word. 44CE therefore consumes that live EAX
+// value as well as the carry flag.
+struct TransitionProbeReturn {
+    bool cf;
+    int32_t eax;
+};
+
+TransitionProbeReturn probe_transition_descriptor(PlayerRecord* p,
+                                                  uint16_t cx,
+                                                  uint16_t dx,
+                                                  int32_t caller_eax) {
     const int16_t y = static_cast<int16_t>(
         static_cast<uint16_t>(p->y_pixel()) + cx);
     const int16_t x = static_cast<int16_t>(
@@ -291,13 +300,18 @@ CarryOnly probe_transition_descriptor(PlayerRecord* p, uint16_t cx, uint16_t dx)
     const uint16_t descriptor = read_descriptor_word(y, x);
     const uint8_t low_nibble = static_cast<uint8_t>(descriptor & 0x000f);
     if (low_nibble == 0)
-        return {false};                                // 1c1b: CLC
+        return {false, static_cast<int32_t>(
+            (static_cast<uint32_t>(caller_eax) & 0xffff0000U) |
+            static_cast<uint16_t>(y))};                // 1c1b: CLC
 
     const uint16_t mask =
         (static_cast<uint16_t>(y) & 8) != 0
             ? (((static_cast<uint16_t>(x) & 8) != 0) ? 0x0002 : 0x0001)
             : (((static_cast<uint16_t>(x) & 8) != 0) ? 0x0004 : 0x0008);
-    return {(descriptor & mask) != 0};                 // 1c22..1c4c
+    return {(descriptor & mask) != 0,
+            static_cast<int32_t>(
+                (static_cast<uint32_t>(caller_eax) & 0xffff0000U) |
+                static_cast<uint16_t>(y))};            // 1c22..1c4c
 }
 
 // Far entry 01f7:5c27.  The low descriptor nibble is selected by coordinate
@@ -1167,10 +1181,12 @@ transition_block_4416:
         uint16_t d1 = read_descriptor_word(
             static_cast<int16_t>(p->y_pixel() - 16), p->x_pixel());
         if ((d0 & 0x0070) == 0 && (d1 & 0x0070) == 0) {
-            Flags transition = probe_transition_descriptor(p, 0, 0); // 1bd1
+            const int32_t caller_eax = p->vy();
+            TransitionProbeReturn transition =
+                probe_transition_descriptor(p, 0, 0, caller_eax); // 1bd1
             if (transition.cf)
                 goto transition_hit_44dc;
-            p->y(p->y() + p->vy());
+            p->y(p->y() + transition.eax);
             p->x(p->x() - 0x5000);
         } else {
             goto transition_hit_44dc;
@@ -1183,10 +1199,12 @@ transition_block_4416:
             static_cast<int16_t>(p->y_pixel() - 16), p->x_pixel());
         if ((d0 & 0x0070) != 0 || (d1 & 0x0070) != 0)
             goto transition_hit_44dc;
-        Flags transition = probe_transition_descriptor(p, 0, 0); // 1bd1
+        const int32_t caller_eax = p->vy();
+        TransitionProbeReturn transition =
+            probe_transition_descriptor(p, 0, 0, caller_eax); // 1bd1
         if (transition.cf)
             goto transition_hit_44dc;
-        p->y(p->y() + p->vy());
+        p->y(p->y() + transition.eax);
         p->x(p->x() - 0x5000);
     }
     return;

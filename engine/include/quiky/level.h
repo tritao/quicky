@@ -121,6 +121,10 @@ struct LevelGameplayState {
     // Input/transition gate consumed by the same callback; its outer state
     // machine remains outside this level closure.
     std::uint16_t transitionGate89ea;
+    // DS:89EC is published by the terminal side of the player's 4416 branch.
+    // It is retained at the session boundary for complete callback-global
+    // replay even though the outer lifecycle consumer is still separate.
+    std::uint16_t transitionState89ec;
     // 01F7:19E6 clears bits 0x30 on terminal damage. The remaining bits are
     // retained because the delayed death/recovery consumer is not yet native.
     std::uint16_t transitionEffectBits8950;
