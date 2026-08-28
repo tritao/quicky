@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 from .common import ToolError, run_compat_script, tools_root
+from .runs import validate_run_directory, verify_run_directory
 
 
 ALIASES = {
@@ -28,7 +29,7 @@ def _top_parser() -> argparse.ArgumentParser:
             "remain valid while shared APIs migrate behind them."
         ),
         epilog=(
-            "Commands: parity player|session, frame, trace, verify SCRIPT, "
+            "Commands: run validate|verify DIR, parity player|session, frame, trace, verify SCRIPT, "
             "ghidra SCRIPT.\n"
             "Examples: quiky parity player --original DOS.json --candidate native.json; "
             "quiky frame native.bmp dos.png --strict; quiky trace --help"
@@ -45,6 +46,13 @@ def _parity_parser() -> argparse.ArgumentParser:
     parser.add_argument("kind", choices=("player", "session", "w1l1", "w1l1-session"))
     parser.add_argument("args", nargs=argparse.REMAINDER,
                         help="arguments accepted by the historical comparator")
+    return parser
+
+
+def _run_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(prog="quiky run")
+    parser.add_argument("operation", choices=("validate", "verify"))
+    parser.add_argument("directory", type=Path)
     return parser
 
 
@@ -80,6 +88,18 @@ def main(argv: list[str] | None = None) -> int:
         if command == "parity":
             parsed = _parity_parser().parse_args(tail)
             return run_compat_script(ALIASES[parsed.kind], parsed.args)
+        if command == "run":
+            parsed = _run_parser().parse_args(tail)
+            if parsed.operation == "validate":
+                validate_run_directory(parsed.directory)
+                print(f"OK: recorded run {parsed.directory}")
+                return 0
+            mismatches, coverage = verify_run_directory(parsed.directory)
+            if mismatches:
+                print(f"MISMATCH fields={len(mismatches)} coverage_gaps={len(coverage)}")
+                return 1
+            print(f"OK: recorded run parity; coverage_gaps={len(coverage)}")
+            return 0
         if command == "frame":
             return run_compat_script(ALIASES["frame"], tail)
         if command == "trace":

@@ -12,7 +12,17 @@ sys.path.insert(0, str(TOOLS))
 
 from quiky.coverage import coverage_for_trace  # noqa: E402
 from quiky.parity import compare_player, compare_session  # noqa: E402
-from quiky.runs import RUN_SCHEMA, new_run_manifest, save_manifest, load_manifest  # noqa: E402
+from quiky.runs import (  # noqa: E402
+    RUN_SCHEMA,
+    load_input_jsonl,
+    new_run_manifest,
+    save_input_jsonl,
+    save_manifest,
+    load_manifest,
+    stage_run_files,
+    validate_run_directory,
+    verify_run_directory,
+)
 from quiky.trace import load_trace  # noqa: E402
 
 
@@ -93,6 +103,75 @@ class QuikyToolingTests(unittest.TestCase):
                                    capture_output=True, check=False)
         self.assertEqual(completed.returncode, 0, completed.stderr)
         self.assertIn("OK: player callback parity", completed.stdout)
+
+    def test_canonical_input_stream_is_strict_and_round_trips(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "input.jsonl"
+            rows = [
+                {"sequence": 1, "guest_frame": 100,
+                 "input_flags": 4, "camera": {"x": 0, "y": 262}},
+                {"sequence": 2, "guest_frame": 101, "input_flags": 0},
+            ]
+            save_input_jsonl(path, rows)
+            self.assertEqual(load_input_jsonl(path), rows)
+            path.write_text(path.read_text(encoding="utf-8") + "\n",
+                            encoding="utf-8")
+            with self.assertRaisesRegex(Exception, "blank line"):
+                load_input_jsonl(path)
+
+    def test_named_run_validates_canonical_file_digests(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trace = root / "trace.json"
+            trace.write_text(json.dumps({"samples": [sample()]}),
+                             encoding="utf-8")
+            run = root / "w1l1-death-recovery"
+            stage_run_files(
+                run,
+                input_rows=[{"sequence": 1, "input_flags": 0}],
+                dos_state=trace,
+                native_state=trace,
+            )
+            manifest = validate_run_directory(run)
+            self.assertEqual(manifest["format_version"], 2)
+            self.assertIn("input.jsonl", manifest["files"])
+            (run / "native-state.json").write_text("tampered",
+                                                    encoding="utf-8")
+            with self.assertRaisesRegex(Exception, "digest mismatch"):
+                validate_run_directory(run)
+
+    def test_unified_frontend_validates_named_run(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trace = root / "trace.json"
+            trace.write_text(json.dumps({"samples": [sample()]}),
+                             encoding="utf-8")
+            run = root / "run"
+            stage_run_files(run, input_rows=[{"sequence": 1,
+                                              "input_flags": 0}],
+                            native_state=trace)
+            completed = subprocess.run(
+                [sys.executable, str(TOOLS / "quiky.py"), "run", "validate",
+                 str(run)], cwd=ROOT, text=True, capture_output=True,
+                check=False)
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+
+    def test_named_run_verify_writes_parity_and_coverage(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trace = root / "trace.json"
+            trace.write_text(json.dumps({"samples": [sample()]}),
+                             encoding="utf-8")
+            run = root / "run"
+            stage_run_files(run, input_rows=[{"sequence": 1,
+                                              "input_flags": 0}],
+                            dos_state=trace, native_state=trace)
+            mismatches, coverage = verify_run_directory(run)
+            self.assertEqual(mismatches, [])
+            self.assertEqual(coverage, [])
+            self.assertEqual(json.loads((run / "parity.json").read_text())[
+                "status"], "pass")
+            validate_run_directory(run)
 
 
 if __name__ == "__main__":
