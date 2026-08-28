@@ -1,0 +1,62 @@
+{
+  "schema": "quiky.player-contact-factory-watch.v1",
+  "purpose": "Bounded controlled-contact observation of the player-side 01F7:0E06 allocator call.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "research/build/traces/player-contact-tile-controlled-5-factory-watch-v1.json",
+    "trace_sha256": "9bcb4f4de10890d7d6b90920a01750dc7c759b6b3cb1ddcb4d5986f46e7fe30c",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "c96e28b7976cef24811fcc122f15db81ece11697a10b28795f7c6cd118e9d9ac"
+  },
+  "method": {
+    "level": "W1L1",
+    "samples": 12,
+    "frames_between": 1,
+    "map_patch": "temporary MAP cell (8,25) low-nine-bit tile replacement with 5",
+    "focus": "01F7:3FF8 with complete 0x78-byte callback capture",
+    "execute_watches": [
+      "01F7:648E",
+      "01F7:6484",
+      "01F7:6370",
+      "01F7:0E06",
+      "01F7:6328",
+      "01F7:16CE",
+      "01F7:10B5"
+    ],
+    "command": "python3 research/tools/quikytrace.py --launch --headless --runtime-dir game --select-level W1L1 --timeout 120 --player-trace --player-focus-callback --player-capture-record --player-samples 12 --player-frames-between 1 --player-map-patch-cell 8,25=5 --player-watch-execute 0x1f7:0x648e --player-watch-execute 0x1f7:0x6484 --player-watch-execute 0x1f7:0x6370 --player-watch-execute 0x1f7:0x0e06 --player-watch-execute 0x1f7:0x6328 --player-watch-execute 0x1f7:0x16ce --player-watch-execute 0x1f7:0x10b5 --output research/build/traces/player-contact-tile-controlled-5-factory-watch-v1.json"
+  },
+  "observations": {
+    "factory_hits": [
+      {"sample": 2, "frame": 1, "ax": "0x6328", "dx": "0x0000"},
+      {"sample": 7, "frame": 6, "ax": "0x6328", "dx": "0x0000"},
+      {"sample": 9, "frame": 8, "ax": "0x6328", "dx": "0x0000"},
+      {"sample": 11, "frame": 10, "ax": "0x6328", "dx": "0x0000"}
+    ],
+    "child_callback_hits": [
+      {"sample": 3, "pool_offset": "0x0078", "callback": "01F7:6328"},
+      {"sample": 8, "pool_offset": "0x0078", "callback": "01F7:6328"},
+      {"sample": 10, "pool_offset": "0x0078", "callback": "01F7:6328"},
+      {"sample": 12, "pool_offset": "0x0078", "callback": "01F7:6328"}
+    ],
+    "factory_call_count": 4,
+    "selected_callback_consistent": true,
+    "selected_dx_consistent": true,
+    "ordered_route": "01F7:648E -> 01F7:0E06(AX=0x6328,DX=0) -> 01F7:6484/6370 return-side checks -> 01F7:6328 child callback"
+  },
+  "interpretation": {
+    "confirmed": [
+      "The player contact path reaches the shared 01F7:0E06 allocator with AX=0x6328 and DX=0.",
+      "The subsequent pooled child is scheduled with callback 01F7:6328 at pool offset 0x0078 in every observed allocation window.",
+      "This runtime route agrees with the Ghidra 01F7:6432/654E relocation contracts and the static 0E06 initializer matrix."
+    ],
+    "not_claimed": [
+      "The pool allocator's complete post-allocation record is already covered statically; this execute watch does not replace a before/after pool snapshot.",
+      "The controlled MAP patch does not classify retail descriptor bits or prove natural contact frequency.",
+      "The result does not generalize to unrelated 0E06-selected object families."
+    ]
+  },
+  "status": "controlled_player_contact_factory_callback_selection_confirmed"
+}

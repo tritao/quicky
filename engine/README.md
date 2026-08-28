@@ -572,6 +572,8 @@ Explicit unresolved boundaries:
   player/global/object writes, return-CF contract, pooled `6328` child
   lifetime/terminal callback clear, and controlled `16CE` MAP-word rewrite
   are recovered in [`player-contact-map-writer-v1.json`](../research/evidence/player-dos-parity/player-contact-map-writer-v1.json),
+  and the direct controlled allocator selection is pinned in
+  [`player-contact-factory-watch-v1.json`](../research/evidence/player-dos-parity/player-contact-factory-watch-v1.json),
   but natural feedback into a later callback remains open;
 - runtime records outside the W1L1-observed `01F7:04DF`/`01F7:0517` target set
   at the `01F7:0598` indirect call site; the W1L1 low-byte matrix shows no

@@ -243,8 +243,10 @@ lifetime contract.
   show no simulation feedback. Runtime records outside that target set remain
   address-named and are the only reason this edge stays open.
 - `01F7:0E06` (`object_pool_factory_0E06`) is a closed external contract for
-  the contact factory's arguments and object/pool side effects, but the exact
-  runtime object family remains only partially identified.
+  the contact factory's arguments and object/pool side effects. The focused
+  controlled-contact watch confirms the player route selects `AX=0x6328,
+  DX=0` and produces the observed pooled `01F7:6328` child; unrelated caller
+  families remain address-qualified.
 - `01F7:F21B/F21C` is retained as the input dispatch boundary. Ghidra emits
   malformed computed-jump warnings beyond the valid segment image; the raw
   bytes, function name, action-bit contract, and callback call site remain
