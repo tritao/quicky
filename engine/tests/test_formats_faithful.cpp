@@ -1343,6 +1343,27 @@ void testRecoveredW1L1AmbientAndDedicatedContracts() {
     assert(seededLeaves.entities()[0].ambientAnimationDelay == 7);
     assert(seededLeaves.entities()[0].spriteSlot == 700);
 
+    // Camera-owned leaf declarations are persistent emitters. Once the
+    // visible child falls through the camera window, the native runtime must
+    // recycle it from the authored origin instead of permanently culling the
+    // already-claimed declaration.
+    quiky::LevelSession cameraLeaves("W1L1.MAP", map,
+                                    makeSingleArea(0x2b), seededConfig);
+    cameraLeaves.reset(simulation);
+    // Enter through adjacent vertical strips so the incremental camera
+    // scanner claims the fixture's cell at region (0,0).
+    cameraLeaves.setStreamAnchor(0, 64);
+    cameraLeaves.updateStreaming(simulation, 0, 64);
+    cameraLeaves.setStreamAnchor(0, 0);
+    cameraLeaves.updateStreaming(simulation, 0, 0);
+    assert(cameraLeaves.entities()[0].active);
+    for (int frame = 0; frame < 300; ++frame) {
+        cameraLeaves.tick(simulation, world, quiky::InputState(), output);
+    }
+    assert(cameraLeaves.entities()[0].active);
+    assert(cameraLeaves.entities()[0].y >= cameraLeaves.entities()[0].initialY);
+    assert(cameraLeaves.entities()[0].y < cameraLeaves.entities()[0].initialY + 0x130);
+
     quiky::LevelSession dedicated("W1L1.MAP", map, makeSingleArea(0x65), config);
     dedicated.reset(simulation);
     dedicated.updateStreaming(simulation, 16, 16);

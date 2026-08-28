@@ -1423,6 +1423,29 @@ bool LevelSession::updateStreamingImpl(ObjectScheduler *scheduler,
             visible = distanceX <= _config.streamRadiusRegions &&
                       distanceY <= _config.streamRadiusRegions;
         }
+
+        if (_streamAnchorActive && isLeafType(entity.type) && wasActive &&
+            !visible) {
+            // The ARE leaf is the persistent emitter anchor.  01F7:47E7's
+            // pooled child is removed when it leaves the camera, after which
+            // the emitter supplies another child from the authored position.
+            // The native model stores that child on the declaration itself,
+            // so recycle it here instead of leaving a claimed declaration
+            // dormant forever after its first fall.
+            const bool originVisible =
+                entity.initialX >= _streamAnchorX - 0x80 &&
+                entity.initialX <= _streamAnchorX + 0x1c0 &&
+                entity.initialY >= _streamAnchorY - 0x80 &&
+                entity.initialY <= _streamAnchorY + 0x130;
+            if (originVisible) {
+                entity.x = entity.initialX;
+                entity.y = entity.initialY;
+                entity.positionX = Fixed16::fromPixels(entity.x);
+                entity.positionY = Fixed16::fromPixels(entity.y);
+                initializeAmbientVisualRuntime(entity);
+                visible = true;
+            }
+        }
         if (visible && (isNormalEnemyType(entity.type) ||
                         isWorldEffectType(entity.type) ||
                         isCloudType(entity.type)) &&
