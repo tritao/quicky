@@ -149,4 +149,9 @@ void PlayerAnimation::advance(const PlayerRecord &player) {
     --_delay;
 }
 
+void PlayerAnimation::advance(const PlayerRecord &player, bool death) {
+    setDeath(death);
+    advance(player);
+}
+
 } // namespace quiky

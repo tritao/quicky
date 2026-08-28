@@ -116,6 +116,18 @@ void testPlayerAnimationTables() {
     player.velocityX = quiky::Fixed16::fromPixels(1);
     animation.advance(player);
     assert(animation.slot() == 50);
+
+    // Death is an outer lifecycle selection. It must not be inferred from
+    // action 4 or mode -1 alone because both are used by ordinary movement.
+    player.actionWord = 4;
+    player.mode37 = -1;
+    player.motionDirectionByte29 = 1;
+    animation.reset();
+    animation.advance(player, true);
+    assert(animation.slot() == 20);
+    player.motionDirectionByte29 = 0xff;
+    animation.advance(player, true);
+    assert(animation.slot() == 70);
 }
 
 void testWorldView() {

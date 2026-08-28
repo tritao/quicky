@@ -366,6 +366,15 @@ bool isKey(SDL_Scancode key, SDL_Scancode first, SDL_Scancode second = SDL_SCANC
     return key == first || key == second;
 }
 
+void advancePlayerAnimation(quiky::PlayerAnimation &animation,
+                            const quiky::PlayerRecord &player,
+                            const quiky::LevelRuntime &runtime) {
+    // The native transition gate remains signed-negative throughout the
+    // death hold while the outer lifecycle consumer counts down to recovery.
+    animation.advance(player,
+                      runtime.session().playerDeathAnimationActive(player));
+}
+
 } // namespace
 
 int main(int argc, char **argv) {
@@ -437,7 +446,7 @@ int main(int argc, char **argv) {
         quiky::PlayerRecord &player = output.player;
         quiky::PlayerAnimation playerAnimation;
         playerAnimation.reset();
-        playerAnimation.advance(player);
+        advancePlayerAnimation(playerAnimation, player, *runtime);
 
         checkSdl(SDL_Init(SDL_INIT_VIDEO), "SDL_Init");
 #ifdef QUIKY_WITH_MUSIC
@@ -529,7 +538,7 @@ int main(int argc, char **argv) {
                         runtime->reset(simulation);
                         output.player = simulation.state().player;
                         playerAnimation.reset();
-                        playerAnimation.advance(player);
+                        advancePlayerAnimation(playerAnimation, player, *runtime);
                         frame = 0;
                         accumulator = 0;
                         jumpPressed = false;
@@ -550,7 +559,7 @@ int main(int argc, char **argv) {
                     input.jump = jumpPressed;
                     input.alternate = alternate;
                     runtime->tick(simulation, input, output);
-                    playerAnimation.advance(player);
+                    advancePlayerAnimation(playerAnimation, player, *runtime);
                     ++frame;
                     jumpPressed = false;
                     const quiky::LevelEvent event = runtime->session().consumeEvent();
@@ -608,7 +617,7 @@ int main(int argc, char **argv) {
                             runtime.swap(next);
                             output.player = simulation.state().player;
                             playerAnimation.reset();
-                            playerAnimation.advance(player);
+                            advancePlayerAnimation(playerAnimation, player, *runtime);
                             frame = 0;
                             accumulator = 0;
                             jumpPressed = false;
@@ -628,7 +637,7 @@ int main(int argc, char **argv) {
                 input.jump = jumpPressed;
                 input.alternate = alternate;
                 runtime->tick(simulation, input, output);
-                playerAnimation.advance(player);
+                advancePlayerAnimation(playerAnimation, player, *runtime);
                 ++frame;
                 jumpPressed = false;
                 stepRequested = false;

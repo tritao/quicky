@@ -382,6 +382,10 @@ public:
     const std::vector<LevelEffect> &effects() const { return _effects; }
     bool hasPendingEvents() const { return !_events.empty(); }
     LevelEvent consumeEvent();
+    // The native death table is selected by the combined player mode and
+    // lifecycle globals. The action word is intentionally not sufficient:
+    // action 4 is shared by ordinary running.
+    bool playerDeathAnimationActive(const PlayerRecord &player) const;
     std::uint32_t score() const { return _score; }
     std::uint32_t deaths() const { return _deaths; }
     const LevelGameplayState &gameplayState() const { return _gameplayState; }

@@ -309,7 +309,8 @@ int main(int argc, char **argv) {
         quiky::PlayerRecord &player = output.player;
         quiky::PlayerAnimation playerAnimation;
         playerAnimation.reset();
-        playerAnimation.advance(player);
+        playerAnimation.advance(
+            player, runtime->session().playerDeathAnimationActive(player));
 
         if (hasHighEffect) {
             runtime->session().emitHighEffect(highEffectX, highEffectY);
@@ -317,7 +318,8 @@ int main(int argc, char **argv) {
         const quiky::InputState input = quiky::InputState::fromActionFlags(actionFlags);
         for (long frame = 0; frame < frames; ++frame) {
             runtime->tick(simulation, input, output);
-            playerAnimation.advance(player);
+            playerAnimation.advance(
+                player, runtime->session().playerDeathAnimationActive(player));
         }
 
         quiky::IndexedSurface scene = quiky::renderMap(runtime->map(), runtime->tileset());

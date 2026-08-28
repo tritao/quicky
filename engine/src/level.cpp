@@ -3203,4 +3203,15 @@ LevelEvent LevelSession::consumeEvent() {
     return event;
 }
 
+bool LevelSession::playerDeathAnimationActive(const PlayerRecord &player) const {
+    // Natural W1L1 death records combine mode -1 with a signed-negative
+    // DS:89EA gate and DS:8822=0. The gate is decremented during the hold,
+    // so it must not be compared only with its initial 0xffff value. Keep
+    // all three predicates: mode -1 alone is ordinary ascent, and the action
+    // word is not unique to death.
+    return player.mode37 == -1 &&
+           static_cast<std::int16_t>(_gameplayState.transitionGate89ea) < 0 &&
+           _gameplayState.currentHealth8822 == 0;
+}
+
 } // namespace quiky

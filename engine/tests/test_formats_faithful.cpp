@@ -960,6 +960,21 @@ void testRecoveredNormalEnemyDamageContract() {
     assert(terminal.player.horizontalSpeedCap5C.raw == 0x00018000);
     assert(terminal.player.positiveYSpeedCap60.raw == 0x00040000);
 
+    // The native death table remains active as the signed-negative gate is
+    // decremented during the hold. Mode -1 alone must not classify ascent as
+    // death, and a nonzero health word must not classify a transition as it.
+    quiky::LevelSession lifecycleProbe("W1L1.MAP", map,
+                                      makeSingleArea(0x01), config);
+    quiky::PlayerRecord deathPlayer = terminal.player;
+    lifecycleProbe.gameplayStateForSetup().transitionGate89ea = 0xfffe;
+    lifecycleProbe.gameplayStateForSetup().currentHealth8822 = 0;
+    assert(lifecycleProbe.playerDeathAnimationActive(deathPlayer));
+    lifecycleProbe.gameplayStateForSetup().transitionGate89ea = 0;
+    assert(!lifecycleProbe.playerDeathAnimationActive(deathPlayer));
+    lifecycleProbe.gameplayStateForSetup().transitionGate89ea = 0xfffe;
+    lifecycleProbe.gameplayStateForSetup().currentHealth8822 = 1;
+    assert(!lifecycleProbe.playerDeathAnimationActive(deathPlayer));
+
     assert(run(0x01, 2, 0xffff, 0, 0, 0).event.type ==
            quiky::LevelEventType::None);
     assert(run(0x01, 2, 0, 0xd2, 0, 0).event.type ==

@@ -18,6 +18,10 @@ public:
     void setAction(std::uint16_t action);
     void setDeath(bool death);
     void advance(const PlayerRecord &player);
+    // The death table is selected by the outer lifecycle state, not by the
+    // action word: action 4 is also used by ordinary running. This overload
+    // updates that recovered lifecycle bit before advancing the table.
+    void advance(const PlayerRecord &player, bool death);
 
     std::uint16_t action() const { return _action; }
     bool death() const { return _death; }
