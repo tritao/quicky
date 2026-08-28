@@ -785,7 +785,10 @@ void integrateHorizontalMotion(PlayerRecord &player,
         if (player.mode37 == 0 && globals.idleCounter4FEE < 0x00d2) {
             loadAnimationDescriptor(player, 0x3156, trace);
         }
-        if (player.animationState36 == 0) {
+        // 01F7:3AB9's idle-state publication belongs to ordinary mode. The
+        // negative/jump path still traverses this common horizontal helper,
+        // but DOS leaves +0x36 untouched there.
+        if (player.mode37 == 0 && player.animationState36 == 0) {
             player.animationState36 = 1;
         }
         if (player.velocityX.raw > 0) {

@@ -202,6 +202,27 @@ void testAnimationStreamContinuesPast3142DescriptorLabel() {
     assert(player.field24 == 0x3152);
 }
 
+void testNegativeModeLeavesAnimationStateUntouched() {
+    quiky::Map map = makeMap();
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    quiky::PlayerRecord player = playerAt();
+    player.mode37 = -1;
+    player.animationState36 = 0;
+    player.velocityY.raw = -0x1000;
+    player.negativeYAcceleration58.raw = 0;
+    player.syncToRaw();
+
+    updater.updatePlayer(player, quiky::InputState(), world, 0);
+
+    // The shared 3AB9 helper does not publish the ordinary idle-state byte
+    // while the player remains in negative/jump mode.
+    assert(player.mode37 == -1);
+    assert(player.animationState36 == 0);
+}
+
 void testStaticHorizontalAnimationDescriptors() {
     quiky::Map map = makeMap();
     quiky::PlayerDescriptorTable descriptors;
@@ -270,6 +291,7 @@ int main() {
     testPostStepContactUsesCurrentRecordCoordinates();
     testCommonTailClosedAnimationAndViewCopy();
     testAnimationStreamContinuesPast3142DescriptorLabel();
+    testNegativeModeLeavesAnimationStateUntouched();
     testStaticHorizontalAnimationDescriptors();
     test5937PublishesAddressQualifiedCountState();
     std::cout << "player callback contact tests passed\n";

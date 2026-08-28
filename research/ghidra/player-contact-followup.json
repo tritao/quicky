@@ -267,8 +267,9 @@
       "following_observation": "each following ordinary no-input callback reloads 3156 before 5D60 and returns with +0x20=3",
       "confidence": "confirmed_static_and_dynamic",
       "stream_continuation": "3142 cursor reaches raw 3152=7 and 3154=FFF8 before the next loader entry 3156",
+      "negative_mode_animation_state": "3AB9 leaves +0x36 unchanged while mode is negative; the clean held-jump trace observes zero-to-zero across sequences 23-37",
       "descriptor_correction_source": "3D52/3D8F reads player +0x0A and writes its signed half to +0x0E in mode 0",
-      "evidence": ["raw:3AB9 callsite", "raw:3D02 3D52/3D8F", "dynamic:player-scoped-5D60-dense-landing-trace", "dynamic:held-jump-sequence-35"]
+      "evidence": ["raw:3AB9 callsite", "raw:3D02 3D52/3D8F", "dynamic:player-scoped-5D60-dense-landing-trace", "dynamic:held-jump-sequence-35", "dynamic:clean-held-jump-sequences-23-37"]
     },
     "ceiling_or_vertical_boundary": {
       "static_response": "negative mode detects occupied 3986 before or after integration and joins 41C1; 41C1 writes +0x3E=0x03E7, then 41CF writes +0x37=1, +0x0E=0 and loads animation 3186",

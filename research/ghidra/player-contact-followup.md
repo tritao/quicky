@@ -128,6 +128,12 @@ correction. After that correction, the held-jump comparison has zero
 post-record mismatches; its remaining 30 differences are the known extra
 watch-only probe entries in this diagnostic capture.
 
+The watch-free held-jump rerun preserves the input word through each sampled
+callback. Across negative-mode sequences 23–37, including jump-only and
+released-input samples, DOS keeps `+0x36=0`; the clean native replay now also
+keeps it at zero. This closes the shared `3AB9` animation-state boundary for
+negative mode without changing the ordinary-mode idle publication.
+
 The shared response at `41C1` writes `+0x3E=0x03E7`, then `41CF` writes
 `+0x37=1`, `+0x0E=0`, and loads sequence `3186`. The unpatched W1L1 trace
 confirms those writes for the ordinary apex join, not for a ceiling. A
