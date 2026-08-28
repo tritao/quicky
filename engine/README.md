@@ -446,6 +446,10 @@ Implemented from static evidence:
   stepping, and the address-qualified replay state needed before the
   transition gate. Nested `386F/0598` resource callbacks remain external;
 - complete raw `0x78` pre/post records and ordered trace publication.
+- the outer lifecycle-to-animation handoff: the interactive and frame
+  frontends select the measured death table only when the callback record is
+  in mode `-1`, health is zero, and the signed `DS:89EA` gate is negative.
+  This keeps ordinary ascent and action word `4` on their normal tables.
 
 Dynamically parity-validated:
 
@@ -468,6 +472,9 @@ Dynamically parity-validated:
 - an eight-callback W1L2 input replay with a real `KBD_space+KBD_up` press and
   release: complete player records, normalized input, ordered property probes,
   and callback-global writes all match exactly.
+- the natural W1L1 death trace's measured animation-state shape: action word
+  `4` is retained while mode `-1`, the gate remains negative through the hold,
+  and the death sequence uses the `20..28` table before checkpoint recovery.
 - a twenty-callback W1L2 replay through jump initiation, apex, free fall, and
   natural landing; complete records, ordered property probes, and global
   writes match exactly at every sampled callback.
