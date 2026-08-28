@@ -6,11 +6,14 @@
 #include "quiky/palette.h"
 #include "quiky/tileset.h"
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <vector>
 
 namespace quiky {
+
+struct Bob;
 
 struct IndexedSurface {
     std::uint32_t width;
@@ -41,6 +44,13 @@ void drawSmallFontNumber(IndexedSurface &surface,
                          std::uint32_t value, std::size_t digitCount,
                          std::int32_t destinationX,
                          std::int32_t destinationY);
+
+// Draw the collected puzzle letters into the native GAMEBAR layout. The
+// letters are stored in NESQUIK.BOB slots 621..627 and their positions match
+// the seven changed-bit dispatches from 01F7:5937.
+void drawCollectedPuzzleLetters(IndexedSurface &surface,
+                                const Bob &nesquikBob,
+                                std::uint16_t puzzleMask60d8);
 
 // Crop the camera-visible world to the native 320x176 gameplay area, then
 // append the opaque GAMEBAR strip to produce one complete 320x200 frame.

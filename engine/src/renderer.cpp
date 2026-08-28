@@ -1,5 +1,7 @@
 #include "quiky/renderer.h"
 
+#include "quiky/bob.h"
+
 #include <cstdlib>
 #include <fstream>
 #include <sstream>
@@ -101,6 +103,46 @@ void drawSmallFontNumber(IndexedSurface &surface,
             }
         }
         divisor /= 10;
+    }
+}
+
+void drawCollectedPuzzleLetters(IndexedSurface &surface,
+                                const Bob &nesquikBob,
+                                std::uint16_t puzzleMask60d8) {
+    // 01F7:5959-59FB forwards these exact screen coordinates and BOB slots
+    // through the native 386F/0442 presentation dispatcher. Keep this table
+    // data-driven so the gameplay mask remains the only collection state.
+    static const std::uint16_t kMasks[] = {
+        0x0001, 0x0002, 0x0004, 0x0008,
+        0x0010, 0x0020, 0x0040,
+    };
+    static const std::int32_t kX[] = {
+        0x0109, 0x0113, 0x011a, 0x0121,
+        0x0128, 0x012f, 0x0132,
+    };
+    static const std::uint16_t kSlots[] = {
+        0x026d, 0x026e, 0x026f, 0x0270,
+        0x0271, 0x0272, 0x0273,
+    };
+
+    for (std::size_t index = 0; index < sizeof(kMasks) / sizeof(kMasks[0]);
+         ++index) {
+        if ((puzzleMask60d8 & kMasks[index]) == 0) {
+            continue;
+        }
+
+        const BobRecord *record = 0;
+        for (std::size_t recordIndex = 0;
+             recordIndex < nesquikBob.records.size(); ++recordIndex) {
+            if (nesquikBob.records[recordIndex].slot == kSlots[index]) {
+                record = &nesquikBob.records[recordIndex];
+                break;
+            }
+        }
+        if (record == 0) {
+            throw FormatError("NESQUIK.BOB is missing puzzle-letter HUD slot");
+        }
+        drawBobRecord(surface, *record, kX[index], 6, false);
     }
 }
 

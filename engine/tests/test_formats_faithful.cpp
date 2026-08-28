@@ -225,6 +225,48 @@ void testSmallFontNumber() {
     assert(bar.at(25, 2) == 0xee);
 }
 
+quiky::Bob makeHudLetterBob() {
+    quiky::Bob bob;
+    for (std::size_t index = 0; index < 7; ++index) {
+        quiky::BobRecord record;
+        record.recordOffset = 0;
+        record.slot = static_cast<std::uint16_t>(621 + index);
+        record.originX = 0;
+        record.originY = 0;
+        record.width = 1;
+        record.height = 1;
+        record.codeOffsets.push_back(0);
+        record.blitterCode = {
+            0xee, 0xd0, 0xc0, 0xc6, 0x84, 0x00, 0x00,
+            static_cast<quiky::byte>(100 + index),
+        };
+        bob.records.push_back(record);
+    }
+    return bob;
+}
+
+void testCollectedPuzzleLetterHud() {
+    const quiky::Bob bob = makeHudLetterBob();
+    quiky::IndexedSurface bar(320, 24);
+    std::fill(bar.pixels.begin(), bar.pixels.end(), 0);
+
+    quiky::drawCollectedPuzzleLetters(bar, bob, 0x0005);
+    assert(bar.at(0x0109, 6) == 100);
+    assert(bar.at(0x011a, 6) == 102);
+    assert(bar.at(0x0113, 6) == 0);
+
+    std::fill(bar.pixels.begin(), bar.pixels.end(), 0);
+    quiky::drawCollectedPuzzleLetters(bar, bob, 0x007f);
+    const std::uint32_t positions[] = {
+        0x0109, 0x0113, 0x011a, 0x0121,
+        0x0128, 0x012f, 0x0132,
+    };
+    for (std::size_t index = 0; index < 7; ++index) {
+        assert(bar.at(positions[index], 6) ==
+               static_cast<quiky::byte>(100 + index));
+    }
+}
+
 void testAreaAndBob() {
     quiky::Area area = makeSingleArea(0x2b);
     assert(area.layoutWidth == 2 && area.layoutHeight == 1);
@@ -462,6 +504,16 @@ void testRecoveredCollectibleStateContracts() {
     assert(event.type == quiky::LevelEventType::Collected);
     assert(letter.gameplayState().puzzleMask60d8 == 1);
     assert(letter.score() == 100);
+
+    // The collectible callback runs after the player callback. The mask is
+    // therefore consumed by 5937 on the next player tick, not lost at the
+    // level/session boundary.
+    assert(updater.globals().dispatchWord60D8 == 0);
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView callbackWorld(map, &descriptors);
+    letter.tick(simulation, callbackWorld, quiky::InputState(), output);
+    assert(updater.globals().dispatchWord60D8 == 1);
+    assert(updater.globals().dispatchPreviousWord60DA == 1);
 }
 
 void testRecoveredCollectibleStrictBounds() {
@@ -1429,6 +1481,7 @@ int main() {
         testFormatsAndRenderer();
         testGameplayFrameComposition();
         testSmallFontNumber();
+        testCollectedPuzzleLetterHud();
         testAreaAndBob();
         testFaithfulRecordWorldAndAnimation();
         testLevelSessionUsesSimulationBoundary();

@@ -67,6 +67,10 @@ public:
     const Palette &palette() const { return _palette; }
     const PcxImage &gamebar() const { return _gamebar; }
     const PcxImage &smallFont() const { return _smallFont; }
+    // GAMEBAR.BOB contains the native numeric/status sprites. NESQUIK.BOB
+    // contains the seven small letters used by the in-game progress display.
+    const Bob &gamebarBob() const { return _gamebarBob; }
+    const Bob &nesquikBob() const { return _nesquikBob; }
     const Tileset &tileset() const { return _tileset; }
     const Tileset &loopTileset() const { return _loopTileset; }
     const Bob &playerBob() const { return _playerBob; }
@@ -102,6 +106,7 @@ private:
                  const std::string &worldName, const std::string &playerBobName,
                  const Map &map, const Area &area, const Palette &palette,
                  const PcxImage &gamebar, const PcxImage &smallFont,
+                 const Bob &gamebarBob, const Bob &nesquikBob,
                  const Tileset &tileset,
                  const Tileset &loopTileset,
                  const Bob &playerBob,
@@ -119,6 +124,8 @@ private:
     Palette _palette;
     PcxImage _gamebar;
     PcxImage _smallFont;
+    Bob _gamebarBob;
+    Bob _nesquikBob;
     Tileset _tileset;
     Tileset _loopTileset;
     Bob _playerBob;

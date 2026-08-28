@@ -414,6 +414,8 @@ quiky::IndexedSurface gameplayGamebar(const quiky::LevelRuntime &runtime) {
     quiky::drawSmallFontNumber(
         gamebar, smallFont,
         std::min<std::uint16_t>(99, state.ammo880c), 2, 0xb4, 8);
+    quiky::drawCollectedPuzzleLetters(
+        gamebar, runtime.nesquikBob(), state.puzzleMask60d8);
     return gamebar;
 }
 

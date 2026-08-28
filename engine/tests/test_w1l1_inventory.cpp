@@ -58,6 +58,15 @@ void testW1L1Inventory(const std::string &archivePath) {
     std::unique_ptr<quiky::LevelRuntime> runtime =
         quiky::LevelRuntime::load(archive, "W1L1.MAP", "QUIKYW1.BOB", config);
 
+    assert(runtime->gamebarBob().records.size() == 10);
+    assert(runtime->gamebarBob().records.front().slot == 500);
+    assert(runtime->gamebarBob().records.back().slot == 509);
+    assert(runtime->nesquikBob().records.size() == 8);
+    for (std::size_t index = 0; index < 7; ++index) {
+        assert(runtime->nesquikBob().records[index].slot ==
+               static_cast<std::uint16_t>(621 + index));
+    }
+
     const std::map<std::uint16_t, std::size_t> expected = {
         {0x01, 10}, {0x03, 7},  {0x04, 3},  {0x1f, 1}, {0x20, 1},
         {0x28, 1},  {0x29, 5}, {0x2a, 12}, {0x2b, 39}, {0x65, 66},

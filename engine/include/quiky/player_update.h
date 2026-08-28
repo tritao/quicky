@@ -256,6 +256,13 @@ public:
         (void)pendingEvent612e;
     }
 
+    // 01F7:5937 reads DS:60D8 at the start of the player callback to publish
+    // changed puzzle-letter indicators. Session owners publish the current
+    // mask at the same boundary as the other callback globals.
+    virtual void publishPuzzleMask(std::uint16_t puzzleMask60d8) {
+        (void)puzzleMask60d8;
+    }
+
     // The recovered 4416-44FE branch decrements DS:89EA in the player
     // callback. Session owners must read it back after the callback or the
     // next frame would republish the stale pre-callback gate.
@@ -302,6 +309,7 @@ public:
                               std::int32_t yDelta8812) override;
     void publishTransitionGate(std::uint16_t transitionGate89ea) override;
     void publishPendingEvent(std::uint16_t pendingEvent612e) override;
+    void publishPuzzleMask(std::uint16_t puzzleMask60d8) override;
     bool hasTransitionState() const override { return true; }
     std::uint16_t transitionGate89EA() const override {
         return static_cast<std::uint16_t>(_globals.collisionTransitionMode89EA);

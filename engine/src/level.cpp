@@ -287,6 +287,8 @@ void LevelSession::reset(Simulation &simulation) {
             true);
         simulation.playerUpdater()->publishPendingEvent(
             _gameplayState.pendingEvent612e);
+        simulation.playerUpdater()->publishPuzzleMask(
+            _gameplayState.puzzleMask60d8);
     }
     _alternateActionActive = false;
     if (_config.hasLeafPrngState) {
@@ -409,6 +411,8 @@ void LevelSession::beginW1L1TerminalDamage(Simulation &simulation,
         simulation.playerUpdater()->publishGameplayCounters(
             _gameplayState.score881c, _gameplayState.lives880a,
             _gameplayState.ammo880c, 0, false);
+        simulation.playerUpdater()->publishPuzzleMask(
+            _gameplayState.puzzleMask60d8);
     }
     ++_deaths;
     enqueueEvent(LevelEventType::PlayerDied, entityId, entityType);
@@ -467,6 +471,8 @@ void LevelSession::recoverW1L1Player(Simulation &simulation) {
             _gameplayState.score881c, _gameplayState.lives880a,
             _gameplayState.ammo880c, _gameplayState.currentHealth8822,
             false);
+        simulation.playerUpdater()->publishPuzzleMask(
+            _gameplayState.puzzleMask60d8);
     }
     updateStreaming(simulation,
                     _streamAnchorActive ? _streamAnchorX : 1673,
@@ -3167,6 +3173,8 @@ void LevelSession::tick(Simulation &simulation,
             false);
         simulation.playerUpdater()->publishPendingEvent(
             _gameplayState.pendingEvent612e);
+        simulation.playerUpdater()->publishPuzzleMask(
+            _gameplayState.puzzleMask60d8);
     }
     simulation.tick(input, world, output);
     if (simulation.playerUpdater() != 0 &&

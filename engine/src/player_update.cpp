@@ -1503,6 +1503,11 @@ void TraceClosedPlayerUpdate::publishPendingEvent(
     _globals.pendingEvent612E = pendingEvent612e;
 }
 
+void TraceClosedPlayerUpdate::publishPuzzleMask(
+    std::uint16_t puzzleMask60d8) {
+    _globals.dispatchWord60D8 = puzzleMask60d8;
+}
+
 void TraceClosedPlayerUpdate::publishGameplayCounters(
     std::uint32_t score881c,
     std::uint16_t lives880a,
