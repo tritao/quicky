@@ -37,6 +37,19 @@ python3 research/tools/quiky.py capture process research/captures/NAME \
   --run research/runs/NAME
 ```
 
+For a real user path that needs collision or object diagnostics, add
+`--diagnostic`. This keeps the full callback snapshots and raw MAP-property
+lookups in the same incremental capture stream; it uses the same processing
+step and produces the same canonical run format:
+
+```sh
+python3 research/tools/quiky.py capture NAME --level W1L1 --diagnostic
+```
+
+Normal captures intentionally use the lean parity mode. Diagnostic mode is
+for short, user-closed sessions because its raw evidence is substantially
+larger.
+
 The lower-level import workflow remains available for an existing strict DOS
 capture:
 

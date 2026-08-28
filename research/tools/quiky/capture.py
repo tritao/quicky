@@ -70,7 +70,7 @@ def process_capture(capture: Path, run: Path, *, name: str,
 
 def capture_session(*, name: str, level: str, runtime_dir: Path,
                     profile: str, capture_only: bool, captures_root: Path,
-                    runs_root: Path) -> tuple[Path, Path | None]:
+                    runs_root: Path, diagnostic: bool = False) -> tuple[Path, Path | None]:
     if not name or Path(name).name != name:
         raise ToolError("capture name must be one path component")
     if (len(level) != 4 or level[0] != "W" or level[1] not in "12345" or
@@ -90,8 +90,15 @@ def capture_session(*, name: str, level: str, runtime_dir: Path,
     capture.mkdir(parents=True, exist_ok=True)
     temporary = capture / ".capture.qcap.tmp"
     manifest_path = capture / "manifest.json"
-    manifest = {"schema": CAPTURE_SCHEMA, "format_version": 1, "name": name,
-                "status": "recording", "level": level, "files": {}}
+    manifest = {
+        "schema": CAPTURE_SCHEMA,
+        "format_version": 1,
+        "name": name,
+        "status": "recording",
+        "level": level,
+        "capture_mode": "diagnostic" if diagnostic else "parity",
+        "files": {},
+    }
     manifest["inputs"] = inputs
     write_json(manifest_path, manifest)
     command = [
@@ -99,11 +106,18 @@ def capture_session(*, name: str, level: str, runtime_dir: Path,
         "--launch", "--runtime-dir", str(runtime_dir),
         "--output", str(temporary), "--select-level", level,
         "--player-trace", "--player-focus-callback", "--player-capture-record",
-        "--player-parity-capture", "--player-minimal-callback-capture",
-        "--player-record-input",
+        "--player-parity-capture", "--player-record-input-stream",
         "--interactive-capture",
         "--player-frames-between", "0", "--timeout", "86400",
     ]
+    if diagnostic:
+        # Keep the complete callback diagnostics and record every raw tile
+        # property lookup so a real user path can be compared with native
+        # collision probes.  Interactive mode already removes the instruction
+        # budget, so this is safe for a bounded, user-closed session.
+        command.append("--player-property-focus")
+    else:
+        command.append("--player-minimal-callback-capture")
     try:
         completed = subprocess.run(command, check=False)
     except KeyboardInterrupt as exc:

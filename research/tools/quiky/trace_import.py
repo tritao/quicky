@@ -17,7 +17,14 @@ GLOBAL_WRITES = {
     "pending_event": (0x612E, 2), "camera_x": (0x81C0, 2),
     "camera_y": (0x81C4, 2), "player_vertical_adjust": (0x8812, 4),
     "horizontal_result_byte": (0x4FF0, 1),
+    "timer_clear": (0x8810, 2),
 }
+
+# The diagnostic callback snapshot also observes the keyboard latch. It is
+# input plumbing (and is already represented by input_flags), not a native
+# replay-side state write. Keep it in raw capture evidence, but do not turn it
+# into a canonical write that native replay cannot publish.
+OBSERVATION_ONLY_WRITES = {"keyboard_action_flags"}
 
 
 def load_capture(path: Path) -> tuple[dict[str, Any], list[dict[str, Any]]]:
@@ -119,6 +126,8 @@ def global_writes(sample: dict[str, Any]) -> list[dict[str, Any]] | None:
     for item in values:
         normalized = dict(item)
         field = normalized.pop("field", None)
+        if field in OBSERVATION_ONLY_WRITES:
+            continue
         if field not in GLOBAL_WRITES:
             raise ToolError(f"sample {sample['sequence']}: unknown global write field {field!r}")
         normalized["offset"], normalized["width"] = GLOBAL_WRITES[field]

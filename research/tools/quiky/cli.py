@@ -67,6 +67,10 @@ def _capture_parser() -> argparse.ArgumentParser:
     parser.add_argument("--runtime-dir", type=Path, default=Path("game"))
     parser.add_argument("--profile", choices=PROFILES, default="exact")
     parser.add_argument("--capture-only", action="store_true")
+    parser.add_argument(
+        "--diagnostic", action="store_true",
+        help="retain full callback and MAP-property diagnostics for collision analysis",
+    )
     parser.add_argument("--captures-root", type=Path, default=Path("research/captures"))
     parser.add_argument("--runs-root", type=Path, default=Path("research/runs"))
     return parser
@@ -96,7 +100,8 @@ def _capture(args: list[str]) -> int:
     capture, run = capture_session(
         name=parsed.name, level=parsed.level, runtime_dir=parsed.runtime_dir,
         profile=parsed.profile, capture_only=parsed.capture_only,
-        captures_root=parsed.captures_root, runs_root=parsed.runs_root)
+        captures_root=parsed.captures_root, runs_root=parsed.runs_root,
+        diagnostic=parsed.diagnostic)
     print(f"OK: capture finalized at {capture}")
     if run is not None:
         print(f"OK: recorded run created at {run}")

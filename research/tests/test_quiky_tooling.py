@@ -20,6 +20,7 @@ from quiky.capture_stream import (append as append_capture_record,
                                   read as read_capture_stream)
 from quiky.state import (CHECKPOINTS, STATE_SCHEMA, compare_state, import_trace,
                          label_lifecycle, load_state_jsonl, save_state_jsonl)
+from quiky.trace_import import global_writes
 
 
 def record(seed: str) -> str:
@@ -280,6 +281,7 @@ class QuikyToolingTests(unittest.TestCase):
                     append_capture_record(stream, trace_sample())
                 self.assertIn("--interactive-capture", command)
                 self.assertIn("--player-minimal-callback-capture", command)
+                self.assertIn("--player-record-input-stream", command)
                 self.assertNotIn("--headless", command)
                 return SimpleNamespace(returncode=0)
 
@@ -291,6 +293,37 @@ class QuikyToolingTests(unittest.TestCase):
             self.assertEqual(captured.name, "played")
             self.assertEqual(run, root / "runs/played")
             self.assertEqual(validate_run_directory(run)["name"], "played")
+
+    def test_diagnostic_capture_keeps_property_samples(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+
+            def complete(command, **_kwargs):
+                output = Path(command[command.index("--output") + 1])
+                with output.open("wb") as stream:
+                    append_capture_record(stream, trace_sample())
+                self.assertIn("--player-property-focus", command)
+                self.assertNotIn("--player-minimal-callback-capture", command)
+                return SimpleNamespace(returncode=0)
+
+            with patch("quiky.capture.subprocess.run", side_effect=complete):
+                captured, run = capture_session(
+                    name="diagnostic", level="W1L1", runtime_dir=Path("game"),
+                    profile="exact", capture_only=True, diagnostic=True,
+                    captures_root=root / "captures", runs_root=root / "runs")
+            self.assertIsNone(run)
+            manifest = json.loads((captured / "manifest.json").read_text())
+            self.assertEqual(manifest["capture_mode"], "diagnostic")
+
+    def test_diagnostic_input_latch_writes_are_not_replay_state(self):
+        sample = trace_sample()
+        sample["player_callback"]["global_writes"] = [
+            {"field": "keyboard_action_flags", "before": 0, "after": 4},
+            {"field": "timer_clear", "before": 9, "after": 0},
+        ]
+        self.assertEqual(global_writes(sample), [{
+            "before": 9, "after": 0, "offset": 0x8810, "width": 2,
+        }])
 
 
 if __name__ == "__main__":
