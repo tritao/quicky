@@ -1,0 +1,52 @@
+{
+  "schema": "quiky.w1l1-seeded-session-object-parity.v1",
+  "purpose": "Record the seeded W1L1 session replay that removes the older DOS leaf-state mismatch without changing the recovered leaf callback.",
+  "source": {
+    "dos_trace": "research/build/player-frame-full-v1.json",
+    "dos_trace_sha256": "8e6d8c56c3e2829678e63c5548a2386ebaf30e30b954c0d87e7e06b45d9091e9",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "map": "W1L1.MAP",
+    "ring_derivation_tool": "research/tools/derive_w1l1_leaf_ring.py",
+    "comparator": "research/tools/w1l1_session_compare.py"
+  },
+  "method": {
+    "initial_prng_index": 0,
+    "pre_leaf_event_bytes": "000000000000",
+    "leaf_ring_prefix": "00000000000000980041005b019a014e004b",
+    "ring_tail": "zero-filled because the four-frame capture consumes no later leaf bytes",
+    "publication_order": "DOS pool order, matching the camera stream's descending region-X/ascending region-Y declaration order",
+    "native_command": "RING=$(python3 research/tools/derive_w1l1_leaf_ring.py research/build/player-frame-full-v1.json); build/engine/quiky-w1l1-trace game/NESTLE.DAT W1L1.MAP /tmp/w1l1-session-seeded.json --frames 4 --action-flags 0 --leaf-prng-index 0 --leaf-prng-ring-hex \"$RING\"",
+    "comparison_command": "python3 research/tools/w1l1_session_compare.py --original research/build/player-frame-full-v1.json --candidate /tmp/w1l1-session-seeded.json --max-report 4"
+  },
+  "coverage": {
+    "callbacks": 4,
+    "active_leaf_objects": 6,
+    "dos_fields_not_published": [
+      "leaf animation delay",
+      "leaf animation cursor",
+      "player callback probe arrays",
+      "player callback global-write arrays",
+      "player callback effect arrays"
+    ],
+    "diagnostic_coverage_gaps": 60
+  },
+  "comparison": {
+    "mismatches": 0,
+    "status": "known_object_state_parity",
+    "matching_fields": [
+      "complete 0x78-byte player records",
+      "scheduler callback order",
+      "leaf callback identity",
+      "leaf integer positions",
+      "leaf fixed-point vertical velocities",
+      "leaf sprite selectors",
+      "WERBE object identity and position"
+    ],
+    "interpretation": "The earlier six-leaf velocity mismatch was a missing DS:646C replay input. Supplying the six pre-leaf event bytes and twelve derived leaf bytes makes the complete comparable state exact; the remaining 60 items are coverage gaps from the DOS capture, not native mismatches."
+  },
+  "unresolved_boundaries": [
+    "DOS leaf animation cursor/delay and callback probe/effect arrays were not published by this older capture.",
+    "Natural ceiling attribution and retail moving-platform contact remain separate runtime questions."
+  ]
+}

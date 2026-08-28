@@ -342,6 +342,26 @@ exact for player records, scheduler order, WERBE, and active leaf position,
 velocity, animation cursor/delay, and sprite slot; the focused DOS capture's
 missing later pool/probe/effect arrays are reported as coverage gaps.
 
+For the older four-frame DOS pool capture, derive the replayable leaf ring
+instead of using the zero-seed fallback:
+
+~~~sh
+RING=$(python3 research/tools/derive_w1l1_leaf_ring.py \
+  research/build/player-frame-full-v1.json)
+build/engine/quiky-w1l1-trace game/NESTLE.DAT W1L1.MAP /tmp/w1l1-session-seeded.json \
+  --frames 4 --action-flags 0 --leaf-prng-index 0 \
+  --leaf-prng-ring-hex "$RING"
+python3 research/tools/w1l1_session_compare.py \
+  --original research/build/player-frame-full-v1.json \
+  --candidate /tmp/w1l1-session-seeded.json
+~~~
+
+This produces zero comparable mismatches for the complete player records,
+scheduler order, WERBE object, and all six leaf callback identities, positions,
+velocities, and sprite selectors. The exact seed prefix and the 60 honest
+coverage gaps are recorded in
+[`w1l1-seeded-session-object-parity-v1.json`](../research/evidence/player-dos-parity/w1l1-seeded-session-object-parity-v1.json).
+
 The first W1L2 difference family is now integrated from the focused
 protected-mode closure: ARE type `0x34` runs `01F7:9BEE` initialization and
 the phase-1 `01F7:9C0C` callback before `01F7:3FF8`. The native path preserves
