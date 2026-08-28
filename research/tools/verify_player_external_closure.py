@@ -1783,6 +1783,9 @@ def check_exports(ledger: dict[str, Any], root: Path) -> None:
         or '("1892", 256)' not in runner_text
         or '("5C11", 96)' not in runner_text
         or '("1C6E", 72)' not in runner_text
+        or '("1C92", 40)' not in runner_text
+        or '("3971", 40)' not in runner_text
+        or '("3986", 40)' not in runner_text
         or '("5C27", 96)' not in runner_text
         or '("5CC3", 96)' not in runner_text
         or '("5DC3", 48)' not in runner_text

@@ -370,14 +370,17 @@ uint16_t input_dispatch_f21C() {
 
 // --------------------------- Collision helpers ---------------------------
 
-// Near entry 01f7:3971.
+// Near entry 01f7:3971.  Both wrappers return the flags left by 1c92;
+// 1c92 loads the MAP word and executes TEST AH,0x10, i.e. the word's
+// 0x1000 occupancy bit.  The near RET does not alter those flags.
 Flags probe_vertical_10px(PlayerRecord* p) {
     return probe_map_word_bit_1000(
         static_cast<int16_t>(p->y_pixel() - 0x0a - p->u16(0x72)),
         p->x_pixel());
 }
 
-// Near entry 01f7:3986.
+// Near entry 01f7:3986.  The final SUB only forms the probe coordinate;
+// the far call's ZF is the value observed by the callback's JNZ/JZ branches.
 Flags probe_vertical_step(PlayerRecord* p) {
     return probe_map_word_bit_1000(
         static_cast<int16_t>(p->y_pixel() - p->u16(0x72)),

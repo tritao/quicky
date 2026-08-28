@@ -61,24 +61,24 @@
       "name": "probe_vertical_10px_3971",
       "classification": "contract",
       "inputs": "AX = y - 0x0A - +0x72; BX = x",
-      "outputs": "ZF from MAP word bit 0x1000",
+      "outputs": "ZF from 01F7:1C92 TEST AH,0x10 after the MAP word load; equivalent to MAP word bit 0x1000",
       "player_writes": [],
       "global_writes": [],
       "callees": ["01F7:1C92"],
       "confidence": "confirmed",
-      "evidence": ["raw:3971-3985", "callsite:42E8"]
+      "evidence": ["raw:3971-3985", "raw:1C92-1CB5", "callsite:42E8", "ghidra:protected-mode-vertical-probe-audit"]
     },
     {
       "address": "01F7:3986",
       "name": "probe_vertical_step_3986",
       "classification": "contract",
       "inputs": "AX = y - +0x72; BX = x",
-      "outputs": "ZF from MAP word bit 0x1000",
+      "outputs": "ZF from 01F7:1C92 TEST AH,0x10 after the MAP word load; equivalent to MAP word bit 0x1000",
       "player_writes": [],
       "global_writes": [],
       "callees": ["01F7:1C92"],
       "confidence": "confirmed",
-      "evidence": ["raw:3986-3997", "callsites:4323,4363,3AB9"]
+      "evidence": ["raw:3986-3997", "raw:1C92-1CB5", "callsites:4323,4363,3AB9", "ghidra:protected-mode-vertical-probe-audit"]
     },
     {
       "address": "01F7:5937",

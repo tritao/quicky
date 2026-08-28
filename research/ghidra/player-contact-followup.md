@@ -68,8 +68,8 @@ without the `4356` apex join.
 | `01F7:3D02` | `apply_descriptor_vertical_correction_3D02` | `+3B`, integer `(x,y)`, descriptor; AL/ZF return sites `3DF1/3DE4/3D44` | `+08`, mode-zero `+0E`, `+3A` | `5CC3` | Confirmed from raw `3D02–3DF1` and descriptor matrix |
 | `01F7:3DF2` | `snap_player_y_on_side_contact_3DF2` | `+3B/+3A`; ordered `(x-5,y)`, `(x+5,y)` probes | `+08 &= 0xFFF8` | `5C27` twice | Confirmed from raw and side trace |
 | `01F7:3A1F` | `probe_player_side_clear_3A1F` | gate/mode; ordered side probes | `+3B=FF` only after both clear | `5C27` twice | Confirmed |
-| `01F7:3971` | `probe_vertical_10px_3971` | `y-10-+72`, `x`; ZF | none | `1C92` | Confirmed |
-| `01F7:3986` | `probe_vertical_step_3986` | `y-+72`, `x`; ZF | none | `1C92` | Confirmed |
+| `01F7:3971` | `probe_vertical_10px_3971` | `y-10-+72`, `x`; ZF from `1C92: TEST AH,0x10` (`MAP & 0x1000`) | none | `1C92` | Confirmed |
+| `01F7:3986` | `probe_vertical_step_3986` | `y-+72`, `x`; ZF from `1C92: TEST AH,0x10` (`MAP & 0x1000`) | none | `1C92` | Confirmed |
 | `01F7:5937` | `player_helper_5937` | `DS:85DA`, `DS:60D8/60DA`, score/health/lives and auxiliary globals; far return at `5BED` | direct writes `60DA`, `4FF2`, `4FF8`, `4FFA`; no direct player/`89EA` write | `386F -> 0442 -> address-named loaded callback` | Direct body closed; five ordinary level-start targets bounded non-simulation; other runtime targets unresolved |
 | `01F7:0E06` | `object_pool_factory_0E06` | requested callback AX, caller word DX | first-free object header; scheduler bank | `1036` | Allocator contract confirmed; family is caller-selected |
 | `01F7:6328` | `contact_child_callback_6328` | pooled child state and fixed-point position | child `+0x32/+0x2E`; callback clear at terminal state | address-named effect subhelper | Static lifetime confirmed by 40-sample protected-mode trace; no solid collision read proven |

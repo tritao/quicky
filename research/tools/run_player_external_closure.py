@@ -228,7 +228,10 @@ SEG3_LISTING = [
     # Descriptor backends and the exact platform cull tail.  These short
     # listings preserve TEST/RETF flag contracts and the A06F -> 1DEE
     # lifetime edge that the decompiler otherwise presents as an opaque call.
-    ("1C6E", 72), ("5C27", 96), ("5CC3", 96), ("5DC3", 48), ("34BC", 48),
+    # Vertical callback probes.  Keep both near wrappers and the shared
+    # MAP-bit leaf explicit: the wrapper RETs preserve the 1C92 ZF contract.
+    ("1C6E", 72), ("1C92", 40), ("3971", 40), ("3986", 40),
+    ("5C27", 96), ("5CC3", 96), ("5DC3", 48), ("34BC", 48),
     ("1DEE", 32), ("A06F", 16), ("9DC7", 256), ("A075", 64), ("A0B2", 96),
     # Callback-side vertical response leaves used by 41C1/41CF.
     # Export the complete callback body as one contiguous protected-mode
