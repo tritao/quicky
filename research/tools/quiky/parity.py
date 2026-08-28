@@ -679,6 +679,261 @@ def compare_session(original: Path, candidate: Path,
     return mismatches, coverage
 
 
+# These are deliberately named lifecycle barriers, rather than guessed frame
+# numbers.  DOS captures commonly sample only every N callbacks while the
+# native frontend can publish every input row; checkpoint comparison therefore
+# compares the first sample satisfying each barrier independently.
+SESSION_CHECKPOINTS = (
+    "terminal_damage",
+    "death_hold",
+    "recovery_gate",
+    "recovered_callback",
+    "respawn",
+)
+
+
+def _checkpoint_record(sample: NormalizedSample) -> str | None:
+    """Return the post-callback record across DOS and native envelopes."""
+
+    value = _record_hex(sample, "post")
+    if value is not None:
+        return value
+    raw = sample.raw
+    value = raw.get("player_record_hex")
+    return value if isinstance(value, str) else None
+
+
+def _checkpoint_maps(sample: NormalizedSample) -> list[dict[str, Any]]:
+    raw = sample.raw
+    callback = sample.callback
+    values: list[dict[str, Any]] = []
+    for source in (
+        raw.get("globals"),
+        raw.get("gameplay_state"),
+        raw.get("global_state"),
+        callback.get("post_globals") if callback else None,
+        callback.get("pre_globals") if callback else None,
+    ):
+        if isinstance(source, dict):
+            values.append(source)
+    return values
+
+
+def _checkpoint_value(sample: NormalizedSample,
+                      *keys: str) -> Any:
+    for source in _checkpoint_maps(sample):
+        for key in keys:
+            if key in source and isinstance(source[key], (int, str, bool)):
+                return source[key]
+    return None
+
+
+def _checkpoint_mode(sample: NormalizedSample) -> int | None:
+    callback = sample.callback
+    if callback is not None:
+        for name in ("post_object", "object"):
+            obj = callback.get(name)
+            if isinstance(obj, dict):
+                for key in ("player_byte_0x37", "mode"):
+                    value = obj.get(key)
+                    if isinstance(value, int):
+                        return value & 0xff
+    record = _checkpoint_record(sample)
+    if record is not None:
+        try:
+            data = bytes.fromhex(record)
+        except ValueError:
+            return None
+        if len(data) > 0x37:
+            return data[0x37]
+    value = _checkpoint_value(sample, "mode", "transition_mode")
+    return value & 0xff if isinstance(value, int) else None
+
+
+def _checkpoint_position(sample: NormalizedSample) -> tuple[int, int] | None:
+    callback = sample.callback
+    if callback is not None:
+        for name in ("post_object", "object"):
+            obj = callback.get(name)
+            position = obj.get("position") if isinstance(obj, dict) else None
+            if (isinstance(position, dict) and
+                    isinstance(position.get("x"), int) and
+                    isinstance(position.get("y"), int)):
+                return position["x"], position["y"]
+    raw = sample.raw
+    position = raw.get("position")
+    if (isinstance(position, dict) and isinstance(position.get("x"), int) and
+            isinstance(position.get("y"), int)):
+        return position["x"], position["y"]
+    x = _checkpoint_value(sample, "terminal_x_8828", "respawn_x", "x")
+    y = _checkpoint_value(sample, "terminal_y_882a", "respawn_y", "y")
+    if isinstance(x, int) and isinstance(y, int):
+        return x, y
+    return None
+
+
+def _signed_word(value: Any) -> int | None:
+    if not isinstance(value, int):
+        return None
+    value &= 0xffff
+    return value - 0x10000 if value & 0x8000 else value
+
+
+def _checkpoint_state(sample: NormalizedSample) -> dict[str, Any]:
+    health = _checkpoint_value(
+        sample, "current_health_8822", "dispatch_health_8822", "health")
+    lives = _checkpoint_value(
+        sample, "lives_880a", "dispatch_lives_880a", "lives")
+    gate = _checkpoint_value(
+        sample, "transition_gate_89ea", "transition_mode",
+        "player_control_word", "recovery_gate")
+    return {
+        "record": _checkpoint_record(sample),
+        "health": health if isinstance(health, int) else None,
+        "lives": lives if isinstance(lives, int) else None,
+        "gate": _signed_word(gate),
+        "mode": _checkpoint_mode(sample),
+        "position": _checkpoint_position(sample),
+    }
+
+
+def _checkpoint_samples(path: Path) -> dict[str, tuple[NormalizedSample, dict[str, Any]]]:
+    try:
+        samples = list(load_trace(path).samples)
+    except TraceError as exc:
+        raise SessionTraceError(str(exc)) from exc
+    result: dict[str, tuple[NormalizedSample, dict[str, Any]]] = {}
+    previous_health: int | None = None
+    terminal_seen = False
+    gate_seen = False
+    for sample in samples:
+        state = _checkpoint_state(sample)
+        health = state["health"]
+        mode = state["mode"]
+        gate = state["gate"]
+        if (not terminal_seen and isinstance(health, int) and health == 0 and
+                isinstance(previous_health, int) and previous_health > 0):
+            result["terminal_damage"] = (sample, state)
+            terminal_seen = True
+        if (terminal_seen and "death_hold" not in result and health == 0 and
+                mode == 0xff):
+            result["death_hold"] = (sample, state)
+        if (gate is not None and gate <= -350):
+            result.setdefault("recovery_gate", (sample, state))
+            gate_seen = True
+        if (gate_seen and "recovered_callback" not in result and
+                isinstance(health, int) and health > 0 and gate == 0 and
+                mode == 0):
+            result["recovered_callback"] = (sample, state)
+        if ("recovered_callback" in result and "respawn" not in result and
+                state["position"] is not None):
+            result["respawn"] = (sample, state)
+        if isinstance(health, int):
+            previous_health = health
+    return result
+
+
+def _checkpoint_required(label: str) -> tuple[str, ...]:
+    if label == "terminal_damage":
+        return ("health",)
+    if label == "death_hold":
+        return ("health", "mode")
+    if label == "recovery_gate":
+        return ("gate",)
+    if label == "recovered_callback":
+        return ("health", "gate", "mode")
+    if label == "respawn":
+        return ("position",)
+    return ()
+
+
+def compare_session_checkpoints(
+    original: Path, candidate: Path,
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Compare lifecycle barriers when trace sample cadence differs.
+
+    This is intentionally fail-closed: a missing barrier or required field is
+    a mismatch, while optional scheduler/object publications remain coverage
+    items until both traces publish them at the same barrier.
+    """
+
+    left = _checkpoint_samples(original)
+    right = _checkpoint_samples(candidate)
+    mismatches: list[dict[str, Any]] = []
+    coverage: list[dict[str, Any]] = []
+    for label in SESSION_CHECKPOINTS:
+        expected = left.get(label)
+        actual = right.get(label)
+        if expected is None or actual is None:
+            mismatches.append({
+                "checkpoint": label,
+                "field": "checkpoint",
+                "original_present": expected is not None,
+                "candidate_present": actual is not None,
+            })
+            continue
+        expected_sample, expected_state = expected
+        actual_sample, actual_state = actual
+        for field in _checkpoint_required(label):
+            expected_value = expected_state.get(field)
+            actual_value = actual_state.get(field)
+            if expected_value is None or actual_value is None:
+                mismatches.append({
+                    "checkpoint": label,
+                    "sequence": expected_sample.sequence,
+                    "field": field,
+                    "error": "missing required lifecycle data",
+                    "original_present": expected_value is not None,
+                    "candidate_present": actual_value is not None,
+                })
+            elif expected_value != actual_value:
+                mismatches.append({
+                    "checkpoint": label,
+                    "sequence": expected_sample.sequence,
+                    "field": field,
+                    "original": expected_value,
+                    "candidate": actual_value,
+                })
+        for field in ("record", "lives"):
+            expected_value = expected_state.get(field)
+            actual_value = actual_state.get(field)
+            if expected_value is None or actual_value is None:
+                coverage.append({
+                    "checkpoint": label,
+                    "field": field,
+                    "original_present": expected_value is not None,
+                    "candidate_present": actual_value is not None,
+                })
+            elif expected_value != actual_value:
+                mismatches.append({
+                    "checkpoint": label,
+                    "sequence": expected_sample.sequence,
+                    "field": field,
+                    "original": expected_value,
+                    "candidate": actual_value,
+                })
+        for field, getter in (("scheduler_callbacks", scheduler_offsets),
+                              ("active_objects", active_objects)):
+            expected_value = getter(expected_sample)
+            actual_value = getter(actual_sample)
+            if expected_value is None or actual_value is None:
+                coverage.append({
+                    "checkpoint": label,
+                    "field": field,
+                    "original_present": expected_value is not None,
+                    "candidate_present": actual_value is not None,
+                })
+            elif expected_value != actual_value:
+                mismatches.append({
+                    "checkpoint": label,
+                    "sequence": expected_sample.sequence,
+                    "field": field,
+                    "original": expected_value,
+                    "candidate": actual_value,
+                })
+    return mismatches, coverage
+
+
 def player_payload(path: Path) -> dict[str, Any]:
     """Compatibility helper returning the original JSON object."""
 

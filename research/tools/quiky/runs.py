@@ -216,12 +216,27 @@ def verify_run_directory(directory: Path) -> tuple[list[dict[str, Any]],
     native_path = directory / "native-state.json"
     if not dos_path.is_file() or not native_path.is_file():
         raise ToolError("run parity requires dos-state.json and native-state.json")
-    from .parity import compare_session
+    from .parity import compare_session, compare_session_checkpoints
+    from .trace import TraceError, load_trace
 
-    mismatches, coverage = compare_session(dos_path, native_path)
+    try:
+        dos_samples = len(load_trace(dos_path).samples)
+        native_samples = len(load_trace(native_path).samples)
+    except TraceError as exc:
+        raise ToolError(str(exc)) from exc
+    if dos_samples == native_samples:
+        comparison_mode = "exact"
+        mismatches, coverage = compare_session(dos_path, native_path)
+    else:
+        # A sparse DOS callback capture and a per-input native replay cannot
+        # be aligned by sequence.  Compare named lifecycle barriers instead;
+        # missing barriers remain hard mismatches in the comparator.
+        comparison_mode = "checkpoints"
+        mismatches, coverage = compare_session_checkpoints(dos_path, native_path)
     parity = {
         "schema": "quiky.recorded-run-parity-v1",
         "run": manifest["name"],
+        "comparison_mode": comparison_mode,
         "status": "pass" if not mismatches else "fail",
         "mismatches": mismatches,
         "coverage_count": len(coverage),
@@ -229,6 +244,7 @@ def verify_run_directory(directory: Path) -> tuple[list[dict[str, Any]],
     coverage_payload = {
         "schema": "quiky.recorded-run-coverage-v1",
         "run": manifest["name"],
+        "comparison_mode": comparison_mode,
         "items": coverage,
     }
     write_json(directory / "parity.json", parity)

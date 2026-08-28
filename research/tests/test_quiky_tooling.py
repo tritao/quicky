@@ -11,7 +11,11 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(TOOLS))
 
 from quiky.coverage import coverage_for_trace  # noqa: E402
-from quiky.parity import compare_player, compare_session  # noqa: E402
+from quiky.parity import (  # noqa: E402
+    compare_player,
+    compare_session,
+    compare_session_checkpoints,
+)
 from quiky.runs import (  # noqa: E402
     RUN_SCHEMA,
     load_input_jsonl,
@@ -47,6 +51,45 @@ def sample(sequence: int = 1) -> dict:
     }
 
 
+def lifecycle_sample(sequence: int, health: int, gate: int, mode: int,
+                     x: int, y: int, *, native: bool) -> dict:
+    state = bytearray.fromhex(record("00"))
+    state[0x37] = mode & 0xff
+    state_hex = state.hex()
+    common = {
+        "sequence": sequence,
+        "scheduler_callbacks": [{"callback": {"offset": 0x3FF8}}],
+        "entities": [],
+    }
+    if native:
+        common.update({
+            "player_record_hex": state_hex,
+            "gameplay_state": {
+                "current_health_8822": health,
+                "lives_880a": 3,
+                "transition_gate_89ea": gate,
+                "terminal_x_8828": x,
+                "terminal_y_882a": y,
+            },
+        })
+    else:
+        common.update({
+            "globals": {
+                "dispatch_health_8822": health,
+                "dispatch_lives_880a": 3,
+                "transition_mode": gate,
+            },
+            "player_callback": {
+                "post_object": {
+                    "state_hex": state_hex,
+                    "player_byte_0x37": mode,
+                    "position": {"x": x, "y": y},
+                },
+            },
+        })
+    return common
+
+
 class QuikyToolingTests(unittest.TestCase):
     def test_trace_adapter_accepts_both_historical_envelopes(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -76,6 +119,53 @@ class QuikyToolingTests(unittest.TestCase):
             mismatches, coverage = compare_session(left, right)
         self.assertEqual(mismatches, [])
         self.assertEqual(coverage, [])
+
+    def test_checkpoint_parity_matches_sparse_lifecycle_barriers(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            left = root / "dos.json"
+            right = root / "native.json"
+            states = [
+                (3, 0, 0, 100, 200),
+                (0, 0, 0, 101, 200),
+                (0, -100, 255, 101, 200),
+                (0, -350, 255, 101, 200),
+                (3, 0, 0, 1673, 374),
+            ]
+            left.write_text(json.dumps({
+                "events": [{"samples": [
+                    lifecycle_sample(i, *state, native=False)
+                    for i, state in enumerate(states, 1)
+                ]}]
+            }), encoding="utf-8")
+            right.write_text(json.dumps({
+                "samples": [
+                    lifecycle_sample(i, *state, native=True)
+                    for i, state in enumerate(states, 1)
+                ]
+            }), encoding="utf-8")
+            mismatches, coverage = compare_session_checkpoints(left, right)
+        self.assertEqual(mismatches, [])
+        self.assertEqual(coverage, [])
+
+    def test_checkpoint_parity_rejects_missing_recovery_gate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            left = root / "dos.json"
+            right = root / "native.json"
+            states = [(3, 0, 0, 100, 200), (0, 0, 255, 100, 200),
+                      (3, 0, 0, 1673, 374)]
+            left.write_text(json.dumps({"samples": [
+                lifecycle_sample(i, *state, native=False)
+                for i, state in enumerate(states, 1)
+            ]}), encoding="utf-8")
+            right.write_text(json.dumps({"samples": [
+                lifecycle_sample(i, *state, native=True)
+                for i, state in enumerate(states, 1)
+            ]}), encoding="utf-8")
+            mismatches, _ = compare_session_checkpoints(left, right)
+        self.assertTrue(any(item.get("checkpoint") == "recovery_gate"
+                            for item in mismatches))
 
     def test_coverage_and_manifest_are_dependency_free(self):
         with tempfile.TemporaryDirectory() as directory:
