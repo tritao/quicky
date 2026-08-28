@@ -3,17 +3,15 @@
 from __future__ import annotations
 
 import argparse
-import subprocess
 import sys
 import tempfile
 from pathlib import Path
 
 from .common import ToolError, run_compat_script, tools_root
 from .common import file_fingerprint
-from .runs import (configure_replay, install_actual_state, stage_run_files,
-                   validate_run_directory, verify_run_directory)
-from .state import (PROFILES, import_input, import_trace, label_lifecycle,
-                    load_state_jsonl, save_state_jsonl)
+from .runs import (replay_run, stage_run_files, validate_run_directory,
+                   verify_run_directory)
+from .state import PROFILES, import_input, import_trace, save_state_jsonl
 
 
 ALIASES = {
@@ -110,51 +108,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"OK: recorded run imported at {parsed.directory}")
                 return 0
             if parsed.operation == "replay":
-                manifest = validate_run_directory(parsed.directory)
-                recipe = manifest.get("replay")
-                configuring = (parsed.map_resource is not None or
-                               parsed.player_bob is not None or
-                               parsed.leaf_prng_index is not None or
-                               parsed.leaf_prng_ring_hex is not None)
-                if recipe is None or configuring:
-                    if parsed.archive is None or parsed.map_resource is None:
-                        raise ToolError("replay configuration requires --archive and --map")
-                    if ((parsed.leaf_prng_index is None) !=
-                            (parsed.leaf_prng_ring_hex is None)):
-                        raise ToolError("leaf PRNG index and ring must be supplied together")
-                    manifest = configure_replay(
-                        parsed.directory, archive=parsed.archive,
-                        map_resource=parsed.map_resource,
-                        player_bob=parsed.player_bob,
-                        leaf_prng_index=parsed.leaf_prng_index,
-                        leaf_prng_ring_hex=parsed.leaf_prng_ring_hex)
-                    recipe = manifest["replay"]
-                archive = (parsed.archive if parsed.archive is not None
-                           else Path(recipe["archive"]["path"]))
-                if file_fingerprint(archive)["sha256"] != recipe["archive"]["sha256"]:
-                    raise ToolError(f"replay archive digest mismatch: {archive}")
-                with tempfile.TemporaryDirectory(prefix="quiky-run-replay-") as temp:
-                    root = Path(temp)
-                    raw = root / "native-trace.json"
-                    state = root / "actual-state.jsonl"
-                    replay = [str(parsed.binary), str(archive),
-                              recipe["map"], str(raw), "--input-jsonl",
-                              str(parsed.directory / "input.jsonl")]
-                    if recipe["player_bob"] is not None:
-                        replay.extend(("--player-bob", recipe["player_bob"]))
-                    if recipe["leaf_prng"] is not None:
-                        replay.extend(("--leaf-prng-index", str(recipe["leaf_prng"]["index"]),
-                                       "--leaf-prng-ring-hex",
-                                       recipe["leaf_prng"]["ring_hex"]))
-                    completed = subprocess.run(replay, text=True, capture_output=True)
-                    if completed.returncode:
-                        detail = completed.stderr.strip() or completed.stdout.strip()
-                        raise ToolError(f"native replay failed: {detail}")
-                    rows = load_state_jsonl(raw)
-                    if manifest["profile"] == "lifecycle":
-                        label_lifecycle(rows)
-                    save_state_jsonl(state, rows)
-                    install_actual_state(parsed.directory, state)
+                replay_run(
+                    parsed.directory, binary=parsed.binary,
+                    archive=parsed.archive, map_resource=parsed.map_resource,
+                    player_bob=parsed.player_bob,
+                    leaf_prng_index=parsed.leaf_prng_index,
+                    leaf_prng_ring_hex=parsed.leaf_prng_ring_hex)
                 print(f"OK: replayed canonical state for {parsed.directory}")
                 return 0
             if parsed.operation == "validate":

@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(TOOLS))
 
 from quiky.runs import (RUN_SCHEMA, load_input_jsonl, save_input_jsonl,
-                        stage_run_files, validate_run_directory,
+                        replay_run, stage_run_files, validate_run_directory,
                         verify_run_directory)
 from quiky.state import (CHECKPOINTS, STATE_SCHEMA, compare_state, import_trace,
                          label_lifecycle, load_state_jsonl, save_state_jsonl)
@@ -118,10 +118,46 @@ class QuikyToolingTests(unittest.TestCase):
                             input_rows=[{"sequence": 1, "input_flags": 0}],
                             expected_state=state, actual_state=state)
             self.assertEqual(validate_run_directory(run)["schema"], RUN_SCHEMA)
+            files_before = sorted(path.name for path in run.iterdir())
             self.assertEqual(verify_run_directory(run), ([], []))
+            self.assertEqual(sorted(path.name for path in run.iterdir()), files_before)
             refreshed = validate_run_directory(run)
             self.assertNotIn("parity.json", refreshed["files"])
             self.assertNotIn("coverage.json", refreshed["files"])
+
+    def test_manifest_fingerprint_size_is_enforced(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state.jsonl"
+            save_state_jsonl(state, [{"schema": STATE_SCHEMA, "sequence": 1}])
+            run = root / "run"
+            stage_run_files(run, name="strict", profile="exact",
+                            input_rows=[{"sequence": 1, "input_flags": 0}],
+                            expected_state=state)
+            manifest_path = run / "manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest["files"]["input.jsonl"]["size"] += 1
+            manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+            with self.assertRaisesRegex(Exception, "digest mismatch"):
+                validate_run_directory(run)
+
+    def test_failed_replay_does_not_publish_recipe_or_state(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            state = root / "state.jsonl"
+            archive = root / "archive.dat"
+            archive.write_bytes(b"archive")
+            save_state_jsonl(state, [{"schema": STATE_SCHEMA, "sequence": 1}])
+            run = root / "run"
+            stage_run_files(run, name="transaction", profile="exact",
+                            input_rows=[{"sequence": 1, "input_flags": 0}],
+                            expected_state=state)
+            with self.assertRaisesRegex(Exception, "native replay failed"):
+                replay_run(run, binary=Path("/bin/false"), archive=archive,
+                           map_resource="W1L1.MAP")
+            manifest = validate_run_directory(run)
+            self.assertIsNone(manifest["replay"])
+            self.assertFalse((run / "actual-state.jsonl").exists())
 
     def test_unified_cli_imports_a_run(self):
         with tempfile.TemporaryDirectory() as directory:

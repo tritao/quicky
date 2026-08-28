@@ -9,9 +9,7 @@ Each run contains:
   `lifecycle` comparison profile and content fingerprints;
 - `input.jsonl`: the only native replay input;
 - `expected-state.jsonl`: canonical imported DOS state;
-- `actual-state.jsonl`: canonical native replay state;
-- `parity.json` and `coverage.json`: generated verification results; these are
-  deliberately excluded from the manifest's immutable input fingerprints.
+- `actual-state.jsonl`: canonical native replay state.
 
 Both state streams use `quiky.parity-state-v2`. Verification reads this schema
 strictly and does not detect trace envelopes or field aliases. Historical
@@ -41,7 +39,7 @@ the manifest; subsequent runs need only `quiky run replay RUN`.
 
 Missing fields are coverage gaps. Fields published by both sides but carrying
 different values are parity mismatches. Missing rows or lifecycle checkpoints
-are mismatches.
+are mismatches. Verification is read-only and reports its summary to stdout.
 
 ## Invariants
 
