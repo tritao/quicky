@@ -1167,6 +1167,12 @@ end
 
 local function record_property(sample, hit)
     local property = map_property_snapshot(hit)
+    -- Property focus is armed alongside the callback barrier and may observe
+    -- another object's helper before 3FF8 is reached. Keep that diagnostic
+    -- event in the trace, but distinguish it from property calls made by the
+    -- player callback so parity can compare the callback-owned stream only.
+    property.scope = sample.player_callback ~= nil and
+                     "player_callback" or "outside_player_callback"
     if collision_patch_tile ~= nil and hit.offset == 0x5c27 and
        (not collision_focus or collision_patch_side == "left") and
        sample.player_callback ~= nil then

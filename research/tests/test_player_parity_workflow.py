@@ -13,6 +13,7 @@ from player_replay_manifest import (  # noqa: E402
     build_manifest,
     write_tsv,
 )
+from quiky.parity import canonical_global_write, canonical_probes  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -147,6 +148,27 @@ class PlayerParityWorkflowTests(unittest.TestCase):
             path.write_text(json.dumps(candidate), encoding="utf-8")
             mismatches = compare(source, path)
         self.assertTrue(any(item["field"] == "probes" for item in mismatches))
+
+    def test_probe_comparison_excludes_pre_callback_property_focus_event(self):
+        sample = {
+            "map_properties": [
+                {"scope": "outside_player_callback", "coordinates": {"x": 1, "y": 2},
+                 "raw_cell_word": 9, "descriptor_word": 0},
+                {"scope": "player_callback", "coordinates": {"x": 3, "y": 4},
+                 "raw_cell_word": 10, "descriptor_word": 0},
+            ]
+        }
+        probes = canonical_probes(sample)
+        self.assertEqual(len(probes), 1)
+        self.assertEqual(probes[0]["x"], 3)
+        self.assertEqual(probes[0]["y"], 4)
+
+    def test_pending_event_global_write_has_address_contract(self):
+        self.assertEqual(
+            canonical_global_write({"field": "pending_event", "before": 1,
+                                    "after": 0}),
+            {"offset": 0x612E, "width": 2, "before": 1, "after": 0},
+        )
 
     def test_complete_mode_rejects_missing_effect_and_global_arrays(self):
         source = ROOT / "research/build/player-followup-standing-v1.json"

@@ -8,10 +8,10 @@
     "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
     "map": "research/build/early-assets/W1L1.MAP",
     "map_sha256": "3d88892d9842c15fb6f860a2d84f3ede0a897175924ea42b2468022182299956",
-    "trace": "research/build/traces/player-w1l1-held-jump-clean-v2.json",
-    "trace_sha256": "bffcd3fba1799e169196218fdde770e4db7c9e27fa4d8bc6637a5f425c61d428",
+    "trace": "research/build/traces/player-w1l1-held-jump-clean-v3.json",
+    "trace_sha256": "beba89a3385a1a2e7f68f3d12567fb23a575df3767b85a35889140873227acb6",
     "trace_script": "research/automation/quiky_player_trace.lua",
-    "trace_script_sha256": "47187e6a8beb077f59b0c5c2d6beea05f2def866408bf7989f761a22d71fcf5d",
+    "trace_script_sha256": "0907926cdaebe3436a877442bf6dbef2c5906c642f3e5af965a5d10eadd44798",
     "capture_options": ["player-parity-capture", "player-capture-record", "player-property-focus", "player-input-phase-hold-after-wait"],
     "execute_watches": false
   },
@@ -22,13 +22,12 @@
     "negative_mode_animation_state": "DOS +0x36 remains 0 for every listed callback, including jump-only and released-input samples"
   },
   "comparison": {
-    "command": "python3 research/tools/player_callback_parity.py --original research/build/traces/player-w1l1-held-jump-clean-v2.json --archive game/NESTLE.DAT --map W1L1.MAP --binary build/engine/quiky-player-trace",
+    "command": "python3 research/tools/player_callback_parity.py --original research/build/traces/player-w1l1-held-jump-clean-v3.json --archive game/NESTLE.DAT --map W1L1.MAP --binary build/engine/quiky-player-trace",
+    "diagnostic_parity": "pass",
     "post_record_mismatches": 0,
-    "probe_mismatches": 32,
-    "probe_mismatch_class": "player-property-focus-prefix-not-part-of-callback-collision-stream",
-    "global_write_mismatches": 1,
-    "global_mismatch_class": "trace-normalization-missing-address-on-DOS-pending-event-write",
-    "interpretation": "All 37 complete 0x78-byte player post-records match. Remaining differences are capture-envelope artifacts: the property-focus stream contributes one prefix probe per callback, and the DOS pending-event write lacks an address in this trace envelope."
+    "probe_mismatches": 0,
+    "global_write_mismatches": 0,
+    "interpretation": "All 37 complete 0x78-byte player post-records, callback-owned ordered probes, and callback-global writes match. Pre-callback property helper events are retained in the raw trace but excluded from the callback-owned parity stream by their explicit scope tag."
   },
   "static_evidence": [
     "Ghidra 01F7:3AB9 listing",
@@ -38,8 +37,7 @@
   ],
   "unresolved_boundaries": [
     "Natural ceiling attribution remains open; this route uses the ordinary apex join.",
-    "Natural moving-platform landing, crushing, and attached-player culling remain open.",
-    "Exact parity of property-focus prefix probes requires separating callback-owned probes from diagnostic helper events."
+    "Natural moving-platform landing, crushing, and attached-player culling remain open."
   ],
   "status": "37 callback player records match in the clean held-jump replay"
 }

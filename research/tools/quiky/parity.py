@@ -26,6 +26,7 @@ GLOBAL_FIELD_MAP = {
     "horizontal_accumulator": (0x4FE2, 4),
     "horizontal_aux": (0x4FE8, 4),
     "horizontal_branch_counter": (0x4FEC, 2),
+    "pending_event": (0x612E, 2),
     "camera_x": (0x81C0, 2),
     "camera_y": (0x81C4, 2),
     "player_vertical_adjust": (0x8812, 4),
@@ -82,6 +83,14 @@ def canonical_probes(sample: NormalizedSample | dict[str, Any]) -> list[Any] | N
     raw = _raw(sample)
     property_events = raw.get("map_properties")
     if isinstance(property_events, list):
+        # New player captures explicitly tag the one property helper that can
+        # fire before the callback barrier. Older traces have no scope field
+        # and retain their historical behavior.
+        property_events = [
+            event for event in property_events
+            if not (isinstance(event, dict) and
+                    event.get("scope") == "outside_player_callback")
+        ]
         result: list[Any] = []
         for event in property_events:
             if not isinstance(event, dict):
