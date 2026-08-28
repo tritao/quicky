@@ -1,0 +1,92 @@
+{
+  "schema": "quiky.player-natural-apex-held-negative-control.v1",
+  "purpose": "Archive a held-through-callback W1L1 jump that reaches the ordinary ascent-to-fall join and landing, while distinguishing it from the still-unproven 4368 ceiling predecessor.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "trace": "/tmp/player-w1l1-natural-ceiling-held-v1.json",
+    "trace_sha256": "751c9e6dc89ebf339c29c4f98e45bb33e97ac5d68d03d931e9d11093be7f7a22",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "c96e28b7976cef24811fcc122f15db81ece11697a10b28795f7c6cd118e9d9ac"
+  },
+  "method": {
+    "level": "W1L1",
+    "map_or_executable_patches": false,
+    "input_phases": [
+      "12 x KBD_right:30",
+      "KBD_right+KBD_space+KBD_up:5 held through the callback",
+      "32 x WAIT:1 held through the callback"
+    ],
+    "sampling": "one callback sample every guest frame",
+    "callback_capture": "focused 01F7:3FF8, complete 0x78-byte record, minimal global/pool snapshots",
+    "watched_addresses": [
+      "01F7:4323",
+      "01F7:4363",
+      "01F7:4366",
+      "01F7:4368",
+      "01F7:41C1",
+      "01F7:41CF",
+      "01F7:3986"
+    ]
+  },
+  "observations": {
+    "samples": 46,
+    "jump_entry": {
+      "sample": 14,
+      "frame": 378,
+      "position": [632, 386],
+      "action_word": 38,
+      "mode": -1,
+      "velocity_y_fixed_signed": -278528,
+      "post_position": [632, 382],
+      "post_mode": -1,
+      "post_velocity_y_fixed_signed": -270336
+    },
+    "ordinary_apex_join": {
+      "sample": 23,
+      "frame": 396,
+      "position": [643, 365],
+      "pre_mode": 1,
+      "pre_velocity_y_fixed_signed": 0,
+      "post_mode": 1,
+      "post_velocity_y_fixed_signed": 10240
+    },
+    "landing": {
+      "sample": 34,
+      "frame": 418,
+      "position": [643, 398],
+      "post_position": [643, 400],
+      "post_mode": 0,
+      "post_velocity_y_fixed_signed": 0
+    },
+    "unique_execute_watch_hits": {
+      "01F7:4323": 9,
+      "01F7:3986": 9,
+      "01F7:4363": 0,
+      "01F7:4366": 0,
+      "01F7:4368": 0,
+      "01F7:41C1": 0,
+      "01F7:41CF": 0
+    },
+    "probe_frames": {
+      "01F7:4323": [378, 380, 382, 384, 386, 388, 390, 392, 394],
+      "01F7:3986": [378, 380, 382, 384, 386, 388, 390, 392, 394]
+    }
+  },
+  "conclusion": {
+    "confirmed": [
+      "The held input reaches the negative-mode ascent path with action word 0x26.",
+      "The route joins the ordinary falling mode at the apex and later lands into mode 0 with zero vertical velocity.",
+      "The observed ascent probes are the normal 4323 -> 3986 pair; the blocked-ascent predecessor 4368 and shared 41C1/41CF response are absent."
+    ],
+    "not_proven": [
+      "Natural authored ceiling behavior at 4368 -> 41C1/41CF.",
+      "General descriptor one-way or floor/ceiling classification.",
+      "Whether the same ordinary-apex sequence is selected at a second held-out position."
+    ],
+    "confidence": "confirmed_ordinary_apex_and_landing_negative_control",
+    "status": "ordinary_apex_negative_control_archived"
+  }
+}

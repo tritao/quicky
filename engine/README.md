@@ -586,6 +586,10 @@ Explicit unresolved boundaries:
   shipped landing behavior without assigning global names to descriptor bits
   `0x20`/`0x40`; the focused branch-entry run is archived as an ordinary-apex
   negative control in [`player-natural-branch-entry-negative-control-v1.json`](../research/evidence/player-dos-parity/player-natural-branch-entry-negative-control-v1.json), not as ceiling evidence;
+  a held-through-callback W1L1 jump now provides a second ordinary-apex and
+  landing control in [`player-natural-apex-held-negative-control-v1.json`](../research/evidence/player-dos-parity/player-natural-apex-held-negative-control-v1.json).
+  It observes the normal `4323 -> 3986` ascent probes and no `4368`, `41C1`, or
+  `41CF`; it therefore does not close natural-ceiling behavior;
 - moving-platform landing/inherited velocity, crushing, and the attached-player
   effect of culling; controlled motion, first-carry consumption, jump
   detachment, and complete post-`3FF8` record capture are validated, but
