@@ -10,6 +10,7 @@
 #endif
 #include "quiky/renderer.h"
 #include "quiky/runtime.h"
+#include "quiky/scene_renderer.h"
 
 #include <SDL3/SDL.h>
 
@@ -47,103 +48,6 @@ long parseNumber(const std::string &value, const char *name) {
         throw quiky::FormatError(std::string("invalid ") + name + ": " + value);
     }
     return result;
-}
-
-const quiky::BobRecord *findSlot(const quiky::Bob &bob, std::uint16_t slot) {
-    for (std::size_t index = 0; index < bob.records.size(); ++index) {
-        if (bob.records[index].slot == slot) {
-            return &bob.records[index];
-        }
-    }
-    return nullptr;
-}
-
-std::uint16_t dedicatedEffectSlot(const quiky::LevelEffect &effect,
-                                  const std::string &worldName) {
-    if (effect.sourceType == 0x65 && worldName == "W1") {
-        // W1 probes captured LOOP_W1 records 1 and 2 as the event animation
-        // byte advances. Other world-specific representatives are fixed by
-        // the confirmed cross-world resource probes.
-        return static_cast<std::uint16_t>(1 + (effect.animationFrame & 1));
-    }
-    return effect.effectSlot;
-}
-
-void drawTransientEffects(quiky::IndexedSurface &surface,
-                          const quiky::LevelRuntime &runtime) {
-    const std::vector<quiky::LevelEffect> &effects = runtime.session().effects();
-    const std::map<std::string, quiky::Bob> &effectBobs = runtime.effectBobs();
-    for (std::size_t index = 0; index < effects.size(); ++index) {
-        const quiky::LevelEffect &effect = effects[index];
-        if (!effect.active) {
-            continue;
-        }
-        if (!effect.spriteResource.empty()) {
-            const std::map<std::string, quiky::Bob>::const_iterator resource =
-                effectBobs.find(effect.spriteResource);
-            if (resource == effectBobs.end()) {
-                throw quiky::FormatError("missing high-effect BOB resource: " +
-                                         effect.spriteResource);
-            }
-            const quiky::BobRecord *record = findSlot(resource->second,
-                                                       effect.spriteSlot);
-            if (record == nullptr) {
-                std::ostringstream message;
-                message << effect.spriteResource << " is missing high-effect sprite slot "
-                        << effect.spriteSlot;
-                throw quiky::FormatError(message.str());
-            }
-            quiky::drawBobRecord(surface, *record, effect.x, effect.y);
-            continue;
-        }
-        const std::uint16_t slot = dedicatedEffectSlot(effect, runtime.worldName());
-        const quiky::Tileset &tileset = effect.effectResource == "WORLD"
-                                            ? runtime.tileset()
-                                            : runtime.loopTileset();
-        quiky::drawIcoTile(surface, tileset, slot,
-                           effect.x, effect.y);
-    }
-}
-
-void drawEntitySprites(quiky::IndexedSurface &surface,
-                       const quiky::LevelRuntime &runtime) {
-    const quiky::LevelSession &level = runtime.session();
-    const std::map<std::string, quiky::Bob> &resources = runtime.entityBobs();
-    for (std::size_t index = 0; index < level.entities().size(); ++index) {
-        const quiky::LevelEntity &entity = level.entities()[index];
-        if (entity.phase != quiky::EntityPhase::Active) {
-            continue;
-        }
-
-        if (!entity.spriteResource.empty() && entity.spriteSlot != 0xffff) {
-            const std::map<std::string, quiky::Bob>::const_iterator resource =
-                resources.find(entity.spriteResource);
-            if (resource != resources.end()) {
-                const std::uint16_t slot = quiky::renderSpriteSlot(entity);
-                const quiky::BobRecord *record = findSlot(resource->second, slot);
-                if (record == nullptr) {
-                    std::ostringstream message;
-                    message << entity.spriteResource << " is missing entity sprite slot "
-                            << slot;
-                    throw quiky::FormatError(message.str());
-                }
-                quiky::drawBobRecord(surface, *record, entity.x, entity.y);
-            }
-        }
-
-    }
-}
-
-const quiky::BobRecord &choosePlayerFrame(const quiky::Bob &bob,
-                                          const quiky::PlayerAnimation &animation) {
-    const quiky::BobRecord *record = findSlot(bob, animation.slot());
-    if (record == nullptr) {
-        record = findSlot(bob, animation.slot() >= 50 ? 50 : 0);
-    }
-    if (record == nullptr) {
-        throw quiky::FormatError("player BOB resource is missing the selected frame");
-    }
-    return *record;
 }
 
 void checkSdl(bool success, const char *operation) {
@@ -729,13 +633,10 @@ int main(int argc, char **argv) {
             if (showEntities) {
                 drawEntityMarkers(worldSurface, framePalette, runtime->session());
             }
-            drawEntitySprites(worldSurface, *runtime);
-            drawTransientEffects(worldSurface, *runtime);
-            const quiky::BobRecord &record =
-                choosePlayerFrame(runtime->playerBob(), playerAnimation);
-            quiky::drawBobRecord(worldSurface, record,
-                                 player.positionX.floorPixels(),
-                                 player.positionY.floorPixels());
+            quiky::drawLevelEntities(worldSurface, *runtime);
+            quiky::drawTransientEffects(worldSurface, *runtime);
+            quiky::drawPlayerSprite(worldSurface, *runtime,
+                                    playerAnimation, player);
 
             camera.follow(player.positionX.floorPixels(),
                           player.positionY.floorPixels(),
@@ -769,7 +670,8 @@ int main(int argc, char **argv) {
                     eventText.clear();
                 }
                 updateTitle(sdl.window, runtime->mapName(), player, frame,
-                            record.slot, paused, runtime->session(), eventText);
+                            quiky::selectPlayerFrame(*runtime, playerAnimation).slot,
+                            paused, runtime->session(), eventText);
                 titleTime = now;
             }
             if (accumulator < kTickNanoseconds) {

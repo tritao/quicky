@@ -27,6 +27,7 @@ add_library(quiky_core
     src/simulation.cpp
     src/level.cpp
     src/level_runtime.cpp
+    src/scene_renderer.cpp
     src/sfx_events.cpp
     src/tileset.cpp
     src/world_view.cpp
