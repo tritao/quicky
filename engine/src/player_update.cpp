@@ -108,7 +108,14 @@ struct AnimationSequenceWords {
 
 // Static Ghidra data export from QUIKY_SEG06, where DS points at runtime in
 // the player callback.  These are selected by the 3AB9 speed/turn paths.
-const std::int16_t kAnimation3142[] = {4, 0, 1, 2, 3, 4, 5, 6};
+// 01F7:5D60 walks the stream by cursor, not by the loader's descriptor
+// length.  The 3142 stream therefore includes its two trailing words at
+// 3152/3154: the first is the next frame and the second is its signed loop
+// displacement back into the stream.  A natural held-jump trace reaches
+// 3152 from a cursor initially at 3150.
+const std::int16_t kAnimation3142[] = {
+    4, 0, 1, 2, 3, 4, 5, 6, 7, -8
+};
 const std::int16_t kAnimation3156[] = {4, 0, 0, 0, -3};
 const std::int16_t kAnimation3160[] = {8, 10, 11, 12, -1};
 const std::int16_t kAnimation316a[] = {
@@ -550,7 +557,8 @@ void applyDescriptorCorrection(PlayerRecord &player,
             world,
             DescriptorResponseInput(player.xPixel(), player.yPixel(),
                                     player.velocityY.raw, player.mode37,
-                                    player.sideResponse3B));
+                                    player.sideResponse3B,
+                                    player.velocityX.raw));
     for (std::size_t index = 0; index < decision.probes.size(); ++index) {
         captureProbe(decision.probes[index],
                      CollisionKernel::occupied(decision.probes[index]), trace);

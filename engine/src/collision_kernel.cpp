@@ -196,12 +196,16 @@ DescriptorResponseDecision CollisionKernel::resolveDescriptorResponse(
                                        ? static_cast<std::int8_t>(-1)
                                        : static_cast<std::int8_t>(1);
     if (input.callbackMode == 0) {
+        // 01F7:3D52/3D8F reads player +0x0A, not +0x0E, and publishes its
+        // signed half into +0x0E. Keep both velocity inputs explicit so a
+        // diagonal/jump callback cannot use vertical velocity as the source
+        // of this contact response.
         if (result.verticalResponse) {
             result.finalVelocityY = Fixed16::arithmeticShiftRight(
-                input.velocityY, 1);
+                input.velocityX, 1);
         } else {
             result.finalVelocityY = Fixed16::arithmeticShiftRight(
-                Fixed16::wrapNegRaw(input.velocityY), 1);
+                Fixed16::wrapNegRaw(input.velocityX), 1);
         }
     }
 

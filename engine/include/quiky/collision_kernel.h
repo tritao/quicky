@@ -38,17 +38,20 @@ struct DescriptorResponseInput {
     std::int16_t pixelX;
     std::int16_t pixelY;
     std::int32_t velocityY;
+    std::int32_t velocityX;
     std::int8_t callbackMode;
     std::uint8_t sideResponse;
 
     DescriptorResponseInput(std::int16_t x = 0,
                             std::int16_t y = 0,
-                            std::int32_t velocity = 0,
+                            std::int32_t verticalVelocity = 0,
                             std::int8_t mode = 0,
-                            std::uint8_t side = 1)
+                            std::uint8_t side = 1,
+                            std::int32_t horizontalVelocity = 0)
         : pixelX(x),
           pixelY(y),
-          velocityY(velocity),
+          velocityY(verticalVelocity),
+          velocityX(horizontalVelocity),
           callbackMode(mode),
           sideResponse(side) {}
 };

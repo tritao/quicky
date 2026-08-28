@@ -210,6 +210,13 @@
       "01F7:31A4": [14, 20, 21, 22, 23, 24, 25, 26, 27, 28, -3],
       "01F7:31BA": [15, 30, 31, 32, 33, 33, 33, 33, 34, 34, 34, 35, 36, 37]
     },
+    "cursor_stream_continuations": {
+      "01F7:3142": {
+        "words": {"3152": 7, "3154": -8},
+        "meaning": "5D60 cursor walk continuation; 3156 remains the next loader entry point",
+        "evidence": ["QUIKY_SEG06 raw bytes", "held-jump callback sequence 35"]
+      }
+    },
     "selection_evidence": [
       "01F7:3AB9 selects 3142 for ordinary turn/acceleration paths",
       "01F7:3AB9 selects 3190 when absolute horizontal speed reaches 0x28000",

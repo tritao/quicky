@@ -1,0 +1,52 @@
+{
+  "schema": "quiky.player-w1l1-held-jump-correction.v1",
+  "purpose": "Held-jump callback record check for animation-stream continuation and mode-0 descriptor velocity source.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "map": "research/build/early-assets/W1L1.MAP",
+    "map_sha256": "3d88892d9842c15fb6f860a2d84f3ede0a897175924ea42b2468022182299956",
+    "trace": "research/build/traces/player-w1l1-natural-ceiling-held-jump-v2.json",
+    "trace_sha256": "b3f8d31304d1dc0949dcba35e61cf88d2cb0b1bb0bab6645920fcb05feccfa7e",
+    "trace_script": "research/automation/quiky_player_trace.lua",
+    "trace_script_sha256": "47187e6a8beb077f59b0c5c2d6beea05f2def866408bf7989f761a22d71fcf5d",
+    "animation_data_sha256": "03813b66afd6b20618c2a35636069be35f246d525482eb9d21a4458b36555de5",
+    "callback_listing": "research/build/player-external-state-closure-recovery-v54/disasm-seg3-a/QUIKY_SEG03.bin.asm",
+    "callback_listing_sha256": "3d858919a5d2fc8dfd99ba74b5a8af0f11c74fedcfed979fbb0b182c73e46604"
+  },
+  "observation": {
+    "callbacks": 37,
+    "sequence": 35,
+    "pre": {
+      "horizontal_velocity_0x0a": "0x00018000",
+      "vertical_velocity_0x0e": "0x0000C000",
+      "animation_delay_0x20": 0,
+      "animation_cursor_0x24": "0x3150"
+    },
+    "post": {
+      "vertical_velocity_0x0e": "0x0000C000",
+      "animation_status_0x12": 7,
+      "animation_delay_0x20": 4,
+      "animation_cursor_0x24": "0x3152"
+    }
+  },
+  "static_interpretation": [
+    "01F7:5D60 advances the live animation cursor through raw QUIKY_SEG06 words; 3152=7 and 3154=FFF8 continue the 3142 stream.",
+    "01F7:3D52/3D8F reads player +0x0A and writes its signed half to +0x0E when callback mode is zero."
+  ],
+  "comparison": {
+    "command": "python3 research/tools/player_callback_parity.py --original research/build/traces/player-w1l1-natural-ceiling-held-jump-v2.json --archive game/NESTLE.DAT --map W1L1.MAP --binary build/engine/quiky-player-trace",
+    "post_record_mismatches": 0,
+    "probe_mismatches": 30,
+    "probe_mismatch_class": "watch_only_property_probe_prefix",
+    "global_write_mismatches": 0,
+    "interpretation": "The complete player record matches after the animation-stream and horizontal-velocity-source corrections. The diagnostic capture's execute-watch property probe is absent from the native replay stream, so its ordered probe arrays are not asserted by this fixture."
+  },
+  "unresolved_boundaries": [
+    "Natural ceiling attribution remains open because this route takes the ordinary apex path.",
+    "Natural moving-platform landing, crushing, and attached-player culling remain open."
+  ],
+  "status": "held-jump player-record parity confirmed for the targeted animation and descriptor-correction boundary"
+}

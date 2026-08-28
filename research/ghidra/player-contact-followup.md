@@ -114,6 +114,20 @@ late-release candidate mismatch and is implemented in the C++ no-input branch
 at the statically recovered `3AB9` load site. It does not close missing probe
 arrays or external effect data in the archived replay fixtures.
 
+The same stream walk is observable in the held-jump diagnostic. At callback
+sequence 35 the complete DOS record enters with horizontal velocity
+`+0x0A=0x00018000`, vertical velocity `+0x0E=0x0000C000`, animation cursor
+`+0x24=0x3150`, and zero delay. `5D60` returns with cursor `0x3152`, frame
+`7`, delay `4`, and unchanged vertical velocity `0x0000C000`. The Ghidra
+`QUIKY_SEG06` bytes are `3152=0007` and `3154=FFF8`; therefore these are live
+continuation words of the `3142` stream, not a new loader descriptor. The
+callback's `3D02` listing separately shows `3D52/3D8F` reading `+0x0A` and
+writing its signed half to `+0x0E`; the C++ collision contract now carries
+both velocity inputs and uses the horizontal source for mode-0 descriptor
+correction. After that correction, the held-jump comparison has zero
+post-record mismatches; its remaining 30 differences are the known extra
+watch-only probe entries in this diagnostic capture.
+
 The shared response at `41C1` writes `+0x3E=0x03E7`, then `41CF` writes
 `+0x37=1`, `+0x0E=0`, and loads sequence `3186`. The unpatched W1L1 trace
 confirms those writes for the ordinary apex join, not for a ceiling. A

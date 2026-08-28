@@ -175,6 +175,33 @@ void testCommonTailClosedAnimationAndViewCopy() {
     assert(trace.globalWrites[1].after == 0x00d4);
 }
 
+void testAnimationStreamContinuesPast3142DescriptorLabel() {
+    quiky::Map map = makeMap();
+    quiky::PlayerDescriptorTable descriptors;
+    const quiky::WorldCollisionView world(map, &descriptors);
+
+    quiky::TraceClosedPlayerUpdate updater;
+    quiky::PlayerRecord player = playerAt();
+    player.mode37 = 1;
+    player.velocityY.raw = 0;
+    player.positiveYAcceleration50.raw = 0;
+    player.field1E = 4;
+    player.animationDelay20 = 0;
+    player.animationCursor22 = 0x3144;
+    player.field24 = 0x3150;
+    player.syncToRaw();
+
+    updater.updatePlayer(player, quiky::InputState(), world, 0);
+
+    // 01F7:5D60 reads the current cursor word at 3150, advances to 3152,
+    // and reloads the descriptor delay.  The 3152 word is part of the raw
+    // 3142 stream even though 3156 is the next loader entry point.
+    assert(player.statusWord12 == 7);
+    assert(player.animationDelay20 == 4);
+    assert(player.animationCursor22 == 0x3144);
+    assert(player.field24 == 0x3152);
+}
+
 void testStaticHorizontalAnimationDescriptors() {
     quiky::Map map = makeMap();
     quiky::PlayerDescriptorTable descriptors;
@@ -242,6 +269,7 @@ int main() {
     testLandingAndCeilingResponses();
     testPostStepContactUsesCurrentRecordCoordinates();
     testCommonTailClosedAnimationAndViewCopy();
+    testAnimationStreamContinuesPast3142DescriptorLabel();
     testStaticHorizontalAnimationDescriptors();
     test5937PublishesAddressQualifiedCountState();
     std::cout << "player callback contact tests passed\n";

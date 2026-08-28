@@ -316,7 +316,8 @@ void testCollisionKernel() {
     quiky::DescriptorResponseDecision response =
         quiky::CollisionKernel::resolveDescriptorResponse(
             responseWorld,
-            quiky::DescriptorResponseInput(32, 400, 0x00018000, 0, 1));
+            quiky::DescriptorResponseInput(32, 400, 0x0000c000, 0, 1,
+                                           0x00018000));
     assert(response.returnOffset == 0x3df1 && response.al == 1);
     assert(response.finalVerticalResponse == -1);
     assert(response.finalVelocityY == 0x0000c000);
