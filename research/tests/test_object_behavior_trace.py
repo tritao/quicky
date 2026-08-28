@@ -40,12 +40,14 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
             startup_recording=Path("startup.json"),
             initial_camera_x=576,
             initial_camera_y=192,
+            reset_stream_origin=True,
             prestream_input_key="KBD_right",
             prestream_input_frames=300,
         )
         payload = lua_config(config)
         self.assertEqual(payload["initial_camera_x"], 576)
         self.assertEqual(payload["initial_camera_y"], 192)
+        self.assertTrue(payload["reset_stream_origin"])
         self.assertEqual(payload["prestream_input_key"], "KBD_right")
         self.assertEqual(payload["prestream_input_frames"], 300)
 
@@ -218,6 +220,13 @@ class ObjectBehaviorTraceTests(unittest.TestCase):
         self.assertIn("sprite_init_offset", source)
         self.assertIn("initialized_object.update_callback", source)
         self.assertIn("if expected_type == 0 then", source)
+
+    def test_post_initializer_boundary_matches_factory_object_identity(self):
+        source = (Path(__file__).resolve().parents[1] / "automation" /
+                  "quiky_object_behavior_trace.lua").read_text()
+        self.assertIn("candidate.registers.es == object_selector", source)
+        self.assertIn("(candidate.registers.edi & 0xffff) == object_offset", source)
+        self.assertIn("target object post-initializer was not observed", source)
 
     def test_selector_declaration_breakpoint_is_armed_before_resume(self):
         source = (Path(__file__).resolve().parents[1] / "automation" /

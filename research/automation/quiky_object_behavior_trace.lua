@@ -11,6 +11,7 @@ local select_level = trace_config.select_level or ""
 local selector_frames = trace_config.selector_frames or 60
 local initial_camera_x = trace_config.initial_camera_x
 local initial_camera_y = trace_config.initial_camera_y
+local reset_stream_origin = trace_config.reset_stream_origin or false
 local prestream_input_key = trace_config.prestream_input_key or ""
 local prestream_input_frames = trace_config.prestream_input_frames or 0
 local camera_x = trace_config.camera_x or -1
@@ -769,6 +770,13 @@ end
 if initial_camera_x ~= nil then
     dosbox.mem_write("ds", 0x81c0, little_word(initial_camera_x))
     dosbox.mem_write("ds", 0x81c4, little_word(initial_camera_y))
+    if reset_stream_origin then
+        -- 01D7/01F7 stream state keeps the last 64-pixel region in these
+        -- words. A diagnostic camera jump must invalidate that cache before
+        -- the declaration walker can revisit the requested authored cell.
+        dosbox.mem_write("ds", 0x3710, little_word(0))
+        dosbox.mem_write("ds", 0x3712, little_word(0))
+    end
 end
 if prestream_input_key ~= "" and prestream_input_frames > 0 then
     -- Resume the paused selector declaration, let the retail player/camera
@@ -933,11 +941,22 @@ if camera_y >= 0 then dosbox.mem_write("ds", 0x81c4, little_word(camera_y)) end
 local initialized_object = initial_object
 local initializer_breakpoint = nil
 if sprite_init_offset ~= 0 then
-    dosbox.breakpoint_set(0x01f7, sprite_init_offset, {once = true})
-    dosbox.debug_continue()
-    local initialized = wait_hit("object post-initializer")
-    assert(initialized.segment == 0x01f7 and initialized.offset == sprite_init_offset,
-           "unexpected object post-initializer breakpoint")
+    local initialized = nil
+    for attempt = 1, 512 do
+        dosbox.breakpoint_set(0x01f7, sprite_init_offset, {once = true})
+        dosbox.debug_continue()
+        local candidate = wait_hit("object post-initializer")
+        local matches_object = candidate.segment == 0x01f7 and
+            candidate.offset == sprite_init_offset and
+            candidate.registers.es == object_selector and
+            (candidate.registers.edi & 0xffff) == object_offset
+        if matches_object then
+            initialized = candidate
+            break
+        end
+    end
+    assert(initialized ~= nil,
+           "target object post-initializer was not observed")
     initialized_object = object_snapshot(object_selector, object_offset)
     initializer_breakpoint = {
         segment = initialized.segment,

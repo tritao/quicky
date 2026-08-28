@@ -38,6 +38,7 @@ class ObjectBehaviorConfig:
     selector_frames: int = 60
     initial_camera_x: int | None = None
     initial_camera_y: int | None = None
+    reset_stream_origin: bool = False
     prestream_input_key: str | None = None
     prestream_input_frames: int = 0
     camera_x: int | None = None
@@ -99,6 +100,7 @@ def lua_config(config: ObjectBehaviorConfig) -> dict[str, Any]:
         "selector_frames": config.selector_frames,
         "initial_camera_x": config.initial_camera_x,
         "initial_camera_y": config.initial_camera_y,
+        "reset_stream_origin": config.reset_stream_origin,
         "prestream_input_key": config.prestream_input_key or "",
         "prestream_input_frames": config.prestream_input_frames,
         "camera_x": config.camera_x,
@@ -299,6 +301,10 @@ def build_parser() -> argparse.ArgumentParser:
                         help="debugger-only: set DS:81C0 before authored ARE streaming")
     parser.add_argument("--initial-camera-y", type=int,
                         help="debugger-only: set DS:81C4 before authored ARE streaming")
+    parser.add_argument(
+        "--reset-stream-origin", action="store_true",
+        help="debugger-only: reset DS:3710/3712 after an initial camera jump so the ARE streamer revisits its cached region origin",
+    )
     parser.add_argument("--prestream-input-key",
                         help="debugger-only: hold a key while the authored ARE stream advances")
     parser.add_argument("--prestream-input-frames", type=int, default=0,
@@ -603,6 +609,7 @@ def main(argv: list[str] | None = None) -> int:
             selector_frames=args.selector_frames,
             initial_camera_x=args.initial_camera_x,
             initial_camera_y=args.initial_camera_y,
+            reset_stream_origin=args.reset_stream_origin,
             prestream_input_key=args.prestream_input_key,
             prestream_input_frames=args.prestream_input_frames,
         camera_x=args.camera_x,
