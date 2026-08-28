@@ -18,6 +18,7 @@ namespace {
 
 struct InputFrame {
     std::size_t sequence;
+    std::size_t guestFrame;
     std::uint16_t actionFlags;
     bool hasCamera;
     std::int32_t cameraX;
@@ -26,6 +27,7 @@ struct InputFrame {
     InputFrame(std::size_t sequenceValue = 0,
                std::uint16_t actionFlagsValue = 0)
         : sequence(sequenceValue), actionFlags(actionFlagsValue),
+          guestFrame(sequenceValue),
           hasCamera(false), cameraX(0), cameraY(0) {}
 };
 
@@ -411,6 +413,13 @@ std::vector<InputFrame> readInputJsonl(const std::string &path) {
         }
         InputFrame frame(static_cast<std::size_t>(sequence),
                          static_cast<std::uint16_t>(flags));
+        bool hasGuestFrame = false;
+        const long guestFrame = jsonInteger(line, "guest_frame", hasGuestFrame);
+        if (!hasGuestFrame || guestFrame < 0) {
+            throw quiky::FormatError(
+                "input JSONL guest_frame must be a non-negative integer");
+        }
+        frame.guestFrame = static_cast<std::size_t>(guestFrame);
         bool hasCamera = false;
         bool hasCameraX = false;
         bool hasCameraY = false;
@@ -473,6 +482,7 @@ void writeSample(std::ostream &output, const InputFrame &input,
                  const std::vector<quiky::LevelEvent> &levelEvents) {
     const quiky::LevelSession &session = runtime.session();
     output << "{\"sequence\":" << input.sequence
+           << ",\"guest_frame\":" << input.guestFrame
            << ",\"tick\":" << snapshot.tick
            << ",\"input_flags\":" << input.actionFlags
            << ",\"camera\":{\"x\":" << session.streamAnchorX()

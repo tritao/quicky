@@ -271,6 +271,17 @@ class PlayerParityWorkflowTests(unittest.TestCase):
         self.assertIn("--action-flags", command)
         self.assertEqual(command[-1], "00" * 0x100)
 
+    def test_w1l1_session_gate_accepts_canonical_input_jsonl(self):
+        command = build_command(
+            Path("build/engine/quiky-w1l1-trace"),
+            Path("game/NESTLE.DAT"), "W1L1.MAP", Path("/tmp/candidate.json"),
+            frames=0, action_flags="0", input_tsv=None,
+            leaf_prng_index=0, leaf_prng_ring_hex="00" * 0x100,
+            input_jsonl=Path("run/input.jsonl"),
+        )
+        self.assertIn("--input-jsonl", command)
+        self.assertNotIn("--input-tsv", command)
+
 
 if __name__ == "__main__":
     unittest.main()

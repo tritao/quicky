@@ -43,6 +43,7 @@ def build_command(
     input_tsv: Path | None,
     leaf_prng_index: int,
     leaf_prng_ring_hex: str,
+    input_jsonl: Path | None = None,
 ) -> list[str]:
     """Build the exact native emitter command used by the parity gate."""
 
@@ -52,7 +53,11 @@ def build_command(
         map_resource,
         str(output),
     ]
-    if input_tsv is not None:
+    if input_tsv is not None and input_jsonl is not None:
+        raise SessionTraceError("input TSV and input JSONL cannot be combined")
+    if input_jsonl is not None:
+        command.extend(("--input-jsonl", str(input_jsonl)))
+    elif input_tsv is not None:
         command.extend(("--input-tsv", str(input_tsv)))
     else:
         command.extend(("--frames", str(frames), "--action-flags", action_flags))
@@ -75,6 +80,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--frames", type=int, default=4)
     parser.add_argument("--action-flags", default="0")
     parser.add_argument("--input-tsv", type=Path)
+    parser.add_argument("--input-jsonl", type=Path)
     parser.add_argument("--leaf-prng-index", type=int, default=0)
     parser.add_argument("--leading-hex", default=DEFAULT_LEADING_HEX)
     parser.add_argument("--max-report", type=int, default=8)
@@ -105,6 +111,12 @@ def main(argv: list[str] | None = None) -> int:
         print(f"w1l1-session: input TSV does not exist: {args.input_tsv}",
               file=sys.stderr)
         return 2
+    if args.input_jsonl is not None and not args.input_jsonl.exists():
+        print(f"w1l1-session: input JSONL does not exist: {args.input_jsonl}",
+              file=sys.stderr)
+        return 2
+    if args.input_tsv is not None and args.input_jsonl is not None:
+        parser.error("--input-tsv and --input-jsonl cannot be combined")
 
     try:
         ring, rows = derive_ring(load_payload(args.original), leading)
@@ -122,6 +134,7 @@ def main(argv: list[str] | None = None) -> int:
             frames=args.frames,
             action_flags=args.action_flags,
             input_tsv=args.input_tsv,
+            input_jsonl=args.input_jsonl,
             leaf_prng_index=args.leaf_prng_index,
             leaf_prng_ring_hex=ring.hex(),
         )
