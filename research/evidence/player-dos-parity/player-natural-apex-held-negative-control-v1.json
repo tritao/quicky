@@ -9,7 +9,7 @@
     "trace": "/tmp/player-w1l1-natural-ceiling-held-v1.json",
     "trace_sha256": "751c9e6dc89ebf339c29c4f98e45bb33e97ac5d68d03d931e9d11093be7f7a22",
     "trace_script": "research/automation/quiky_player_trace.lua",
-    "trace_script_sha256": "c96e28b7976cef24811fcc122f15db81ece11697a10b28795f7c6cd118e9d9ac"
+    "trace_script_sha256": "6083d17fa88670034dc09cb0737b5c35a9aaceab53c4ba4172f42f6477543863"
   },
   "method": {
     "level": "W1L1",

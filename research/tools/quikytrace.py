@@ -267,6 +267,7 @@ class PlayerTraceConfig:
     input_frames: int = 0
     input_samples: int = 0
     input_warmup_frames: int = 0
+    record_input_stream: bool = False
     input_hold_key: str | None = None
     input_hold_frames: int = 0
     input_phase_through_callback: bool = False
@@ -407,6 +408,7 @@ def player_trace_lua_config(config: PlayerTraceConfig) -> dict[str, Any]:
         "input_frames": config.input_frames,
         "input_samples": config.input_samples,
         "input_warmup_frames": config.input_warmup_frames,
+        "record_input_stream": config.record_input_stream,
         "input_hold_key": config.input_hold_key or "",
         "input_hold_frames": config.input_hold_frames,
         "input_phase_through_callback": config.input_phase_through_callback,
@@ -1091,6 +1093,8 @@ def build_parser() -> argparse.ArgumentParser:
                         help="number of post-baseline samples that receive the input hold (0 means all)")
     parser.add_argument("--player-input-warmup-frames", type=int, default=0,
                         help="guest frames to hold --player-input-key before the first sampled callback")
+    parser.add_argument("--player-record-input-stream", action="store_true",
+                        help="record lightweight per-guest-frame input/camera rows")
     parser.add_argument("--player-input-hold-key",
                         help="keep one or more '+'-separated DOSBox keys physically held while sampling callbacks")
     parser.add_argument("--player-input-hold-frames", type=int, default=0,
@@ -1499,6 +1503,7 @@ def main(argv: list[str] | None = None) -> int:
                 input_frames=args.player_input_frames,
                 input_samples=args.player_input_samples,
                 input_warmup_frames=args.player_input_warmup_frames,
+                record_input_stream=args.player_record_input_stream,
                 input_hold_key=args.player_input_hold_key,
                 input_hold_frames=args.player_input_hold_frames,
                 input_phase_through_callback=args.player_input_phase_through_callback,

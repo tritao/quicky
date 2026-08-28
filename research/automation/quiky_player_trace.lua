@@ -50,6 +50,7 @@ local secondary_end_sample = trace_config.secondary_end_sample or 0
 local input_frames = trace_config.input_frames or 0
 local input_samples = trace_config.input_samples or 0
 local input_warmup_frames = trace_config.input_warmup_frames or 0
+local record_input_stream = trace_config.record_input_stream or false
 local input_hold_key = trace_config.input_hold_key or ""
 local input_hold_frames = trace_config.input_hold_frames or 0
 local input_hold_keys = {}
@@ -2181,6 +2182,7 @@ if transition_focus then
 end
 
 local samples = {}
+local input_stream = {}
 local experiment_frame = 0
 local continuous_input_active = false
 local continuous_input_released = false
@@ -2188,15 +2190,38 @@ local continuous_input_callbacks = 0
 local active_phase_keys = nil
 local active_phase_callbacks_remaining = 0
 
+local function capture_input_sample()
+    if not record_input_stream then return end
+    local keyboard = dosbox.mem_read_word("ds", 0x88bc)
+    local auxiliary = dosbox.mem_read_word("ds", 0x8196)
+    input_stream[#input_stream + 1] = {
+        sequence = #input_stream + 1,
+        guest_frame = experiment_frame,
+        input_flags = (keyboard | auxiliary) & 0xffff,
+        camera = {
+            x = dosbox.mem_read_word("ds", 0x81c0),
+            y = dosbox.mem_read_word("ds", 0x81c4),
+        },
+    }
+end
+
+local function wait_recorded_frames(frames)
+    for _ = 1, frames do
+        dosbox.wait_frames(1)
+        experiment_frame = experiment_frame + 1
+        capture_input_sample()
+    end
+end
+
 -- Run the primary input before the first post-baseline sample.  This keeps
 -- long approach trajectories out of the per-sample input wait, so execute
 -- watches are armed on the natural contact window instead of after it.
 if input_warmup_frames > 0 and input_key ~= "" then
     dosbox.key(input_key, true)
-    dosbox.wait_frames(input_warmup_frames)
+    wait_recorded_frames(input_warmup_frames)
     dosbox.key(input_key, false)
-    experiment_frame = experiment_frame + input_warmup_frames
 end
+capture_input_sample()
 
 local function key_is_continuously_held(key)
     if input_hold_key == "" then return false end
@@ -2252,6 +2277,7 @@ for sequence = 1, sample_count do
             end
             continuous_input_callbacks = continuous_input_callbacks + 1
             experiment_frame = experiment_frame + 1
+            capture_input_sample()
             if phase ~= nil then
                 local keys = phase.keys or {}
                 local phase_frames = phase.frames or 0
@@ -2262,14 +2288,13 @@ for sequence = 1, sample_count do
                 if input_phase_through_callback and
                    (phase_frames == 0 or input_phase_hold_after_wait) then
                     for _, key in ipairs(keys) do dosbox.key(key, true) end
-                    if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+                    if phase_frames > 0 then wait_recorded_frames(phase_frames) end
                     phase_through_callback_keys = keys
                 else
                     for _, key in ipairs(keys) do dosbox.key(key, true) end
-                    if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+                    if phase_frames > 0 then wait_recorded_frames(phase_frames) end
                     for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
                 end
-                experiment_frame = experiment_frame + phase_frames
             end
         elseif phase ~= nil then
             local keys = phase.keys or {}
@@ -2280,14 +2305,13 @@ for sequence = 1, sample_count do
             if input_phase_through_callback and
                (phase_frames == 0 or input_phase_hold_after_wait) then
                 for _, key in ipairs(keys) do dosbox.key(key, true) end
-                if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+                if phase_frames > 0 then wait_recorded_frames(phase_frames) end
                 phase_through_callback_keys = keys
             else
                 for _, key in ipairs(keys) do dosbox.key(key, true) end
-                if phase_frames > 0 then dosbox.wait_frames(phase_frames) end
+                if phase_frames > 0 then wait_recorded_frames(phase_frames) end
                 for index = #keys, 1, -1 do dosbox.key(keys[index], false) end
             end
-            experiment_frame = experiment_frame + phase_frames
         elseif held_input then
             dosbox.key(active_input_key, true)
             if held_secondary then
@@ -2299,28 +2323,26 @@ for sequence = 1, sample_count do
                 local pressed = true
                 while remaining > 0 do
                     local chunk = math.min(secondary_pulse_frames, remaining)
-                    dosbox.wait_frames(chunk)
+                    wait_recorded_frames(chunk)
                     remaining = remaining - chunk
                     pressed = not pressed
                     dosbox.key(input_key_secondary, pressed)
                     secondary_pressed = pressed
                 end
             else
-                dosbox.wait_frames(input_frames)
+                wait_recorded_frames(input_frames)
             end
             if held_secondary and secondary_pressed then
                 dosbox.key(input_key_secondary, false)
             end
             dosbox.key(active_input_key, false)
-            experiment_frame = experiment_frame + input_frames
         end
         local sample_frames_between = frames_between
         if frames_between_after_sample > 0 and
                 sequence >= frames_between_after_sample then
             sample_frames_between = frames_between_after
         end
-        dosbox.wait_frames(sample_frames_between)
-        experiment_frame = experiment_frame + sample_frames_between
+        wait_recorded_frames(sample_frames_between)
         end
         if phase_through_callback_keys ~= nil then
             if active_phase_keys ~= nil then
@@ -2908,6 +2930,7 @@ local result = {
     final_globals = trace_globals(),
     final_pool = minimal_callback_capture and nil or pool_snapshot(),
     startup_stream_events = startup_stream_events,
+    input_stream = record_input_stream and input_stream or nil,
 }
 for _, sample in ipairs(samples) do
     if sample.descriptor_census ~= nil then

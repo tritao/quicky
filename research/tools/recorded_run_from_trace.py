@@ -21,6 +21,27 @@ def input_rows(trace_path: Path) -> list[dict[str, object]]:
         trace = load_trace(trace_path)
     except TraceError as exc:
         raise ToolError(str(exc)) from exc
+    stream = trace.payload.get("input_stream")
+    if stream is None:
+        events = trace.payload.get("events")
+        if isinstance(events, list) and len(events) == 1 and isinstance(events[0], dict):
+            stream = events[0].get("input_stream")
+    if stream is not None:
+        if isinstance(stream, dict):
+            try:
+                stream = [stream[key] for key in sorted(
+                    stream, key=lambda value: int(value))]
+            except (TypeError, ValueError, KeyError) as exc:
+                raise ToolError(
+                    f"{trace_path}: input_stream has invalid numeric keys") from exc
+        if not isinstance(stream, list):
+            raise ToolError(f"{trace_path}: input_stream must be an array")
+        # Re-use the canonical validator through the staging boundary while
+        # preserving the raw capture's explicit frame numbers.
+        if any(not isinstance(row, dict) for row in stream):
+            raise ToolError(f"{trace_path}: input_stream rows must be objects")
+        return [dict(row) for row in stream]
+
     rows: list[dict[str, object]] = []
     for sample in trace.samples:
         flags = sample.input_flags
