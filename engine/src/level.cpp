@@ -179,6 +179,7 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _score(0),
       _deaths(0),
       _gameplayState(),
+      _playerLifecycleState(PlayerLifecycleState::Alive),
       _alternateActionActive(false),
       _streamAnchorActive(false),
       _streamAnchorX(0),
@@ -264,6 +265,7 @@ void LevelSession::reset(Simulation &simulation) {
     _score = 0;
     _deaths = 0;
     _gameplayState = LevelGameplayState();
+    _playerLifecycleState = PlayerLifecycleState::Alive;
     if (upperAscii(_mapName) == "W1L1.MAP") {
         // Native W1L1 selector startup publishes three health units; the
         // generic state default remains five for levels without a closed
@@ -369,6 +371,106 @@ void LevelSession::resetPlayer(Simulation &simulation) {
             entity.pooledInteractionTriggered = false;
         }
     }
+}
+
+void LevelSession::beginW1L1TerminalDamage(Simulation &simulation,
+                                           std::uint32_t entityId,
+                                           std::uint16_t entityType) {
+    if (_playerLifecycleState != PlayerLifecycleState::Alive) {
+        return;
+    }
+
+    // 01F7:199D plus the callback-visible terminal subset shared with 19E6.
+    // The outer lifecycle owns the eventual rebuild; keep this record and the
+    // current scheduler intact while 3FF8 advances the measured death hold.
+    _playerLifecycleState = PlayerLifecycleState::TerminalDamage;
+    PlayerRecord &player = simulation.stateForSetup().player;
+    _gameplayState.transitionEffectBits8950 = 0;
+    _gameplayState.transitionGate89ea = 0xffff;
+    _gameplayState.currentHealth8822 = 0;
+    _gameplayState.lives880a = static_cast<std::uint16_t>(
+        _gameplayState.lives880a - 1);
+    player.velocityY.raw = static_cast<std::int32_t>(0xfffe0000U);
+    player.acceleration4C.raw = 0x00002000;
+    player.positiveYAcceleration50.raw = 0x00002000;
+    player.horizontalSpeedCap5C.raw = 0x00018000;
+    player.positiveYSpeedCap60.raw = 0x00040000;
+    player.sideResponse3B = 0;
+    player.resetDeathTimer3E = 0x03e8;
+    player.mode37 = -1;
+    player.verticalResponse3A = 0;
+    player.contactScratch2B = 0;
+    player.syncToRaw();
+
+    if (simulation.playerUpdater() != 0) {
+        simulation.playerUpdater()->publishTransitionGate(0xffff);
+        simulation.playerUpdater()->publishGameplayCounters(
+            _gameplayState.score881c, _gameplayState.lives880a,
+            _gameplayState.ammo880c, 0, false);
+    }
+    ++_deaths;
+    enqueueEvent(LevelEventType::PlayerDied, entityId, entityType);
+    _playerLifecycleState = PlayerLifecycleState::DeathHold;
+}
+
+void LevelSession::recoverW1L1Player(Simulation &simulation) {
+    _playerLifecycleState = PlayerLifecycleState::RecoveryGate;
+
+    // 4BA4 -> 106A/17D4 tears down pending ARE-event ownership before the
+    // 1AF5 -> 1AAA rebuild. Preserve the session tick, but replace the pool.
+    _playerLifecycleState = PlayerLifecycleState::SchedulerTeardown;
+    SimulationState &state = simulation.stateForSetup();
+    state.scheduler.reset();
+    state.queuedEvents.clear();
+
+    for (std::size_t index = 0; index < _entities.size(); ++index) {
+        LevelEntity &entity = _entities[index];
+        entity.schedulerHandle = SchedulerHandle();
+        entity.phase = EntityPhase::Dormant;
+        entity.active = false;
+        entity.streamClaimed = false;
+        entity.streamPublished = false;
+        entity.streamSuppressed = false;
+        entity.pooledInteractionTriggered = false;
+        entity.enemyContactPending = false;
+        entity.contactCallback = CallbackIdentity();
+        entity.responseTimer = 0;
+    }
+    _effects.clear();
+    _pendingStreamInitializers.clear();
+    _streamCursorX = 0;
+    _streamCursorY = 0;
+
+    _playerLifecycleState = PlayerLifecycleState::RespawnRebuild;
+    _gameplayState.currentHealth8822 = _gameplayState.maximumHealth8824;
+    _gameplayState.transitionGate89ea = 0;
+    _gameplayState.transitionState89ec = 0;
+
+    // W1L1's recovered resource row zero is (1673,374). 1AAA writes that
+    // exact fixed-point position; the following 3FF8 callback performs the
+    // observed descriptor correction to Y=368.
+    state.player = PlayerRecord();
+    state.player.positionX = Fixed16::fromPixels(1673);
+    state.player.positionY = Fixed16::fromPixels(374);
+    state.player.initializeRecoveredCallbackFields();
+    state.player.positionX = Fixed16::fromPixels(1673);
+    state.player.positionY = Fixed16::fromPixels(374);
+    state.player.field17 = 2;
+    state.player.resetDeathTimer3E = 0x03e8;
+    state.player.syncToRaw();
+
+    if (simulation.playerUpdater() != 0) {
+        simulation.playerUpdater()->publishTransitionGate(0);
+        simulation.playerUpdater()->publishGameplayCounters(
+            _gameplayState.score881c, _gameplayState.lives880a,
+            _gameplayState.ammo880c, _gameplayState.currentHealth8822,
+            false);
+    }
+    updateStreaming(simulation,
+                    _streamAnchorActive ? _streamAnchorX : 1673,
+                    _streamAnchorActive ? _streamAnchorY : 374);
+    initializePendingStreamObjects();
+    _playerLifecycleState = PlayerLifecycleState::Alive;
 }
 
 EntityKind LevelSession::classify(std::uint16_t type) {
@@ -3085,7 +3187,18 @@ void LevelSession::tick(Simulation &simulation,
     // the one-shot gameplay event at this boundary so presentation can react
     // without resetting the player before the measured death hold completes.
     if (!deathAnimationBefore && playerDeathAnimationActive(player)) {
+        if (_playerLifecycleState == PlayerLifecycleState::Alive) {
+            _playerLifecycleState = PlayerLifecycleState::TerminalDamage;
+            ++_deaths;
+            _playerLifecycleState = PlayerLifecycleState::DeathHold;
+        }
         enqueueEvent(LevelEventType::PlayerDied);
+    }
+    if (_playerLifecycleState == PlayerLifecycleState::DeathHold &&
+        upperAscii(_mapName) == "W1L1.MAP" &&
+        static_cast<std::int16_t>(_gameplayState.transitionGate89ea) <= -350 &&
+        _gameplayState.lives880a > 0) {
+        recoverW1L1Player(simulation);
     }
     spawnedTransient = updateStreaming(
         simulation,
@@ -3156,27 +3269,31 @@ void LevelSession::tick(Simulation &simulation,
                 enqueueEvent(LevelEventType::PooledObjectInteractionBurst,
                              entity.id, entity.type);
             }
-            if (overlaps(player, entity, _config.hazardRadius)) {
-                resetPlayer(simulation);
-                ++_deaths;
-                enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-                updateStreaming(
-                    simulation,
-                    _streamAnchorActive ? _streamAnchorX : player.positionX.floorPixels(),
-                    _streamAnchorActive ? _streamAnchorY : player.positionY.floorPixels());
+            if (_playerLifecycleState == PlayerLifecycleState::Alive &&
+                overlaps(player, entity, _config.hazardRadius)) {
+                if (upperAscii(_mapName) == "W1L1.MAP") {
+                    beginW1L1TerminalDamage(simulation, entity.id, entity.type);
+                } else {
+                    resetPlayer(simulation);
+                    ++_deaths;
+                    enqueueEvent(LevelEventType::PlayerDied,
+                                 entity.id, entity.type);
+                }
                 output.player = player;
                 output.player.syncToRaw();
                 return;
             }
         } else if (entity.kind == EntityKind::Hazard &&
+                   _playerLifecycleState == PlayerLifecycleState::Alive &&
                    overlaps(player, entity, _config.hazardRadius)) {
-            resetPlayer(simulation);
-            ++_deaths;
-            enqueueEvent(LevelEventType::PlayerDied, entity.id, entity.type);
-            updateStreaming(
-                simulation,
-                _streamAnchorActive ? _streamAnchorX : player.positionX.floorPixels(),
-                _streamAnchorActive ? _streamAnchorY : player.positionY.floorPixels());
+            if (upperAscii(_mapName) == "W1L1.MAP") {
+                beginW1L1TerminalDamage(simulation, entity.id, entity.type);
+            } else {
+                resetPlayer(simulation);
+                ++_deaths;
+                enqueueEvent(LevelEventType::PlayerDied,
+                             entity.id, entity.type);
+            }
             output.player = player;
             output.player.syncToRaw();
             return;

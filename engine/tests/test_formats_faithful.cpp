@@ -986,6 +986,63 @@ void testRecoveredNormalEnemyDamageContract() {
            quiky::LevelEventType::None);
 }
 
+void testW1L1DeathRecoveryLifecycle() {
+    const quiky::Map map = makeMap(128, 32);
+    const quiky::WorldCollisionView world(map);
+    quiky::LevelSessionConfig config;
+    config.hasSpawn = true;
+    config.spawnX = 16;
+    config.spawnY = 16;
+    config.streamRadiusRegions = 0;
+    config.enableEdgeExit = false;
+
+    quiky::LevelSession session("W1L1.MAP", map,
+                                makeSingleArea(0x10), config);
+    quiky::Simulation simulation;
+    quiky::TraceClosedPlayerUpdate updater;
+    simulation.setExperimentalPlayerUpdater(&updater);
+    quiky::SimulationOutput output;
+    session.reset(simulation);
+    simulation.stateForSetup().scheduler.queueSpawn(
+        quiky::CallbackIdentity(0x01f7, 0x1234, "hold_sentinel"), 99, false);
+    session.updateStreaming(simulation, 16, 16);
+
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(session.playerLifecycleState() ==
+           quiky::PlayerLifecycleState::DeathHold);
+    assert(session.deaths() == 1);
+    assert(session.gameplayState().currentHealth8822 == 0);
+    assert(session.gameplayState().lives880a == 3);
+    assert(session.gameplayState().transitionGate89ea == 0xffff);
+    assert(simulation.state().player.mode37 == -1);
+    assert(simulation.state().scheduler.activeCount() == 1);
+    const std::uint64_t deathTick = simulation.state().tick;
+
+    // The player and scheduler survive the hold. Force the final observed
+    // 4BA4 threshold; recovery must rebuild the pool without resetting the
+    // monotonically increasing session tick.
+    session.gameplayStateForSetup().transitionGate89ea =
+        static_cast<std::uint16_t>(-350);
+    updater.publishTransitionGate(static_cast<std::uint16_t>(-350));
+    session.tick(simulation, world, quiky::InputState(), output);
+
+    assert(session.playerLifecycleState() ==
+           quiky::PlayerLifecycleState::Alive);
+    assert(simulation.state().tick == deathTick + 1);
+    assert(session.gameplayState().transitionGate89ea == 0);
+    assert(session.gameplayState().currentHealth8822 == 3);
+    assert(session.gameplayState().lives880a == 3);
+    assert(simulation.state().player.positionX.raw ==
+           quiky::Fixed16::fromPixels(1673).raw);
+    assert(simulation.state().player.positionY.raw ==
+           quiky::Fixed16::fromPixels(374).raw);
+    assert(simulation.state().player.callbackOffset18 == 0x3ff8);
+    assert(simulation.state().player.field17 == 2);
+    assert(simulation.state().player.mode37 == 0);
+    assert(simulation.state().player.velocityX.raw == 0);
+    assert(simulation.state().player.velocityY.raw == 0);
+}
+
 void testRecoveredAnimatedTileEffectStateMachine() {
     quiky::Map map = makeMap(16, 8);
     // W1 DS:6986 evidence: source tiles 200..204 select ICO effects
@@ -1358,6 +1415,7 @@ int main() {
         testRecoveredBieneStateZeroMapPolarityContract();
         testRecoveredBieneRuntimePhaseContract();
         testRecoveredNormalEnemyDamageContract();
+        testW1L1DeathRecoveryLifecycle();
         testRecoveredAnimatedTileEffectStateMachine();
         testRecoveredW1L1AmbientAndDedicatedContracts();
         testRecoveredMovingPlatformCarryContract();

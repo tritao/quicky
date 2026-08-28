@@ -171,6 +171,15 @@ struct SpawnPoint {
         : x(xValue), y(yValue) {}
 };
 
+enum class PlayerLifecycleState {
+    Alive,
+    TerminalDamage,
+    DeathHold,
+    RecoveryGate,
+    SchedulerTeardown,
+    RespawnRebuild,
+};
+
 // A short-lived visual object emitted by an ARE effect/event record or by a
 // source-less high-address callback chain. These objects are deliberately
 // separate from gameplay entities: they do not participate in collision,
@@ -386,6 +395,9 @@ public:
     // lifecycle globals. The action word is intentionally not sufficient:
     // action 4 is shared by ordinary running.
     bool playerDeathAnimationActive(const PlayerRecord &player) const;
+    PlayerLifecycleState playerLifecycleState() const {
+        return _playerLifecycleState;
+    }
     std::uint32_t score() const { return _score; }
     std::uint32_t deaths() const { return _deaths; }
     const LevelGameplayState &gameplayState() const { return _gameplayState; }
@@ -414,6 +426,10 @@ private:
     static std::uint32_t collectibleValue(std::uint16_t type);
     static std::string nextLevelName(const std::string &mapName);
     void resetPlayer(Simulation &simulation);
+    void beginW1L1TerminalDamage(Simulation &simulation,
+                                std::uint32_t entityId,
+                                std::uint16_t entityType);
+    void recoverW1L1Player(Simulation &simulation);
     bool updateStreamingImpl(ObjectScheduler *scheduler,
                              std::int32_t playerX, std::int32_t playerY);
     void dispatchCollectibleCallbacks(Simulation *simulation,
@@ -505,6 +521,7 @@ private:
     std::uint32_t _score;
     std::uint32_t _deaths;
     LevelGameplayState _gameplayState;
+    PlayerLifecycleState _playerLifecycleState;
     bool _alternateActionActive;
     bool _streamAnchorActive;
     std::int32_t _streamAnchorX;
