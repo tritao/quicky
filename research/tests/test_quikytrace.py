@@ -693,6 +693,13 @@ class QuikyTraceTests(unittest.TestCase):
         payload = player_trace_lua_config(config)
         self.assertEqual(payload["input_warmup_frames"], 37)
 
+    def test_player_input_stream_capture_is_serialized(self):
+        recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
+        config = PlayerTraceConfig(
+            startup_recording=recording, record_input_stream=True,
+        )
+        self.assertTrue(player_trace_lua_config(config)["record_input_stream"])
+
     def test_player_descriptor_census_config_is_serialized(self):
         recording = Path(__file__).resolve().parents[1] / "automation/startup-to-input.json"
         config = PlayerTraceConfig(
