@@ -11,6 +11,7 @@ add_library(quiky_core
     src/archive.cpp
     src/bob.cpp
     src/binary_reader.cpp
+    src/camera.cpp
     src/collision_kernel.cpp
     src/fixed.cpp
     src/map.cpp
@@ -134,6 +135,10 @@ add_test(NAME quiky-tests COMMAND quiky-tests)
 add_executable(quiky-foundation-tests tests/test_foundation.cpp)
 target_link_libraries(quiky-foundation-tests PRIVATE quiky_core)
 add_test(NAME quiky-foundation-tests COMMAND quiky-foundation-tests)
+
+add_executable(quiky-camera-tests tests/test_camera.cpp)
+target_link_libraries(quiky-camera-tests PRIVATE quiky_core)
+add_test(NAME quiky-camera-tests COMMAND quiky-camera-tests)
 
 add_executable(quiky-horizontal-tests tests/test_horizontal.cpp)
 target_link_libraries(quiky-horizontal-tests PRIVATE quiky_core)

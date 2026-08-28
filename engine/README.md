@@ -744,6 +744,15 @@ Launch the default W1L1 session without naming the derived world resources:
 build/engine/quiky-play game/NESTLE.DAT
 ```
 
+The interactive frontend samples movement and action keys as held state at the
+fixed 60 Hz simulation boundary. Space/W set the `0x20` jump action and Up sets
+the native `0x02` up action; either can be tapped (one queued callback) or held
+to keep the native jump gate active. The renderer starts from the authored W1L1
+camera anchor and follows through an explicit asymmetric dead-zone, so camera
+motion does not recenter the player on every frame or hide the vertical jump
+arc. Camera policy lives in [`include/quiky/camera.h`](include/quiky/camera.h)
+and is independent of player physics.
+
 Inspect the bundled archive:
 
 ```sh

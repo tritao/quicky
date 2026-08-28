@@ -1,5 +1,6 @@
 #include "quiky/archive.h"
 #include "quiky/bob.h"
+#include "quiky/camera.h"
 #include "quiky/level_runtime.h"
 #include "quiky/player_update.h"
 #include "quiky/player_animation.h"
@@ -299,9 +300,19 @@ void uploadSurface(SDL_Texture *texture, const quiky::IndexedSurface &surface,
              "SDL_UpdateTexture");
 }
 
-int clampCamera(int camera, int mapPixels, int viewportPixels) {
-    const int maximum = std::max(0, mapPixels - viewportPixels);
-    return std::max(0, std::min(maximum, camera));
+void resetGameplayCamera(quiky::GameplayCamera &camera,
+                         const quiky::LevelRuntime &runtime,
+                         const quiky::PlayerRecord &player) {
+    const int worldWidth = static_cast<int>(runtime.map().width) * 16;
+    const int worldHeight = static_cast<int>(runtime.map().height) * 16;
+    const int initialX = player.positionX.floorPixels() - kLogicalWidth / 2;
+    const int centeredY =
+        player.positionY.floorPixels() - kWorldViewportHeight / 2;
+    // W1L1's authored/native startup anchor is (0,262).  Other levels use
+    // their spawn-centered fallback until a level-specific camera trace is
+    // available.
+    const int initialY = runtime.mapName() == "W1L1.MAP" ? 262 : centeredY;
+    camera.reset(initialX, initialY, worldWidth, worldHeight);
 }
 
 void drawEntityMarkers(quiky::IndexedSurface &surface, quiky::Palette &palette,
@@ -473,28 +484,24 @@ int main(int argc, char **argv) {
                      SDL_LOGICAL_PRESENTATION_INTEGER_SCALE),
                  "SDL_SetRenderLogicalPresentation");
 
+        quiky::GameplayCamera camera(kLogicalWidth, kWorldViewportHeight);
+        resetGameplayCamera(camera, *runtime, player);
+        runtime->setStreamAnchor(camera.x(), camera.y());
         const quiky::IndexedSurface initialWorld =
             quiky::renderMap(runtime->map(), runtime->tileset());
-        const int initialCameraX = clampCamera(
-            player.positionX.floorPixels() - kLogicalWidth / 2,
-            static_cast<int>(initialWorld.width), kLogicalWidth);
-        const int initialCameraY = clampCamera(
-            player.positionY.floorPixels() - kWorldViewportHeight / 2,
-            static_cast<int>(initialWorld.height), kWorldViewportHeight);
-        const int nativeInitialCameraY =
-            runtime->mapName() == "W1L1.MAP" ? 262 : initialCameraY;
-        runtime->setStreamAnchor(initialCameraX, nativeInitialCameraY);
         const quiky::IndexedSurface initialSurface = quiky::composeGameplayFrame(
-            initialWorld, runtime->gamebar().surface(), initialCameraX,
-            nativeInitialCameraY);
+            initialWorld, runtime->gamebar().surface(), camera.x(), camera.y());
         sdl.texture = createSurfaceTexture(sdl.renderer, initialSurface);
 
         bool running = true;
         bool paused = false;
         bool left = false;
         bool right = false;
+        bool upHeld = false;
+        bool upQueued = false;
+        bool jumpHeld = false;
+        bool jumpQueued = false;
         bool alternate = false;
-        bool jumpPressed = false;
         bool stepRequested = false;
         std::uint64_t frame = 0;
         std::uint64_t lastTime = SDL_GetTicksNS();
@@ -502,6 +509,15 @@ int main(int argc, char **argv) {
         std::uint64_t titleTime = 0;
         std::uint64_t eventUntil = 0;
         std::string eventText;
+        const auto currentInput = [&]() {
+            quiky::InputState input;
+            input.left = left;
+            input.right = right;
+            input.up = upHeld || upQueued;
+            input.jump = jumpHeld || jumpQueued;
+            input.alternate = alternate;
+            return input;
+        };
 
         while (running) {
             const std::uint64_t now = SDL_GetTicksNS();
@@ -513,6 +529,14 @@ int main(int argc, char **argv) {
             while (SDL_PollEvent(&event)) {
                 if (event.type == SDL_EVENT_QUIT) {
                     running = false;
+                } else if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+                    left = false;
+                    right = false;
+                    upHeld = false;
+                    jumpHeld = false;
+                    upQueued = false;
+                    jumpQueued = false;
+                    alternate = false;
                 } else if (event.type == SDL_EVENT_KEY_DOWN ||
                            event.type == SDL_EVENT_KEY_UP) {
                     const bool down = event.key.down;
@@ -525,10 +549,19 @@ int main(int argc, char **argv) {
                         right = down;
                     } else if (isKey(key, SDL_SCANCODE_LALT, SDL_SCANCODE_RALT)) {
                         alternate = down;
-                    } else if (isKey(key, SDL_SCANCODE_SPACE, SDL_SCANCODE_W) ||
-                               key == SDL_SCANCODE_UP) {
+                    } else if (isKey(key, SDL_SCANCODE_SPACE, SDL_SCANCODE_W)) {
                         if (down && !event.key.repeat) {
-                            jumpPressed = true;
+                            jumpHeld = true;
+                            jumpQueued = true;
+                        } else if (!down) {
+                            jumpHeld = false;
+                        }
+                    } else if (key == SDL_SCANCODE_UP) {
+                        if (down && !event.key.repeat) {
+                            upHeld = true;
+                            upQueued = true;
+                        } else if (!down) {
+                            upHeld = false;
                         }
                     } else if (key == SDL_SCANCODE_P && down && !event.key.repeat) {
                         paused = !paused;
@@ -537,11 +570,14 @@ int main(int argc, char **argv) {
                     } else if (key == SDL_SCANCODE_R && down && !event.key.repeat) {
                         runtime->reset(simulation);
                         output.player = simulation.state().player;
+                        resetGameplayCamera(camera, *runtime, output.player);
+                        runtime->setStreamAnchor(camera.x(), camera.y());
                         playerAnimation.reset();
                         advancePlayerAnimation(playerAnimation, player, *runtime);
                         frame = 0;
                         accumulator = 0;
-                        jumpPressed = false;
+                        upQueued = false;
+                        jumpQueued = false;
                         stepRequested = false;
                     } else if (key == SDL_SCANCODE_F1 && down && !event.key.repeat) {
                         showArea = !showArea;
@@ -553,15 +589,11 @@ int main(int argc, char **argv) {
 
             while (accumulator >= kTickNanoseconds) {
                 if (!paused) {
-                    quiky::InputState input;
-                    input.left = left;
-                    input.right = right;
-                    input.jump = jumpPressed;
-                    input.alternate = alternate;
-                    runtime->tick(simulation, input, output);
+                    runtime->tick(simulation, currentInput(), output);
                     advancePlayerAnimation(playerAnimation, player, *runtime);
                     ++frame;
-                    jumpPressed = false;
+                    upQueued = false;
+                    jumpQueued = false;
                     const quiky::LevelEvent event = runtime->session().consumeEvent();
 #ifdef QUIKY_WITH_MUSIC
                     triggerLevelSfx(sdl,
@@ -608,19 +640,23 @@ int main(int argc, char **argv) {
                                 runtime->reload(archive, event.targetLevel,
                                                 simulation, transitionConfig,
                                                 &reloadTrace);
-                            const quiky::IndexedSurface nextWorld =
-                                quiky::renderMap(next->map(), next->tileset());
-                            const quiky::IndexedSurface nextSurface =
-                                quiky::composeGameplayFrame(
-                                    nextWorld, next->gamebar().surface(), 0, 0);
-                            replaceSurfaceTexture(sdl, nextSurface);
                             runtime.swap(next);
                             output.player = simulation.state().player;
+                            resetGameplayCamera(camera, *runtime, output.player);
+                            runtime->setStreamAnchor(camera.x(), camera.y());
+                            const quiky::IndexedSurface nextWorld =
+                                quiky::renderMap(runtime->map(), runtime->tileset());
+                            const quiky::IndexedSurface nextSurface =
+                                quiky::composeGameplayFrame(
+                                    nextWorld, runtime->gamebar().surface(),
+                                    camera.x(), camera.y());
+                            replaceSurfaceTexture(sdl, nextSurface);
                             playerAnimation.reset();
                             advancePlayerAnimation(playerAnimation, player, *runtime);
                             frame = 0;
                             accumulator = 0;
-                            jumpPressed = false;
+                            upQueued = false;
+                            jumpQueued = false;
                             stepRequested = false;
                             eventText = "loaded " + runtime->mapName();
                             eventUntil = now + 2000000000ULL;
@@ -631,15 +667,11 @@ int main(int argc, char **argv) {
                 accumulator -= kTickNanoseconds;
             }
             if (paused && stepRequested) {
-                quiky::InputState input;
-                input.left = left;
-                input.right = right;
-                input.jump = jumpPressed;
-                input.alternate = alternate;
-                runtime->tick(simulation, input, output);
+                runtime->tick(simulation, currentInput(), output);
                 advancePlayerAnimation(playerAnimation, player, *runtime);
                 ++frame;
-                jumpPressed = false;
+                upQueued = false;
+                jumpQueued = false;
                 stepRequested = false;
                 const quiky::LevelEvent event = runtime->session().consumeEvent();
 #ifdef QUIKY_WITH_MUSIC
@@ -666,12 +698,12 @@ int main(int argc, char **argv) {
                                  player.positionX.floorPixels(),
                                  player.positionY.floorPixels());
 
-            int cameraX = player.positionX.floorPixels() - kLogicalWidth / 2;
-            int cameraY = player.positionY.floorPixels() - kWorldViewportHeight / 2;
-            cameraX = clampCamera(cameraX, static_cast<int>(worldSurface.width),
-                                  kLogicalWidth);
-            cameraY = clampCamera(cameraY, static_cast<int>(worldSurface.height),
-                                  kWorldViewportHeight);
+            camera.follow(player.positionX.floorPixels(),
+                          player.positionY.floorPixels(),
+                          static_cast<int>(worldSurface.width),
+                          static_cast<int>(worldSurface.height));
+            const int cameraX = camera.x();
+            const int cameraY = camera.y();
             const quiky::IndexedSurface surface = quiky::composeGameplayFrame(
                 worldSurface, runtime->gamebar().surface(), cameraX, cameraY);
             // The native ARE object gate is camera-relative. Publish the
