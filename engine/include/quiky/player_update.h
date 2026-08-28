@@ -249,12 +249,21 @@ public:
         (void)transitionGate89ea;
     }
 
+    // 01F7:3FF8 reads the shared DS:612E pending sound/event word. Level
+    // callbacks publish it before the player pass; the callback may clear or
+    // replace it and the session reads the value back afterward.
+    virtual void publishPendingEvent(std::uint16_t pendingEvent612e) {
+        (void)pendingEvent612e;
+    }
+
     // The recovered 4416-44FE branch decrements DS:89EA in the player
     // callback. Session owners must read it back after the callback or the
     // next frame would republish the stale pre-callback gate.
     virtual bool hasTransitionState() const { return false; }
     virtual std::uint16_t transitionGate89EA() const { return 0; }
     virtual std::uint16_t transitionState89EC() const { return 0; }
+    virtual bool hasPendingEvent() const { return false; }
+    virtual std::uint16_t pendingEvent612E() const { return 0; }
 
     // 01F7:5937 consumes the persistent score/lives/ammo/health words from
     // the level callback boundary. The boolean is true only at level reset,
@@ -292,12 +301,17 @@ public:
     void publishPlatformCarry(std::int32_t xDelta8816,
                               std::int32_t yDelta8812) override;
     void publishTransitionGate(std::uint16_t transitionGate89ea) override;
+    void publishPendingEvent(std::uint16_t pendingEvent612e) override;
     bool hasTransitionState() const override { return true; }
     std::uint16_t transitionGate89EA() const override {
         return static_cast<std::uint16_t>(_globals.collisionTransitionMode89EA);
     }
     std::uint16_t transitionState89EC() const override {
         return static_cast<std::uint16_t>(_globals.transitionState89EC);
+    }
+    bool hasPendingEvent() const override { return true; }
+    std::uint16_t pendingEvent612E() const override {
+        return _globals.pendingEvent612E;
     }
     void publishGameplayCounters(std::uint32_t score881c,
                                   std::uint16_t lives880a,

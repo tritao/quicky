@@ -1498,6 +1498,11 @@ void TraceClosedPlayerUpdate::publishTransitionGate(
         static_cast<std::int16_t>(transitionGate89ea);
 }
 
+void TraceClosedPlayerUpdate::publishPendingEvent(
+    std::uint16_t pendingEvent612e) {
+    _globals.pendingEvent612E = pendingEvent612e;
+}
+
 void TraceClosedPlayerUpdate::publishGameplayCounters(
     std::uint32_t score881c,
     std::uint16_t lives880a,

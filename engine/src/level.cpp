@@ -285,6 +285,8 @@ void LevelSession::reset(Simulation &simulation) {
             _gameplayState.ammo880c,
             _gameplayState.currentHealth8822,
             true);
+        simulation.playerUpdater()->publishPendingEvent(
+            _gameplayState.pendingEvent612e);
     }
     _alternateActionActive = false;
     if (_config.hasLeafPrngState) {
@@ -3163,6 +3165,8 @@ void LevelSession::tick(Simulation &simulation,
             _gameplayState.ammo880c,
             _gameplayState.currentHealth8822,
             false);
+        simulation.playerUpdater()->publishPendingEvent(
+            _gameplayState.pendingEvent612e);
     }
     simulation.tick(input, world, output);
     if (simulation.playerUpdater() != 0 &&
@@ -3174,6 +3178,11 @@ void LevelSession::tick(Simulation &simulation,
             simulation.playerUpdater()->transitionGate89EA();
         _gameplayState.transitionState89ec =
             simulation.playerUpdater()->transitionState89EC();
+    }
+    if (simulation.playerUpdater() != 0 &&
+        simulation.playerUpdater()->hasPendingEvent()) {
+        _gameplayState.pendingEvent612e =
+            simulation.playerUpdater()->pendingEvent612E();
     }
     if (simulation.playerUpdater() != 0) {
         dependencyOrder.push_back(SimulationCallbackStep(
