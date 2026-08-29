@@ -219,6 +219,10 @@ LevelSession::LevelSession(const std::string &mapName, const Map &map,
       _pendingStreamInitializers(),
       _leafPrngIndex(config.leafPrngIndex),
       _leafPrngRing(config.leafPrngRing) {
+    if (!_config.hasBieneRuntimeTable) {
+        _config.bieneRuntimeTable = generateBieneRuntimeTable();
+        _config.hasBieneRuntimeTable = true;
+    }
     if (!config.hasLeafPrngState) {
         _leafPrngIndex = 0;
         _leafPrngRing.fill(0);
@@ -2526,78 +2530,6 @@ void LevelSession::updateBiene(LevelEntity &entity,
     const auto transitionY = [&entity]() {
         return fixedHighWord(entity.positionY.raw);
     };
-
-    // The retail startup builds DS:7974 before any BIENE can enter state 1.
-    // Native callers do not always provide that DOS-time/software-float table,
-    // though. Leaving the bee in state 1 in that case makes it look as if it
-    // never sees the player. Keep the fully recovered table path below, but
-    // give table-less sessions the same important gameplay contract: once the
-    // bee lines up with the player it dives, can sting, and then returns to its
-    // patrol height.
-    const auto updateTablelessAttack = [&entity, &player]() {
-        const std::int32_t playerX = player.positionX.floorPixels();
-        const std::int32_t playerY = player.positionY.floorPixels();
-        const std::int32_t targetDirection = playerX < entity.x ? -1 : 1;
-        const auto clampVelocity = [](std::int32_t value) {
-            return value < static_cast<std::int32_t>(-0x15000)
-                ? static_cast<std::int32_t>(-0x15000)
-                : (value > 0x15000 ? static_cast<std::int32_t>(0x15000)
-                                    : value);
-        };
-        const auto advance = [&entity]() {
-            entity.positionX.raw = Fixed16::wrapAddRaw(
-                entity.positionX.raw, entity.velocityX.raw);
-            entity.positionY.raw = Fixed16::wrapAddRaw(
-                entity.positionY.raw, entity.velocityY.raw);
-            entity.x = entity.positionX.floorPixels();
-            entity.y = entity.positionY.floorPixels();
-        };
-
-        entity.enemyOrientation = static_cast<std::int8_t>(targetDirection);
-        entity.enemyPatrolDirection = static_cast<std::int8_t>(targetDirection);
-        if (entity.enemyState == 1) {
-            ++entity.enemyTransitionTimer;
-            entity.velocityX.raw = clampVelocity(
-                Fixed16::wrapAddRaw(entity.velocityX.raw,
-                                    targetDirection * 0x1000));
-            entity.velocityY.raw = clampVelocity(
-                Fixed16::wrapAddRaw(entity.velocityY.raw, 0x3000));
-            advance();
-
-            // The original exits the dive through its transition states. The
-            // table-less fallback uses the same origin as the recovered
-            // initializer and starts the return arc after passing the player.
-            if (entity.y >= playerY + 24 ||
-                entity.enemyTransitionTimer >= 0x90) {
-                entity.enemyState = 2;
-                entity.enemyTransitionTimer = 0;
-                entity.enemyAnimationSequence = 0x33d2;
-                entity.velocityY.raw = -0x18000;
-            }
-            return;
-        }
-
-        if (entity.enemyState == 2) {
-            entity.velocityY.raw = clampVelocity(
-                Fixed16::wrapAddRaw(entity.velocityY.raw, -0x2000));
-            advance();
-            if (entity.positionY.raw <= entity.enemyOriginY36) {
-                entity.positionY.raw = entity.enemyOriginY36;
-                entity.y = entity.positionY.floorPixels();
-                entity.enemyState = 0;
-                entity.enemyTimer = 0x14;
-                entity.enemyPhaseTimer = 0;
-                entity.enemyTransitionTimer = 0;
-                entity.enemyAnimationSequence = 0x33c0;
-                entity.velocityY.raw = 0;
-            }
-        }
-    };
-
-    if (!_config.hasBieneRuntimeTable && entity.enemyState > 0) {
-        updateTablelessAttack();
-        return;
-    }
 
     // 01F7:68F0-6A61. The state-zero path uses the same raw 1C4D MAP gate
     // published in entity.mapBlocked. Its range gate depends on DS:81C4;

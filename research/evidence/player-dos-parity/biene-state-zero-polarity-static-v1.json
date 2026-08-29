@@ -8,7 +8,7 @@
     "listing": "research/build/bump-static-closure-v4/disasm-seg3-a/QUIKY_SEG03.bin.asm",
     "listing_sha256": "f6e9fe2ab09f45f95a1e5ded750dc63b33eb7a8aace3567c901733364c98c6ef",
     "static_note": "research/notes/biene-static-decomp.cpp",
-    "static_note_sha256": "a2526f5144c53c538160153b0d5aaf689fc261cb1b6b08eeca2c6bbb938b4724"
+    "static_note_sha256": "772bd40f835408ea64a5e4359cff6d1baa976c0c6ec6d9b96bab677ca8055657"
   },
   "function": {
     "address": "01F7:68C0",
@@ -36,5 +36,5 @@
       "raw MAP 0x4000 absent -> mapBlocked=0 and unchanged velocity with phase counter increment"
     ]
   },
-  "boundary": "BIENE states 1-8 still require the startup-built DS:7974 table; its software-float/DOS-time producer remains address-qualified."
+  "boundary": "BIENE states 1-8 require the startup-built DS:7974 table; its byte result is now reproduced and backed by a native 0A43 capture, while the software-float register ABI remains address-qualified."
 }

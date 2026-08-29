@@ -1,0 +1,57 @@
+{
+  "schema": "quiky.biene-runtime-table-and-attack.v1",
+  "purpose": "Native DOSBox parity capture for the 0A43 startup table and a real W1L1 BIENE attack run.",
+  "source": {
+    "executable": "game/QUIKY.EXE",
+    "executable_sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
+    "archive": "game/NESTLE.DAT",
+    "archive_sha256": "84d5198b4afecb4a30bab1f502705d451efaaa3a88bbebb18987966fc89fa3b2",
+    "startup_recording": "research/automation/startup-to-input.json",
+    "startup_recording_sha256": "0f04400844281fc02b7eba3be76656b814402a2e4795949bcbd5712ee8aeccae"
+  },
+  "startup_table_capture": {
+    "entry": "01F7:0A43",
+    "completion": "01F7:0B54",
+    "address": "DS:7974",
+    "size": 2048,
+    "sha256": "840d2b5056d49d14fc672e5eb5646100e1f86abdf3749a99eb2a7b4040bfdfd2",
+    "sample_signed_bytes": {
+      "0x000": 0,
+      "0x001": 0,
+      "0x002": 1,
+      "0x100": 90,
+      "0x1ff": 127,
+      "0x200": 127,
+      "0x3ff": 0,
+      "0x400": 0,
+      "0x401": 0,
+      "0x5ff": -127,
+      "0x600": -127,
+      "0x7ff": 0
+    },
+    "capture_script": "research/automation/quiky_biene_forced_table_capture.lua",
+    "capture_runner": "research/tools/biene_forced_table_capture.py"
+  },
+  "attack_capture": {
+    "level": "W1L1",
+    "input": "KBD_right held for 600 frames after selector launch",
+    "callback": "01F7:68C0",
+    "pool_selector": "0x027f",
+    "object_offset": "0x0078",
+    "callback_data": "0x16f0",
+    "sample_frame": 601,
+    "object_state": 5,
+    "object_position": {"x": 789, "y": 400},
+    "object_velocity": {"x_fixed": -86016, "y_fixed": 327680},
+    "player_health_baseline": 3,
+    "player_health_at_callback": 2,
+    "native_callback_return": "01F7:0EFD",
+    "capture_command": "python3 research/tools/quikytrace.py --launch --headless --output biene-player-focus.json --timeout 90 --select-level W1L1 --player-trace --player-object-focus 0x68c0 --player-samples 8 --player-frames-between 1 --player-input-phase KBD_right:600 --player-parity-capture"
+  },
+  "parity_assertions": [
+    "the generated native table has the captured DS:7974 SHA-256",
+    "the retail callback enters 01F7:68C0 on a live W1L1 object",
+    "the live object is in the recovered BIENE response state 5 after the attack path",
+    "player health decreases from the run baseline while the native BIENE callback path is active"
+  ]
+}

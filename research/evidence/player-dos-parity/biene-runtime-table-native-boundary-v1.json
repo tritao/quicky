@@ -1,6 +1,6 @@
 {
   "schema": "quiky.biene-runtime-table-native-boundary.v1",
-  "purpose": "Native bridge for the statically closed BIENE nonzero-state path without inventing the startup-generated runtime table.",
+  "purpose": "Native bridge for the statically closed BIENE nonzero-state path using the recovered 0A43 startup table generation.",
   "source": {
     "executable": "game/QUIKY.EXE",
     "sha256": "c9b2e59febd6fa0ea271bedf360459353f55c74444f026964b70988d6de1bca1",
@@ -10,7 +10,7 @@
     "ghidra_independent_export_match": true
   },
   "native_boundary": {
-    "configuration": "LevelSessionConfig.hasBieneRuntimeTable and bieneRuntimeTable[0x400]",
+    "configuration": "LevelSessionConfig.hasBieneRuntimeTable and bieneRuntimeTable[0x800]",
     "consumer": "01F7:68C0 state 1 at 01F7:6A69",
     "phase": "(object+0x3e + 0x20) & 0x03ff",
     "sample": "signed DS:7974[phase] >> 5",
@@ -32,10 +32,14 @@
     "fixed-point X/Y wrapping",
     "state-1 phase counter transition"
   ],
+  "resolved": [
+    "0A43 table generation is reproduced as the deterministic 0x800-byte sine transform emitted by the recovered 15E5/14CC path",
+    "native DS:7974 capture matches the generated table byte-for-byte (SHA-256 840d2b5056d49d14fc672e5eb5646100e1f86abdf3749a99eb2a7b4040bfdfd2)",
+    "a real W1L1 run reaches 01F7:68C0 with a BIENE callback and records the native post-contact state/damage path"
+  ],
   "unresolved": [
-    "DOS-time seed and software-floating-point ABI that generate DS:7974",
     "runtime source of DS:81C4 for the state-zero range gate",
-    "natural W1L1 evidence for nonzero BIENE states",
     "presentation-only 6D01/5D60 effect and animation tails"
-  ]
+  ],
+  "followup_capture": "research/evidence/player-dos-parity/biene-runtime-table-and-attack-v1.json"
 }

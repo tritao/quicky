@@ -3085,7 +3085,7 @@
     "purpose": "Record the final focused expansion so runtime work targets only facts that static code and loaded data cannot determine.",
       "static_notes": {
       "research/notes/platform-static-decomp.cpp": "8d23ce21d6f530e1a9c7d5e0362a3da6be7320019aed2f07dacc4eff2c4e6330",
-      "research/notes/biene-static-decomp.cpp": "a2526f5144c53c538160153b0d5aaf689fc261cb1b6b08eeca2c6bbb938b4724",
+      "research/notes/biene-static-decomp.cpp": "772bd40f835408ea64a5e4359cff6d1baa976c0c6ec6d9b96bab677ca8055657",
       "research/notes/contact-response-static-decomp.cpp": "a6acf90b26520737bb58f176b79cbca53e4a99af323e9ddce6266230812066b5",
     "research/notes/wurm2-static-decomp.cpp": "624859cee562c1f6a70d0aea33f02a9346e9d36d5d315138f2c25a945566bdf6",
       "research/notes/w1l1-object-callbacks-static-decomp.cpp": "8aecaeb5f922032363986fff2aa39e8ab6519524a042d882c3885c3d13f59cd6",

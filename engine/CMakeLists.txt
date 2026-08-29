@@ -10,6 +10,7 @@ add_library(quiky_core
     src/area.cpp
     src/archive.cpp
     src/bob.cpp
+    src/biene_runtime_table.cpp
     src/binary_reader.cpp
     src/camera.cpp
     src/collision_kernel.cpp

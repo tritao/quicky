@@ -4,6 +4,7 @@
 #include "quiky/simulation.h"
 #include "quiky/world_view.h"
 
+#include <array>
 #include <cassert>
 #include <cstdint>
 #include <iostream>
@@ -42,7 +43,7 @@ quiky::Map makeMap() {
     return map;
 }
 
-void testBieneAcquiresAndStingsWithoutReplayTable() {
+void testBieneUsesGeneratedRuntimeTable() {
     const quiky::Map map = makeMap();
     const quiky::WorldCollisionView world(map);
     quiky::LevelSessionConfig config;
@@ -77,27 +78,37 @@ void testBieneAcquiresAndStingsWithoutReplayTable() {
     session.tick(simulation, world, quiky::InputState(), output);
     assert(biene.enemyState == 1);
 
-    bool stung = false;
-    for (int frame = 0; frame < 80; ++frame) {
-        session.tick(simulation, world, quiky::InputState(), output);
-        while (session.hasPendingEvents()) {
-            if (session.consumeEvent().type == quiky::LevelEventType::PlayerDamaged) {
-                stung = true;
-            }
-        }
-        if (stung) {
-            break;
-        }
+    // 0A43's generated table drives the recovered state-1 path. The first
+    // callback consumes phase 0x20 and then falls through the retail state
+    // transition chain; no table-less attack behavior is involved.
+    session.tick(simulation, world, quiky::InputState(), output);
+    assert(biene.enemyAux3e == 0x20);
+    assert(biene.enemyPhase34 == 2);
+    assert(biene.enemyState == 7);
+}
+
+void testBieneRuntimeTableMatchesNativeCapture() {
+    const std::array<std::int8_t, quiky::kBieneRuntimeTableSize> table =
+        quiky::generateBieneRuntimeTable();
+    const int expected[] = {
+        0, 0, 1, 1, 90, 127, 127, 90,
+        0, 0, 0, -127, -127, -90, -90, 0,
+    };
+    const std::size_t indices[] = {
+        0x000, 0x001, 0x002, 0x003, 0x100, 0x1ff, 0x200, 0x300,
+        0x3ff, 0x400, 0x401, 0x5ff, 0x600, 0x6ff, 0x700, 0x7ff,
+    };
+    for (std::size_t index = 0; index < sizeof(indices) / sizeof(indices[0]);
+         ++index) {
+        assert(table[indices[index]] == expected[index]);
     }
-    assert(stung);
-    assert(session.gameplayState().currentHealth8822 == 2);
-    assert(player.timer34 == 0x00d2);
 }
 
 } // namespace
 
 int main() {
-    testBieneAcquiresAndStingsWithoutReplayTable();
-    std::cout << "biene sight and sting passed\n";
+    testBieneRuntimeTableMatchesNativeCapture();
+    testBieneUsesGeneratedRuntimeTable();
+    std::cout << "biene runtime table and state path passed\n";
     return 0;
 }

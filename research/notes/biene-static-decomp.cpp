@@ -90,11 +90,11 @@ static std::int32_t clamp(std::int32_t value,
 //     The exact exported words are retained in the runtime-table ledger and
 //     are not assigned mathematical names here.
 //
-// The software-floating-point register/flag ABI in 0227:1185..18F1 is still
-// address-qualified.  Therefore this note records the builder's control flow
-// and side effects but does not invent native table bytes or call the result
-// a sine wave.  Reproducing the initialized bytes requires either an exact
-// port of that ABI or a runtime seed/table trace.
+// The software-floating-point register/flag ABI in 0227:1185..18F1 remains
+// address-qualified, but the byte result is now closed by a live capture:
+// 0A43 emits the deterministic 2048-entry sine transform, with 14CC's
+// signed-byte rounding. The native implementation and capture ledger are
+// tracked in biene-runtime-table-and-attack-v1.json.
 
 // 01F7:684A.  Shared BIENE initializer.  The incoming +0x29/+0x28 pair is
 // supplied by the type wrapper.  The source Y is copied to +0x36 before the

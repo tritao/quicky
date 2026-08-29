@@ -2,6 +2,7 @@
 #define QUIKY_LEVEL_H
 
 #include "quiky/area.h"
+#include "quiky/biene_runtime_table.h"
 #include "quiky/scheduler.h"
 #include "quiky/simulation.h"
 
@@ -154,11 +155,10 @@ struct LevelSessionConfig {
     std::array<std::uint8_t, 0x100> leafPrngRing;
 
     // 01F7:0A43 builds DS:7974 at startup and BIENE state 1 consumes its
-    // first 0x400 signed bytes.  A replay can provide the generated values;
-    // ordinary native play uses the table-less sting fallback when it does
-    // not have the DOS-time/software-float initializer yet.
+    // first 0x400 signed bytes. Native sessions generate the recovered
+    // startup table; parity replays may provide a captured full table.
     bool hasBieneRuntimeTable;
-    std::array<std::int8_t, 0x400> bieneRuntimeTable;
+    std::array<std::int8_t, kBieneRuntimeTableSize> bieneRuntimeTable;
 
     LevelSessionConfig();
 };
